@@ -50,7 +50,8 @@ typedef struct global_state
 	int scr_w;
 	int scr_h;
 
-	img_state img;
+	int n_imgs;
+	img_state img[8];
 
 
 	cvector_str files;
@@ -61,17 +62,16 @@ typedef struct global_state
 
 } global_state;
 
-global_state gs;
+global_state gs = { 0 };
 
 
 void setup(const char* img_name);
 void cleanup(int ret);
-int load_image(const char* path);
+int load_image(const char* path, img_state* img);
 int handle_events();
 
 //TODO combine/reorg
-void adjust_rect(img_state* img);
-void set_rect_actual(img_state* img);
+void adjust_rect(img_state* img, int w, int h);
 void set_rect_bestfit(img_state* img, int fill_screen);
 void set_rect_zoom(img_state* img, int zoom);
 
@@ -165,9 +165,11 @@ int main(int argc, char** argv)
 	setup(img_name);
 
 
-	if (!load_image(path)) {
+	if (!load_image(path, &gs.img[0])) {
 		cleanup(0);
 	}
+
+	gs.n_imgs = 1;
 	
 
 	DIR* dir = opendir(dirpath);
@@ -192,6 +194,8 @@ int main(int argc, char** argv)
 			perror("stat");
 			continue;
 		}
+
+		// if it's a regular file and an image stb_image recognizes
 		if (S_ISREG(file_stat.st_mode) && stbi_info(fullpath, NULL, NULL, NULL)) {
 			cvec_push_str(&gs.files, fullpath);
 		}
@@ -201,12 +205,12 @@ int main(int argc, char** argv)
 	qsort(gs.files.a, gs.files.size, sizeof(char*), cmp_string_lt);
 
 	for (int i=0; i<gs.files.size; ++i) {
-		// TODO what is this for again?
+		// find starting image index
 		if (!strcmp(gs.files.a[i], path))
-			gs.img.index = i;
+			gs.img[0].index = i;
 	}
 
-	set_rect_bestfit(&gs.img, 0);
+	set_rect_bestfit(&gs.img[0], 0);
 
 	int status;
 	int ticks;
@@ -223,16 +227,24 @@ int main(int argc, char** argv)
 			gs.mouse_state = 0;
 		}
 
-		if (gs.img.frames > 1 && ticks - gs.img.frame_timer > gs.img.delay) {
-			gs.img.frame_i = (gs.img.frame_i + 1) % gs.img.frames;
-			gs.img.frame_timer = ticks; // should be set after present ...
-			printf("frame %d %d\n", gs.img.frame_i, gs.img.delay);
-			status = REDRAW;
+
+		// for each image
+		for (int i=0; i<gs.n_imgs; ++i) {
+			if (gs.img[i].frames > 1 && ticks - gs.img[i].frame_timer > gs.img[i].delay) {
+				gs.img[i].frame_i = (gs.img[i].frame_i + 1) % gs.img[i].frames;
+				gs.img[i].frame_timer = ticks; // should be set after present ...
+			//	printf("frame %d %d\n", gs.img[i].frame_i, gs.img[i].delay);
+				status = REDRAW;
+			}
 		}
 
 		if (status == REDRAW) {
 			SDL_RenderClear(gs.ren);
-			SDL_RenderCopy(gs.ren, gs.img.tex[gs.img.frame_i], NULL, &gs.img.disp_rect);
+			// for each img
+			for (int i=0; i<gs.n_imgs; ++i) {
+				SDL_RenderSetClipRect(gs.ren, &gs.img[i].scr_rect);
+				SDL_RenderCopy(gs.ren, gs.img[i].tex[gs.img[i].frame_i], NULL, &gs.img[i].disp_rect);
+			}
 			SDL_RenderPresent(gs.ren);
 		}
 	}
@@ -250,10 +262,13 @@ int main(int argc, char** argv)
 
 
 //need to think about best way to organize following 4 functions' functionality
-void adjust_rect(img_state* img)
+void adjust_rect(img_state* img, int w, int h)
 {
-	img->disp_rect.x = img->scr_rect.x + (img->scr_rect.w-img->disp_rect.w)/2;
-	img->disp_rect.y = img->scr_rect.y + (img->scr_rect.h-img->disp_rect.h)/2;
+	img->disp_rect.x = img->scr_rect.x + (img->scr_rect.w-w)/2;
+	img->disp_rect.y = img->scr_rect.y + (img->scr_rect.h-h)/2;
+	img->disp_rect.w = w;
+	img->disp_rect.h = h;
+
 }
 
 
@@ -271,19 +286,9 @@ void set_rect_bestfit(img_state* img, int fill_screen)
 
 	w = h * aspect;
 
-	img->disp_rect.x = img->scr_rect.x + (img->scr_rect.w-w)/2;
-	img->disp_rect.y = img->scr_rect.y + (img->scr_rect.h-h)/2;
-	img->disp_rect.w = w;
-	img->disp_rect.h = h;
+	adjust_rect(img, w, h);
 }
 
-void set_rect_actual(img_state* img)
-{
-	img->disp_rect.x = img->scr_rect.x + (img->scr_rect.w-img->w)/2;
-	img->disp_rect.y = img->scr_rect.y + (img->scr_rect.h-img->h)/2;
-	img->disp_rect.w = img->w;
-	img->disp_rect.h = img->h;
-}
 
 void set_rect_zoom(img_state* img, int zoom)
 {
@@ -293,45 +298,42 @@ void set_rect_zoom(img_state* img, int zoom)
 	h = img->disp_rect.h * (1.0 + zoom*0.05);
 	w = h * aspect;
 
-	img->disp_rect.x = img->scr_rect.x + (img->scr_rect.w-w)/2;
-	img->disp_rect.y = img->scr_rect.y + (img->scr_rect.h-h)/2;
-	img->disp_rect.w = w;
-	img->disp_rect.h = h;
+	adjust_rect(img, w, h);
 }
 
 
 
-int load_image(const char* path)
+int load_image(const char* path, img_state* img)
 {
 	int frames, n;
 
 	//clean up previous image if any
-	stbi_image_free(gs.img.pixels);
-	for (int i=0; i<gs.img.frames; ++i) {
-		SDL_DestroyTexture(gs.img.tex[i]);
+	stbi_image_free(img->pixels);
+	for (int i=0; i<img->frames; ++i) {
+		SDL_DestroyTexture(img->tex[i]);
 	}
 
-	//gs.img = stbi_load(path, &gs.img_w, &gs.img_h, &n, 4);
-	gs.img.pixels = stbi_xload(path, &gs.img.w, &gs.img.h, &n, 4, &frames);
-	if (!gs.img.pixels) {
+	//img = stbi_load(path, &img->w, &img->h, &n, 4);
+	img->pixels = stbi_xload(path, &img->w, &img->h, &n, 4, &frames);
+	if (!img->pixels) {
 		//printf("failed to load %s: %s\n", path, stbi_failure_reason());
 		return 0;
 	}
 
 
-	if (frames > gs.img.frame_capacity) {
-		gs.img.tex = realloc(gs.img.tex, gs.img.frame_capacity*2*sizeof(SDL_Texture*));
+	if (frames > img->frame_capacity) {
+		img->tex = realloc(img->tex, img->frame_capacity*2*sizeof(SDL_Texture*));
 	}
 
-	size_t size = gs.img.w * gs.img.h * 4;
+	size_t size = img->w * img->h * 4;
 
 	for (int i=0; i<frames; ++i) {
-		gs.img.tex[i] = SDL_CreateTexture(gs.ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, gs.img.w, gs.img.h);
-		if (!gs.img.tex[i]) {
+		img->tex[i] = SDL_CreateTexture(gs.ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, img->w, img->h);
+		if (!img->tex[i]) {
 			printf("Error: %s\n", SDL_GetError());
 			return 0;
 		}
-		if (SDL_UpdateTexture(gs.img.tex[i], NULL, gs.img.pixels+(size+2)*i, gs.img.w*4)) {
+		if (SDL_UpdateTexture(img->tex[i], NULL, img->pixels+(size+2)*i, img->w*4)) {
 			printf("Error updating texture: %s\n", SDL_GetError());
 			return 0;
 		}
@@ -340,12 +342,12 @@ int load_image(const char* path)
 	//gif delay is in 100ths, ticks are 1000ths
 	//assume that the delay is the same for all frames (never seen anything else anyway)
 	//and if delay is 0, default to 10 fps
-	gs.img.delay = *(short*)(&gs.img.pixels[size]) * 10;
-	if (!gs.img.delay)
-		gs.img.delay = 100;
+	img->delay = *(short*)(&img->pixels[size]) * 10;
+	if (!img->delay)
+		img->delay = 100;
 
-	gs.img.frame_i = 0;
-	gs.img.frames = frames;
+	img->frame_i = 0;
+	img->frames = frames;
 
 
 	return 1;
@@ -358,8 +360,8 @@ void setup(const char* img_name)
 
 	memset(&gs.img, 0, sizeof(img_state));
 
-	gs.img.tex = malloc(100*sizeof(SDL_Texture*));
-	gs.img.frame_capacity = 100;
+	gs.img[0].tex = malloc(100*sizeof(SDL_Texture*));
+	gs.img[0].frame_capacity = 100;
 
 	gs.fullscreen = 0;
 
@@ -426,7 +428,8 @@ int handle_events()
 
 			case SDL_SCANCODE_A:
 				status = REDRAW;
-				set_rect_actual(&gs.img);
+				// set image to actual size
+				adjust_rect(&gs.img[0], gs.img[0].w, gs.img[0].h);
 				break;
 
 			case SDL_SCANCODE_F: {
@@ -440,7 +443,7 @@ int handle_events()
 						gs.fullscreen = 1;
 					}
 				} else {
-					set_rect_bestfit(&gs.img, 1);
+					set_rect_bestfit(&gs.img[0], 1);
 				}
 			}
 				break;
@@ -463,12 +466,12 @@ int handle_events()
 			case SDL_SCANCODE_DOWN:
 				status = REDRAW;
 				do {
-					gs.img.index = (gs.img.index + 1) % gs.files.size;
-				} while (!(ret = load_image(gs.files.a[gs.img.index])));
+					gs.img[0].index = (gs.img[0].index + 1) % gs.files.size;
+				} while (!(ret = load_image(gs.files.a[gs.img[0].index], &gs.img[0])));
 
-				SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img.index], title_buf));
+				SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img[0].index], title_buf));
 
-				set_rect_bestfit(&gs.img, gs.fullscreen);
+				set_rect_bestfit(&gs.img[0], gs.fullscreen);
 				break;
 
 			case SDL_SCANCODE_LEFT:
@@ -476,12 +479,12 @@ int handle_events()
 				status = REDRAW;
 
 				do {
-					gs.img.index = (gs.img.index-1 < 0) ? gs.files.size-1 : gs.img.index-1;
-				} while (!(ret = load_image(gs.files.a[gs.img.index])));
+					gs.img[0].index = (gs.img[0].index-1 < 0) ? gs.files.size-1 : gs.img[0].index-1;
+				} while (!(ret = load_image(gs.files.a[gs.img[0].index], &gs.img[0])));
 
-				SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img.index], title_buf));
+				SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img[0].index], title_buf));
 
-				set_rect_bestfit(&gs.img, gs.fullscreen);
+				set_rect_bestfit(&gs.img[0], gs.fullscreen);
 				break;
 
 			default:
@@ -502,9 +505,9 @@ int handle_events()
 		case SDL_MOUSEWHEEL:
 			status = REDRAW;
 			if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL)
-				set_rect_zoom(&gs.img, e.wheel.y);
+				set_rect_zoom(&gs.img[0], e.wheel.y);
 			else
-				set_rect_zoom(&gs.img, -e.wheel.y);
+				set_rect_zoom(&gs.img[0], -e.wheel.y);
 			break;
 
 		case SDL_WINDOWEVENT:
@@ -516,10 +519,12 @@ int handle_events()
 				gs.scr_h = e.window.data2;
 
 				// TODO how/where to reset all the "subscreens" rects
-				gs.img.scr_rect.w = gs.scr_w;
-				gs.img.scr_rect.h = gs.scr_h;
+				gs.img[0].scr_rect.x = gs.scr_w/2;
+				gs.img[0].scr_rect.y = gs.scr_h/2;
+				gs.img[0].scr_rect.w = gs.scr_w/2;
+				gs.img[0].scr_rect.h = gs.scr_h/2;
 
-				set_rect_bestfit(&gs.img, 0);
+				set_rect_bestfit(&gs.img[0], 0);
 
 				break;
 			case SDL_WINDOWEVENT_EXPOSED:
@@ -536,10 +541,12 @@ int handle_events()
 
 void cleanup(int ret)
 {
-	stbi_image_free(gs.img.pixels);
+	for (int i=0; i<gs.n_imgs; ++i) {
+		stbi_image_free(gs.img[i].pixels);
 
-	for (int i=0; i<gs.img.frames; ++i)
-		SDL_DestroyTexture(gs.img.tex[i]);
+		for (int j=0; j<gs.img[i].frames; ++j)
+			SDL_DestroyTexture(gs.img[i].tex[j]);
+	}
 
 	SDL_DestroyRenderer(gs.ren);
 	SDL_DestroyWindow(gs.win);
