@@ -25,6 +25,9 @@ typedef struct img_state
 	unsigned char* pixels;
 	int w;
 	int h;
+
+	
+
 	int index;
 
 	int frame_i;
@@ -35,7 +38,8 @@ typedef struct img_state
 	
 	SDL_Texture** tex;
 
-	SDL_Rect rect;
+	SDL_Rect scr_rect;  // rect describing available space
+	SDL_Rect disp_rect; // rect image is actually rendered to
 } img_state;
 
 typedef struct global_state
@@ -68,7 +72,7 @@ int handle_events();
 //TODO combine/reorg
 void adjust_rect(img_state* img);
 void set_rect_actual(img_state* img);
-void set_rect_bestfit();
+void set_rect_bestfit(img_state* img, int fill_screen);
 void set_rect_zoom(img_state* img, int zoom);
 
 
@@ -202,7 +206,7 @@ int main(int argc, char** argv)
 			gs.img.index = i;
 	}
 
-	set_rect_bestfit();
+	set_rect_bestfit(&gs.img, 0);
 
 	int status;
 	int ticks;
@@ -228,7 +232,7 @@ int main(int argc, char** argv)
 
 		if (status == REDRAW) {
 			SDL_RenderClear(gs.ren);
-			SDL_RenderCopy(gs.ren, gs.img.tex[gs.img.frame_i], NULL, &gs.img.rect);
+			SDL_RenderCopy(gs.ren, gs.img.tex[gs.img.frame_i], NULL, &gs.img.disp_rect);
 			SDL_RenderPresent(gs.ren);
 		}
 	}
@@ -248,36 +252,37 @@ int main(int argc, char** argv)
 //need to think about best way to organize following 4 functions' functionality
 void adjust_rect(img_state* img)
 {
-	img->rect.x = (gs.scr_w-img->rect.w)/2;
-	img->rect.y = (gs.scr_h-img->rect.h)/2;
+	img->disp_rect.x = img->scr_rect.x + (img->scr_rect.w-img->disp_rect.w)/2;
+	img->disp_rect.y = img->scr_rect.y + (img->scr_rect.h-img->disp_rect.h)/2;
 }
 
 
-void set_rect_bestfit(int fill_screen)
+void set_rect_bestfit(img_state* img, int fill_screen)
 {
-	float aspect = gs.img.w/(float)gs.img.h;
+	float aspect = img->w/(float)img->h;
 	int h, w;
 	
-	int tmp = MIN(gs.scr_h, gs.scr_w/aspect);
+	// TODO macro evaluates division twice
+	int tmp = MIN(img->scr_rect.h, img->scr_rect.w/aspect);
 	if (fill_screen)
 		h = tmp;
 	else
-		h = MIN(tmp, gs.img.h); //show actual size if smaller than viewport
+		h = MIN(tmp, img->h); //show actual size if smaller than viewport
 
 	w = h * aspect;
 
-	gs.img.rect.x = (gs.scr_w-w)/2;
-	gs.img.rect.y = (gs.scr_h-h)/2;
-	gs.img.rect.w = w;
-	gs.img.rect.h = h;
+	img->disp_rect.x = img->scr_rect.x + (img->scr_rect.w-w)/2;
+	img->disp_rect.y = img->scr_rect.y + (img->scr_rect.h-h)/2;
+	img->disp_rect.w = w;
+	img->disp_rect.h = h;
 }
 
 void set_rect_actual(img_state* img)
 {
-	img->rect.x = (gs.scr_w-img->w)/2;
-	img->rect.y = (gs.scr_h-img->h)/2;
-	img->rect.w = img->w;
-	img->rect.h = img->h;
+	img->disp_rect.x = img->scr_rect.x + (img->scr_rect.w-img->w)/2;
+	img->disp_rect.y = img->scr_rect.y + (img->scr_rect.h-img->h)/2;
+	img->disp_rect.w = img->w;
+	img->disp_rect.h = img->h;
 }
 
 void set_rect_zoom(img_state* img, int zoom)
@@ -285,13 +290,13 @@ void set_rect_zoom(img_state* img, int zoom)
 	float aspect = img->w/(float)img->h;
 	int h, w;
 	
-	h = img->rect.h * (1.0 + zoom*0.05);
+	h = img->disp_rect.h * (1.0 + zoom*0.05);
 	w = h * aspect;
 
-	img->rect.x = (gs.scr_w-w)/2;
-	img->rect.y = (gs.scr_h-h)/2;
-	img->rect.w = w;
-	img->rect.h = h;
+	img->disp_rect.x = img->scr_rect.x + (img->scr_rect.w-w)/2;
+	img->disp_rect.y = img->scr_rect.y + (img->scr_rect.h-h)/2;
+	img->disp_rect.w = w;
+	img->disp_rect.h = h;
 }
 
 
@@ -333,7 +338,11 @@ int load_image(const char* path)
 	}
 
 	//gif delay is in 100ths, ticks are 1000ths
+	//assume that the delay is the same for all frames (never seen anything else anyway)
+	//and if delay is 0, default to 10 fps
 	gs.img.delay = *(short*)(&gs.img.pixels[size]) * 10;
+	if (!gs.img.delay)
+		gs.img.delay = 100;
 
 	gs.img.frame_i = 0;
 	gs.img.frames = frames;
@@ -431,7 +440,7 @@ int handle_events()
 						gs.fullscreen = 1;
 					}
 				} else {
-					set_rect_bestfit(1);
+					set_rect_bestfit(&gs.img, 1);
 				}
 			}
 				break;
@@ -447,6 +456,9 @@ int handle_events()
 				}
 				break;
 
+			// TODO add moving image around when larger than screen
+			// and zooming in/out on non-center, recentering if it gets smaller
+			// than the display area again
 			case SDL_SCANCODE_RIGHT:
 			case SDL_SCANCODE_DOWN:
 				status = REDRAW;
@@ -456,7 +468,7 @@ int handle_events()
 
 				SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img.index], title_buf));
 
-				set_rect_bestfit(gs.fullscreen);
+				set_rect_bestfit(&gs.img, gs.fullscreen);
 				break;
 
 			case SDL_SCANCODE_LEFT:
@@ -469,7 +481,7 @@ int handle_events()
 
 				SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img.index], title_buf));
 
-				set_rect_bestfit(gs.fullscreen);
+				set_rect_bestfit(&gs.img, gs.fullscreen);
 				break;
 
 			default:
@@ -503,8 +515,11 @@ int handle_events()
 				gs.scr_w = e.window.data1;
 				gs.scr_h = e.window.data2;
 
-				set_rect_bestfit(0);
-				//adjust_rect();
+				// TODO how/where to reset all the "subscreens" rects
+				gs.img.scr_rect.w = gs.scr_w;
+				gs.img.scr_rect.h = gs.scr_h;
+
+				set_rect_bestfit(&gs.img, 0);
 
 				break;
 			case SDL_WINDOWEVENT_EXPOSED:
