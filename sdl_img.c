@@ -312,7 +312,6 @@ int load_image(const char* path, img_state* img)
 	int frames, n;
 
 	//clean up previous image if any
-	stbi_image_free(img->pixels);
 	for (int i=0; i<img->frames; ++i) {
 		SDL_DestroyTexture(img->tex[i]);
 	}
@@ -327,6 +326,7 @@ int load_image(const char* path, img_state* img)
 	printf("found %d frames\n", frames);
 
 	if (frames > img->frame_capacity) {
+		// img->tex is either NULL or previously alloced
 		img->tex = realloc(img->tex, frames*sizeof(SDL_Texture*));
 		img->frame_capacity = frames;
 	}
@@ -344,7 +344,6 @@ int load_image(const char* path, img_state* img)
 			return 0;
 		}
 	}
-
 	//gif delay is in 100ths, ticks are 1000ths
 	//assume that the delay is the same for all frames (never seen anything else anyway)
 	//and if delay is 0, default to 10 fps
@@ -357,6 +356,9 @@ int load_image(const char* path, img_state* img)
 	img->frame_i = 0;
 	img->frames = frames;
 
+	// don't need the pixels anymore (don't plan on adding editting features)
+	stbi_image_free(img->pixels);
+	img->pixels = NULL;
 
 	return 1;
 }
@@ -409,14 +411,14 @@ void setup(const char* img_name)
 
 void clear_img(img_state* img)
 {
-	stbi_image_free(img->pixels);
+	//stbi_image_free(img->pixels);
 	for (int i=0; i<img->frames; ++i) {
 		SDL_DestroyTexture(img->tex[i]);
 	}
 
-	//could clear evyrithng else but these are the important
+	//could clear everything else but these are the important
 	//ones logic is based on
-	img->pixels = NULL;
+	//img->pixels = NULL;
 	img->frames = 0;
 }
 
@@ -497,12 +499,18 @@ int handle_events()
 				gs.status = REDRAW;
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					if (gs.n_imgs != 2) {
-						if (!gs.img[1].pixels) {
+
+						// TODO hmm
+						if (gs.n_imgs == 1) {
 							gs.img[1].index = gs.img[0].index;
 							do {
 								gs.img[1].index = (gs.img[1].index + 1) % gs.files.size;
 							} while (!(ret = load_image(gs.files.a[gs.img[1].index], &gs.img[1])));
+						} else {
+							for (int i=gs.n_imgs-1; i>1; --i)
+								clear_img(&gs.img[i]);
 						}
+
 						gs.img[0].scr_rect.x = 0;
 						gs.img[0].scr_rect.y = 0;
 						gs.img[0].scr_rect.w = gs.scr_w/2;
@@ -525,7 +533,62 @@ int handle_events()
 					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
 				}
 				break;
+			case SDL_SCANCODE_3:
+				gs.status = REDRAW;
+				if (gs.n_imgs >= 3) {
+					gs.img_focus = &gs.img[2];
+					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+				}
+				break;
 			case SDL_SCANCODE_4:
+				gs.status = REDRAW;
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					if (gs.n_imgs != 4) {
+						
+						for (int i=gs.n_imgs; i<4; ++i) {
+							gs.img[i].index = gs.img[i-1].index;
+							do {
+								gs.img[i].index = (gs.img[i].index + 1) % gs.files.size;
+							} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i])));
+						}
+						for (int i=gs.n_imgs-1; i>3; --i)
+							clear_img(&gs.img[i]);
+
+						gs.img[0].scr_rect.x = 0;
+						gs.img[0].scr_rect.y = 0;
+						gs.img[0].scr_rect.w = gs.scr_w/2;
+						gs.img[0].scr_rect.h = gs.scr_h/2;
+						
+						gs.img[1].scr_rect.x = gs.scr_w/2;
+						gs.img[1].scr_rect.y = 0;
+						gs.img[1].scr_rect.w = gs.scr_w/2;
+						gs.img[1].scr_rect.h = gs.scr_h/2;
+
+						gs.img[2].scr_rect.x = 0;
+						gs.img[2].scr_rect.y = gs.scr_h/2;
+						gs.img[2].scr_rect.w = gs.scr_w/2;
+						gs.img[2].scr_rect.h = gs.scr_h/2;
+
+						gs.img[3].scr_rect.x = gs.scr_w/2;
+						gs.img[3].scr_rect.y = gs.scr_h/2;
+						gs.img[3].scr_rect.w = gs.scr_w/2;
+						gs.img[3].scr_rect.h = gs.scr_h/2;
+
+						
+						set_rect_bestfit(&gs.img[0], gs.fullscreen);
+						set_rect_bestfit(&gs.img[1], gs.fullscreen);
+						set_rect_bestfit(&gs.img[2], gs.fullscreen);
+						set_rect_bestfit(&gs.img[3], gs.fullscreen);
+
+						gs.n_imgs = 4;
+						gs.img_focus = NULL;
+					}
+
+				} else if (gs.n_imgs >= 4) {
+					gs.img_focus = &gs.img[3];
+					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+				}
+				break;
 			case SDL_SCANCODE_8:
 				break;
 
@@ -710,7 +773,7 @@ int handle_events()
 void cleanup(int ret)
 {
 	for (int i=0; i<gs.n_imgs; ++i) {
-		stbi_image_free(gs.img[i].pixels);
+		//stbi_image_free(gs.img[i].pixels);
 
 		for (int j=0; j<gs.img[i].frames; ++j)
 			SDL_DestroyTexture(gs.img[i].tex[j]);
