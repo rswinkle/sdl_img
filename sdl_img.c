@@ -551,34 +551,17 @@ int handle_events()
 								gs.img[i].index = (gs.img[i].index + 1) % gs.files.size;
 							} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i])));
 						}
-						for (int i=gs.n_imgs-1; i>3; --i)
+						for (int i=gs.n_imgs-1; i>3; --i) {
 							clear_img(&gs.img[i]);
+						}
 
-						gs.img[0].scr_rect.x = 0;
-						gs.img[0].scr_rect.y = 0;
-						gs.img[0].scr_rect.w = gs.scr_w/2;
-						gs.img[0].scr_rect.h = gs.scr_h/2;
-						
-						gs.img[1].scr_rect.x = gs.scr_w/2;
-						gs.img[1].scr_rect.y = 0;
-						gs.img[1].scr_rect.w = gs.scr_w/2;
-						gs.img[1].scr_rect.h = gs.scr_h/2;
-
-						gs.img[2].scr_rect.x = 0;
-						gs.img[2].scr_rect.y = gs.scr_h/2;
-						gs.img[2].scr_rect.w = gs.scr_w/2;
-						gs.img[2].scr_rect.h = gs.scr_h/2;
-
-						gs.img[3].scr_rect.x = gs.scr_w/2;
-						gs.img[3].scr_rect.y = gs.scr_h/2;
-						gs.img[3].scr_rect.w = gs.scr_w/2;
-						gs.img[3].scr_rect.h = gs.scr_h/2;
-
-						
-						set_rect_bestfit(&gs.img[0], gs.fullscreen);
-						set_rect_bestfit(&gs.img[1], gs.fullscreen);
-						set_rect_bestfit(&gs.img[2], gs.fullscreen);
-						set_rect_bestfit(&gs.img[3], gs.fullscreen);
+						for (int i=0; i<4; ++i) {
+							gs.img[i].scr_rect.x = (i%2)*gs.scr_w/2;
+							gs.img[i].scr_rect.y = (i/2)*gs.scr_h/2;
+							gs.img[i].scr_rect.w = gs.scr_w/2;
+							gs.img[i].scr_rect.h = gs.scr_h/2;
+							set_rect_bestfit(&gs.img[i], gs.fullscreen);
+						}
 
 						gs.n_imgs = 4;
 						gs.img_focus = NULL;
@@ -621,9 +604,9 @@ int handle_events()
 								gs.img[i].index = (gs.img[i].index + 1) % gs.files.size;
 							} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i])));
 						}
-						for (int i=gs.n_imgs-1; i>7; --i)
+						for (int i=gs.n_imgs-1; i>7; --i) {
 							clear_img(&gs.img[i]);
-
+						}
 
 						for (int i=0; i<8; ++i) {
 							gs.img[i].scr_rect.x = (i%4)*gs.scr_w/4;
@@ -805,6 +788,22 @@ int handle_events()
 					
 					set_rect_bestfit(&gs.img[0], gs.fullscreen);
 					set_rect_bestfit(&gs.img[1], gs.fullscreen);
+				} else if (gs.n_imgs == 4) {
+					for (int i=0; i<4; ++i) {
+						gs.img[i].scr_rect.x = (i%2)*gs.scr_w/2;
+						gs.img[i].scr_rect.y = (i/2)*gs.scr_h/2;
+						gs.img[i].scr_rect.w = gs.scr_w/2;
+						gs.img[i].scr_rect.h = gs.scr_h/2;
+						set_rect_bestfit(&gs.img[i], gs.fullscreen);
+					}
+				} else if (gs.n_imgs == 8) {
+					for (int i=0; i<8; ++i) {
+						gs.img[i].scr_rect.x = (i%4)*gs.scr_w/4;
+						gs.img[i].scr_rect.y = (i/4)*gs.scr_h/2;
+						gs.img[i].scr_rect.w = gs.scr_w/4;
+						gs.img[i].scr_rect.h = gs.scr_h/2;
+						set_rect_bestfit(&gs.img[i], gs.fullscreen);
+					}
 				}
 
 
