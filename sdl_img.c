@@ -589,7 +589,58 @@ int handle_events()
 					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
 				}
 				break;
+			case SDL_SCANCODE_5:
+				gs.status = REDRAW;
+				if (gs.n_imgs >= 5) {
+					gs.img_focus = &gs.img[4];
+					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+				}
+				break;
+			case SDL_SCANCODE_6:
+				gs.status = REDRAW;
+				if (gs.n_imgs >= 6) {
+					gs.img_focus = &gs.img[5];
+					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+				}
+				break;
+			case SDL_SCANCODE_7:
+				gs.status = REDRAW;
+				if (gs.n_imgs >= 7) {
+					gs.img_focus = &gs.img[6];
+					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+				}
+				break;
 			case SDL_SCANCODE_8:
+				gs.status = REDRAW;
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					if (gs.n_imgs != 8) {
+						
+						for (int i=gs.n_imgs; i<8; ++i) {
+							gs.img[i].index = gs.img[i-1].index;
+							do {
+								gs.img[i].index = (gs.img[i].index + 1) % gs.files.size;
+							} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i])));
+						}
+						for (int i=gs.n_imgs-1; i>7; --i)
+							clear_img(&gs.img[i]);
+
+
+						for (int i=0; i<8; ++i) {
+							gs.img[i].scr_rect.x = (i%4)*gs.scr_w/4;
+							gs.img[i].scr_rect.y = (i/4)*gs.scr_h/2;
+							gs.img[i].scr_rect.w = gs.scr_w/4;
+							gs.img[i].scr_rect.h = gs.scr_h/2;
+							set_rect_bestfit(&gs.img[i], gs.fullscreen);
+						}
+
+						gs.n_imgs = 8;
+						gs.img_focus = NULL;
+					}
+
+				} else if (gs.n_imgs >= 8) {
+					gs.img_focus = &gs.img[7];
+					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+				}
 				break;
 
 			case SDL_SCANCODE_A:
