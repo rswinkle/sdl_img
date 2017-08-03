@@ -368,12 +368,6 @@ void setup(const char* img_name)
 	gs.win = NULL;
 	gs.ren = NULL;
 
-	memset(&gs.img[0], 0, sizeof(img_state));
-
-	gs.img[0].tex = malloc(100*sizeof(SDL_Texture*));
-	gs.img[0].frame_capacity = 100;
-
-	gs.fullscreen = 0;
 
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
@@ -405,6 +399,20 @@ void setup(const char* img_name)
 		cleanup(1);
 	}
 	SDL_SetRenderDrawColor(gs.ren, 0, 0, 0, 255);
+
+
+	memset(&gs.img[0], 0, sizeof(img_state));
+
+	gs.img[0].tex = malloc(100*sizeof(SDL_Texture*));
+	gs.img[0].frame_capacity = 100;
+
+	gs.img[0].scr_rect.x = 0;
+	gs.img[0].scr_rect.y = 0;
+	gs.img[0].scr_rect.w = gs.scr_w;
+	gs.img[0].scr_rect.h = gs.scr_h;
+
+	gs.fullscreen = 0;
+
 }
 
 
@@ -440,8 +448,7 @@ int handle_events()
 		switch (e.type) {
 		case SDL_QUIT:
 			return 1;
-		case SDL_KEYDOWN:
-			// TODO use symcodes?
+		case SDL_KEYUP:
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
@@ -452,7 +459,20 @@ int handle_events()
 				} else {
 					return 1;
 				}
+				break;
 
+			case SDL_SCANCODE_F11:
+				gs.status = REDRAW;
+				if (gs.fullscreen) {
+					SDL_SetWindowFullscreen(gs.win, 0);
+					gs.fullscreen = 0;
+					puts("windowed");
+				} else {
+					SDL_SetWindowFullscreen(gs.win, SDL_WINDOW_FULLSCREEN_DESKTOP);
+					gs.fullscreen = 1;
+					puts("fullscreen");
+				}
+				break;
 
 			case SDL_SCANCODE_0:
 				gs.img_focus = NULL;
@@ -658,17 +678,13 @@ int handle_events()
 				}
 			}
 				break;
+		}
+			break;  //end SDL_KEYUP
 
-			case SDL_SCANCODE_F11:
-				gs.status = REDRAW;
-				if (gs.fullscreen) {
-					SDL_SetWindowFullscreen(gs.win, 0);
-					gs.fullscreen = 0;
-				} else {
-					SDL_SetWindowFullscreen(gs.win, SDL_WINDOW_FULLSCREEN_DESKTOP);
-					gs.fullscreen = 1;
-				}
-				break;
+		case SDL_KEYDOWN:
+			// TODO use symcodes?
+			sc = e.key.keysym.scancode;
+			switch (sc) {
 
 			// TODO add moving image around when larger than screen
 			// and zooming in/out on non-center, recentering if it gets smaller
