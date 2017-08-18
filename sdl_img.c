@@ -82,6 +82,7 @@ void set_rect_zoom(img_state* img, int zoom);
 
 
 
+#define PATH_SEPARATOR '/'
 
 
 // works same as SUSv2 libgen.h dirname except that
@@ -89,9 +90,6 @@ void set_rect_zoom(img_state* img, int zoom);
 // enough, return value is dirpath
 char* dirname(const char* path, char* dirpath)
 {
-
-#define PATH_SEPARATOR '/'
-
 	if (!path || !path[0]) {
 		dirpath[0] = '.';
 		dirpath[1] = 0;
@@ -156,24 +154,30 @@ int main(int argc, char** argv)
 		exit(0);
 	}
 
+	printf("path separator is %c\n", PATH_SEPARATOR);
+
 	char* path = argv[1];
 	char dirpath[4096] = { 0 };
 	char fullpath[4096] = { 0 };
 	char img_name[1024] = { 0 };
 
+	//normalize path (stupid windows)
+	for (int i=0; i<strlen(path); ++i) {
+		if (path[i] == '\\')
+			path[i] = '/';
+	}
 	//dirname
 	dirname(path, dirpath);
 	basename(path, img_name);
 
-	setup(img_name);
+	gs.n_imgs = 1;
 
+	setup(img_name);
 
 	if (!load_image(path, &gs.img[0])) {
 		cleanup(0);
 	}
 
-	gs.n_imgs = 1;
-	
 
 	DIR* dir = opendir(dirpath);
 	if (!dir) {
@@ -207,13 +211,14 @@ int main(int argc, char** argv)
 
 	qsort(gs.files.a, gs.files.size, sizeof(char*), cmp_string_lt);
 
+	ret = snprintf(fullpath, 4096, "%s/%s", dirpath, img_name);
 	for (int i=0; i<gs.files.size; ++i) {
 		// find starting image index
-		if (!strcmp(gs.files.a[i], path))
+		if (!strcmp(gs.files.a[i], fullpath)) {
 			gs.img[0].index = i;
+			break;
+		}
 	}
-
-
 
 	set_rect_bestfit(&gs.img[0], 0);
 
@@ -696,7 +701,9 @@ int handle_events()
 				if (!gs.img_focus) {
 					for (int i=0; i<gs.n_imgs; ++i) {
 						do {
+							printf("index = %d\n", gs.img[i].index);
 							gs.img[i].index = (gs.img[i].index + gs.n_imgs) % gs.files.size;
+							printf("index = %d\n", gs.img[i].index);
 						} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i])));
 						set_rect_bestfit(&gs.img[i], gs.fullscreen);
 					}
