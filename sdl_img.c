@@ -56,6 +56,7 @@ typedef struct global_state
 
 	int status;
 
+	char* dirpath;
 
 	cvector_str files;
 
@@ -72,6 +73,7 @@ void setup(const char* img_name);
 void cleanup(int ret);
 int load_image(const char* path, img_state* img);
 int handle_events();
+int load_image_names(DIR* dir, char* path);
 
 //TODO combine/reorg
 void adjust_rect(img_state* img, int w, int h);
@@ -170,55 +172,35 @@ int main(int argc, char** argv)
 	dirname(path, dirpath);
 	basename(path, img_name);
 
+	gs.dirpath = dirpath;
 	gs.n_imgs = 1;
 
 	setup(img_name);
+
+	int ret = snprintf(fullpath, 4096, "%s/%s", dirpath, img_name);
+	if (ret >= 4096) {
+		printf("path too long\n");
+		cleanup(0);
+	}
 
 	if (!load_image(path, &gs.img[0])) {
 		cleanup(0);
 	}
 
+	
 
 	DIR* dir = opendir(dirpath);
 	if (!dir) {
 		perror("opendir");
 		cleanup(1);
 	}
+	cvec_str(&gs.files, 0, 100);
+	printf("reading file names\n");
 
-	struct dirent* entry;
-	struct stat file_stat;
+	int done_loading = load_image_names(dir, img_name);
 
-	cvec_str(&gs.files, 0, 20);
+	printf("done with setup\n");
 
-	int ret;
-	while ((entry = readdir(dir))) {
-		ret = snprintf(fullpath, 4096, "%s/%s", dirpath, entry->d_name);
-		if (ret >= 4096) {
-			printf("path too long\n");
-			cleanup(0);
-		}
-		if (stat(fullpath, &file_stat)) {
-			perror("stat");
-			continue;
-		}
-
-		// if it's a regular file and an image stb_image recognizes
-		if (S_ISREG(file_stat.st_mode) && stbi_info(fullpath, NULL, NULL, NULL)) {
-			cvec_push_str(&gs.files, fullpath);
-		}
-	}
-	closedir(dir);
-
-	qsort(gs.files.a, gs.files.size, sizeof(char*), cmp_string_lt);
-
-	ret = snprintf(fullpath, 4096, "%s/%s", dirpath, img_name);
-	for (int i=0; i<gs.files.size; ++i) {
-		// find starting image index
-		if (!strcmp(gs.files.a[i], fullpath)) {
-			gs.img[0].index = i;
-			break;
-		}
-	}
 
 	set_rect_bestfit(&gs.img[0], 0);
 
@@ -232,6 +214,10 @@ int main(int argc, char** argv)
 		if (gs.mouse_state && ticks - gs.mouse_timer > 5000) {
 			SDL_ShowCursor(SDL_DISABLE);
 			gs.mouse_state = 0;
+		}
+
+		if (!done_loading) {
+			done_loading = load_image_names(dir, NULL);
 		}
 
 
@@ -367,6 +353,79 @@ int load_image(const char* path, img_state* img)
 
 	return 1;
 }
+
+
+int load_image_names(DIR* dir, char* path)
+{
+	struct dirent* entry;
+	struct stat file_stat;
+	char fullpath[4096] = { 0 };
+
+	char* names[8] = { 0 };
+	if (path) {
+		names[0] = path;
+	} else {
+		for (int i=0; i<gs.n_imgs; ++i) {
+			names[i] = gs.files.a[gs.img[i].index];
+			printf("names[%d] = %s\n", i, names[i]);
+		}
+	}
+
+	int ret;
+	int ticks, start;
+	ticks = start = SDL_GetTicks();
+
+	while (ticks - start < 300 && (entry = readdir(dir))) {
+		ret = snprintf(fullpath, 4096, "%s/%s", gs.dirpath, entry->d_name);
+		if (ret >= 4096) {
+			printf("path too long\n");
+			cleanup(0);
+		}
+		if (stat(fullpath, &file_stat)) {
+			perror("stat");
+			continue;
+		}
+
+		// if it's a regular file and an image stb_image recognizes
+		if (S_ISREG(file_stat.st_mode) && stbi_info(fullpath, NULL, NULL, NULL)) {
+			cvec_push_str(&gs.files, fullpath);
+		}
+
+		ticks = SDL_GetTicks();
+	}
+
+	if (!entry) {
+		printf("Loaded all %zd filenames\n", gs.files.size);
+		closedir(dir);
+		return 1;
+	} else {
+		printf("loaded %zd filenames\n", gs.files.size);
+	}
+
+	// could do it manually since I maintain sorted
+	//printf("sorting images\n");
+	qsort(gs.files.a, gs.files.size, sizeof(char*), cmp_string_lt);
+
+	printf("finding current images\n");
+	int img;
+	for (int i=0; i<gs.n_imgs; ++i) {
+		for (img=0; img<gs.files.size; ++img) {
+			// find starting image index
+			if (!strcmp(gs.files.a[img], names[i])) {
+				gs.img[i].index = img;
+				break;
+			}
+		}
+		if (img == gs.files.size) {
+			cvec_push_str(&gs.files, names[i]);
+			gs.img[i].index = gs.files.size-1;
+		}
+	}
+
+	return 0;
+}
+
+
 
 void setup(const char* img_name)
 {
