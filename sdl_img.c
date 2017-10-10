@@ -160,7 +160,7 @@ int main(int argc, char** argv)
 
 	char* path = argv[1];
 	char dirpath[4096] = { 0 };
-	char fullpath[4096] = { 0 };
+	//char fullpath[4096] = { 0 };
 	char img_name[1024] = { 0 };
 
 	//normalize path (stupid windows)
@@ -177,13 +177,7 @@ int main(int argc, char** argv)
 
 	setup(img_name);
 
-	int ret = snprintf(fullpath, 4096, "%s/%s", dirpath, img_name);
-	if (ret >= 4096) {
-		printf("path too long\n");
-		cleanup(0);
-	}
-
-	if (!load_image(path, &gs.img[0])) {
+	if (!load_image(img_name, &gs.img[0])) {
 		cleanup(0);
 	}
 
@@ -298,7 +292,7 @@ void set_rect_zoom(img_state* img, int zoom)
 
 
 
-int load_image(const char* path, img_state* img)
+int load_image(const char* img_name, img_state* img)
 {
 	int frames, n;
 
@@ -307,14 +301,23 @@ int load_image(const char* path, img_state* img)
 		SDL_DestroyTexture(img->tex[i]);
 	}
 
+	char fullpath[4096];
+
+	int ret = snprintf(fullpath, 4096, "%s/%s", gs.dirpath, img_name);
+	if (ret >= 4096) {
+		printf("path too long\n");
+		cleanup(0);
+	}
+
+
 	//img = stbi_load(path, &img->w, &img->h, &n, 4);
-	img->pixels = stbi_xload(path, &img->w, &img->h, &n, 4, &frames);
+	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, 4, &frames);
 	if (!img->pixels) {
-		printf("failed to load %s: %s\n", path, stbi_failure_reason());
+		printf("failed to load %s: %s\n", fullpath, stbi_failure_reason());
 		return 0;
 	}
 
-	printf("found %d frames\n", frames);
+	//printf("found %d frames\n", frames);
 
 	if (frames > img->frame_capacity) {
 		// img->tex is either NULL or previously alloced
@@ -360,6 +363,7 @@ int load_image_names(DIR* dir, char* path)
 	struct dirent* entry;
 	struct stat file_stat;
 	char fullpath[4096] = { 0 };
+	int ret;
 
 	char* names[8] = { 0 };
 	if (path) {
@@ -371,7 +375,6 @@ int load_image_names(DIR* dir, char* path)
 		}
 	}
 
-	int ret;
 	int ticks, start;
 	ticks = start = SDL_GetTicks();
 
@@ -388,7 +391,7 @@ int load_image_names(DIR* dir, char* path)
 
 		// if it's a regular file and an image stb_image recognizes
 		if (S_ISREG(file_stat.st_mode) && stbi_info(fullpath, NULL, NULL, NULL)) {
-			cvec_push_str(&gs.files, fullpath);
+			cvec_push_str(&gs.files, entry->d_name);
 		}
 
 		ticks = SDL_GetTicks();
@@ -760,9 +763,7 @@ int handle_events()
 				if (!gs.img_focus) {
 					for (int i=0; i<gs.n_imgs; ++i) {
 						do {
-							printf("index = %d\n", gs.img[i].index);
 							gs.img[i].index = (gs.img[i].index + gs.n_imgs) % gs.files.size;
-							printf("index = %d\n", gs.img[i].index);
 						} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i])));
 						set_rect_bestfit(&gs.img[i], gs.fullscreen);
 					}
