@@ -73,7 +73,7 @@ void setup(const char* img_name);
 void cleanup(int ret);
 int load_image(const char* path, img_state* img);
 int handle_events();
-int load_image_names(DIR* dir, char* path);
+int load_image_names(DIR* dir, char* path, int milliseconds);
 
 //TODO combine/reorg
 void adjust_rect(img_state* img, int w, int h);
@@ -181,6 +181,10 @@ int main(int argc, char** argv)
 		cleanup(0);
 	}
 
+	set_rect_bestfit(&gs.img[0], 0);
+	SDL_RenderSetClipRect(gs.ren, &gs.img[0].scr_rect);
+	SDL_RenderCopy(gs.ren, gs.img[0].tex[gs.img[0].frame_i], NULL, &gs.img[0].disp_rect);
+	SDL_RenderPresent(gs.ren);
 	
 
 	DIR* dir = opendir(dirpath);
@@ -191,12 +195,11 @@ int main(int argc, char** argv)
 	cvec_str(&gs.files, 0, 100);
 	printf("reading file names\n");
 
-	int done_loading = load_image_names(dir, img_name);
+	int done_loading = load_image_names(dir, img_name, 2000);
 
 	printf("done with setup\n");
 
 
-	set_rect_bestfit(&gs.img[0], 0);
 
 	int ticks;
 	while (1) {
@@ -211,7 +214,7 @@ int main(int argc, char** argv)
 		}
 
 		if (!done_loading) {
-			done_loading = load_image_names(dir, NULL);
+			done_loading = load_image_names(dir, NULL, 350);
 		}
 
 
@@ -358,7 +361,7 @@ int load_image(const char* img_name, img_state* img)
 }
 
 
-int load_image_names(DIR* dir, char* path)
+int load_image_names(DIR* dir, char* path, int milliseconds)
 {
 	struct dirent* entry;
 	struct stat file_stat;
@@ -378,7 +381,7 @@ int load_image_names(DIR* dir, char* path)
 	int ticks, start;
 	ticks = start = SDL_GetTicks();
 
-	while (ticks - start < 300 && (entry = readdir(dir))) {
+	while (ticks - start < milliseconds && (entry = readdir(dir))) {
 		ret = snprintf(fullpath, 4096, "%s/%s", gs.dirpath, entry->d_name);
 		if (ret >= 4096) {
 			printf("path too long\n");
