@@ -223,7 +223,6 @@ int main(int argc, char** argv)
 			if (gs.img[i].frames > 1 && ticks - gs.img[i].frame_timer > gs.img[i].delay) {
 				gs.img[i].frame_i = (gs.img[i].frame_i + 1) % gs.img[i].frames;
 				gs.img[i].frame_timer = ticks; // should be set after present ...
-			//	printf("frame %d %d\n", gs.img[i].frame_i, gs.img[i].delay);
 				gs.status = REDRAW;
 			}
 		}
@@ -232,7 +231,6 @@ int main(int argc, char** argv)
 			// clear whole screen
 			SDL_RenderSetClipRect(gs.ren, NULL);
 			SDL_RenderClear(gs.ren);
-			// for each img
 			for (int i=0; i<gs.n_imgs; ++i) {
 				SDL_RenderSetClipRect(gs.ren, &gs.img[i].scr_rect);
 				SDL_RenderCopy(gs.ren, gs.img[i].tex[gs.img[i].frame_i], NULL, &gs.img[i].disp_rect);
@@ -312,6 +310,7 @@ int load_image(const char* img_name, img_state* img)
 		cleanup(0);
 	}
 
+	printf("loading %s\n", fullpath);
 
 	//img = stbi_load(path, &img->w, &img->h, &n, 4);
 	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, 4, &frames);
@@ -443,7 +442,7 @@ void setup(const char* img_name)
 
 	//not sure if necessary
 	SDL_SetMainReady();
-	if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
 		printf("SDL_Init error: %s\n", SDL_GetError());
 		exit(1);
 	}
@@ -588,7 +587,7 @@ int handle_events()
 			case SDL_SCANCODE_2:
 				gs.status = REDRAW;
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-					if (gs.n_imgs != 2) {
+					if (gs.n_imgs != 2 && gs.files.size >= 2) {
 
 						// TODO hmm
 						if (gs.n_imgs == 1) {
@@ -633,7 +632,7 @@ int handle_events()
 			case SDL_SCANCODE_4:
 				gs.status = REDRAW;
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-					if (gs.n_imgs != 4) {
+					if (gs.n_imgs != 4 && gs.files.size >= 4) {
 						
 						for (int i=gs.n_imgs; i<4; ++i) {
 							gs.img[i].index = gs.img[i-1].index;
@@ -686,7 +685,7 @@ int handle_events()
 			case SDL_SCANCODE_8:
 				gs.status = REDRAW;
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-					if (gs.n_imgs != 8) {
+					if (gs.n_imgs != 8 && gs.files.size >= 8) {
 						
 						for (int i=gs.n_imgs; i<8; ++i) {
 							gs.img[i].index = gs.img[i-1].index;
