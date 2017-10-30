@@ -456,15 +456,14 @@ void setup(const char* img_name)
 		exit(1);
 	}
 
-#ifndef _WIN32
 	gs.ren = SDL_CreateRenderer(gs.win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-#else
-	//windows seems to have trouble with RENDERER_ACCELERATED
-	gs.ren = SDL_CreateRenderer(gs.win, -1, SDL_RENDERER_SOFTWARE);
-#endif
+	if (!gs.ren) {
+		printf("%s, falling back to software rendering\n", SDL_GetError());
+		gs.ren = SDL_CreateRenderer(gs.win, -1, SDL_RENDERER_SOFTWARE);
+	}
 
 	if (!gs.ren) {
-		printf("Error: %s\n", SDL_GetError());
+		printf("Software rendering failed: %s\n", SDL_GetError());
 		cleanup(1);
 	}
 	SDL_SetRenderDrawColor(gs.ren, 0, 0, 0, 255);
@@ -535,7 +534,10 @@ int handle_events()
 				if (gs.fullscreen) {
 					SDL_SetWindowFullscreen(gs.win, 0);
 					gs.fullscreen = 0;
-					puts("windowed");
+					int x, y;
+					SDL_GetWindowSize(gs.win, &x, &y);
+					printf("windowed %d %d %d %d\n", gs.scr_w, gs.scr_h, x, y);
+					//puts("windowed");
 				} else {
 					SDL_SetWindowFullscreen(gs.win, SDL_WINDOW_FULLSCREEN_DESKTOP);
 					gs.fullscreen = 1;
@@ -553,16 +555,14 @@ int handle_events()
 					// TODO refactor into function?  don't free everything everytime
 					// make load_image smarter
 					if (gs.img_focus && gs.img_focus != &gs.img[0]) {
-						tmp_img = *gs.img_focus;
 						for (int i=0; i<gs.n_imgs; ++i) {
 							if (gs.img_focus == &gs.img[i]) {
-								memset(gs.img_focus, 0, sizeof(img_state)); //prevent double free
 								continue;
 							}
 
 							clear_img(&gs.img[i]);
 						}
-						gs.img[0] = tmp_img;
+						gs.img[0] = *gs.img_focus;
 					} else {
 						for (int i=1; i<gs.n_imgs; ++i) {
 							clear_img(&gs.img[i]);
@@ -849,7 +849,7 @@ int handle_events()
 			gs.status = REDRAW;
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_SIZE_CHANGED:
-				//printf("resized %d x %d\n", e.window.data1, e.window.data2);
+				printf("resized %d x %d\n", e.window.data1, e.window.data2);
 				gs.scr_w = e.window.data1;
 				gs.scr_h = e.window.data2;
 
@@ -893,8 +893,12 @@ int handle_events()
 
 
 				break;
-			case SDL_WINDOWEVENT_EXPOSED:
+			case SDL_WINDOWEVENT_EXPOSED: {
+				int x, y;
+				SDL_GetWindowSize(gs.win, &x, &y);
+				printf("windowed %d %d %d %d\n", gs.scr_w, gs.scr_h, x, y);
 				puts("exposed event");
+										  }
 				break;
 			default:
 				;
