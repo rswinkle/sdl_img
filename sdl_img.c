@@ -87,10 +87,10 @@ void set_rect_zoom(img_state* img, int zoom);
 #define PATH_SEPARATOR '/'
 
 
-// works same as SUSv2 libgen.h dirname except that
+// works same as SUSv2 libgen.h mydirname except that
 // dirpath is user provided output buffer, assumed large
 // enough, return value is dirpath
-char* dirname(const char* path, char* dirpath)
+char* mydirname(const char* path, char* dirpath)
 {
 	if (!path || !path[0]) {
 		dirpath[0] = '.';
@@ -111,10 +111,10 @@ char* dirname(const char* path, char* dirpath)
 	return dirpath;
 }
 
-// same as SUSv2 basename in libgen.h except base is output
+// same as SUSv2 mybasename in libgen.h except base is output
 
 // buffer
-char* basename(const char* path, char* base)
+char* mybasename(const char* path, char* base)
 {
 	if (!path || !path[0]) {
 		base[0] = '.';
@@ -168,9 +168,9 @@ int main(int argc, char** argv)
 		if (path[i] == '\\')
 			path[i] = '/';
 	}
-	//dirname
-	dirname(path, dirpath);
-	basename(path, img_name);
+	//mydirname
+	mydirname(path, dirpath);
+	mybasename(path, img_name);
 
 	gs.dirpath = dirpath;
 	gs.n_imgs = 1;
@@ -547,7 +547,7 @@ int handle_events()
 
 			case SDL_SCANCODE_0:
 				gs.img_focus = NULL;
-				SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img[0].index], title_buf));
+				SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img[0].index], title_buf));
 				break;
 			case SDL_SCANCODE_1:
 				if (gs.n_imgs != 1 && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
@@ -581,7 +581,7 @@ int handle_events()
 
 				} else if (gs.n_imgs >= 2) {
 					gs.img_focus = &gs.img[0];
-					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_2:
@@ -619,14 +619,14 @@ int handle_events()
 
 				} else if (gs.n_imgs >= 2) {
 					gs.img_focus = &gs.img[1];
-					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_3:
 				gs.status = REDRAW;
 				if (gs.n_imgs >= 3) {
 					gs.img_focus = &gs.img[2];
-					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_4:
@@ -658,28 +658,28 @@ int handle_events()
 
 				} else if (gs.n_imgs >= 4) {
 					gs.img_focus = &gs.img[3];
-					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_5:
 				gs.status = REDRAW;
 				if (gs.n_imgs >= 5) {
 					gs.img_focus = &gs.img[4];
-					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_6:
 				gs.status = REDRAW;
 				if (gs.n_imgs >= 6) {
 					gs.img_focus = &gs.img[5];
-					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_7:
 				gs.status = REDRAW;
 				if (gs.n_imgs >= 7) {
 					gs.img_focus = &gs.img[6];
-					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_8:
@@ -711,7 +711,7 @@ int handle_events()
 
 				} else if (gs.n_imgs >= 8) {
 					gs.img_focus = &gs.img[7];
-					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
 				break;
 
@@ -770,14 +770,14 @@ int handle_events()
 						set_rect_bestfit(&gs.img[i], gs.fullscreen);
 					}
 					// just set title to upper left image when !img_focus
-					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img[0].index], title_buf));
+					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img[0].index], title_buf));
 
 				} else {
 					do {
 						gs.img_focus->index = (gs.img_focus->index + 1) % gs.files.size;
 					} while (!(ret = load_image(gs.files.a[gs.img_focus->index], gs.img_focus)));
 					set_rect_bestfit(gs.img_focus, gs.fullscreen);
-					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
 
 				break;
@@ -798,14 +798,14 @@ int handle_events()
 					}
 
 					// just set title to upper left image when !img_focus
-					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img[0].index], title_buf));
+					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img[0].index], title_buf));
 				} else {
 					do {
 						gs.img_focus->index = (gs.img_focus->index-1 < 0) ? gs.files.size-1 : gs.img_focus->index-1;
 					} while (!(ret = load_image(gs.files.a[gs.img_focus->index], gs.img_focus)));
 					set_rect_bestfit(gs.img_focus, gs.fullscreen);
 
-					SDL_SetWindowTitle(gs.win, basename(gs.files.a[gs.img_focus->index], title_buf));
+					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
 
 
