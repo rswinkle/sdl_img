@@ -35,6 +35,7 @@ typedef struct img_state
 	int frames;
 	int frame_capacity;
 	int frame_timer;
+	int looped;
 	
 	SDL_Texture** tex;
 
@@ -64,6 +65,9 @@ typedef struct global_state
 	int mouse_timer;
 	int mouse_state;
 
+	int slideshow;
+	int slide_timer;
+
 } global_state;
 
 global_state gs = { 0 };
@@ -87,7 +91,7 @@ void set_rect_zoom(img_state* img, int zoom);
 #define PATH_SEPARATOR '/'
 
 
-// works same as SUSv2 libgen.h mydirname except that
+// works same as SUSv2 libgen.h dirname except that
 // dirpath is user provided output buffer, assumed large
 // enough, return value is dirpath
 char* mydirname(const char* path, char* dirpath)
@@ -111,7 +115,7 @@ char* mydirname(const char* path, char* dirpath)
 	return dirpath;
 }
 
-// same as SUSv2 mybasename in libgen.h except base is output
+// same as SUSv2 basename in libgen.h except base is output
 
 // buffer
 char* mybasename(const char* path, char* base)
@@ -199,8 +203,6 @@ int main(int argc, char** argv)
 
 	printf("done with setup\n");
 
-
-
 	int ticks;
 	while (1) {
 		if (handle_events())
@@ -222,6 +224,8 @@ int main(int argc, char** argv)
 		for (int i=0; i<gs.n_imgs; ++i) {
 			if (gs.img[i].frames > 1 && ticks - gs.img[i].frame_timer > gs.img[i].delay) {
 				gs.img[i].frame_i = (gs.img[i].frame_i + 1) % gs.img[i].frames;
+				if (gs.img[i].frame_i == 0)
+					gs.img[i].looped = 1;
 				gs.img[i].frame_timer = ticks; // should be set after present ...
 				gs.status = REDRAW;
 			}
@@ -343,10 +347,14 @@ int load_image(const char* img_name, img_state* img)
 	//gif delay is in 100ths, ticks are 1000ths
 	//assume that the delay is the same for all frames (never seen anything else anyway)
 	//and if delay is 0, default to 10 fps
+	
+	img->looped = 1;
 	if (frames > 1) {
+		img->looped = 0;
 		img->delay = *(short*)(&img->pixels[size]) * 10;
 		if (!img->delay)
 			img->delay = 100;
+		printf("%d frames %d delay\n", frames, img->delay);
 	}
 
 	img->frame_i = 0;
@@ -392,19 +400,11 @@ int load_image_names(DIR* dir, char* path, int milliseconds)
 		}
 
 		// if it's a regular file and an image stb_image recognizes
-		if (S_ISREG(file_stat.st_mode) && stbi_info(fullpath, NULL, NULL, NULL)) {
+		if (S_ISREG(file_stat.st_mode) && stbi_info(fullpath, NULL, NULL, NULL) && strcmp(entry->d_name, names[0])) {
 			cvec_push_str(&gs.files, entry->d_name);
 		}
 
 		ticks = SDL_GetTicks();
-	}
-
-	if (!entry) {
-		printf("Loaded all %zd filenames\n", gs.files.size);
-		closedir(dir);
-		return 1;
-	} else {
-		printf("loaded %zd filenames\n", gs.files.size);
 	}
 
 	// could do it manually since I maintain sorted
@@ -416,16 +416,25 @@ int load_image_names(DIR* dir, char* path, int milliseconds)
 	for (int i=0; i<gs.n_imgs; ++i) {
 		for (img=0; img<gs.files.size; ++img) {
 			// find starting image index
-			if (!strcmp(gs.files.a[img], names[i])) {
+			if ((ret = strcmp(gs.files.a[img], names[i])) >= 0) {
+				if (ret > 0) {
+					puts("pushing current image");
+					cvec_insert_str(&gs.files, img, names[i]);
+				}
 				gs.img[i].index = img;
 				break;
 			}
 		}
-		if (img == gs.files.size) {
-			cvec_push_str(&gs.files, names[i]);
-			gs.img[i].index = gs.files.size-1;
-		}
 	}
+
+	if (!entry) {
+		printf("Loaded all %zd filenames\n", gs.files.size);
+		closedir(dir);
+		return 1;
+	} else {
+		printf("loaded %zd filenames\n", gs.files.size);
+	}
+
 
 	return 0;
 }
@@ -499,6 +508,18 @@ void clear_img(img_state* img)
 }
 
 
+void toggle_fullscreen()
+{
+	gs.status = REDRAW;
+	if (gs.fullscreen) {
+		SDL_SetWindowFullscreen(gs.win, 0);
+		gs.fullscreen = 0;
+	} else {
+		SDL_SetWindowFullscreen(gs.win, SDL_WINDOW_FULLSCREEN_DESKTOP);
+		gs.fullscreen = 1;
+	}
+}
+
 int handle_events()
 {
 	SDL_Event e;
@@ -512,6 +533,27 @@ int handle_events()
 
 	SDL_Keymod mod_state = SDL_GetModState();
 
+	SDL_Event right;
+	right.type = SDL_KEYDOWN;
+	right.key.keysym.scancode = SDL_SCANCODE_RIGHT;
+
+	int ticks = SDL_GetTicks();
+	int set_slide_timer = 0;
+
+	if (gs.slideshow && ticks - gs.slide_timer > gs.slideshow) {
+		int i;
+		// make sure all current gifs have gotten to the end
+		// at least once
+		for (i=0; i<gs.n_imgs; ++i) {
+			if (!gs.img[i].looped)
+				break;
+		}
+		if (i == gs.n_imgs) {
+			SDL_PushEvent(&right);
+			set_slide_timer = 1;
+		}
+	}
+
 	while (SDL_PollEvent(&e)) {
 		switch (e.type) {
 		case SDL_QUIT:
@@ -520,29 +562,35 @@ int handle_events()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
-				if (gs.fullscreen) {
-					gs.status = REDRAW;
-					SDL_SetWindowFullscreen(gs.win, 0);
-					gs.fullscreen = 0;
-				} else {
+				if (!gs.fullscreen && !gs.slideshow) {
 					return 1;
+				} else {
+					if (gs.fullscreen) {
+						gs.status = REDRAW;
+						SDL_SetWindowFullscreen(gs.win, 0);
+						gs.fullscreen = 0;
+					}
+					gs.slideshow = 0;
 				}
 				break;
 
+			// CAPSLOCK comes right before F1 and F1-F12 are contiguous
+			case SDL_SCANCODE_F1:
+			case SDL_SCANCODE_F2:
+			case SDL_SCANCODE_F3:
+			case SDL_SCANCODE_F4:
+			case SDL_SCANCODE_F5:
+			case SDL_SCANCODE_F6:
+			case SDL_SCANCODE_F7:
+			case SDL_SCANCODE_F8:
+			case SDL_SCANCODE_F9:
+			case SDL_SCANCODE_F10:
+				gs.slideshow = (sc - SDL_SCANCODE_CAPSLOCK)*1000;
+				set_slide_timer = 1;
+				break;
+
 			case SDL_SCANCODE_F11:
-				gs.status = REDRAW;
-				if (gs.fullscreen) {
-					SDL_SetWindowFullscreen(gs.win, 0);
-					gs.fullscreen = 0;
-					int x, y;
-					SDL_GetWindowSize(gs.win, &x, &y);
-					printf("windowed %d %d %d %d\n", gs.scr_w, gs.scr_h, x, y);
-					//puts("windowed");
-				} else {
-					SDL_SetWindowFullscreen(gs.win, SDL_WINDOW_FULLSCREEN_DESKTOP);
-					gs.fullscreen = 1;
-					puts("fullscreen");
-				}
+				toggle_fullscreen();
 				break;
 
 			case SDL_SCANCODE_0:
@@ -552,6 +600,7 @@ int handle_events()
 			case SDL_SCANCODE_1:
 				if (gs.n_imgs != 1 && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					gs.status = REDRAW;
+					set_slide_timer = 1;
 					// TODO refactor into function?  don't free everything everytime
 					// make load_image smarter
 					if (gs.img_focus && gs.img_focus != &gs.img[0]) {
@@ -586,6 +635,7 @@ int handle_events()
 				break;
 			case SDL_SCANCODE_2:
 				gs.status = REDRAW;
+				set_slide_timer = 1;
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					if (gs.n_imgs != 2 && gs.files.size >= 2) {
 
@@ -631,6 +681,7 @@ int handle_events()
 				break;
 			case SDL_SCANCODE_4:
 				gs.status = REDRAW;
+				set_slide_timer = 1;
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					if (gs.n_imgs != 4 && gs.files.size >= 4) {
 						
@@ -684,6 +735,7 @@ int handle_events()
 				break;
 			case SDL_SCANCODE_8:
 				gs.status = REDRAW;
+				set_slide_timer = 1;
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					if (gs.n_imgs != 8 && gs.files.size >= 8) {
 						
@@ -693,6 +745,7 @@ int handle_events()
 								gs.img[i].index = (gs.img[i].index + 1) % gs.files.size;
 							} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i])));
 						}
+						// This loop will never run unless I add a higher number somehow like 12 or 16
 						for (int i=gs.n_imgs-1; i>7; --i) {
 							clear_img(&gs.img[i]);
 						}
@@ -730,13 +783,7 @@ int handle_events()
 			case SDL_SCANCODE_F: {
 				gs.status = REDRAW;
 				if (mod_state & (KMOD_LALT | KMOD_RALT)) {
-					if (gs.fullscreen) {
-						SDL_SetWindowFullscreen(gs.win, 0);
-						gs.fullscreen = 0;
-					} else {
-						SDL_SetWindowFullscreen(gs.win, SDL_WINDOW_FULLSCREEN_DESKTOP);
-						gs.fullscreen = 1;
-					}
+					toggle_fullscreen();
 				} else {
 					if (!gs.img_focus) {
 						for (int i=0; i<gs.n_imgs; ++i)
@@ -761,6 +808,7 @@ int handle_events()
 			case SDL_SCANCODE_RIGHT:
 			case SDL_SCANCODE_DOWN:
 				gs.status = REDRAW;
+				set_slide_timer = 1;
 
 				if (!gs.img_focus) {
 					for (int i=0; i<gs.n_imgs; ++i) {
@@ -785,6 +833,8 @@ int handle_events()
 			case SDL_SCANCODE_LEFT:
 			case SDL_SCANCODE_UP:
 				gs.status = REDRAW;
+				set_slide_timer = 1;
+
 
 				// TODO reuse imgs
 				if (!gs.img_focus) {
@@ -906,6 +956,11 @@ int handle_events()
 			break;
 		}
 	}
+
+	if (set_slide_timer) {
+		gs.slide_timer =  SDL_GetTicks();
+	}
+
 	return 0;
 }
 
