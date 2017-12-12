@@ -565,12 +565,13 @@ int handle_events()
 				if (!gs.fullscreen && !gs.slideshow) {
 					return 1;
 				} else {
-					if (gs.fullscreen) {
+					if (gs.slideshow) {
+						gs.slideshow = 0;
+					} else if (gs.fullscreen) {
 						gs.status = REDRAW;
 						SDL_SetWindowFullscreen(gs.win, 0);
 						gs.fullscreen = 0;
 					}
-					gs.slideshow = 0;
 				}
 				break;
 
@@ -612,6 +613,8 @@ int handle_events()
 							clear_img(&gs.img[i]);
 						}
 						gs.img[0] = *gs.img_focus;
+						memset(gs.img_focus, 0, sizeof(img_state));
+
 					} else {
 						for (int i=1; i<gs.n_imgs; ++i) {
 							clear_img(&gs.img[i]);

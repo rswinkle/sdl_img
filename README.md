@@ -20,7 +20,7 @@ The center wheel can zoom in and out.
 A              - Actual Size
 F              - Best Fit
 ALT + F or F11 - Toggle Fullscreen
-ESC            - Exit (or exit Fullscreen and Slideshow modes)
+ESC            - Exit (or exit Slideshow mode then fullscreen)
 
 The unique features are being able to view more than a single image at once
 CTRL + 1   - Single image mode
@@ -33,7 +33,9 @@ unless a specific image is selected by hitting 1-n and then they operate only
 on that image, ie cycling, zooming, fit will only effect that image.
 To return to "all at once" mode, hit 0.  In this way you can compare multiple
 images simultaneously with a single viewer instance (even if they aren't sequential
-alphabetically).
+alphabetically).  Switching from a higher mode to a lower will show the first n images
+of the higher mode where n is the lower number.  An exception is if you have an
+image selected and go to single mode, that is the image that will be used.
 
 Also you can start slideshow mode with F1-F10 which will use a delay of 1-10 seconds.
 It's smart enough to wait long enough to finish any gif being displayed even if that
