@@ -258,11 +258,42 @@ int main(int argc, char** argv)
 //need to think about best way to organize following 4 functions' functionality
 void adjust_rect(img_state* img, int w, int h)
 {
-	img->disp_rect.x = img->scr_rect.x + (img->scr_rect.w-w)/2;
-	img->disp_rect.y = img->scr_rect.y + (img->scr_rect.h-h)/2;
+	int x, y;
+	SDL_GetMouseState(&x, &y);
+	//int x -= img->scr_rect.x;
+	//int y -= img->scr_rect.y;
+	float px = (x-img->disp_rect.x)/(float)img->disp_rect.w;
+	float py = (y-img->disp_rect.y)/(float)img->disp_rect.h;
+
+	//px = MIN(px, 1.0f);
+	//py = MIN(py, 1.0f);
+
+	// This logic is close but not quite, if you zoom in on a subimage from one corner/edge
+	// then continue from the opposite side it still wastes space
+	if ((gs.n_imgs == 1 || gs.img_focus == img) && w > img->scr_rect.w) {
+		if (px > 1.0f)
+			img->disp_rect.x = img->scr_rect.x+img->scr_rect.w - w;
+		else if (px < 0.0f)
+			img->disp_rect.x = img->scr_rect.x;
+		else
+			img->disp_rect.x = x-px*w;
+	} else {
+		img->disp_rect.x = img->scr_rect.x + (img->scr_rect.w-w)/2;
+	}
+
+	if ((gs.n_imgs == 1 || gs.img_focus == img) && h > img->scr_rect.h) {
+		if (py > 1.0f)
+			img->disp_rect.y = img->scr_rect.y+img->scr_rect.h - h;
+		else if (py < 0.0f)
+			img->disp_rect.y = img->scr_rect.y;
+		else
+			img->disp_rect.y = y-py*h;
+	} else {
+		img->disp_rect.y = img->scr_rect.y + (img->scr_rect.h-h)/2;
+	}
+
 	img->disp_rect.w = w;
 	img->disp_rect.h = h;
-
 }
 
 

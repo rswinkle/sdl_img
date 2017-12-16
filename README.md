@@ -44,8 +44,10 @@ discussed above work while in slideshow mode.
 
 
 
-TODO
-====
+TODO/IDEAS
+==========
 figure out why certain animated gifs don't load all the frames
+Zoom in on where mouse is once larger than display area.
+Let user adjust gif delay up/down
 Add panning when zoomed in?
 Clean up code a bit
