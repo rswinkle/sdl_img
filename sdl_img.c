@@ -260,38 +260,45 @@ void adjust_rect(img_state* img, int w, int h)
 {
 	int x, y;
 	SDL_GetMouseState(&x, &y);
-	//int x -= img->scr_rect.x;
-	//int y -= img->scr_rect.y;
+	
+	int l = img->scr_rect.x;
+	int r = l + img->scr_rect.w;
+	int t = img->scr_rect.y;
+	int b = t + img->scr_rect.h;
+	
+	x = MAX(x, l);
+	x = MIN(x, r);
+	y = MAX(y, t);
+	y = MIN(y, b);
+
 	float px = (x-img->disp_rect.x)/(float)img->disp_rect.w;
 	float py = (y-img->disp_rect.y)/(float)img->disp_rect.h;
 
-	//px = MIN(px, 1.0f);
-	//py = MIN(py, 1.0f);
-
-	// This logic is close but not quite, if you zoom in on a subimage from one corner/edge
-	// then continue from the opposite side it still wastes space
+	// There might be a slightly better way to organize/calculate this but this works
+	int final_x, final_y;
 	if ((gs.n_imgs == 1 || gs.img_focus == img) && w > img->scr_rect.w) {
-		if (px > 1.0f)
-			img->disp_rect.x = img->scr_rect.x+img->scr_rect.w - w;
-		else if (px < 0.0f)
-			img->disp_rect.x = img->scr_rect.x;
-		else
-			img->disp_rect.x = x-px*w;
+		final_x = x-px*w;
+		
+		if (img->disp_rect.x + w < r)
+			final_x += r-(img->disp_rect.x+w);
+		if (img->disp_rect.x > l)
+			final_x -= img->disp_rect.x-l;
 	} else {
-		img->disp_rect.x = img->scr_rect.x + (img->scr_rect.w-w)/2;
+		final_x = img->scr_rect.x + (img->scr_rect.w-w)/2;
 	}
 
 	if ((gs.n_imgs == 1 || gs.img_focus == img) && h > img->scr_rect.h) {
-		if (py > 1.0f)
-			img->disp_rect.y = img->scr_rect.y+img->scr_rect.h - h;
-		else if (py < 0.0f)
-			img->disp_rect.y = img->scr_rect.y;
-		else
-			img->disp_rect.y = y-py*h;
-	} else {
-		img->disp_rect.y = img->scr_rect.y + (img->scr_rect.h-h)/2;
-	}
+		final_y = y-py*h;
 
+		if (img->disp_rect.y + h < b)
+			final_y += b-(img->disp_rect.y+h);
+		if (img->disp_rect.y > t)
+			final_y -= img->disp_rect.y-t;
+	} else {
+		final_y = img->scr_rect.y + (img->scr_rect.h-h)/2;
+	}
+	img->disp_rect.x = final_x;
+	img->disp_rect.y = final_y;
 	img->disp_rect.w = w;
 	img->disp_rect.h = h;
 }
