@@ -333,6 +333,28 @@ void set_rect_zoom(img_state* img, int zoom)
 	adjust_rect(img, w, h);
 }
 
+// don't waste space even when drag/panning
+void fix_rect(img_state* img)
+{
+	int w = img->disp_rect.w;
+	int h = img->disp_rect.h;
+	int scr_right = img->scr_rect.x + img->scr_rect.w;
+	int scr_bottom = img->scr_rect.y + img->scr_rect.h;
+	if (w > img->scr_rect.w) {
+		if (img->disp_rect.x > img->scr_rect.x) {
+			img->disp_rect.x = img->scr_rect.x;
+		} else if (img->disp_rect.x + w < scr_right) {
+			img->disp_rect.x += scr_right - (img->disp_rect.x+w);
+		}
+	}
+	if (h > img->scr_rect.h) {
+		if (img->disp_rect.y > img->scr_rect.y) {
+			img->disp_rect.y = img->scr_rect.y;
+		} else if (img->disp_rect.y + h < scr_bottom) {
+			img->disp_rect.y += scr_bottom - (img->disp_rect.y+h);
+		}
+	}
+}
 
 
 int load_image(const char* img_name, img_state* img)
@@ -908,10 +930,34 @@ int handle_events()
 
 			break;
 
-		//TODO implement drag for when picture is zoomed in past edges
+		case SDL_MOUSEMOTION:
+			if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+				img_state* img = NULL;
+				if (!gs.img_focus) {
+					for (int i=0; i<gs.n_imgs; ++i) {
+						img = &gs.img[i];
+						if (e.motion.xrel != 0 && img->disp_rect.w > img->scr_rect.w) {
+							img->disp_rect.x += e.motion.xrel;
+						}
+						if (e.motion.yrel != 0 && img->disp_rect.h > img->scr_rect.h) {
+							img->disp_rect.y += e.motion.yrel;
+						}
+						fix_rect(img);
+					}
+				} else {
+					img = gs.img_focus;
+					if (e.motion.xrel != 0 && img->disp_rect.w > img->scr_rect.w) {
+						img->disp_rect.x += e.motion.xrel;
+					}
+					if (e.motion.yrel != 0 && img->disp_rect.h > img->scr_rect.h) {
+						img->disp_rect.y += e.motion.yrel;
+					}
+					fix_rect(img);
+				}
+				gs.status = REDRAW;
+			}
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
-		case SDL_MOUSEMOTION:
 			SDL_ShowCursor(SDL_ENABLE);
 			gs.mouse_timer = SDL_GetTicks();
 			gs.mouse_state = 1;
@@ -989,7 +1035,7 @@ int handle_events()
 				SDL_GetWindowSize(gs.win, &x, &y);
 				printf("windowed %d %d %d %d\n", gs.scr_w, gs.scr_h, x, y);
 				puts("exposed event");
-										  }
+			}
 				break;
 			default:
 				;
