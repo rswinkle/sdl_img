@@ -15,7 +15,8 @@ Controls/Usage
 
 Will open image_name.jpg.  Left and Right (or Up and Down) will cycle
 through images in the directory of the original image (in alphabetical order.
-The center wheel can zoom in and out.
+The center wheel can zoom in and out, and you can also drag to pan on a zoomed
+in image.
 
 * A              - Actual Size
 * F              - Best Fit
@@ -47,7 +48,6 @@ discussed above work while in slideshow mode.
 
 TODO/IDEAS
 ==========
-* figure out why certain animated gifs don't load all the frames
+* figure out why certain rare animated gifs don't load all the frames
 * Let user adjust gif delay up/down
-* Add panning when zoomed in?
 * Clean up code a bit

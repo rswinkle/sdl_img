@@ -279,10 +279,10 @@ void adjust_rect(img_state* img, int w, int h)
 	if ((gs.n_imgs == 1 || gs.img_focus == img) && w > img->scr_rect.w) {
 		final_x = x-px*w;
 		
-		if (img->disp_rect.x + w < r)
-			final_x += r-(img->disp_rect.x+w);
-		if (img->disp_rect.x > l)
-			final_x -= img->disp_rect.x-l;
+		if (final_x + w < r)
+			final_x += r-(final_x+w);
+		if (final_x > l)
+			final_x -= final_x-l;
 	} else {
 		final_x = img->scr_rect.x + (img->scr_rect.w-w)/2;
 	}
@@ -290,10 +290,10 @@ void adjust_rect(img_state* img, int w, int h)
 	if ((gs.n_imgs == 1 || gs.img_focus == img) && h > img->scr_rect.h) {
 		final_y = y-py*h;
 
-		if (img->disp_rect.y + h < b)
-			final_y += b-(img->disp_rect.y+h);
-		if (img->disp_rect.y > t)
-			final_y -= img->disp_rect.y-t;
+		if (final_y + h < b)
+			final_y += b-(final_y+h);
+		if (final_y > t)
+			final_y -= final_y-t;
 	} else {
 		final_y = img->scr_rect.y + (img->scr_rect.h-h)/2;
 	}
@@ -568,6 +568,43 @@ void clear_img(img_state* img)
 }
 
 
+int load_new_images(void* right_or_down)
+{
+	int is_right = *(int*)right_or_down;
+	int tmp;
+
+	char title_buf[1024];
+	int ret;
+
+	if (!gs.img_focus) {
+		for (int i=0; i<gs.n_imgs; ++i) {
+			do {
+				if (is_right) {
+					gs.img[i].index = (gs.img[i].index + gs.n_imgs) % gs.files.size;
+				} else {
+					tmp = gs.img[i].index - gs.n_imgs;
+					gs.img[i].index = (tmp < 0) ? gs.files.size+tmp : tmp;
+				}
+			} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i])));
+			set_rect_bestfit(&gs.img[i], gs.fullscreen);
+		}
+		// just set title to upper left image when !img_focus
+		SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img[0].index], title_buf));
+
+	} else {
+		do {
+			if (is_right)
+				gs.img_focus->index = (gs.img_focus->index + 1) % gs.files.size;
+			else
+				gs.img_focus->index = (gs.img_focus->index-1 < 0) ? gs.files.size-1 : gs.img_focus->index-1;
+		} while (!(ret = load_image(gs.files.a[gs.img_focus->index], gs.img_focus)));
+		set_rect_bestfit(gs.img_focus, gs.fullscreen);
+		SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
+	}
+}
+
+
+
 void toggle_fullscreen()
 {
 	gs.status = REDRAW;
@@ -586,6 +623,7 @@ int handle_events()
 	int sc;
 	int ret;
 	int tmp;
+	int right_or_down;
 	char title_buf[1024];
 	img_state tmp_img = { 0 };
 
@@ -873,6 +911,9 @@ int handle_events()
 				gs.status = REDRAW;
 				set_slide_timer = 1;
 
+				right_or_down = 1;
+				load_new_images(&right_or_down);
+				/*
 				if (!gs.img_focus) {
 					for (int i=0; i<gs.n_imgs; ++i) {
 						do {
@@ -890,6 +931,7 @@ int handle_events()
 					set_rect_bestfit(gs.img_focus, gs.fullscreen);
 					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
+				*/
 
 				break;
 
@@ -898,8 +940,10 @@ int handle_events()
 				gs.status = REDRAW;
 				set_slide_timer = 1;
 
-
+				right_or_down = 0;
+				load_new_images(&right_or_down);
 				// TODO reuse imgs
+				/*
 				if (!gs.img_focus) {
 					for (int i=0; i<gs.n_imgs; ++i) {
 						do {
@@ -920,8 +964,7 @@ int handle_events()
 
 					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
-
-
+				*/
 				break;
 
 			default:
