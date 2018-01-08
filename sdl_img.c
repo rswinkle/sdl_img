@@ -26,8 +26,6 @@ typedef struct img_state
 	int w;
 	int h;
 
-	
-
 	int index;
 
 	int frame_i;
@@ -506,37 +504,48 @@ void setup(const char* img_name)
 	gs.win = NULL;
 	gs.ren = NULL;
 
+	char error_str[1024] = { 0 };
 
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
 	//not sure if necessary
 	SDL_SetMainReady();
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-		printf("SDL_Init error: %s\n", SDL_GetError());
+		snprintf(error_str, 1024, "Couldn't initialize SDL: %s; exiting.", SDL_GetError());
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, gs.win);
+		puts(error_str);
 		exit(1);
 	}
 
 	gs.scr_w = 640;
 	gs.scr_h = 480;
-
+	
 	gs.win = SDL_CreateWindow(img_name, 100, 100, gs.scr_w, gs.scr_h, SDL_WINDOW_RESIZABLE);
 	if (!gs.win) {
-		printf("Error: %s\n", SDL_GetError());
+		snprintf(error_str, 1024, "Couldn't create window: %s; exiting.", SDL_GetError());
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, gs.win);
+		puts(error_str);
 		exit(1);
 	}
 
 	gs.ren = SDL_CreateRenderer(gs.win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	if (!gs.ren) {
-		printf("%s, falling back to software rendering\n", SDL_GetError());
+		snprintf(error_str, 1024, "%s, falling back to software renderer.", SDL_GetError());
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Warning: No HW Acceleration", error_str, gs.win);
+		puts(error_str);
 		gs.ren = SDL_CreateRenderer(gs.win, -1, SDL_RENDERER_SOFTWARE);
 	}
 
 	if (!gs.ren) {
-		printf("Software rendering failed: %s\n", SDL_GetError());
+		snprintf(error_str, 1024, "Software rendering failed: %s; exiting.", SDL_GetError());
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, gs.win);
+		puts(error_str);
 		cleanup(1);
 	}
 	SDL_SetRenderDrawColor(gs.ren, 0, 0, 0, 255);
-
+	// get black screen while loading (big gif could take a few seconds)
+	SDL_RenderClear(gs.ren);
+	SDL_RenderPresent(gs.ren);
 
 	memset(&gs.img[0], 0, sizeof(img_state));
 
