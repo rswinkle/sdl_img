@@ -623,9 +623,11 @@ int handle_events()
 	int sc;
 	int ret;
 	int tmp;
+	int panned;
 	int right_or_down;
 	char title_buf[1024];
 	img_state tmp_img = { 0 };
+	img_state* img;
 
 	gs.status = NOCHANGE;
 
@@ -903,69 +905,140 @@ int handle_events()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 
-			// TODO add moving image around when larger than screen
-			// and zooming in/out on non-center, recentering if it gets smaller
-			// than the display area again
 			case SDL_SCANCODE_RIGHT:
-			case SDL_SCANCODE_DOWN:
+				panned = 0;
 				gs.status = REDRAW;
-				set_slide_timer = 1;
-
-				right_or_down = 1;
-				load_new_images(&right_or_down);
-				/*
-				if (!gs.img_focus) {
-					for (int i=0; i<gs.n_imgs; ++i) {
-						do {
-							gs.img[i].index = (gs.img[i].index + gs.n_imgs) % gs.files.size;
-						} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i])));
-						set_rect_bestfit(&gs.img[i], gs.fullscreen);
+				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
+					if (!gs.img_focus) {
+						for (int i=0; i<gs.n_imgs; ++i) {
+							img = &gs.img[i];
+							if (img->disp_rect.w > img->scr_rect.w) {
+								img->disp_rect.x -= 0.05 * img->disp_rect.w;
+								fix_rect(img);
+								panned = 1;
+							}
+						}
+					} else {
+						img = gs.img_focus;
+						if (img->disp_rect.w > img->scr_rect.w) {
+							img->disp_rect.x -= 0.05 * img->disp_rect.w;
+							fix_rect(img);
+							panned = 1;
+						}
 					}
-					// just set title to upper left image when !img_focus
-					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img[0].index], title_buf));
-
-				} else {
-					do {
-						gs.img_focus->index = (gs.img_focus->index + 1) % gs.files.size;
-					} while (!(ret = load_image(gs.files.a[gs.img_focus->index], gs.img_focus)));
-					set_rect_bestfit(gs.img_focus, gs.fullscreen);
-					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
-				*/
-
+				if (!panned) {
+					set_slide_timer = 1;
+					right_or_down = 1;
+					load_new_images(&right_or_down);
+				}
+				break;
+			case SDL_SCANCODE_DOWN:
+				panned = 0;
+				gs.status = REDRAW;
+				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
+					if (!gs.img_focus) {
+						for (int i=0; i<gs.n_imgs; ++i) {
+							img = &gs.img[i];
+							if (img->disp_rect.h > img->scr_rect.h) {
+								img->disp_rect.y -= 0.05 * img->disp_rect.h;
+								fix_rect(img);
+								panned = 1;
+							}
+						}
+					} else {
+						img = gs.img_focus;
+						if (img->disp_rect.h > img->scr_rect.h) {
+							img->disp_rect.y -= 0.05 * img->disp_rect.h;
+							fix_rect(img);
+							panned = 1;
+						}
+					}
+				}
+				if (!panned) {
+					set_slide_timer = 1;
+					right_or_down = 1;
+					load_new_images(&right_or_down);
+				}
 				break;
 
 			case SDL_SCANCODE_LEFT:
-			case SDL_SCANCODE_UP:
+				panned = 0;
 				gs.status = REDRAW;
-				set_slide_timer = 1;
-
-				right_or_down = 0;
-				load_new_images(&right_or_down);
-				// TODO reuse imgs
-				/*
-				if (!gs.img_focus) {
-					for (int i=0; i<gs.n_imgs; ++i) {
-						do {
-							tmp = gs.img[i].index - gs.n_imgs;
-							gs.img[i].index = (tmp < 0) ? gs.files.size+tmp : tmp;
-						} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i])));
-
-						set_rect_bestfit(&gs.img[i], gs.fullscreen);
+				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
+					if (!gs.img_focus) {
+						for (int i=0; i<gs.n_imgs; ++i) {
+							img = &gs.img[i];
+							if (img->disp_rect.w > img->scr_rect.w) {
+								img->disp_rect.x += 0.05 * img->disp_rect.w;
+								fix_rect(img);
+								panned = 1;
+							}
+						}
+					} else {
+						img = gs.img_focus;
+						if (img->disp_rect.w > img->scr_rect.w) {
+							img->disp_rect.x += 0.05 * img->disp_rect.w;
+							fix_rect(img);
+							panned = 1;
+						}
 					}
-
-					// just set title to upper left image when !img_focus
-					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img[0].index], title_buf));
-				} else {
-					do {
-						gs.img_focus->index = (gs.img_focus->index-1 < 0) ? gs.files.size-1 : gs.img_focus->index-1;
-					} while (!(ret = load_image(gs.files.a[gs.img_focus->index], gs.img_focus)));
-					set_rect_bestfit(gs.img_focus, gs.fullscreen);
-
-					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
 				}
-				*/
+				if (!panned) {
+					set_slide_timer = 1;
+					right_or_down = 0;
+					load_new_images(&right_or_down);
+				}
 				break;
+			case SDL_SCANCODE_UP:
+				panned = 0;
+				gs.status = REDRAW;
+				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
+					if (!gs.img_focus) {
+						for (int i=0; i<gs.n_imgs; ++i) {
+							img = &gs.img[i];
+							if (img->disp_rect.h > img->scr_rect.h) {
+								img->disp_rect.y += 0.05 * img->disp_rect.h;
+								fix_rect(img);
+								panned = 1;
+							}
+						}
+					} else {
+						img = gs.img_focus;
+						if (img->disp_rect.h > img->scr_rect.h) {
+							img->disp_rect.y += 0.05 * img->disp_rect.h;
+							fix_rect(img);
+							panned = 1;
+						}
+					}
+				}
+				if (!panned) {
+					set_slide_timer = 1;
+					right_or_down = 0;
+					load_new_images(&right_or_down);
+				}
+				break;
+
+			case SDL_SCANCODE_MINUS:
+				gs.status = REDRAW;
+				if (!gs.img_focus) {
+					for (int i=0; i<gs.n_imgs; ++i)
+						set_rect_zoom(&gs.img[i], -1);
+				} else {
+					set_rect_zoom(gs.img_focus, -1);
+				}
+				break;
+			case SDL_SCANCODE_EQUALS:
+				gs.status = REDRAW;
+				if (!gs.img_focus) {
+					for (int i=0; i<gs.n_imgs; ++i)
+						set_rect_zoom(&gs.img[i], 1);
+				} else {
+					set_rect_zoom(gs.img_focus, 1);
+				}
+				break;
+
+
 
 			default:
 				;
@@ -975,7 +1048,7 @@ int handle_events()
 
 		case SDL_MOUSEMOTION:
 			if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-				img_state* img = NULL;
+				img = NULL;
 				if (!gs.img_focus) {
 					for (int i=0; i<gs.n_imgs; ++i) {
 						img = &gs.img[i];
