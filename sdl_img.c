@@ -242,7 +242,6 @@ int main(int argc, char** argv)
 			SDL_RenderSetClipRect(gs.ren, NULL);
 			SDL_RenderClear(gs.ren);
 			for (int i=0; i<gs.n_imgs; ++i) {
-				print_img_state(&gs.img[i]);
 				SDL_RenderSetClipRect(gs.ren, &gs.img[i].scr_rect);
 				SDL_RenderCopy(gs.ren, gs.img[i].tex[gs.img[i].frame_i], NULL, &gs.img[i].disp_rect);
 			}
@@ -509,7 +508,6 @@ int load_image_names(DIR* dir, char* path, int milliseconds)
 }
 
 
-
 void setup(const char* img_name)
 {
 	gs.win = NULL;
@@ -539,14 +537,16 @@ void setup(const char* img_name)
 		exit(1);
 	}
 
+	/*
 	gs.ren = SDL_CreateRenderer(gs.win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	if (!gs.ren) {
 		snprintf(error_str, 1024, "%s, falling back to software renderer.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Warning: No HW Acceleration", error_str, gs.win);
 		puts(error_str);
-		gs.ren = SDL_CreateRenderer(gs.win, -1, SDL_RENDERER_SOFTWARE);
 	}
+	*/
 
+	gs.ren = SDL_CreateRenderer(gs.win, -1, SDL_RENDERER_SOFTWARE);
 	if (!gs.ren) {
 		snprintf(error_str, 1024, "Software rendering failed: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, gs.win);
@@ -589,6 +589,7 @@ void clear_img(img_state* img)
 }
 
 
+
 int load_new_images(void* right_or_down)
 {
 	int is_right = *(int*)right_or_down;
@@ -629,11 +630,11 @@ int load_new_images(void* right_or_down)
 			else
 				img[0].index = (gs.img_focus->index-1 < 0) ? gs.files.size-1 : gs.img_focus->index-1;
 		} while (!(ret = load_image(gs.files.a[img[0].index], &img[0])));
+		img[0].scr_rect = gs.img_focus->scr_rect;
 		set_rect_bestfit(&img[0], gs.fullscreen);
 		SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[img[0].index], title_buf));
 	}
 
-	print_img_state(&img[0]);
 	gs.loading = 0;
 	gs.done_loading = 1;
 	return 0;
@@ -666,6 +667,7 @@ int handle_events()
 	img_state* img;
 
 	thrd_t loading_thrd;
+	SDL_Texture** tmptex;
 
 	gs.status = NOCHANGE;
 
@@ -679,8 +681,12 @@ int handle_events()
 		img = (gs.img == gs.img1) ? gs.img2 : gs.img1;
 		if (gs.img_focus) {
 			clear_img(gs.img_focus);
-			// TODO swap tex?
+			tmptex = gs.img_focus->tex;
+			tmp = gs.img_focus->frame_capacity;
 			memcpy(gs.img_focus, &img[0], sizeof(img_state));
+			img[0].tex = tmptex;
+			img[0].frame_capacity = tmp;
+			img[0].frames = 0;
 		} else {
 			for (int i=0; i<gs.n_imgs; ++i)
 				clear_img(&gs.img[i]);
@@ -688,8 +694,6 @@ int handle_events()
 		}
 		gs.done_loading = 0;
 		gs.status = REDRAW;
-		puts("switch");
-		print_img_state(&gs.img[0]);
 	}
 
 	int ticks = SDL_GetTicks();
