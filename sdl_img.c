@@ -7,6 +7,7 @@
 #include "stb_image.h"
 
 //#include "c_utils.h"
+#include "tinycthread.h"
 
 #include <stdio.h>
 
@@ -51,7 +52,10 @@ typedef struct global_state
 
 	img_state* img_focus;
 	int n_imgs;
-	img_state img[8];
+	img_state* img;
+
+	img_state img1[8];
+	img_state img2[8];
 
 	int status;
 
@@ -65,6 +69,9 @@ typedef struct global_state
 
 	int slideshow;
 	int slide_timer;
+
+	int loading;
+	int done_loading;
 
 } global_state;
 
@@ -83,6 +90,7 @@ void set_rect_bestfit(img_state* img, int fill_screen);
 void set_rect_zoom(img_state* img, int zoom);
 
 
+void print_img_state(img_state* img);
 
 
 
@@ -234,6 +242,7 @@ int main(int argc, char** argv)
 			SDL_RenderSetClipRect(gs.ren, NULL);
 			SDL_RenderClear(gs.ren);
 			for (int i=0; i<gs.n_imgs; ++i) {
+				print_img_state(&gs.img[i]);
 				SDL_RenderSetClipRect(gs.ren, &gs.img[i].scr_rect);
 				SDL_RenderCopy(gs.ren, gs.img[i].tex[gs.img[i].frame_i], NULL, &gs.img[i].disp_rect);
 			}
@@ -373,6 +382,7 @@ int load_image(const char* img_name, img_state* img)
 	}
 
 	printf("loading %s\n", fullpath);
+	printf("%p\n", img);
 
 	//img = stbi_load(path, &img->w, &img->h, &n, 4);
 	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, 4, &frames);
@@ -380,8 +390,6 @@ int load_image(const char* img_name, img_state* img)
 		printf("failed to load %s: %s\n", fullpath, stbi_failure_reason());
 		return 0;
 	}
-
-	//printf("found %d frames\n", frames);
 
 	if (frames > img->frame_capacity) {
 		// img->tex is either NULL or previously alloced
@@ -421,6 +429,9 @@ int load_image(const char* img_name, img_state* img)
 	// don't need the pixels anymore (don't plan on adding editting features)
 	stbi_image_free(img->pixels);
 	img->pixels = NULL;
+
+	puts("in load_image()");
+	print_img_state(img);
 
 	return 1;
 }
@@ -547,7 +558,8 @@ void setup(const char* img_name)
 	SDL_RenderClear(gs.ren);
 	SDL_RenderPresent(gs.ren);
 
-	memset(&gs.img[0], 0, sizeof(img_state));
+	gs.img = gs.img1;
+	// all of gs is initialized to 0 on startup
 
 	gs.img[0].tex = malloc(100*sizeof(SDL_Texture*));
 	gs.img[0].frame_capacity = 100;
@@ -585,31 +597,46 @@ int load_new_images(void* right_or_down)
 	char title_buf[1024];
 	int ret;
 
+	img_state* img;
+	if (gs.img == gs.img1)
+		img = gs.img2;
+	else
+		img = gs.img1;
+
+	for (int i=0; i<gs.n_imgs; ++i)
+		img[i].scr_rect = gs.img[i].scr_rect;
+
 	if (!gs.img_focus) {
 		for (int i=0; i<gs.n_imgs; ++i) {
 			do {
 				if (is_right) {
-					gs.img[i].index = (gs.img[i].index + gs.n_imgs) % gs.files.size;
+					img[i].index = (gs.img[i].index + gs.n_imgs) % gs.files.size;
 				} else {
 					tmp = gs.img[i].index - gs.n_imgs;
-					gs.img[i].index = (tmp < 0) ? gs.files.size+tmp : tmp;
+					img[i].index = (tmp < 0) ? gs.files.size+tmp : tmp;
 				}
-			} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i])));
-			set_rect_bestfit(&gs.img[i], gs.fullscreen);
+			} while (!(ret = load_image(gs.files.a[img[i].index], &img[i])));
+			set_rect_bestfit(&img[i], gs.fullscreen);
 		}
 		// just set title to upper left image when !img_focus
-		SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img[0].index], title_buf));
+		SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[img[0].index], title_buf));
 
 	} else {
+		// TODO how to handle?
 		do {
 			if (is_right)
-				gs.img_focus->index = (gs.img_focus->index + 1) % gs.files.size;
+				img[0].index = (gs.img_focus->index + 1) % gs.files.size;
 			else
-				gs.img_focus->index = (gs.img_focus->index-1 < 0) ? gs.files.size-1 : gs.img_focus->index-1;
-		} while (!(ret = load_image(gs.files.a[gs.img_focus->index], gs.img_focus)));
-		set_rect_bestfit(gs.img_focus, gs.fullscreen);
-		SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
+				img[0].index = (gs.img_focus->index-1 < 0) ? gs.files.size-1 : gs.img_focus->index-1;
+		} while (!(ret = load_image(gs.files.a[img[0].index], &img[0])));
+		set_rect_bestfit(&img[0], gs.fullscreen);
+		SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[img[0].index], title_buf));
 	}
+
+	print_img_state(&img[0]);
+	gs.loading = 0;
+	gs.done_loading = 1;
+	return 0;
 }
 
 
@@ -638,6 +665,8 @@ int handle_events()
 	img_state tmp_img = { 0 };
 	img_state* img;
 
+	thrd_t loading_thrd;
+
 	gs.status = NOCHANGE;
 
 	SDL_Keymod mod_state = SDL_GetModState();
@@ -646,10 +675,27 @@ int handle_events()
 	right.type = SDL_KEYDOWN;
 	right.key.keysym.scancode = SDL_SCANCODE_RIGHT;
 
+	if (gs.done_loading) {
+		img = (gs.img == gs.img1) ? gs.img2 : gs.img1;
+		if (gs.img_focus) {
+			clear_img(gs.img_focus);
+			// TODO swap tex?
+			memcpy(gs.img_focus, &img[0], sizeof(img_state));
+		} else {
+			for (int i=0; i<gs.n_imgs; ++i)
+				clear_img(&gs.img[i]);
+			gs.img = img;
+		}
+		gs.done_loading = 0;
+		gs.status = REDRAW;
+		puts("switch");
+		print_img_state(&gs.img[0]);
+	}
+
 	int ticks = SDL_GetTicks();
 	int set_slide_timer = 0;
 
-	if (gs.slideshow && ticks - gs.slide_timer > gs.slideshow) {
+	if (!gs.loading && gs.slideshow && ticks - gs.slide_timer > gs.slideshow) {
 		int i;
 		// make sure all current gifs have gotten to the end
 		// at least once
@@ -917,7 +963,7 @@ int handle_events()
 			case SDL_SCANCODE_RIGHT:
 				panned = 0;
 				gs.status = REDRAW;
-				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (gs.loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!gs.img_focus) {
 						for (int i=0; i<gs.n_imgs; ++i) {
 							img = &gs.img[i];
@@ -936,16 +982,22 @@ int handle_events()
 						}
 					}
 				}
-				if (!panned) {
+				if (!gs.loading && !panned) {
 					set_slide_timer = 1;
 					right_or_down = 1;
-					load_new_images(&right_or_down);
+
+					gs.loading = 1;
+					gs.done_loading = 0;
+					if (thrd_success != thrd_create(&loading_thrd, load_new_images, &right_or_down)) {
+						puts("couldn't create thread");
+					}
+					//load_new_images(&right_or_down);
 				}
 				break;
 			case SDL_SCANCODE_DOWN:
 				panned = 0;
 				gs.status = REDRAW;
-				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (gs.loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!gs.img_focus) {
 						for (int i=0; i<gs.n_imgs; ++i) {
 							img = &gs.img[i];
@@ -964,17 +1016,22 @@ int handle_events()
 						}
 					}
 				}
-				if (!panned) {
+				if (!gs.loading && !panned) {
 					set_slide_timer = 1;
 					right_or_down = 1;
-					load_new_images(&right_or_down);
+					gs.loading = 1;
+					gs.done_loading = 0;
+					if (thrd_success != thrd_create(&loading_thrd, load_new_images, &right_or_down)) {
+						puts("couldn't create thread");
+					}
+					//load_new_images(&right_or_down);
 				}
 				break;
 
 			case SDL_SCANCODE_LEFT:
 				panned = 0;
 				gs.status = REDRAW;
-				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (gs.loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!gs.img_focus) {
 						for (int i=0; i<gs.n_imgs; ++i) {
 							img = &gs.img[i];
@@ -993,16 +1050,21 @@ int handle_events()
 						}
 					}
 				}
-				if (!panned) {
+				if (!gs.loading && !panned) {
 					set_slide_timer = 1;
 					right_or_down = 0;
-					load_new_images(&right_or_down);
+					gs.loading = 1;
+					gs.done_loading = 0;
+					if (thrd_success != thrd_create(&loading_thrd, load_new_images, &right_or_down)) {
+						puts("couldn't create thread");
+					}
+					//load_new_images(&right_or_down);
 				}
 				break;
 			case SDL_SCANCODE_UP:
 				panned = 0;
 				gs.status = REDRAW;
-				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (gs.loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!gs.img_focus) {
 						for (int i=0; i<gs.n_imgs; ++i) {
 							img = &gs.img[i];
@@ -1021,10 +1083,15 @@ int handle_events()
 						}
 					}
 				}
-				if (!panned) {
+				if (!gs.loading && !panned) {
 					set_slide_timer = 1;
 					right_or_down = 0;
-					load_new_images(&right_or_down);
+					gs.loading = 1;
+					gs.done_loading = 0;
+					if (thrd_success != thrd_create(&loading_thrd, load_new_images, &right_or_down)) {
+						puts("couldn't create thread");
+					}
+					//load_new_images(&right_or_down);
 				}
 				break;
 
@@ -1175,6 +1242,26 @@ int handle_events()
 
 	return 0;
 }
+
+
+void print_img_state(img_state* img)
+{
+	printf("{\nimg = %p\n", img);
+	printf("pixels = %p\n", img->pixels);
+	printf("WxH = %dx%d\n", img->w, img->h);
+	printf("index = %d\n", img->index);
+	printf("frame_i = %d\ndelay = %d\nframes = %d\nframe_cap = %d\n", img->frame_i, img->delay, img->frames, img->frame_capacity);
+	printf("frame_timer = %d\nlooped = %d\n", img->frame_timer, img->looped);
+
+	printf("tex = %p\n", img->tex);
+	for (int i=0; i<img->frames; ++i) {
+		printf("tex[i] = %p\n", img->tex[i]);
+	}
+
+	printf("scr_rect = %d %d %d %d\n", img->scr_rect.x, img->scr_rect.y, img->scr_rect.w, img->scr_rect.h);
+	printf("disp_rect = %d %d %d %d\n}\n", img->disp_rect.x, img->disp_rect.y, img->disp_rect.w, img->disp_rect.h);
+}
+
 
 void cleanup(int ret)
 {
