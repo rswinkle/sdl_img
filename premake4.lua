@@ -19,9 +19,9 @@ solution "SDL img"
 		kind "ConsoleApp"
 		language "C"
 		files {
-			"sdl_img.c",
-			"cvector.h",
-			"stb_image.h"
+			"src/sdl_img.c",
+			"src/cvector.h",
+			"src/stb_image.h"
 		}
 		targetdir "build"
 		

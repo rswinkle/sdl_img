@@ -7,21 +7,27 @@ Goals / Focus
 =============
 * Implement features I've always wanted in an image viewer
 * Relatively simple, short, readable code
+* Learn/Practice/Fun
 * Not focused on speed, if it's fast enough on my chromebook it's good enough
 
 Controls/Usage
 ==============
 ./sdl_img image_name.jpg
 
-Will open image_name.jpg.  Left and Right (or Up and Down) will cycle
-through images in the directory of the original image (in alphabetical order.
-The center wheel can zoom in and out, and you can also drag to pan on a zoomed
-in image.
+Will open image_name.jpg.  On Windows that would be sdl_img.exe, but better
+to just right click on an image of each type and change the default application
+to be sdl_img.exe and then double clicking any image of that type will open it
+with sdl_img.
 
-* A              - Actual Size
-* F              - Best Fit
-* ALT + F or F11 - Toggle Fullscreen
-* ESC            - Exit (or exit Slideshow mode then fullscreen)
+* Left (or Up)      - Previous image(s) or pan if appropriate
+* Right (or Down)   - Next image(s) or pan if appropriate
+* +/-               - Zoom in/out
+* Mouse Wheel       - Zoom in/out
+* Left click + drag - Pan around a zoomed in image
+* A                 - Actual Size
+* F                 - Best Fit
+* ALT + F or F11    - Toggle Fullscreen
+* ESC               - Exit (or exit Slideshow mode then fullscreen)
 
 The unique features are being able to view more than a single image at once
 

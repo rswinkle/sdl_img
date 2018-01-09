@@ -5,8 +5,8 @@
 ; --------------------------------
 
 ; Change these as needed
-!define VERSION "0.8"
-!define INST_FOLDER "sdl_img"
+!define VERSION "0.9"
+!define INST_FOLDER "package"
 
 SetCompressor /SOLID /FINAL lzma
 SetCompressorDictSize 64
@@ -23,19 +23,19 @@ InstallDir "$PROGRAMfILES64\sdl_img"
 ; Interface configuration
 
 
-; !define MUI_ICON "${INST_FOLDER}\sdl_img.ico"
-; !define MUI_UNICON "${INST_FOLDER}\sdl_img.ico"
+!define MUI_ICON "${INST_FOLDER}\sdl_img.ico"
+!define MUI_UNICON "${INST_FOLDER}\sdl_img.ico"
 ; 
-; ; Recommended to be 150 x 57
-; !define MUI_HEADERIMAGE
-; !define MUI_HEADERIMAGE_BITMAP "${INST_FOLDER}\sdl_img.bmp"
-; !define MUI_HEADERIMAGE_UNBITMAP "${INST_FOLDER}\sdl_img.bmp"
+; Recommended to be 150 x 57
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_BITMAP "${INST_FOLDER}\sdl_img.bmp"
+!define MUI_HEADERIMAGE_UNBITMAP "${INST_FOLDER}\sdl_img.bmp"
 ; 
-; !define MUI_ABORTWARNING
+!define MUI_ABORTWARNING
 ; 
-; ; Recommended to be 164 x 314
-; !define MUI_WELCOMEFINISHPAGE_BITMAP "${INST_FOLDER}\sdl_img2.bmp"
-; !define MUI_UNWELCOMEFINISHPAGE_BITMAP "${INST_FOLDER}\sdl_img2.bmp"
+; Recommended to be 164 x 314
+!define MUI_WELCOMEFINISHPAGE_BITMAP "${INST_FOLDER}\sdl_img2.bmp"
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP "${INST_FOLDER}\sdl_img2.bmp"
 ; 
 ; !define MUI_WELCOMEPAGE_TITLE "Welcome to the sdl_img Setup"
 
@@ -46,7 +46,7 @@ InstallDir "$PROGRAMfILES64\sdl_img"
 !define MUI_FINISHPAGE_LINK "sdl_img Website"
 !define MUI_FINISHPAGE_LINK_LOCATION "http://robertwinkler.com/projects/sdl_img"
 
-!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README.txt"
+!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README.md"
 
 
 
@@ -71,7 +71,7 @@ InstallDir "$PROGRAMfILES64\sdl_img"
 ;-----------------------------------
 ; Languages
 
-; Extremely unlikely we'll ever add support for other languages
+; Extremely unlikely I'll ever add support for other languages
 !insertmacro MUI_LANGUAGE "English"
 
 
@@ -82,22 +82,25 @@ InstallDir "$PROGRAMfILES64\sdl_img"
 #default section start
 Section "-Core"
 	SetOutPath $INSTDIR
-	File ${INST_FOLDER}\*
+	File ${INST_FOLDER}\sdl_img.exe
+	File ${INST_FOLDER}\SDL2.dll
+	File ${INST_FOLDER}\sdl_img.ico
+	File ${INST_FOLDER}\sdl_img.bmp
+	File ${INST_FOLDER}\sdl_img2.bmp
+	File ${INST_FOLDER}\LICENSE
+	File ${INST_FOLDER}\LICENSE.txt
 
 	WriteUninstaller $INSTDIR\uninstaller.exe
 SectionEnd
 
-SectionGroup /e "sdl_img" sdl_img_id
-
-	Section "Shortcuts" shortcuts_id
-		CreateShortcut $DESKTOP\sdl_img.lnk $INSTDIR\sdl_img.exe "" $INSTDIR\sdl_img.ico
-
-		CreateDirectory $STARTMENU\sdl_img
-		CreateShortcut $STARTMENU\sdl_img\sdl_img.lnk $INSTDIR\sdl_img.exe "" $INSTDIR\sdl_img.ico
-		CreateShortcut $STARTMENU\sdl_img\Uninstall.lnk $INSTDIR\uninstaller.exe
+; I'll put back the group if I ever add other optional sections
+;SectionGroup /e "Optional" optional_id
+	Section "Source Code" source_id
+		SetOutPath $INSTDIR\src
+		FILE src\*
 	SectionEnd
 
-SectionGroupEnd
+;SectionGroupEnd
 
 
 
@@ -105,8 +108,7 @@ SectionGroupEnd
 ; Descriptions
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-	!insertmacro MUI_DESCRIPTION_TEXT ${sdl_img_id} "Core components"
-	!insertmacro MUI_DESCRIPTION_TEXT ${shortcuts_id} "Installs shortcuts for the Desktop and Start Menu."
+	!insertmacro MUI_DESCRIPTION_TEXT ${source_id} "Include the sdl_img source code."
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
