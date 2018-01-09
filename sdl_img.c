@@ -80,7 +80,7 @@ global_state gs = { 0 };
 
 void setup(const char* img_name);
 void cleanup(int ret);
-int load_image(const char* path, img_state* img);
+int load_image(const char* path, img_state* img, int make_textures);
 int handle_events();
 int load_image_names(DIR* dir, char* path, int milliseconds);
 
@@ -187,7 +187,7 @@ int main(int argc, char** argv)
 
 	setup(img_name);
 
-	if (!load_image(img_name, &gs.img[0])) {
+	if (!load_image(img_name, &gs.img[0], SDL_TRUE)) {
 		cleanup(0);
 	}
 
@@ -363,20 +363,42 @@ void fix_rect(img_state* img)
 }
 
 
-int load_image(const char* img_name, img_state* img)
+int create_textures(img_state* img)
+{
+	int size = img->w * img->h * 4;
+
+	for (int i=0; i<img->frames; ++i) {
+		img->tex[i] = SDL_CreateTexture(gs.ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, img->w, img->h);
+		if (!img->tex[i]) {
+			printf("Error: %s\n", SDL_GetError());
+			return 0;
+		}
+		if (SDL_UpdateTexture(img->tex[i], NULL, img->pixels+(size+2)*i, img->w*4)) {
+			printf("Error updating texture: %s\n", SDL_GetError());
+			return 0;
+		}
+	}
+
+	// don't need the pixels anymore (don't plan on adding editting features)
+	stbi_image_free(img->pixels);
+	img->pixels = NULL;
+
+	return 1;
+}
+
+int load_image(const char* img_name, img_state* img, int make_textures)
 {
 	int frames, n;
 
-	//clean up previous image if any
-	for (int i=0; i<img->frames; ++i) {
-		SDL_DestroyTexture(img->tex[i]);
-	}
+	// img->frames should always be 0 and there should be no allocated textures
+	// in tex because clear_img(img) should always have been called before
 
 	char fullpath[4096];
 
 	int ret = snprintf(fullpath, 4096, "%s/%s", gs.dirpath, img_name);
 	if (ret >= 4096) {
-		printf("path too long\n");
+		// TODO add messagebox here?
+		printf("path too long, exiting\n");
 		cleanup(0);
 	}
 
@@ -390,29 +412,18 @@ int load_image(const char* img_name, img_state* img)
 		return 0;
 	}
 
+	puts("here?");
+
 	if (frames > img->frame_capacity) {
 		// img->tex is either NULL or previously alloced
 		img->tex = realloc(img->tex, frames*sizeof(SDL_Texture*));
 		img->frame_capacity = frames;
 	}
 
-	size_t size = img->w * img->h * 4;
-
-	for (int i=0; i<frames; ++i) {
-		img->tex[i] = SDL_CreateTexture(gs.ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, img->w, img->h);
-		if (!img->tex[i]) {
-			printf("Error: %s\n", SDL_GetError());
-			return 0;
-		}
-		if (SDL_UpdateTexture(img->tex[i], NULL, img->pixels+(size+2)*i, img->w*4)) {
-			printf("Error updating texture: %s\n", SDL_GetError());
-			return 0;
-		}
-	}
+	int size = img->w * img->h * 4;
 	//gif delay is in 100ths, ticks are 1000ths
 	//assume that the delay is the same for all frames (never seen anything else anyway)
 	//and if delay is 0, default to 10 fps
-	
 	img->looped = 1;
 	if (frames > 1) {
 		img->looped = 0;
@@ -422,12 +433,13 @@ int load_image(const char* img_name, img_state* img)
 		printf("%d frames %d delay\n", frames, img->delay);
 	}
 
-	img->frame_i = 0;
 	img->frames = frames;
+	img->frame_i = 0;
 
-	// don't need the pixels anymore (don't plan on adding editting features)
-	stbi_image_free(img->pixels);
-	img->pixels = NULL;
+	if (make_textures) {
+		if (!create_textures(img))
+			return 0;
+	}
 
 	puts("in load_image()");
 	print_img_state(img);
@@ -537,16 +549,14 @@ void setup(const char* img_name)
 		exit(1);
 	}
 
-	/*
 	gs.ren = SDL_CreateRenderer(gs.win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	if (!gs.ren) {
 		snprintf(error_str, 1024, "%s, falling back to software renderer.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Warning: No HW Acceleration", error_str, gs.win);
 		puts(error_str);
+		gs.ren = SDL_CreateRenderer(gs.win, -1, SDL_RENDERER_SOFTWARE);
 	}
-	*/
 
-	gs.ren = SDL_CreateRenderer(gs.win, -1, SDL_RENDERER_SOFTWARE);
 	if (!gs.ren) {
 		snprintf(error_str, 1024, "Software rendering failed: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, gs.win);
@@ -616,7 +626,7 @@ int load_new_images(void* right_or_down)
 					tmp = gs.img[i].index - gs.n_imgs;
 					img[i].index = (tmp < 0) ? gs.files.size+tmp : tmp;
 				}
-			} while (!(ret = load_image(gs.files.a[img[i].index], &img[i])));
+			} while (!(ret = load_image(gs.files.a[img[i].index], &img[i], SDL_FALSE)));
 			set_rect_bestfit(&img[i], gs.fullscreen);
 		}
 		// just set title to upper left image when !img_focus
@@ -629,7 +639,7 @@ int load_new_images(void* right_or_down)
 				img[0].index = (gs.img_focus->index + 1) % gs.files.size;
 			else
 				img[0].index = (gs.img_focus->index-1 < 0) ? gs.files.size-1 : gs.img_focus->index-1;
-		} while (!(ret = load_image(gs.files.a[img[0].index], &img[0])));
+		} while (!(ret = load_image(gs.files.a[img[0].index], &img[0], SDL_FALSE)));
 		img[0].scr_rect = gs.img_focus->scr_rect;
 		set_rect_bestfit(&img[0], gs.fullscreen);
 		SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[img[0].index], title_buf));
@@ -654,6 +664,19 @@ void toggle_fullscreen()
 	}
 }
 
+// 
+void replace_img(img_state* i1, img_state* i2)
+{
+	SDL_Texture** tmptex = i1->tex;
+	int tmp = i1->frame_capacity;
+	memcpy(i1, i2, sizeof(img_state));
+	i2->tex = tmptex;
+	i2->frame_capacity = tmp;
+	i2->frames = 0;
+}
+
+
+
 int handle_events()
 {
 	SDL_Event e;
@@ -661,7 +684,7 @@ int handle_events()
 	int ret;
 	int tmp;
 	int panned;
-	int right_or_down;
+	static int right_or_down;
 	char title_buf[1024];
 	img_state tmp_img = { 0 };
 	img_state* img;
@@ -681,19 +704,18 @@ int handle_events()
 		img = (gs.img == gs.img1) ? gs.img2 : gs.img1;
 		if (gs.img_focus) {
 			clear_img(gs.img_focus);
-			tmptex = gs.img_focus->tex;
-			tmp = gs.img_focus->frame_capacity;
-			memcpy(gs.img_focus, &img[0], sizeof(img_state));
-			img[0].tex = tmptex;
-			img[0].frame_capacity = tmp;
-			img[0].frames = 0;
+			replace_img(gs.img_focus, &img[0]);
+			create_textures(gs.img_focus);
 		} else {
-			for (int i=0; i<gs.n_imgs; ++i)
+			for (int i=0; i<gs.n_imgs; ++i) {
+				create_textures(&img[i]);
 				clear_img(&gs.img[i]);
+			}
 			gs.img = img;
 		}
 		gs.done_loading = 0;
 		gs.status = REDRAW;
+		//thrd_join(loading_thrd, NULL);
 	}
 
 	int ticks = SDL_GetTicks();
@@ -771,8 +793,7 @@ int handle_events()
 
 							clear_img(&gs.img[i]);
 						}
-						gs.img[0] = *gs.img_focus;
-						memset(gs.img_focus, 0, sizeof(img_state));
+						replace_img(&gs.img[0], gs.img_focus);
 
 					} else {
 						for (int i=1; i<gs.n_imgs; ++i) {
@@ -806,7 +827,7 @@ int handle_events()
 							gs.img[1].index = gs.img[0].index;
 							do {
 								gs.img[1].index = (gs.img[1].index + 1) % gs.files.size;
-							} while (!(ret = load_image(gs.files.a[gs.img[1].index], &gs.img[1])));
+							} while (!(ret = load_image(gs.files.a[gs.img[1].index], &gs.img[1], SDL_TRUE)));
 						} else {
 							for (int i=gs.n_imgs-1; i>1; --i)
 								clear_img(&gs.img[i]);
@@ -851,7 +872,7 @@ int handle_events()
 							gs.img[i].index = gs.img[i-1].index;
 							do {
 								gs.img[i].index = (gs.img[i].index + 1) % gs.files.size;
-							} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i])));
+							} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i], SDL_TRUE)));
 						}
 						for (int i=gs.n_imgs-1; i>3; --i) {
 							clear_img(&gs.img[i]);
@@ -905,7 +926,7 @@ int handle_events()
 							gs.img[i].index = gs.img[i-1].index;
 							do {
 								gs.img[i].index = (gs.img[i].index + 1) % gs.files.size;
-							} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i])));
+							} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i], SDL_TRUE)));
 						}
 						// This loop will never run unless I add a higher number somehow like 12 or 16
 						for (int i=gs.n_imgs-1; i>7; --i) {
@@ -995,6 +1016,7 @@ int handle_events()
 					if (thrd_success != thrd_create(&loading_thrd, load_new_images, &right_or_down)) {
 						puts("couldn't create thread");
 					}
+					thrd_detach(loading_thrd);
 					//load_new_images(&right_or_down);
 				}
 				break;
@@ -1028,6 +1050,7 @@ int handle_events()
 					if (thrd_success != thrd_create(&loading_thrd, load_new_images, &right_or_down)) {
 						puts("couldn't create thread");
 					}
+					thrd_detach(loading_thrd);
 					//load_new_images(&right_or_down);
 				}
 				break;
@@ -1062,6 +1085,7 @@ int handle_events()
 					if (thrd_success != thrd_create(&loading_thrd, load_new_images, &right_or_down)) {
 						puts("couldn't create thread");
 					}
+					thrd_detach(loading_thrd);
 					//load_new_images(&right_or_down);
 				}
 				break;
@@ -1095,6 +1119,7 @@ int handle_events()
 					if (thrd_success != thrd_create(&loading_thrd, load_new_images, &right_or_down)) {
 						puts("couldn't create thread");
 					}
+					thrd_detach(loading_thrd);
 					//load_new_images(&right_or_down);
 				}
 				break;
@@ -1259,7 +1284,7 @@ void print_img_state(img_state* img)
 
 	printf("tex = %p\n", img->tex);
 	for (int i=0; i<img->frames; ++i) {
-		printf("tex[i] = %p\n", img->tex[i]);
+		printf("tex[%d] = %p\n", i, img->tex[i]);
 	}
 
 	printf("scr_rect = %d %d %d %d\n", img->scr_rect.x, img->scr_rect.y, img->scr_rect.w, img->scr_rect.h);
