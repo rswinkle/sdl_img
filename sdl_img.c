@@ -700,6 +700,22 @@ int handle_events()
 	right.type = SDL_KEYDOWN;
 	right.key.keysym.scancode = SDL_SCANCODE_RIGHT;
 
+	int ticks = SDL_GetTicks();
+	int set_slide_timer = 0;
+
+	if (gs.slideshow && !gs.loading && !gs.done_loading && ticks - gs.slide_timer > gs.slideshow) {
+		int i;
+		// make sure all current gifs have gotten to the end
+		// at least once
+		for (i=0; i<gs.n_imgs; ++i) {
+			if (!gs.img[i].looped)
+				break;
+		}
+		if (i == gs.n_imgs) {
+			SDL_PushEvent(&right);
+		}
+	}
+
 	if (gs.done_loading) {
 		img = (gs.img == gs.img1) ? gs.img2 : gs.img1;
 		if (gs.img_focus) {
@@ -715,24 +731,8 @@ int handle_events()
 		}
 		gs.done_loading = 0;
 		gs.status = REDRAW;
-		//thrd_join(loading_thrd, NULL);
-	}
-
-	int ticks = SDL_GetTicks();
-	int set_slide_timer = 0;
-
-	if (!gs.loading && gs.slideshow && ticks - gs.slide_timer > gs.slideshow) {
-		int i;
-		// make sure all current gifs have gotten to the end
-		// at least once
-		for (i=0; i<gs.n_imgs; ++i) {
-			if (!gs.img[i].looped)
-				break;
-		}
-		if (i == gs.n_imgs) {
-			SDL_PushEvent(&right);
+		if (gs.slideshow)
 			set_slide_timer = 1;
-		}
 	}
 
 	while (SDL_PollEvent(&e)) {
