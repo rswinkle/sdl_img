@@ -7,7 +7,6 @@
 #include "stb_image.h"
 
 //#include "c_utils.h"
-#include "tinycthread.h"
 
 #include <stdio.h>
 
@@ -17,7 +16,7 @@
 
 
 #define SDL_MAIN_HANDLED
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 
 
@@ -689,7 +688,7 @@ int handle_events()
 	img_state tmp_img = { 0 };
 	img_state* img;
 
-	thrd_t loading_thrd;
+	SDL_Thread* loading_thrd;
 	SDL_Texture** tmptex;
 
 	gs.status = NOCHANGE;
@@ -1013,10 +1012,10 @@ int handle_events()
 
 					gs.loading = 1;
 					gs.done_loading = 0;
-					if (thrd_success != thrd_create(&loading_thrd, load_new_images, &right_or_down)) {
+					if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", &right_or_down))) {
 						puts("couldn't create thread");
 					}
-					thrd_detach(loading_thrd);
+					SDL_DetachThread(loading_thrd);
 					//load_new_images(&right_or_down);
 				}
 				break;
@@ -1047,10 +1046,10 @@ int handle_events()
 					right_or_down = 1;
 					gs.loading = 1;
 					gs.done_loading = 0;
-					if (thrd_success != thrd_create(&loading_thrd, load_new_images, &right_or_down)) {
+					if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", &right_or_down))) {
 						puts("couldn't create thread");
 					}
-					thrd_detach(loading_thrd);
+					SDL_DetachThread(loading_thrd);
 					//load_new_images(&right_or_down);
 				}
 				break;
@@ -1082,10 +1081,10 @@ int handle_events()
 					right_or_down = 0;
 					gs.loading = 1;
 					gs.done_loading = 0;
-					if (thrd_success != thrd_create(&loading_thrd, load_new_images, &right_or_down)) {
+					if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", &right_or_down))) {
 						puts("couldn't create thread");
 					}
-					thrd_detach(loading_thrd);
+					SDL_DetachThread(loading_thrd);
 					//load_new_images(&right_or_down);
 				}
 				break;
@@ -1116,10 +1115,10 @@ int handle_events()
 					right_or_down = 0;
 					gs.loading = 1;
 					gs.done_loading = 0;
-					if (thrd_success != thrd_create(&loading_thrd, load_new_images, &right_or_down)) {
+					if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", &right_or_down))) {
 						puts("couldn't create thread");
 					}
-					thrd_detach(loading_thrd);
+					SDL_DetachThread(loading_thrd);
 					//load_new_images(&right_or_down);
 				}
 				break;
