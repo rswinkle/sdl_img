@@ -69,12 +69,17 @@ typedef struct global_state
 	int slideshow;
 	int slide_timer;
 
+	// threading flags
 	int loading;
 	int done_loading;
 
 } global_state;
 
 global_state gs = { 0 };
+
+// move to gs?
+SDL_cond* cnd;
+SDL_mutex* mtx;
 
 
 void setup(const char* img_name);
@@ -91,6 +96,7 @@ void set_rect_zoom(img_state* img, int zoom);
 
 void print_img_state(img_state* img);
 
+int load_new_images(void* data);
 
 
 #define PATH_SEPARATOR '/'
@@ -149,12 +155,16 @@ char* mybasename(const char* path, char* base)
 }
 
 
+// TODO use http://stereopsis.com/strcmp4humans.html
+// or slightly modified in stb-imv?
 int cmp_string_lt(const void* a, const void* b)
 {
 	return strcmp(*(const char**)a, *(const char**)b);
 }
 
+
 enum { QUIT, REDRAW, NOCHANGE };
+enum { NOTHING, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 
 
 
@@ -195,6 +205,22 @@ int main(int argc, char** argv)
 	SDL_RenderCopy(gs.ren, gs.img[0].tex[gs.img[0].frame_i], NULL, &gs.img[0].disp_rect);
 	SDL_RenderPresent(gs.ren);
 	
+
+	if (!(cnd = SDL_CreateCond())) {
+		printf("Error: %s", SDL_GetError());
+		cleanup(0);
+	}
+
+	if (!(mtx = SDL_CreateMutex())) {
+		printf("Error: %s", SDL_GetError());
+		cleanup(0);
+	}
+
+	SDL_Thread* loading_thrd;
+	if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", NULL))) {
+		puts("couldn't create thread");
+	}
+	SDL_DetachThread(loading_thrd);
 
 	DIR* dir = opendir(dirpath);
 	if (!dir) {
@@ -598,55 +624,81 @@ void clear_img(img_state* img)
 }
 
 
-
-int load_new_images(void* right_or_down)
+int wrap(int z)
 {
-	int is_right = *(int*)right_or_down;
+   int n = gs.files.size;
+   if (z < 0) return z + n;
+   while (z >= n) z = z - n;
+   return z;
+}
+
+int load_new_images(void* data)
+{
 	int tmp;
 
 	char title_buf[1024];
 	int ret;
-
 	img_state* img;
-	if (gs.img == gs.img1)
-		img = gs.img2;
-	else
-		img = gs.img1;
+	int load_what;
+	
+	// TODO move SetWindowTitle() out to main thread?
 
-	for (int i=0; i<gs.n_imgs; ++i)
-		img[i].scr_rect = gs.img[i].scr_rect;
-
-	if (!gs.img_focus) {
-		for (int i=0; i<gs.n_imgs; ++i) {
-			do {
-				if (is_right) {
-					img[i].index = (gs.img[i].index + gs.n_imgs) % gs.files.size;
-				} else {
-					tmp = gs.img[i].index - gs.n_imgs;
-					img[i].index = (tmp < 0) ? gs.files.size+tmp : tmp;
-				}
-			} while (!(ret = load_image(gs.files.a[img[i].index], &img[i], SDL_FALSE)));
-			set_rect_bestfit(&img[i], gs.fullscreen);
+	while (1) {
+		SDL_LockMutex(mtx);
+		while (!gs.loading) {
+			SDL_CondWait(cnd, mtx);
 		}
-		// just set title to upper left image when !img_focus
-		SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[img[0].index], title_buf));
+		load_what = gs.loading;
+		SDL_UnlockMutex(mtx);
 
-	} else {
-		// TODO how to handle?
-		do {
-			if (is_right)
-				img[0].index = (gs.img_focus->index + 1) % gs.files.size;
+		//printf("loading %p = %d\n", &gs.loading, gs.loading);
+		if (load_what >= LEFT) {
+			img_state* img;
+			if (gs.img == gs.img1)
+				img = gs.img2;
 			else
-				img[0].index = (gs.img_focus->index-1 < 0) ? gs.files.size-1 : gs.img_focus->index-1;
-		} while (!(ret = load_image(gs.files.a[img[0].index], &img[0], SDL_FALSE)));
-		img[0].scr_rect = gs.img_focus->scr_rect;
-		set_rect_bestfit(&img[0], gs.fullscreen);
-		SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[img[0].index], title_buf));
-	}
+				img = gs.img1;
 
-	gs.loading = 0;
-	gs.done_loading = 1;
-	return 0;
+			for (int i=0; i<gs.n_imgs; ++i)
+				img[i].scr_rect = gs.img[i].scr_rect;
+			
+			if (!gs.img_focus) {
+				tmp = (load_what == RIGHT) ? gs.n_imgs : -gs.n_imgs;
+				for (int i=0; i<gs.n_imgs; ++i) {
+					do {
+						img[i].index = wrap(gs.img[i].index + tmp);
+					} while (!(ret = load_image(gs.files.a[img[i].index], &img[i], SDL_FALSE)));
+					set_rect_bestfit(&img[i], gs.fullscreen);
+				}
+				// just set title to upper left image when !img_focus
+				SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[img[0].index], title_buf));
+
+			} else {
+				tmp = (load_what == RIGHT) ? 1 : -1;
+				do {
+					img[0].index = wrap(gs.img_focus->index + tmp);
+				} while (!(ret = load_image(gs.files.a[img[0].index], &img[0], SDL_FALSE)));
+				img[0].scr_rect = gs.img_focus->scr_rect;
+				set_rect_bestfit(&img[0], gs.fullscreen);
+				SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[img[0].index], title_buf));
+			}
+
+		// else going to higher image mode
+		} else {
+			for (int i=gs.n_imgs; i<load_what; ++i) {
+				gs.img[i].index = gs.img[i-1].index;
+				do {
+					gs.img[i].index = wrap(gs.img[i].index + 1);
+				} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i], SDL_FALSE)));
+			}
+
+		}
+
+		SDL_LockMutex(mtx);
+		gs.done_loading = load_what;
+		gs.loading = 0;
+		SDL_UnlockMutex(mtx);
+	}
 }
 
 
@@ -676,6 +728,20 @@ void replace_img(img_state* i1, img_state* i2)
 
 
 
+
+#define SET_MODE2_SCR_RECTS() \
+	do { \
+	gs.img[0].scr_rect.x = 0;          \
+	gs.img[0].scr_rect.y = 0;          \
+	gs.img[0].scr_rect.w = gs.scr_w/2; \
+	gs.img[0].scr_rect.h = gs.scr_h;   \
+	gs.img[1].scr_rect.x = gs.scr_w/2; \
+	gs.img[1].scr_rect.y = 0;          \
+	gs.img[1].scr_rect.w = gs.scr_w/2; \
+	gs.img[1].scr_rect.h = gs.scr_h;   \
+	} while (0)
+
+
 int handle_events()
 {
 	SDL_Event e;
@@ -683,12 +749,12 @@ int handle_events()
 	int ret;
 	int tmp;
 	int panned;
-	static int right_or_down;
 	char title_buf[1024];
 	img_state tmp_img = { 0 };
 	img_state* img;
 
-	SDL_Thread* loading_thrd;
+	static int loading = 0;
+
 	SDL_Texture** tmptex;
 
 	gs.status = NOCHANGE;
@@ -702,7 +768,7 @@ int handle_events()
 	int ticks = SDL_GetTicks();
 	int set_slide_timer = 0;
 
-	if (gs.slideshow && !gs.loading && !gs.done_loading && ticks - gs.slide_timer > gs.slideshow) {
+	if (gs.slideshow && !loading && ticks - gs.slide_timer > gs.slideshow) {
 		int i;
 		// make sure all current gifs have gotten to the end
 		// at least once
@@ -715,24 +781,65 @@ int handle_events()
 		}
 	}
 
+	SDL_LockMutex(mtx);
 	if (gs.done_loading) {
-		img = (gs.img == gs.img1) ? gs.img2 : gs.img1;
-		if (gs.img_focus) {
-			clear_img(gs.img_focus);
-			replace_img(gs.img_focus, &img[0]);
-			create_textures(gs.img_focus);
-		} else {
-			for (int i=0; i<gs.n_imgs; ++i) {
-				create_textures(&img[i]);
-				clear_img(&gs.img[i]);
+		if (gs.done_loading >= LEFT) {
+			img = (gs.img == gs.img1) ? gs.img2 : gs.img1;
+			if (gs.img_focus) {
+				clear_img(gs.img_focus);
+				replace_img(gs.img_focus, &img[0]);
+				create_textures(gs.img_focus);
+			} else {
+				for (int i=0; i<gs.n_imgs; ++i) {
+					create_textures(&img[i]);
+					clear_img(&gs.img[i]);
+				}
+				gs.img = img;
 			}
-			gs.img = img;
+			puts("done loading left/right");
+		} else {
+			for (int i=gs.n_imgs; i<gs.done_loading; ++i)
+				create_textures(&gs.img[i]);
+
+			if (gs.done_loading == MODE2) {
+				SET_MODE2_SCR_RECTS();
+				
+				set_rect_bestfit(&gs.img[0], gs.fullscreen);
+				set_rect_bestfit(&gs.img[1], gs.fullscreen);
+
+				gs.n_imgs = 2;
+				gs.img_focus = NULL;
+			} else if (gs.done_loading == MODE4) {
+				for (int i=0; i<4; ++i) {
+					gs.img[i].scr_rect.x = (i%2)*gs.scr_w/2;
+					gs.img[i].scr_rect.y = (i/2)*gs.scr_h/2;
+					gs.img[i].scr_rect.w = gs.scr_w/2;
+					gs.img[i].scr_rect.h = gs.scr_h/2;
+					set_rect_bestfit(&gs.img[i], gs.fullscreen);
+				}
+
+				gs.n_imgs = 4;
+				gs.img_focus = NULL;
+			} else {
+				for (int i=0; i<8; ++i) {
+					gs.img[i].scr_rect.x = (i%4)*gs.scr_w/4;
+					gs.img[i].scr_rect.y = (i/4)*gs.scr_h/2;
+					gs.img[i].scr_rect.w = gs.scr_w/4;
+					gs.img[i].scr_rect.h = gs.scr_h/2;
+					set_rect_bestfit(&gs.img[i], gs.fullscreen);
+				}
+
+				gs.n_imgs = 8;
+				gs.img_focus = NULL;
+			}
 		}
 		gs.done_loading = 0;
 		gs.status = REDRAW;
+		loading = 0;
 		if (gs.slideshow)
 			set_slide_timer = 1;
 	}
+	SDL_UnlockMutex(mtx);
 
 	while (SDL_PollEvent(&e)) {
 		switch (e.type) {
@@ -818,35 +925,26 @@ int handle_events()
 			case SDL_SCANCODE_2:
 				gs.status = REDRAW;
 				set_slide_timer = 1;
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (!loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (gs.n_imgs != 2 && gs.files.size >= 2) {
 
 						// TODO hmm
 						if (gs.n_imgs == 1) {
-							gs.img[1].index = gs.img[0].index;
-							do {
-								gs.img[1].index = (gs.img[1].index + 1) % gs.files.size;
-							} while (!(ret = load_image(gs.files.a[gs.img[1].index], &gs.img[1], SDL_TRUE)));
+							SDL_LockMutex(mtx);
+							gs.loading = MODE2;
+							loading = 1;
+							SDL_CondSignal(cnd);
+							SDL_UnlockMutex(mtx);
 						} else {
 							for (int i=gs.n_imgs-1; i>1; --i)
 								clear_img(&gs.img[i]);
+
+							SET_MODE2_SCR_RECTS();
+							set_rect_bestfit(&gs.img[0], gs.fullscreen);
+							set_rect_bestfit(&gs.img[1], gs.fullscreen);
+							gs.n_imgs = 2;
+							gs.img_focus = NULL;
 						}
-
-						gs.img[0].scr_rect.x = 0;
-						gs.img[0].scr_rect.y = 0;
-						gs.img[0].scr_rect.w = gs.scr_w/2;
-						gs.img[0].scr_rect.h = gs.scr_h;
-						gs.img[1].scr_rect.x = gs.scr_w/2;
-						gs.img[1].scr_rect.y = 0;
-						gs.img[1].scr_rect.w = gs.scr_w/2;
-						gs.img[1].scr_rect.h = gs.scr_h;
-
-						
-						set_rect_bestfit(&gs.img[0], gs.fullscreen);
-						set_rect_bestfit(&gs.img[1], gs.fullscreen);
-
-						gs.n_imgs = 2;
-						gs.img_focus = NULL;
 					}
 
 				} else if (gs.n_imgs >= 2) {
@@ -864,29 +962,31 @@ int handle_events()
 			case SDL_SCANCODE_4:
 				gs.status = REDRAW;
 				set_slide_timer = 1;
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (!gs.loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (gs.n_imgs != 4 && gs.files.size >= 4) {
 						
-						for (int i=gs.n_imgs; i<4; ++i) {
-							gs.img[i].index = gs.img[i-1].index;
-							do {
-								gs.img[i].index = (gs.img[i].index + 1) % gs.files.size;
-							} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i], SDL_TRUE)));
-						}
-						for (int i=gs.n_imgs-1; i>3; --i) {
-							clear_img(&gs.img[i]);
-						}
+						if (gs.n_imgs < 4) {
+							SDL_LockMutex(mtx);
+							gs.loading = MODE4;
+							loading = 1;
+							SDL_CondSignal(cnd);
+							SDL_UnlockMutex(mtx);
+						} else {
+							for (int i=gs.n_imgs-1; i>3; --i) {
+								clear_img(&gs.img[i]);
+							}
 
-						for (int i=0; i<4; ++i) {
-							gs.img[i].scr_rect.x = (i%2)*gs.scr_w/2;
-							gs.img[i].scr_rect.y = (i/2)*gs.scr_h/2;
-							gs.img[i].scr_rect.w = gs.scr_w/2;
-							gs.img[i].scr_rect.h = gs.scr_h/2;
-							set_rect_bestfit(&gs.img[i], gs.fullscreen);
-						}
+							for (int i=0; i<4; ++i) {
+								gs.img[i].scr_rect.x = (i%2)*gs.scr_w/2;
+								gs.img[i].scr_rect.y = (i/2)*gs.scr_h/2;
+								gs.img[i].scr_rect.w = gs.scr_w/2;
+								gs.img[i].scr_rect.h = gs.scr_h/2;
+								set_rect_bestfit(&gs.img[i], gs.fullscreen);
+							}
 
-						gs.n_imgs = 4;
-						gs.img_focus = NULL;
+							gs.n_imgs = 4;
+							gs.img_focus = NULL;
+						}
 					}
 
 				} else if (gs.n_imgs >= 4) {
@@ -918,30 +1018,32 @@ int handle_events()
 			case SDL_SCANCODE_8:
 				gs.status = REDRAW;
 				set_slide_timer = 1;
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (!loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (gs.n_imgs != 8 && gs.files.size >= 8) {
 						
-						for (int i=gs.n_imgs; i<8; ++i) {
-							gs.img[i].index = gs.img[i-1].index;
-							do {
-								gs.img[i].index = (gs.img[i].index + 1) % gs.files.size;
-							} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i], SDL_TRUE)));
-						}
-						// This loop will never run unless I add a higher number somehow like 12 or 16
-						for (int i=gs.n_imgs-1; i>7; --i) {
-							clear_img(&gs.img[i]);
-						}
+						if (gs.n_imgs < 8) {
+							SDL_LockMutex(mtx);
+							gs.loading = MODE8;
+							loading = 1;
+							SDL_CondSignal(cnd);
+							SDL_UnlockMutex(mtx);
+						} else {
+							// This loop will never run unless I add a higher number somehow like 12 or 16
+							for (int i=gs.n_imgs-1; i>7; --i) {
+								clear_img(&gs.img[i]);
+							}
 
-						for (int i=0; i<8; ++i) {
-							gs.img[i].scr_rect.x = (i%4)*gs.scr_w/4;
-							gs.img[i].scr_rect.y = (i/4)*gs.scr_h/2;
-							gs.img[i].scr_rect.w = gs.scr_w/4;
-							gs.img[i].scr_rect.h = gs.scr_h/2;
-							set_rect_bestfit(&gs.img[i], gs.fullscreen);
-						}
+							for (int i=0; i<8; ++i) {
+								gs.img[i].scr_rect.x = (i%4)*gs.scr_w/4;
+								gs.img[i].scr_rect.y = (i/4)*gs.scr_h/2;
+								gs.img[i].scr_rect.w = gs.scr_w/4;
+								gs.img[i].scr_rect.h = gs.scr_h/2;
+								set_rect_bestfit(&gs.img[i], gs.fullscreen);
+							}
 
-						gs.n_imgs = 8;
-						gs.img_focus = NULL;
+							gs.n_imgs = 8;
+							gs.img_focus = NULL;
+						}
 					}
 
 				} else if (gs.n_imgs >= 8) {
@@ -987,7 +1089,7 @@ int handle_events()
 			case SDL_SCANCODE_RIGHT:
 				panned = 0;
 				gs.status = REDRAW;
-				if (gs.loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!gs.img_focus) {
 						for (int i=0; i<gs.n_imgs; ++i) {
 							img = &gs.img[i];
@@ -1006,23 +1108,21 @@ int handle_events()
 						}
 					}
 				}
-				if (!gs.loading && !panned) {
+				if (!loading && !panned) {
 					set_slide_timer = 1;
-					right_or_down = 1;
-
-					gs.loading = 1;
-					gs.done_loading = 0;
-					if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", &right_or_down))) {
-						puts("couldn't create thread");
-					}
-					SDL_DetachThread(loading_thrd);
-					//load_new_images(&right_or_down);
+					SDL_LockMutex(mtx);
+					gs.loading = RIGHT;
+					loading = 1;
+					SDL_CondSignal(cnd);
+					SDL_UnlockMutex(mtx);
+					printf("loading main %p = %d\n", &gs.loading, gs.loading);
+					puts("going right");
 				}
 				break;
 			case SDL_SCANCODE_DOWN:
 				panned = 0;
 				gs.status = REDRAW;
-				if (gs.loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!gs.img_focus) {
 						for (int i=0; i<gs.n_imgs; ++i) {
 							img = &gs.img[i];
@@ -1041,23 +1141,20 @@ int handle_events()
 						}
 					}
 				}
-				if (!gs.loading && !panned) {
+				if (!loading && !panned) {
 					set_slide_timer = 1;
-					right_or_down = 1;
-					gs.loading = 1;
-					gs.done_loading = 0;
-					if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", &right_or_down))) {
-						puts("couldn't create thread");
-					}
-					SDL_DetachThread(loading_thrd);
-					//load_new_images(&right_or_down);
+					SDL_LockMutex(mtx);
+					gs.loading = RIGHT;
+					loading = 1;
+					SDL_CondSignal(cnd);
+					SDL_UnlockMutex(mtx);
 				}
 				break;
 
 			case SDL_SCANCODE_LEFT:
 				panned = 0;
 				gs.status = REDRAW;
-				if (gs.loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!gs.img_focus) {
 						for (int i=0; i<gs.n_imgs; ++i) {
 							img = &gs.img[i];
@@ -1076,22 +1173,19 @@ int handle_events()
 						}
 					}
 				}
-				if (!gs.loading && !panned) {
+				if (!loading && !panned) {
 					set_slide_timer = 1;
-					right_or_down = 0;
-					gs.loading = 1;
-					gs.done_loading = 0;
-					if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", &right_or_down))) {
-						puts("couldn't create thread");
-					}
-					SDL_DetachThread(loading_thrd);
-					//load_new_images(&right_or_down);
+					SDL_LockMutex(mtx);
+					gs.loading = LEFT;
+					loading = 1;
+					SDL_CondSignal(cnd);
+					SDL_UnlockMutex(mtx);
 				}
 				break;
 			case SDL_SCANCODE_UP:
 				panned = 0;
 				gs.status = REDRAW;
-				if (gs.loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!gs.img_focus) {
 						for (int i=0; i<gs.n_imgs; ++i) {
 							img = &gs.img[i];
@@ -1110,16 +1204,13 @@ int handle_events()
 						}
 					}
 				}
-				if (!gs.loading && !panned) {
+				if (!loading && !panned) {
 					set_slide_timer = 1;
-					right_or_down = 0;
-					gs.loading = 1;
-					gs.done_loading = 0;
-					if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", &right_or_down))) {
-						puts("couldn't create thread");
-					}
-					SDL_DetachThread(loading_thrd);
-					//load_new_images(&right_or_down);
+					SDL_LockMutex(mtx);
+					gs.loading = LEFT;
+					loading = 1;
+					SDL_CondSignal(cnd);
+					SDL_UnlockMutex(mtx);
 				}
 				break;
 
