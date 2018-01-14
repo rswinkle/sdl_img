@@ -8,7 +8,7 @@ Goals / Focus
 * Implement features I've always wanted in an image viewer
 * Relatively simple, short, readable code
 * Learn/Practice/Fun
-* Not focused on speed, if it's fast enough on my chromebook it's good enough
+* Not really focused on speed, if it's fast enough on my chromebook it's good enough
 
 Controls/Usage
 ==============
@@ -19,22 +19,24 @@ to just right click on an image of each type and change the default application
 to be sdl_img.exe and then double clicking any image of that type will open it
 with sdl_img.
 
-* Left (or Up)      - Previous image(s) or pan if appropriate
-* Right (or Down)   - Next image(s) or pan if appropriate
-* +/-               - Zoom in/out
-* Mouse Wheel       - Zoom in/out
-* Left click + drag - Pan around a zoomed in image
-* A                 - Actual Size
-* F                 - Best Fit
-* ALT + F or F11    - Toggle Fullscreen
-* ESC               - Exit (or exit Slideshow mode then fullscreen)
+| Basic Controls    | Description |
+| Left (or Up)      | Previous image(s) or pan if appropriate |
+| Right (or Down)   | Next image(s) or pan if appropriate |
+| +/-               | Zoom in/out |
+| ALT + Direction   | Next or previous image(s) even when zoomed in |
+| Mouse Wheel       | Zoom in/out |
+| Left click + drag | Pan around a zoomed in image |
+| A                 | Actual Size |
+| F                 | Best Fit |
+| ALT + F or F11    | Toggle Fullscreen |
+| ESC               | Exit (or exit Slideshow mode then fullscreen) |
 
 The unique features are being able to view more than a single image at once
 
-* CTRL + 1   - Single image mode
-* CTRL + 2   - Double image mode
-* CTRL + 4   - Quad image mode
-* CTRL + 8   - 8 image mode
+| CTRL + 1   | Single image mode |
+| CTRL + 2   | Double image mode |
+| CTRL + 4   | Quad image mode   |
+| CTRL + 8   | 8 image mode      |
 
 Within each image mode the basic controls work on all images simultaneously
 unless a specific image is selected by hitting 1-n and then they operate only

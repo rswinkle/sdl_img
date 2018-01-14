@@ -1,3 +1,19 @@
+// The MIT License (MIT)
+// 
+// Copyright (c) 2017-2018 Robert Winkler
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+// documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+// to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+// TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+// CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.
 
 #define CVECTOR_IMPLEMENTATION
 #include "cvector.h"
@@ -6,19 +22,67 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-//#include "c_utils.h"
-
 #include <stdio.h>
 
 //POSIX works with MinGW64
 #include <sys/stat.h>
 #include <dirent.h>
 
-
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 
+enum { QUIT, REDRAW, NOCHANGE };
+enum { NOTHING, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 
+#define PATH_SEPARATOR '/'
+
+#define MAX(X, Y) ((X > Y) ? X : Y)
+#define MIN(X, Y) ((X < Y) ? X : Y)
+
+#define SET_MODE1_SCR_RECT()                     \
+	do {                                         \
+	g->img[0].scr_rect.x = 0;                    \
+	g->img[0].scr_rect.y = 0;                    \
+	g->img[0].scr_rect.w = g->scr_w;             \
+	g->img[0].scr_rect.h = g->scr_h;             \
+	set_rect_bestfit(&g->img[0], g->fullscreen); \
+	} while (0)
+
+#define SET_MODE2_SCR_RECTS()                    \
+	do {                                         \
+	g->img[0].scr_rect.x = 0;                    \
+	g->img[0].scr_rect.y = 0;                    \
+	g->img[0].scr_rect.w = g->scr_w/2;           \
+	g->img[0].scr_rect.h = g->scr_h;             \
+	g->img[1].scr_rect.x = g->scr_w/2;           \
+	g->img[1].scr_rect.y = 0;                    \
+	g->img[1].scr_rect.w = g->scr_w/2;           \
+	g->img[1].scr_rect.h = g->scr_h;             \
+	set_rect_bestfit(&g->img[0], g->fullscreen); \
+	set_rect_bestfit(&g->img[1], g->fullscreen); \
+	} while (0)
+
+#define SET_MODE4_SCR_RECTS()                         \
+	do {                                              \
+	for (int i=0; i<4; ++i) {                         \
+		g->img[i].scr_rect.x = (i%2)*g->scr_w/2;      \
+		g->img[i].scr_rect.y = (i/2)*g->scr_h/2;      \
+		g->img[i].scr_rect.w = g->scr_w/2;            \
+		g->img[i].scr_rect.h = g->scr_h/2;            \
+		set_rect_bestfit(&g->img[i], g->fullscreen);  \
+	}                                                 \
+	} while (0)
+
+#define SET_MODE8_SCR_RECTS()                         \
+	do {                                              \
+	for (int i=0; i<8; ++i) {                         \
+		g->img[i].scr_rect.x = (i%4)*g->scr_w/4;      \
+		g->img[i].scr_rect.y = (i/4)*g->scr_h/2;      \
+		g->img[i].scr_rect.w = g->scr_w/4;            \
+		g->img[i].scr_rect.h = g->scr_h/2;            \
+		set_rect_bestfit(&g->img[i], g->fullscreen);  \
+	}                                                 \
+	} while (0)
 
 typedef struct img_state
 {
@@ -69,38 +133,17 @@ typedef struct global_state
 	int slideshow;
 	int slide_timer;
 
-	// threading flags
+	// threading
 	int loading;
 	int done_loading;
+	SDL_cond* cnd;
+	SDL_mutex* mtx;
 
 } global_state;
 
-global_state gs = { 0 };
-
-// move to gs?
-SDL_cond* cnd;
-SDL_mutex* mtx;
-
-
-void setup(const char* img_name);
-void cleanup(int ret);
-int load_image(const char* path, img_state* img, int make_textures);
-int handle_events();
-int load_image_names(DIR* dir, char* path, int milliseconds);
-
-//TODO combine/reorg
-void adjust_rect(img_state* img, int w, int h);
-void set_rect_bestfit(img_state* img, int fill_screen);
-void set_rect_zoom(img_state* img, int zoom);
-
-
-void print_img_state(img_state* img);
-
-int load_new_images(void* data);
-
-
-#define PATH_SEPARATOR '/'
-
+// Use a pointer in case I ever move this to another TU, though it's unlikely
+static global_state state = { 0 };
+global_state* g = &state;
 
 // works same as SUSv2 libgen.h dirname except that
 // dirpath is user provided output buffer, assumed large
@@ -127,7 +170,6 @@ char* mydirname(const char* path, char* dirpath)
 }
 
 // same as SUSv2 basename in libgen.h except base is output
-
 // buffer
 char* mybasename(const char* path, char* base)
 {
@@ -154,137 +196,12 @@ char* mybasename(const char* path, char* base)
 	return base;
 }
 
-
 // TODO use http://stereopsis.com/strcmp4humans.html
 // or slightly modified in stb-imv?
 int cmp_string_lt(const void* a, const void* b)
 {
 	return strcmp(*(const char**)a, *(const char**)b);
 }
-
-
-enum { QUIT, REDRAW, NOCHANGE };
-enum { NOTHING, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
-
-
-
-int main(int argc, char** argv)
-{
-	if (argc != 2) {
-		printf("usage: %s image_name\n", argv[0]);
-		exit(0);
-	}
-
-	printf("path separator is %c\n", PATH_SEPARATOR);
-
-	char* path = argv[1];
-	char dirpath[4096] = { 0 };
-	//char fullpath[4096] = { 0 };
-	char img_name[1024] = { 0 };
-
-	//normalize path (stupid windows)
-	for (int i=0; i<strlen(path); ++i) {
-		if (path[i] == '\\')
-			path[i] = '/';
-	}
-	//mydirname
-	mydirname(path, dirpath);
-	mybasename(path, img_name);
-
-	gs.dirpath = dirpath;
-	gs.n_imgs = 1;
-
-	setup(img_name);
-
-	if (!load_image(img_name, &gs.img[0], SDL_TRUE)) {
-		cleanup(0);
-	}
-
-	set_rect_bestfit(&gs.img[0], 0);
-	SDL_RenderSetClipRect(gs.ren, &gs.img[0].scr_rect);
-	SDL_RenderCopy(gs.ren, gs.img[0].tex[gs.img[0].frame_i], NULL, &gs.img[0].disp_rect);
-	SDL_RenderPresent(gs.ren);
-	
-
-	if (!(cnd = SDL_CreateCond())) {
-		printf("Error: %s", SDL_GetError());
-		cleanup(0);
-	}
-
-	if (!(mtx = SDL_CreateMutex())) {
-		printf("Error: %s", SDL_GetError());
-		cleanup(0);
-	}
-
-	SDL_Thread* loading_thrd;
-	if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", NULL))) {
-		puts("couldn't create thread");
-	}
-	SDL_DetachThread(loading_thrd);
-
-	DIR* dir = opendir(dirpath);
-	if (!dir) {
-		perror("opendir");
-		cleanup(1);
-	}
-	cvec_str(&gs.files, 0, 100);
-	printf("reading file names\n");
-
-	int done_loading = load_image_names(dir, img_name, 2000);
-
-	printf("done with setup\n");
-
-	int ticks;
-	while (1) {
-		if (handle_events())
-			break;
-
-		ticks = SDL_GetTicks();
-
-		if (gs.mouse_state && ticks - gs.mouse_timer > 5000) {
-			SDL_ShowCursor(SDL_DISABLE);
-			gs.mouse_state = 0;
-		}
-
-		if (!done_loading) {
-			done_loading = load_image_names(dir, NULL, 350);
-		}
-
-
-		// for each image
-		for (int i=0; i<gs.n_imgs; ++i) {
-			if (gs.img[i].frames > 1 && ticks - gs.img[i].frame_timer > gs.img[i].delay) {
-				gs.img[i].frame_i = (gs.img[i].frame_i + 1) % gs.img[i].frames;
-				if (gs.img[i].frame_i == 0)
-					gs.img[i].looped = 1;
-				gs.img[i].frame_timer = ticks; // should be set after present ...
-				gs.status = REDRAW;
-			}
-		}
-
-		if (gs.status == REDRAW) {
-			// clear whole screen
-			SDL_RenderSetClipRect(gs.ren, NULL);
-			SDL_RenderClear(gs.ren);
-			for (int i=0; i<gs.n_imgs; ++i) {
-				SDL_RenderSetClipRect(gs.ren, &gs.img[i].scr_rect);
-				SDL_RenderCopy(gs.ren, gs.img[i].tex[gs.img[i].frame_i], NULL, &gs.img[i].disp_rect);
-			}
-			SDL_RenderPresent(gs.ren);
-		}
-	}
-
-
-	cleanup(0);
-
-	//never get here
-	return 0;
-}
-
-#define MAX(X, Y) ((X > Y) ? X : Y)
-#define MIN(X, Y) ((X < Y) ? X : Y)
-
-
 
 //need to think about best way to organize following 4 functions' functionality
 void adjust_rect(img_state* img, int w, int h)
@@ -307,7 +224,7 @@ void adjust_rect(img_state* img, int w, int h)
 
 	// There might be a slightly better way to organize/calculate this but this works
 	int final_x, final_y;
-	if ((gs.n_imgs == 1 || gs.img_focus == img) && w > img->scr_rect.w) {
+	if ((g->n_imgs == 1 || g->img_focus == img) && w > img->scr_rect.w) {
 		final_x = x-px*w;
 		
 		if (final_x + w < r)
@@ -318,7 +235,7 @@ void adjust_rect(img_state* img, int w, int h)
 		final_x = img->scr_rect.x + (img->scr_rect.w-w)/2;
 	}
 
-	if ((gs.n_imgs == 1 || gs.img_focus == img) && h > img->scr_rect.h) {
+	if ((g->n_imgs == 1 || g->img_focus == img) && h > img->scr_rect.h) {
 		final_y = y-py*h;
 
 		if (final_y + h < b)
@@ -333,7 +250,6 @@ void adjust_rect(img_state* img, int w, int h)
 	img->disp_rect.w = w;
 	img->disp_rect.h = h;
 }
-
 
 void set_rect_bestfit(img_state* img, int fill_screen)
 {
@@ -351,7 +267,6 @@ void set_rect_bestfit(img_state* img, int fill_screen)
 
 	adjust_rect(img, w, h);
 }
-
 
 void set_rect_zoom(img_state* img, int zoom)
 {
@@ -387,13 +302,12 @@ void fix_rect(img_state* img)
 	}
 }
 
-
 int create_textures(img_state* img)
 {
 	int size = img->w * img->h * 4;
 
 	for (int i=0; i<img->frames; ++i) {
-		img->tex[i] = SDL_CreateTexture(gs.ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, img->w, img->h);
+		img->tex[i] = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, img->w, img->h);
 		if (!img->tex[i]) {
 			printf("Error: %s\n", SDL_GetError());
 			return 0;
@@ -411,6 +325,46 @@ int create_textures(img_state* img)
 	return 1;
 }
 
+void cleanup(int ret)
+{
+	for (int i=0; i<g->n_imgs; ++i) {
+		//stbi_image_free(g->img[i].pixels);
+
+		for (int j=0; j<g->img[i].frames; ++j)
+			SDL_DestroyTexture(g->img[i].tex[j]);
+
+		free(g->img[i].tex);
+	}
+
+	cvec_free_str(&g->files);
+
+	SDL_DestroyRenderer(g->ren);
+	SDL_DestroyWindow(g->win);
+
+	SDL_Quit();
+
+	exit(ret);
+}
+
+// debug
+void print_img_state(img_state* img)
+{
+	printf("{\nimg = %p\n", img);
+	printf("pixels = %p\n", img->pixels);
+	printf("WxH = %dx%d\n", img->w, img->h);
+	printf("index = %d\n", img->index);
+	printf("frame_i = %d\ndelay = %d\nframes = %d\nframe_cap = %d\n", img->frame_i, img->delay, img->frames, img->frame_capacity);
+	printf("frame_timer = %d\nlooped = %d\n", img->frame_timer, img->looped);
+
+	printf("tex = %p\n", img->tex);
+	for (int i=0; i<img->frames; ++i) {
+		printf("tex[%d] = %p\n", i, img->tex[i]);
+	}
+
+	printf("scr_rect = %d %d %d %d\n", img->scr_rect.x, img->scr_rect.y, img->scr_rect.w, img->scr_rect.h);
+	printf("disp_rect = %d %d %d %d\n}\n", img->disp_rect.x, img->disp_rect.y, img->disp_rect.w, img->disp_rect.h);
+}
+
 int load_image(const char* img_name, img_state* img, int make_textures)
 {
 	int frames, n;
@@ -420,7 +374,7 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 
 	char fullpath[4096];
 
-	int ret = snprintf(fullpath, 4096, "%s/%s", gs.dirpath, img_name);
+	int ret = snprintf(fullpath, 4096, "%s/%s", g->dirpath, img_name);
 	if (ret >= 4096) {
 		// TODO add messagebox here?
 		printf("path too long, exiting\n");
@@ -472,29 +426,29 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 	return 1;
 }
 
-
 int load_image_names(DIR* dir, char* path, int milliseconds)
 {
 	struct dirent* entry;
 	struct stat file_stat;
 	char fullpath[4096] = { 0 };
-	int ret;
+	int ret, i;
 
 	char* names[8] = { 0 };
 	if (path) {
 		names[0] = path;
 	} else {
-		for (int i=0; i<gs.n_imgs; ++i) {
-			names[i] = gs.files.a[gs.img[i].index];
+		for (i=0; i<g->n_imgs; ++i) {
+			names[i] = g->files.a[g->img[i].index];
 			printf("names[%d] = %s\n", i, names[i]);
 		}
 	}
 
+	printf("path = %s\n", path);
 	int ticks, start;
 	ticks = start = SDL_GetTicks();
 
 	while (ticks - start < milliseconds && (entry = readdir(dir))) {
-		ret = snprintf(fullpath, 4096, "%s/%s", gs.dirpath, entry->d_name);
+		ret = snprintf(fullpath, 4096, "%s/%s", g->dirpath, entry->d_name);
 		if (ret >= 4096) {
 			printf("path too long\n");
 			cleanup(0);
@@ -505,8 +459,8 @@ int load_image_names(DIR* dir, char* path, int milliseconds)
 		}
 
 		// if it's a regular file and an image stb_image recognizes
-		if (S_ISREG(file_stat.st_mode) && stbi_info(fullpath, NULL, NULL, NULL) && strcmp(entry->d_name, names[0])) {
-			cvec_push_str(&gs.files, entry->d_name);
+		if (S_ISREG(file_stat.st_mode) && stbi_info(fullpath, NULL, NULL, NULL)) {
+			cvec_push_str(&g->files, entry->d_name);
 		}
 
 		ticks = SDL_GetTicks();
@@ -514,101 +468,184 @@ int load_image_names(DIR* dir, char* path, int milliseconds)
 
 	// could do it manually since I maintain sorted
 	//printf("sorting images\n");
-	qsort(gs.files.a, gs.files.size, sizeof(char*), cmp_string_lt);
+	qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
 
 	printf("finding current images\n");
-	int img;
-	for (int i=0; i<gs.n_imgs; ++i) {
-		for (img=0; img<gs.files.size; ++img) {
-			// find starting image index
-			if ((ret = strcmp(gs.files.a[img], names[i])) >= 0) {
-				if (ret > 0) {
-					puts("pushing current image");
-					cvec_insert_str(&gs.files, img, names[i]);
-				}
-				gs.img[i].index = img;
-				break;
-			}
+	char** res;
+	for (i=0; i<g->n_imgs; ++i) {
+		res = bsearch(&names[i], g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
+		if (!res) {
+			puts("Image not found!");
+			cleanup(0);
 		}
+		g->img[i].index = res - g->files.a;
 	}
 
 	if (!entry) {
-		printf("Loaded all %zd filenames\n", gs.files.size);
+		printf("Loaded all %zd filenames\n", g->files.size);
 		closedir(dir);
 		return 1;
 	} else {
-		printf("loaded %zd filenames\n", gs.files.size);
+		printf("loaded %zd filenames\n", g->files.size);
 	}
 
 
 	return 0;
 }
 
+int wrap(int z)
+{
+   int n = g->files.size;
+   if (z < 0) return z + n;
+   while (z >= n) z = z - n;
+   return z;
+}
+
+int load_new_images(void* data)
+{
+	int tmp;
+	char title_buf[1024];
+	int ret;
+	int load_what;
+	
+	while (1) {
+		SDL_LockMutex(g->mtx);
+		while (!g->loading) {
+			SDL_CondWait(g->cnd, g->mtx);
+		}
+		load_what = g->loading;
+		SDL_UnlockMutex(g->mtx);
+
+		//printf("loading %p = %d\n", &g->loading, g->loading);
+		if (load_what >= LEFT) {
+			img_state* img;
+			if (g->img == g->img1)
+				img = g->img2;
+			else
+				img = g->img1;
+
+			for (int i=0; i<g->n_imgs; ++i)
+				img[i].scr_rect = g->img[i].scr_rect;
+			
+			if (!g->img_focus) {
+				tmp = (load_what == RIGHT) ? g->n_imgs : -g->n_imgs;
+				for (int i=0; i<g->n_imgs; ++i) {
+					img[i].index = g->img[i].index;
+					do {
+						img[i].index = wrap(img[i].index + tmp);
+					} while (!(ret = load_image(g->files.a[img[i].index], &img[i], SDL_FALSE)));
+					set_rect_bestfit(&img[i], g->fullscreen);
+				}
+				// just set title to upper left image when !img_focus
+				SDL_SetWindowTitle(g->win, mybasename(g->files.a[img[0].index], title_buf));
+
+			} else {
+				tmp = (load_what == RIGHT) ? 1 : -1;
+				img[0].index = g->img_focus->index;
+				do {
+					img[0].index = wrap(img[0].index + tmp);
+				} while (!(ret = load_image(g->files.a[img[0].index], &img[0], SDL_FALSE)));
+				img[0].scr_rect = g->img_focus->scr_rect;
+				set_rect_bestfit(&img[0], g->fullscreen);
+				SDL_SetWindowTitle(g->win, mybasename(g->files.a[img[0].index], title_buf));
+			}
+		} else {
+			for (int i=g->n_imgs; i<load_what; ++i) {
+				g->img[i].index = g->img[i-1].index;
+				do {
+					g->img[i].index = wrap(g->img[i].index + 1);
+				} while (!(ret = load_image(g->files.a[g->img[i].index], &g->img[i], SDL_FALSE)));
+			}
+
+		}
+
+		SDL_LockMutex(g->mtx);
+		g->done_loading = load_what;
+		g->loading = 0;
+		SDL_UnlockMutex(g->mtx);
+	}
+}
 
 void setup(const char* img_name)
 {
-	gs.win = NULL;
-	gs.ren = NULL;
-
+	g->win = NULL;
+	g->ren = NULL;
 	char error_str[1024] = { 0 };
 
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
-	//not sure if necessary
 	SDL_SetMainReady();
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
 		snprintf(error_str, 1024, "Couldn't initialize SDL: %s; exiting.", SDL_GetError());
-		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, gs.win);
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
 		puts(error_str);
 		exit(1);
 	}
 
-	gs.scr_w = 640;
-	gs.scr_h = 480;
+	// TODO load image before creating window, create window size based on img dimensions
+	g->scr_w = 640;
+	g->scr_h = 480;
 	
-	gs.win = SDL_CreateWindow(img_name, 100, 100, gs.scr_w, gs.scr_h, SDL_WINDOW_RESIZABLE);
-	if (!gs.win) {
+	g->win = SDL_CreateWindow(img_name, 100, 100, g->scr_w, g->scr_h, SDL_WINDOW_RESIZABLE);
+	if (!g->win) {
 		snprintf(error_str, 1024, "Couldn't create window: %s; exiting.", SDL_GetError());
-		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, gs.win);
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
 		puts(error_str);
 		exit(1);
 	}
 
-	gs.ren = SDL_CreateRenderer(gs.win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-	if (!gs.ren) {
+	g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	if (!g->ren) {
 		snprintf(error_str, 1024, "%s, falling back to software renderer.", SDL_GetError());
-		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Warning: No HW Acceleration", error_str, gs.win);
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Warning: No HW Acceleration", error_str, g->win);
 		puts(error_str);
-		gs.ren = SDL_CreateRenderer(gs.win, -1, SDL_RENDERER_SOFTWARE);
+		g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_SOFTWARE);
 	}
 
-	if (!gs.ren) {
+	if (!g->ren) {
 		snprintf(error_str, 1024, "Software rendering failed: %s; exiting.", SDL_GetError());
-		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, gs.win);
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
 		puts(error_str);
 		cleanup(1);
 	}
-	SDL_SetRenderDrawColor(gs.ren, 0, 0, 0, 255);
 	// get black screen while loading (big gif could take a few seconds)
-	SDL_RenderClear(gs.ren);
-	SDL_RenderPresent(gs.ren);
+	SDL_SetRenderDrawColor(g->ren, 0, 0, 0, 255);
+	SDL_RenderClear(g->ren);
+	SDL_RenderPresent(g->ren);
 
-	gs.img = gs.img1;
-	// all of gs is initialized to 0 on startup
+	g->img = g->img1;
 
-	gs.img[0].tex = malloc(100*sizeof(SDL_Texture*));
-	gs.img[0].frame_capacity = 100;
+	g->img[0].tex = malloc(100*sizeof(SDL_Texture*));
+	g->img[0].frame_capacity = 100;
 
-	gs.img[0].scr_rect.x = 0;
-	gs.img[0].scr_rect.y = 0;
-	gs.img[0].scr_rect.w = gs.scr_w;
-	gs.img[0].scr_rect.h = gs.scr_h;
+	g->fullscreen = 0;
 
-	gs.fullscreen = 0;
+	if (!load_image(img_name, &g->img[0], SDL_TRUE)) {
+		cleanup(0);
+	}
+
+	SET_MODE1_SCR_RECT();
+	SDL_RenderSetClipRect(g->ren, &g->img[0].scr_rect);
+	SDL_RenderCopy(g->ren, g->img[0].tex[g->img[0].frame_i], NULL, &g->img[0].disp_rect);
+	SDL_RenderPresent(g->ren);
+
+	if (!(g->cnd = SDL_CreateCond())) {
+		printf("Error: %s", SDL_GetError());
+		cleanup(0);
+	}
+
+	if (!(g->mtx = SDL_CreateMutex())) {
+		printf("Error: %s", SDL_GetError());
+		cleanup(0);
+	}
+
+	SDL_Thread* loading_thrd;
+	if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", NULL))) {
+		puts("couldn't create thread");
+	}
+	SDL_DetachThread(loading_thrd);
 
 }
-
-
 
 void clear_img(img_state* img)
 {
@@ -623,99 +660,18 @@ void clear_img(img_state* img)
 	img->frames = 0;
 }
 
-
-int wrap(int z)
-{
-   int n = gs.files.size;
-   if (z < 0) return z + n;
-   while (z >= n) z = z - n;
-   return z;
-}
-
-int load_new_images(void* data)
-{
-	int tmp;
-
-	char title_buf[1024];
-	int ret;
-	img_state* img;
-	int load_what;
-	
-	// TODO move SetWindowTitle() out to main thread?
-
-	while (1) {
-		SDL_LockMutex(mtx);
-		while (!gs.loading) {
-			SDL_CondWait(cnd, mtx);
-		}
-		load_what = gs.loading;
-		SDL_UnlockMutex(mtx);
-
-		//printf("loading %p = %d\n", &gs.loading, gs.loading);
-		if (load_what >= LEFT) {
-			img_state* img;
-			if (gs.img == gs.img1)
-				img = gs.img2;
-			else
-				img = gs.img1;
-
-			for (int i=0; i<gs.n_imgs; ++i)
-				img[i].scr_rect = gs.img[i].scr_rect;
-			
-			if (!gs.img_focus) {
-				tmp = (load_what == RIGHT) ? gs.n_imgs : -gs.n_imgs;
-				for (int i=0; i<gs.n_imgs; ++i) {
-					do {
-						img[i].index = wrap(gs.img[i].index + tmp);
-					} while (!(ret = load_image(gs.files.a[img[i].index], &img[i], SDL_FALSE)));
-					set_rect_bestfit(&img[i], gs.fullscreen);
-				}
-				// just set title to upper left image when !img_focus
-				SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[img[0].index], title_buf));
-
-			} else {
-				tmp = (load_what == RIGHT) ? 1 : -1;
-				do {
-					img[0].index = wrap(gs.img_focus->index + tmp);
-				} while (!(ret = load_image(gs.files.a[img[0].index], &img[0], SDL_FALSE)));
-				img[0].scr_rect = gs.img_focus->scr_rect;
-				set_rect_bestfit(&img[0], gs.fullscreen);
-				SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[img[0].index], title_buf));
-			}
-
-		// else going to higher image mode
-		} else {
-			for (int i=gs.n_imgs; i<load_what; ++i) {
-				gs.img[i].index = gs.img[i-1].index;
-				do {
-					gs.img[i].index = wrap(gs.img[i].index + 1);
-				} while (!(ret = load_image(gs.files.a[gs.img[i].index], &gs.img[i], SDL_FALSE)));
-			}
-
-		}
-
-		SDL_LockMutex(mtx);
-		gs.done_loading = load_what;
-		gs.loading = 0;
-		SDL_UnlockMutex(mtx);
-	}
-}
-
-
-
 void toggle_fullscreen()
 {
-	gs.status = REDRAW;
-	if (gs.fullscreen) {
-		SDL_SetWindowFullscreen(gs.win, 0);
-		gs.fullscreen = 0;
+	g->status = REDRAW;
+	if (g->fullscreen) {
+		SDL_SetWindowFullscreen(g->win, 0);
+		g->fullscreen = 0;
 	} else {
-		SDL_SetWindowFullscreen(gs.win, SDL_WINDOW_FULLSCREEN_DESKTOP);
-		gs.fullscreen = 1;
+		SDL_SetWindowFullscreen(g->win, SDL_WINDOW_FULLSCREEN_DESKTOP);
+		g->fullscreen = 1;
 	}
 }
 
-// 
 void replace_img(img_state* i1, img_state* i2)
 {
 	SDL_Texture** tmptex = i1->tex;
@@ -726,38 +682,18 @@ void replace_img(img_state* i1, img_state* i2)
 	i2->frames = 0;
 }
 
-
-
-
-#define SET_MODE2_SCR_RECTS() \
-	do { \
-	gs.img[0].scr_rect.x = 0;          \
-	gs.img[0].scr_rect.y = 0;          \
-	gs.img[0].scr_rect.w = gs.scr_w/2; \
-	gs.img[0].scr_rect.h = gs.scr_h;   \
-	gs.img[1].scr_rect.x = gs.scr_w/2; \
-	gs.img[1].scr_rect.y = 0;          \
-	gs.img[1].scr_rect.w = gs.scr_w/2; \
-	gs.img[1].scr_rect.h = gs.scr_h;   \
-	} while (0)
-
-
 int handle_events()
 {
 	SDL_Event e;
 	int sc;
-	int ret;
-	int tmp;
 	int panned;
 	char title_buf[1024];
-	img_state tmp_img = { 0 };
 	img_state* img;
 
 	static int loading = 0;
 
-	SDL_Texture** tmptex;
 
-	gs.status = NOCHANGE;
+	g->status = NOCHANGE;
 
 	SDL_Keymod mod_state = SDL_GetModState();
 
@@ -768,78 +704,60 @@ int handle_events()
 	int ticks = SDL_GetTicks();
 	int set_slide_timer = 0;
 
-	if (gs.slideshow && !loading && ticks - gs.slide_timer > gs.slideshow) {
+	if (g->slideshow && !loading && ticks - g->slide_timer > g->slideshow) {
 		int i;
 		// make sure all current gifs have gotten to the end
 		// at least once
-		for (i=0; i<gs.n_imgs; ++i) {
-			if (!gs.img[i].looped)
+		for (i=0; i<g->n_imgs; ++i) {
+			if (!g->img[i].looped)
 				break;
 		}
-		if (i == gs.n_imgs) {
+		if (i == g->n_imgs) {
 			SDL_PushEvent(&right);
 		}
 	}
 
-	SDL_LockMutex(mtx);
-	if (gs.done_loading) {
-		if (gs.done_loading >= LEFT) {
-			img = (gs.img == gs.img1) ? gs.img2 : gs.img1;
-			if (gs.img_focus) {
-				clear_img(gs.img_focus);
-				replace_img(gs.img_focus, &img[0]);
-				create_textures(gs.img_focus);
+	SDL_LockMutex(g->mtx);
+	if (g->done_loading) {
+		if (g->done_loading >= LEFT) {
+			img = (g->img == g->img1) ? g->img2 : g->img1;
+			if (g->img_focus) {
+				clear_img(g->img_focus);
+				replace_img(g->img_focus, &img[0]);
+				create_textures(g->img_focus);
 			} else {
-				for (int i=0; i<gs.n_imgs; ++i) {
+				for (int i=0; i<g->n_imgs; ++i) {
 					create_textures(&img[i]);
-					clear_img(&gs.img[i]);
+					clear_img(&g->img[i]);
 				}
-				gs.img = img;
+				g->img = img;
 			}
 			puts("done loading left/right");
 		} else {
-			for (int i=gs.n_imgs; i<gs.done_loading; ++i)
-				create_textures(&gs.img[i]);
+			for (int i=g->n_imgs; i<g->done_loading; ++i)
+				create_textures(&g->img[i]);
 
-			if (gs.done_loading == MODE2) {
+			if (g->done_loading == MODE2) {
 				SET_MODE2_SCR_RECTS();
-				
-				set_rect_bestfit(&gs.img[0], gs.fullscreen);
-				set_rect_bestfit(&gs.img[1], gs.fullscreen);
-
-				gs.n_imgs = 2;
-				gs.img_focus = NULL;
-			} else if (gs.done_loading == MODE4) {
-				for (int i=0; i<4; ++i) {
-					gs.img[i].scr_rect.x = (i%2)*gs.scr_w/2;
-					gs.img[i].scr_rect.y = (i/2)*gs.scr_h/2;
-					gs.img[i].scr_rect.w = gs.scr_w/2;
-					gs.img[i].scr_rect.h = gs.scr_h/2;
-					set_rect_bestfit(&gs.img[i], gs.fullscreen);
-				}
-
-				gs.n_imgs = 4;
-				gs.img_focus = NULL;
+				g->n_imgs = 2;
+				g->img_focus = NULL;
+			} else if (g->done_loading == MODE4) {
+				SET_MODE4_SCR_RECTS();
+				g->n_imgs = 4;
+				g->img_focus = NULL;
 			} else {
-				for (int i=0; i<8; ++i) {
-					gs.img[i].scr_rect.x = (i%4)*gs.scr_w/4;
-					gs.img[i].scr_rect.y = (i/4)*gs.scr_h/2;
-					gs.img[i].scr_rect.w = gs.scr_w/4;
-					gs.img[i].scr_rect.h = gs.scr_h/2;
-					set_rect_bestfit(&gs.img[i], gs.fullscreen);
-				}
-
-				gs.n_imgs = 8;
-				gs.img_focus = NULL;
+				SET_MODE8_SCR_RECTS();
+				g->n_imgs = 8;
+				g->img_focus = NULL;
 			}
 		}
-		gs.done_loading = 0;
-		gs.status = REDRAW;
+		g->done_loading = 0;
+		g->status = REDRAW;
 		loading = 0;
-		if (gs.slideshow)
+		if (g->slideshow)
 			set_slide_timer = 1;
 	}
-	SDL_UnlockMutex(mtx);
+	SDL_UnlockMutex(g->mtx);
 
 	while (SDL_PollEvent(&e)) {
 		switch (e.type) {
@@ -849,15 +767,15 @@ int handle_events()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
-				if (!gs.fullscreen && !gs.slideshow) {
+				if (!g->fullscreen && !g->slideshow) {
 					return 1;
 				} else {
-					if (gs.slideshow) {
-						gs.slideshow = 0;
-					} else if (gs.fullscreen) {
-						gs.status = REDRAW;
-						SDL_SetWindowFullscreen(gs.win, 0);
-						gs.fullscreen = 0;
+					if (g->slideshow) {
+						g->slideshow = 0;
+					} else if (g->fullscreen) {
+						g->status = REDRAW;
+						SDL_SetWindowFullscreen(g->win, 0);
+						g->fullscreen = 0;
 					}
 				}
 				break;
@@ -873,7 +791,7 @@ int handle_events()
 			case SDL_SCANCODE_F8:
 			case SDL_SCANCODE_F9:
 			case SDL_SCANCODE_F10:
-				gs.slideshow = (sc - SDL_SCANCODE_CAPSLOCK)*1000;
+				g->slideshow = (sc - SDL_SCANCODE_CAPSLOCK)*1000;
 				set_slide_timer = 1;
 				break;
 
@@ -882,198 +800,172 @@ int handle_events()
 				break;
 
 			case SDL_SCANCODE_0:
-				gs.img_focus = NULL;
-				SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img[0].index], title_buf));
+				g->img_focus = NULL;
+				SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img[0].index], title_buf));
 				break;
 			case SDL_SCANCODE_1:
-				if (gs.n_imgs != 1 && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-					gs.status = REDRAW;
+				if (g->n_imgs != 1 && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					g->status = REDRAW;
 					set_slide_timer = 1;
 					// TODO refactor into function?  don't free everything everytime
 					// make load_image smarter
-					if (gs.img_focus && gs.img_focus != &gs.img[0]) {
-						for (int i=0; i<gs.n_imgs; ++i) {
-							if (gs.img_focus == &gs.img[i]) {
+					if (g->img_focus && g->img_focus != &g->img[0]) {
+						for (int i=0; i<g->n_imgs; ++i) {
+							if (g->img_focus == &g->img[i]) {
 								continue;
 							}
 
-							clear_img(&gs.img[i]);
+							clear_img(&g->img[i]);
 						}
-						replace_img(&gs.img[0], gs.img_focus);
+						replace_img(&g->img[0], g->img_focus);
 
 					} else {
-						for (int i=1; i<gs.n_imgs; ++i) {
-							clear_img(&gs.img[i]);
+						for (int i=1; i<g->n_imgs; ++i) {
+							clear_img(&g->img[i]);
 						}
 					}
+					SET_MODE1_SCR_RECT();
+					g->n_imgs = 1;
+					g->img_focus = NULL;
 
-					gs.img[0].scr_rect.x = 0;
-					gs.img[0].scr_rect.y = 0;
-					gs.img[0].scr_rect.w = gs.scr_w;
-					gs.img[0].scr_rect.h = gs.scr_h;
-					
-					set_rect_bestfit(&gs.img[0], gs.fullscreen);
-
-					gs.n_imgs = 1;
-					gs.img_focus = NULL;
-
-				} else if (gs.n_imgs >= 2) {
-					gs.img_focus = &gs.img[0];
-					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
+				} else if (g->n_imgs >= 2) {
+					g->img_focus = &g->img[0];
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_2:
-				gs.status = REDRAW;
+				g->status = REDRAW;
 				set_slide_timer = 1;
 				if (!loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
-					if (gs.n_imgs != 2 && gs.files.size >= 2) {
+					if (g->n_imgs != 2 && g->files.size >= 2) {
 
 						// TODO hmm
-						if (gs.n_imgs == 1) {
-							SDL_LockMutex(mtx);
-							gs.loading = MODE2;
+						if (g->n_imgs == 1) {
+							SDL_LockMutex(g->mtx);
+							g->loading = MODE2;
 							loading = 1;
-							SDL_CondSignal(cnd);
-							SDL_UnlockMutex(mtx);
+							SDL_CondSignal(g->cnd);
+							SDL_UnlockMutex(g->mtx);
 						} else {
-							for (int i=gs.n_imgs-1; i>1; --i)
-								clear_img(&gs.img[i]);
+							for (int i=g->n_imgs-1; i>1; --i)
+								clear_img(&g->img[i]);
 
 							SET_MODE2_SCR_RECTS();
-							set_rect_bestfit(&gs.img[0], gs.fullscreen);
-							set_rect_bestfit(&gs.img[1], gs.fullscreen);
-							gs.n_imgs = 2;
-							gs.img_focus = NULL;
+							g->n_imgs = 2;
+							g->img_focus = NULL;
 						}
 					}
 
-				} else if (gs.n_imgs >= 2) {
-					gs.img_focus = &gs.img[1];
-					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
+				} else if (g->n_imgs >= 2) {
+					g->img_focus = &g->img[1];
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_3:
-				gs.status = REDRAW;
-				if (gs.n_imgs >= 3) {
-					gs.img_focus = &gs.img[2];
-					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
+				g->status = REDRAW;
+				if (g->n_imgs >= 3) {
+					g->img_focus = &g->img[2];
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_4:
-				gs.status = REDRAW;
+				g->status = REDRAW;
 				set_slide_timer = 1;
-				if (!gs.loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
-					if (gs.n_imgs != 4 && gs.files.size >= 4) {
+				if (!g->loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
+					if (g->n_imgs != 4 && g->files.size >= 4) {
 						
-						if (gs.n_imgs < 4) {
-							SDL_LockMutex(mtx);
-							gs.loading = MODE4;
+						if (g->n_imgs < 4) {
+							SDL_LockMutex(g->mtx);
+							g->loading = MODE4;
 							loading = 1;
-							SDL_CondSignal(cnd);
-							SDL_UnlockMutex(mtx);
+							SDL_CondSignal(g->cnd);
+							SDL_UnlockMutex(g->mtx);
 						} else {
-							for (int i=gs.n_imgs-1; i>3; --i) {
-								clear_img(&gs.img[i]);
+							for (int i=g->n_imgs-1; i>3; --i) {
+								clear_img(&g->img[i]);
 							}
-
-							for (int i=0; i<4; ++i) {
-								gs.img[i].scr_rect.x = (i%2)*gs.scr_w/2;
-								gs.img[i].scr_rect.y = (i/2)*gs.scr_h/2;
-								gs.img[i].scr_rect.w = gs.scr_w/2;
-								gs.img[i].scr_rect.h = gs.scr_h/2;
-								set_rect_bestfit(&gs.img[i], gs.fullscreen);
-							}
-
-							gs.n_imgs = 4;
-							gs.img_focus = NULL;
+							SET_MODE4_SCR_RECTS();
+							g->n_imgs = 4;
+							g->img_focus = NULL;
 						}
 					}
 
-				} else if (gs.n_imgs >= 4) {
-					gs.img_focus = &gs.img[3];
-					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
+				} else if (g->n_imgs >= 4) {
+					g->img_focus = &g->img[3];
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_5:
-				gs.status = REDRAW;
-				if (gs.n_imgs >= 5) {
-					gs.img_focus = &gs.img[4];
-					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
+				g->status = REDRAW;
+				if (g->n_imgs >= 5) {
+					g->img_focus = &g->img[4];
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_6:
-				gs.status = REDRAW;
-				if (gs.n_imgs >= 6) {
-					gs.img_focus = &gs.img[5];
-					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
+				g->status = REDRAW;
+				if (g->n_imgs >= 6) {
+					g->img_focus = &g->img[5];
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_7:
-				gs.status = REDRAW;
-				if (gs.n_imgs >= 7) {
-					gs.img_focus = &gs.img[6];
-					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
+				g->status = REDRAW;
+				if (g->n_imgs >= 7) {
+					g->img_focus = &g->img[6];
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_8:
-				gs.status = REDRAW;
+				g->status = REDRAW;
 				set_slide_timer = 1;
 				if (!loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
-					if (gs.n_imgs != 8 && gs.files.size >= 8) {
-						
-						if (gs.n_imgs < 8) {
-							SDL_LockMutex(mtx);
-							gs.loading = MODE8;
+					if (g->n_imgs != 8 && g->files.size >= 8) {
+						if (g->n_imgs < 8) {
+							SDL_LockMutex(g->mtx);
+							g->loading = MODE8;
 							loading = 1;
-							SDL_CondSignal(cnd);
-							SDL_UnlockMutex(mtx);
+							SDL_CondSignal(g->cnd);
+							SDL_UnlockMutex(g->mtx);
 						} else {
 							// This loop will never run unless I add a higher number somehow like 12 or 16
-							for (int i=gs.n_imgs-1; i>7; --i) {
-								clear_img(&gs.img[i]);
+							for (int i=g->n_imgs-1; i>7; --i) {
+								clear_img(&g->img[i]);
 							}
-
-							for (int i=0; i<8; ++i) {
-								gs.img[i].scr_rect.x = (i%4)*gs.scr_w/4;
-								gs.img[i].scr_rect.y = (i/4)*gs.scr_h/2;
-								gs.img[i].scr_rect.w = gs.scr_w/4;
-								gs.img[i].scr_rect.h = gs.scr_h/2;
-								set_rect_bestfit(&gs.img[i], gs.fullscreen);
-							}
-
-							gs.n_imgs = 8;
-							gs.img_focus = NULL;
+							SET_MODE8_SCR_RECTS();
+							g->n_imgs = 8;
+							g->img_focus = NULL;
 						}
 					}
 
-				} else if (gs.n_imgs >= 8) {
-					gs.img_focus = &gs.img[7];
-					SDL_SetWindowTitle(gs.win, mybasename(gs.files.a[gs.img_focus->index], title_buf));
+				} else if (g->n_imgs >= 8) {
+					g->img_focus = &g->img[7];
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index], title_buf));
 				}
 				break;
 
 			case SDL_SCANCODE_A:
-				gs.status = REDRAW;
+				g->status = REDRAW;
 				// set image to actual size
-				if (!gs.img_focus) {
-					for (int i=0; i<gs.n_imgs; ++i) {
-						adjust_rect(&gs.img[i], gs.img[i].w, gs.img[i].h);
+				if (!g->img_focus) {
+					for (int i=0; i<g->n_imgs; ++i) {
+						adjust_rect(&g->img[i], g->img[i].w, g->img[i].h);
 					}
 				} else {
-					adjust_rect(gs.img_focus, gs.img_focus->w, gs.img_focus->h);
+					adjust_rect(g->img_focus, g->img_focus->w, g->img_focus->h);
 				}
 				break;
 
 			case SDL_SCANCODE_F: {
-				gs.status = REDRAW;
+				g->status = REDRAW;
 				if (mod_state & (KMOD_LALT | KMOD_RALT)) {
 					toggle_fullscreen();
 				} else {
-					if (!gs.img_focus) {
-						for (int i=0; i<gs.n_imgs; ++i)
-							set_rect_bestfit(&gs.img[i], 1);
+					if (!g->img_focus) {
+						for (int i=0; i<g->n_imgs; ++i)
+							set_rect_bestfit(&g->img[i], 1);
 					} else {
-						set_rect_bestfit(gs.img_focus, 1);
+						set_rect_bestfit(g->img_focus, 1);
 					}
 				}
 			}
@@ -1088,11 +980,11 @@ int handle_events()
 
 			case SDL_SCANCODE_RIGHT:
 				panned = 0;
-				gs.status = REDRAW;
+				g->status = REDRAW;
 				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
-					if (!gs.img_focus) {
-						for (int i=0; i<gs.n_imgs; ++i) {
-							img = &gs.img[i];
+					if (!g->img_focus) {
+						for (int i=0; i<g->n_imgs; ++i) {
+							img = &g->img[i];
 							if (img->disp_rect.w > img->scr_rect.w) {
 								img->disp_rect.x -= 0.05 * img->disp_rect.w;
 								fix_rect(img);
@@ -1100,7 +992,7 @@ int handle_events()
 							}
 						}
 					} else {
-						img = gs.img_focus;
+						img = g->img_focus;
 						if (img->disp_rect.w > img->scr_rect.w) {
 							img->disp_rect.x -= 0.05 * img->disp_rect.w;
 							fix_rect(img);
@@ -1110,22 +1002,22 @@ int handle_events()
 				}
 				if (!loading && !panned) {
 					set_slide_timer = 1;
-					SDL_LockMutex(mtx);
-					gs.loading = RIGHT;
+					SDL_LockMutex(g->mtx);
+					g->loading = RIGHT;
 					loading = 1;
-					SDL_CondSignal(cnd);
-					SDL_UnlockMutex(mtx);
-					printf("loading main %p = %d\n", &gs.loading, gs.loading);
+					SDL_CondSignal(g->cnd);
+					SDL_UnlockMutex(g->mtx);
+					printf("loading main %p = %d\n", &g->loading, g->loading);
 					puts("going right");
 				}
 				break;
 			case SDL_SCANCODE_DOWN:
 				panned = 0;
-				gs.status = REDRAW;
+				g->status = REDRAW;
 				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
-					if (!gs.img_focus) {
-						for (int i=0; i<gs.n_imgs; ++i) {
-							img = &gs.img[i];
+					if (!g->img_focus) {
+						for (int i=0; i<g->n_imgs; ++i) {
+							img = &g->img[i];
 							if (img->disp_rect.h > img->scr_rect.h) {
 								img->disp_rect.y -= 0.05 * img->disp_rect.h;
 								fix_rect(img);
@@ -1133,7 +1025,7 @@ int handle_events()
 							}
 						}
 					} else {
-						img = gs.img_focus;
+						img = g->img_focus;
 						if (img->disp_rect.h > img->scr_rect.h) {
 							img->disp_rect.y -= 0.05 * img->disp_rect.h;
 							fix_rect(img);
@@ -1143,21 +1035,21 @@ int handle_events()
 				}
 				if (!loading && !panned) {
 					set_slide_timer = 1;
-					SDL_LockMutex(mtx);
-					gs.loading = RIGHT;
+					SDL_LockMutex(g->mtx);
+					g->loading = RIGHT;
 					loading = 1;
-					SDL_CondSignal(cnd);
-					SDL_UnlockMutex(mtx);
+					SDL_CondSignal(g->cnd);
+					SDL_UnlockMutex(g->mtx);
 				}
 				break;
 
 			case SDL_SCANCODE_LEFT:
 				panned = 0;
-				gs.status = REDRAW;
+				g->status = REDRAW;
 				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
-					if (!gs.img_focus) {
-						for (int i=0; i<gs.n_imgs; ++i) {
-							img = &gs.img[i];
+					if (!g->img_focus) {
+						for (int i=0; i<g->n_imgs; ++i) {
+							img = &g->img[i];
 							if (img->disp_rect.w > img->scr_rect.w) {
 								img->disp_rect.x += 0.05 * img->disp_rect.w;
 								fix_rect(img);
@@ -1165,7 +1057,7 @@ int handle_events()
 							}
 						}
 					} else {
-						img = gs.img_focus;
+						img = g->img_focus;
 						if (img->disp_rect.w > img->scr_rect.w) {
 							img->disp_rect.x += 0.05 * img->disp_rect.w;
 							fix_rect(img);
@@ -1175,20 +1067,20 @@ int handle_events()
 				}
 				if (!loading && !panned) {
 					set_slide_timer = 1;
-					SDL_LockMutex(mtx);
-					gs.loading = LEFT;
+					SDL_LockMutex(g->mtx);
+					g->loading = LEFT;
 					loading = 1;
-					SDL_CondSignal(cnd);
-					SDL_UnlockMutex(mtx);
+					SDL_CondSignal(g->cnd);
+					SDL_UnlockMutex(g->mtx);
 				}
 				break;
 			case SDL_SCANCODE_UP:
 				panned = 0;
-				gs.status = REDRAW;
+				g->status = REDRAW;
 				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
-					if (!gs.img_focus) {
-						for (int i=0; i<gs.n_imgs; ++i) {
-							img = &gs.img[i];
+					if (!g->img_focus) {
+						for (int i=0; i<g->n_imgs; ++i) {
+							img = &g->img[i];
 							if (img->disp_rect.h > img->scr_rect.h) {
 								img->disp_rect.y += 0.05 * img->disp_rect.h;
 								fix_rect(img);
@@ -1196,7 +1088,7 @@ int handle_events()
 							}
 						}
 					} else {
-						img = gs.img_focus;
+						img = g->img_focus;
 						if (img->disp_rect.h > img->scr_rect.h) {
 							img->disp_rect.y += 0.05 * img->disp_rect.h;
 							fix_rect(img);
@@ -1206,30 +1098,30 @@ int handle_events()
 				}
 				if (!loading && !panned) {
 					set_slide_timer = 1;
-					SDL_LockMutex(mtx);
-					gs.loading = LEFT;
+					SDL_LockMutex(g->mtx);
+					g->loading = LEFT;
 					loading = 1;
-					SDL_CondSignal(cnd);
-					SDL_UnlockMutex(mtx);
+					SDL_CondSignal(g->cnd);
+					SDL_UnlockMutex(g->mtx);
 				}
 				break;
 
 			case SDL_SCANCODE_MINUS:
-				gs.status = REDRAW;
-				if (!gs.img_focus) {
-					for (int i=0; i<gs.n_imgs; ++i)
-						set_rect_zoom(&gs.img[i], -1);
+				g->status = REDRAW;
+				if (!g->img_focus) {
+					for (int i=0; i<g->n_imgs; ++i)
+						set_rect_zoom(&g->img[i], -1);
 				} else {
-					set_rect_zoom(gs.img_focus, -1);
+					set_rect_zoom(g->img_focus, -1);
 				}
 				break;
 			case SDL_SCANCODE_EQUALS:
-				gs.status = REDRAW;
-				if (!gs.img_focus) {
-					for (int i=0; i<gs.n_imgs; ++i)
-						set_rect_zoom(&gs.img[i], 1);
+				g->status = REDRAW;
+				if (!g->img_focus) {
+					for (int i=0; i<g->n_imgs; ++i)
+						set_rect_zoom(&g->img[i], 1);
 				} else {
-					set_rect_zoom(gs.img_focus, 1);
+					set_rect_zoom(g->img_focus, 1);
 				}
 				break;
 
@@ -1244,9 +1136,9 @@ int handle_events()
 		case SDL_MOUSEMOTION:
 			if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
 				img = NULL;
-				if (!gs.img_focus) {
-					for (int i=0; i<gs.n_imgs; ++i) {
-						img = &gs.img[i];
+				if (!g->img_focus) {
+					for (int i=0; i<g->n_imgs; ++i) {
+						img = &g->img[i];
 						if (e.motion.xrel != 0 && img->disp_rect.w > img->scr_rect.w) {
 							img->disp_rect.x += e.motion.xrel;
 						}
@@ -1256,7 +1148,7 @@ int handle_events()
 						fix_rect(img);
 					}
 				} else {
-					img = gs.img_focus;
+					img = g->img_focus;
 					if (e.motion.xrel != 0 && img->disp_rect.w > img->scr_rect.w) {
 						img->disp_rect.x += e.motion.xrel;
 					}
@@ -1265,86 +1157,57 @@ int handle_events()
 					}
 					fix_rect(img);
 				}
-				gs.status = REDRAW;
+				g->status = REDRAW;
 			}
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
 			SDL_ShowCursor(SDL_ENABLE);
-			gs.mouse_timer = SDL_GetTicks();
-			gs.mouse_state = 1;
+			g->mouse_timer = SDL_GetTicks();
+			g->mouse_state = 1;
 			break;
 
 		case SDL_MOUSEWHEEL:
-			gs.status = REDRAW;
+			g->status = REDRAW;
 			if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
-				if (!gs.img_focus) {
-					for (int i=0; i<gs.n_imgs; ++i)
-						set_rect_zoom(&gs.img[i], e.wheel.y);
+				if (!g->img_focus) {
+					for (int i=0; i<g->n_imgs; ++i)
+						set_rect_zoom(&g->img[i], e.wheel.y);
 				} else {
-					set_rect_zoom(gs.img_focus, e.wheel.y);
+					set_rect_zoom(g->img_focus, e.wheel.y);
 				}
 			} else {
-				if (!gs.img_focus) {
-					for (int i=0; i<gs.n_imgs; ++i)
-						set_rect_zoom(&gs.img[i], -e.wheel.y);
+				if (!g->img_focus) {
+					for (int i=0; i<g->n_imgs; ++i)
+						set_rect_zoom(&g->img[i], -e.wheel.y);
 				} else {
-				set_rect_zoom(gs.img_focus, -e.wheel.y);
+				set_rect_zoom(g->img_focus, -e.wheel.y);
 				}
 			}
 			break;
 
 		case SDL_WINDOWEVENT:
-			gs.status = REDRAW;
+			g->status = REDRAW;
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_SIZE_CHANGED:
 				printf("resized %d x %d\n", e.window.data1, e.window.data2);
-				gs.scr_w = e.window.data1;
-				gs.scr_h = e.window.data2;
+				g->scr_w = e.window.data1;
+				g->scr_h = e.window.data2;
 
 				// TODO how/where to reset all the "subscreens" rects
-				if (gs.n_imgs == 1) {
-					gs.img[0].scr_rect.x = 0;
-					gs.img[0].scr_rect.y = 0;
-					gs.img[0].scr_rect.w = gs.scr_w;
-					gs.img[0].scr_rect.h = gs.scr_h;
-					set_rect_bestfit(&gs.img[0], gs.fullscreen);
-				} else if (gs.n_imgs == 2) {
-					gs.img[0].scr_rect.x = 0;
-					gs.img[0].scr_rect.y = 0;
-					gs.img[0].scr_rect.w = gs.scr_w/2;
-					gs.img[0].scr_rect.h = gs.scr_h;
-					gs.img[1].scr_rect.x = gs.scr_w/2;
-					gs.img[1].scr_rect.y = 0;
-					gs.img[1].scr_rect.w = gs.scr_w/2;
-					gs.img[1].scr_rect.h = gs.scr_h;
-
-					
-					set_rect_bestfit(&gs.img[0], gs.fullscreen);
-					set_rect_bestfit(&gs.img[1], gs.fullscreen);
-				} else if (gs.n_imgs == 4) {
-					for (int i=0; i<4; ++i) {
-						gs.img[i].scr_rect.x = (i%2)*gs.scr_w/2;
-						gs.img[i].scr_rect.y = (i/2)*gs.scr_h/2;
-						gs.img[i].scr_rect.w = gs.scr_w/2;
-						gs.img[i].scr_rect.h = gs.scr_h/2;
-						set_rect_bestfit(&gs.img[i], gs.fullscreen);
-					}
-				} else if (gs.n_imgs == 8) {
-					for (int i=0; i<8; ++i) {
-						gs.img[i].scr_rect.x = (i%4)*gs.scr_w/4;
-						gs.img[i].scr_rect.y = (i/4)*gs.scr_h/2;
-						gs.img[i].scr_rect.w = gs.scr_w/4;
-						gs.img[i].scr_rect.h = gs.scr_h/2;
-						set_rect_bestfit(&gs.img[i], gs.fullscreen);
-					}
+				if (g->n_imgs == 1) {
+					SET_MODE1_SCR_RECT();
+				} else if (g->n_imgs == 2) {
+					SET_MODE2_SCR_RECTS();
+				} else if (g->n_imgs == 4) {
+					SET_MODE4_SCR_RECTS();
+				} else if (g->n_imgs == 8) {
+					SET_MODE8_SCR_RECTS();
 				}
-
-
 				break;
 			case SDL_WINDOWEVENT_EXPOSED: {
 				int x, y;
-				SDL_GetWindowSize(gs.win, &x, &y);
-				printf("windowed %d %d %d %d\n", gs.scr_w, gs.scr_h, x, y);
+				SDL_GetWindowSize(g->win, &x, &y);
+				printf("windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 				puts("exposed event");
 			}
 				break;
@@ -1356,49 +1219,89 @@ int handle_events()
 	}
 
 	if (set_slide_timer) {
-		gs.slide_timer =  SDL_GetTicks();
+		g->slide_timer =  SDL_GetTicks();
 	}
 
 	return 0;
 }
 
-
-void print_img_state(img_state* img)
+int main(int argc, char** argv)
 {
-	printf("{\nimg = %p\n", img);
-	printf("pixels = %p\n", img->pixels);
-	printf("WxH = %dx%d\n", img->w, img->h);
-	printf("index = %d\n", img->index);
-	printf("frame_i = %d\ndelay = %d\nframes = %d\nframe_cap = %d\n", img->frame_i, img->delay, img->frames, img->frame_capacity);
-	printf("frame_timer = %d\nlooped = %d\n", img->frame_timer, img->looped);
-
-	printf("tex = %p\n", img->tex);
-	for (int i=0; i<img->frames; ++i) {
-		printf("tex[%d] = %p\n", i, img->tex[i]);
+	if (argc != 2) {
+		printf("usage: %s image_name\n", argv[0]);
+		exit(0);
 	}
 
-	printf("scr_rect = %d %d %d %d\n", img->scr_rect.x, img->scr_rect.y, img->scr_rect.w, img->scr_rect.h);
-	printf("disp_rect = %d %d %d %d\n}\n", img->disp_rect.x, img->disp_rect.y, img->disp_rect.w, img->disp_rect.h);
+	char* path = argv[1];
+	char dirpath[4096] = { 0 };
+	char img_name[1024] = { 0 };
+
+	//normalize path (stupid windows)
+	for (int i=0; i<strlen(path); ++i) {
+		if (path[i] == '\\')
+			path[i] = '/';
+	}
+	mydirname(path, dirpath);
+	mybasename(path, img_name);
+
+	g->dirpath = dirpath;
+	g->n_imgs = 1;
+
+	setup(img_name);
+
+	DIR* dir = opendir(dirpath);
+	if (!dir) {
+		perror("opendir");
+		cleanup(1);
+	}
+	cvec_str(&g->files, 0, 100);
+	printf("reading file names\n");
+
+	int done_loading = load_image_names(dir, img_name, 2000);
+
+	printf("done with setup\n");
+
+	int ticks;
+	while (1) {
+		if (handle_events())
+			break;
+
+		ticks = SDL_GetTicks();
+
+		if (g->mouse_state && ticks - g->mouse_timer > 5000) {
+			SDL_ShowCursor(SDL_DISABLE);
+			g->mouse_state = 0;
+		}
+
+		if (!done_loading) {
+			done_loading = load_image_names(dir, NULL, 350);
+		}
+
+		for (int i=0; i<g->n_imgs; ++i) {
+			if (g->img[i].frames > 1 && ticks - g->img[i].frame_timer > g->img[i].delay) {
+				g->img[i].frame_i = (g->img[i].frame_i + 1) % g->img[i].frames;
+				if (g->img[i].frame_i == 0)
+					g->img[i].looped = 1;
+				g->img[i].frame_timer = ticks; // should be set after present ...
+				g->status = REDRAW;
+			}
+		}
+
+		if (g->status == REDRAW) {
+			SDL_RenderSetClipRect(g->ren, NULL);
+			SDL_RenderClear(g->ren);
+			for (int i=0; i<g->n_imgs; ++i) {
+				SDL_RenderSetClipRect(g->ren, &g->img[i].scr_rect);
+				SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
+			}
+			SDL_RenderPresent(g->ren);
+		}
+	}
+
+	cleanup(0);
+
+	//never get here
+	return 0;
 }
 
 
-void cleanup(int ret)
-{
-	for (int i=0; i<gs.n_imgs; ++i) {
-		//stbi_image_free(gs.img[i].pixels);
-
-		for (int j=0; j<gs.img[i].frames; ++j)
-			SDL_DestroyTexture(gs.img[i].tex[j]);
-
-		free(gs.img[i].tex);
-	}
-
-	cvec_free_str(&gs.files);
-
-	SDL_DestroyRenderer(gs.ren);
-	SDL_DestroyWindow(gs.win);
-
-	SDL_Quit();
-
-	exit(ret);
-}
