@@ -57,5 +57,6 @@ discussed above work while in slideshow mode.
 TODO/IDEAS
 ==========
 * figure out why certain rare animated gifs don't load all the frames
-* Let user adjust gif delay up/down
+* Let user adjust gif delay up/down with ALT + +/-
+* Save memory by having the main thread update images as they're loaded.
 * Clean up code a bit
