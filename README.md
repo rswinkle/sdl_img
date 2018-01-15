@@ -12,14 +12,14 @@ Goals / Focus
 
 Controls/Usage
 ==============
-./sdl_img image_name.jpg
+    ./sdl_img image_name.jpg
 
-Will open image_name.jpg.  On Windows that would be sdl_img.exe, but better
+Will open image_name.jpg.  On Windows that would be `sdl_img.exe`, but better
 to just right click on an image of each type and change the default application
 to be sdl_img.exe and then double clicking any image of that type will open it
 with sdl_img.
 
-| Basic Controls    | Description |
+| Controls          | Description |
 | ------------------|-------------|
 | Left (or Up)      | Previous image(s) or pan if appropriate |
 | Right (or Down)   | Next image(s) or pan if appropriate |
@@ -35,6 +35,7 @@ with sdl_img.
 | CTRL + 2          | Double image mode |
 | CTRL + 4          | Quad image mode   |
 | CTRL + 8          | 8 image mode      |
+| F1 - F10          | Start a slideshow with 1 - 10 second delay |
 
 The unique features are being able to view more than a single image at once
 
@@ -47,10 +48,9 @@ alphabetically).  Switching from a higher mode to a lower will show the first n 
 of the higher mode where n is the lower number.  An exception is if you have an
 image selected and go to single mode, that is the image that will be used.
 
-Also you can start slideshow mode with F1-F10 which will use a delay of 1-10 seconds.
-It's smart enough to wait long enough to finish any gif being displayed even if that
-takes longer than the specificed delay.  ESC ends the slideshow.  All other controls
-discussed above work while in slideshow mode.
+The slideshow feature is smart enough to wait long enough to finish any gif being
+displayed even if that takes longer than the specificed delay.  ESC ends the slideshow.
+All other controls work while in slideshow mode.
 
 Building
 ========
@@ -58,9 +58,17 @@ On Linux, just run `./build.sh` for debug, `./build_release.sh` for release.
 
 On Windows I use [MSYS2](https://github.com/msys2/msys2/wiki/MSYS2-installation).  I don't
 like/use IDE's and I can't stand the Window's command line.  MSYS2 allows me to have the
-same environment and tools as Linux.  So it's basically the same:
+same environment and tools as Linux.  So it's basically the same, `./build_win.sh` and
+`./build_win_release.sh`.
 
-TODO finish this section
+
+Packaging
+=========
+I'll expand this section later, once I get to 1.0 and have packages and
+more finalized packaging processes but I'm using
+[NSIS](http://nsis.sourceforge.net/Main_Page) to create my windows installer and
+[fpm](https://github.com/jordansissel/fpm) on linux to create linux packages.  Maybe
+I'll even try something like AppImage or flatpak long term just for fun.
 
 
 TODO/IDEAS
@@ -68,6 +76,7 @@ TODO/IDEAS
 - [ ] Let user adjust gif delay up/down with ALT + +/-
 - [ ] Take a text list of image paths as an arg and browse those
 - [ ] Same as above, but allow URL's (download into a tmp/cache directory)
-- [ ] Save memory by having the main thread update images as they're loaded.
+- [ ] Save memory by having the main thread update images as they're loaded
 - [ ] Clean up code a bit (ongoing)
+- [ ] Automatic updating
 - [ ] Figure out why certain rare animated gifs don't load all the frames

@@ -28,3 +28,6 @@ build/*
 !build/Makefile
 !build/*.make
 *.swp
+
+package/LICENSE*
+package/README.md

@@ -5,7 +5,7 @@
 ; --------------------------------
 
 ; Change these as needed
-!define VERSION "0.9"
+!define VERSION "0.91"
 !define INST_FOLDER "package"
 
 SetCompressor /SOLID /FINAL lzma
@@ -89,6 +89,7 @@ Section "-Core"
 	File ${INST_FOLDER}\sdl_img2.bmp
 	File ${INST_FOLDER}\LICENSE
 	File ${INST_FOLDER}\LICENSE.txt
+	File ${INST_FOLDER}\README.md
 
 	WriteUninstaller $INSTDIR\uninstaller.exe
 SectionEnd
