@@ -20,6 +20,7 @@ to be sdl_img.exe and then double clicking any image of that type will open it
 with sdl_img.
 
 | Basic Controls    | Description |
+| ------------------|-------------|
 | Left (or Up)      | Previous image(s) or pan if appropriate |
 | Right (or Down)   | Next image(s) or pan if appropriate |
 | +/-               | Zoom in/out |
@@ -30,13 +31,12 @@ with sdl_img.
 | F                 | Best Fit |
 | ALT + F or F11    | Toggle Fullscreen |
 | ESC               | Exit (or exit Slideshow mode then fullscreen) |
+| CTRL + 1          | Single image mode |
+| CTRL + 2          | Double image mode |
+| CTRL + 4          | Quad image mode   |
+| CTRL + 8          | 8 image mode      |
 
 The unique features are being able to view more than a single image at once
-
-| CTRL + 1   | Single image mode |
-| CTRL + 2   | Double image mode |
-| CTRL + 4   | Quad image mode   |
-| CTRL + 8   | 8 image mode      |
 
 Within each image mode the basic controls work on all images simultaneously
 unless a specific image is selected by hitting 1-n and then they operate only
@@ -52,11 +52,16 @@ It's smart enough to wait long enough to finish any gif being displayed even if 
 takes longer than the specificed delay.  ESC ends the slideshow.  All other controls
 discussed above work while in slideshow mode.
 
+Building
+========
+
 
 
 TODO/IDEAS
 ==========
-* figure out why certain rare animated gifs don't load all the frames
-* Let user adjust gif delay up/down with ALT + +/-
-* Save memory by having the main thread update images as they're loaded.
-* Clean up code a bit
+- [ ] Let user adjust gif delay up/down with ALT + +/-
+- [ ] Take a text list of image paths as an arg and browse those
+- [ ] Same as above, but allow URL's (download into a tmp/cache directory)
+- [ ] Save memory by having the main thread update images as they're loaded.
+- [ ] Clean up code a bit (ongoing)
+- [ ] Figure out why certain rare animated gifs don't load all the frames

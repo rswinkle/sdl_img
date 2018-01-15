@@ -382,16 +382,12 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 	}
 
 	printf("loading %s\n", fullpath);
-	printf("%p\n", img);
 
-	//img = stbi_load(path, &img->w, &img->h, &n, 4);
 	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, 4, &frames);
 	if (!img->pixels) {
 		printf("failed to load %s: %s\n", fullpath, stbi_failure_reason());
 		return 0;
 	}
-
-	puts("here?");
 
 	if (frames > img->frame_capacity) {
 		// img->tex is either NULL or previously alloced
@@ -420,13 +416,10 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 			return 0;
 	}
 
-	puts("in load_image()");
-	print_img_state(img);
-
 	return 1;
 }
 
-int load_image_names(DIR* dir, char* path, int milliseconds)
+int load_image_names(DIR* dir, char* initial_image, int milliseconds)
 {
 	struct dirent* entry;
 	struct stat file_stat;
@@ -434,16 +427,11 @@ int load_image_names(DIR* dir, char* path, int milliseconds)
 	int ret, i;
 
 	char* names[8] = { 0 };
-	if (path) {
-		names[0] = path;
-	} else {
-		for (i=0; i<g->n_imgs; ++i) {
-			names[i] = g->files.a[g->img[i].index];
-			printf("names[%d] = %s\n", i, names[i]);
-		}
+	for (i=0; i<g->n_imgs; ++i) {
+		names[i] = g->files.a[g->img[i].index];
+		printf("names[%d] = %s\n", i, names[i]);
 	}
 
-	printf("path = %s\n", path);
 	int ticks, start;
 	ticks = start = SDL_GetTicks();
 
@@ -458,8 +446,8 @@ int load_image_names(DIR* dir, char* path, int milliseconds)
 			continue;
 		}
 
-		// if it's a regular file and an image stb_image recognizes
-		if (S_ISREG(file_stat.st_mode) && stbi_info(fullpath, NULL, NULL, NULL)) {
+		// if it's a regular file and an image stb_image recognizes an not the initial image
+		if (S_ISREG(file_stat.st_mode) && stbi_info(fullpath, NULL, NULL, NULL) && strcmp(initial_image, entry->d_name)) {
 			cvec_push_str(&g->files, entry->d_name);
 		}
 
@@ -470,12 +458,11 @@ int load_image_names(DIR* dir, char* path, int milliseconds)
 	//printf("sorting images\n");
 	qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
 
-	printf("finding current images\n");
+	printf("finding current images to update indices\n");
 	char** res;
 	for (i=0; i<g->n_imgs; ++i) {
 		res = bsearch(&names[i], g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
 		if (!res) {
-			puts("Image not found!");
 			cleanup(0);
 		}
 		g->img[i].index = res - g->files.a;
@@ -732,7 +719,6 @@ int handle_events()
 				}
 				g->img = img;
 			}
-			puts("done loading left/right");
 		} else {
 			for (int i=g->n_imgs; i<g->done_loading; ++i)
 				create_textures(&g->img[i]);
@@ -1007,8 +993,6 @@ int handle_events()
 					loading = 1;
 					SDL_CondSignal(g->cnd);
 					SDL_UnlockMutex(g->mtx);
-					printf("loading main %p = %d\n", &g->loading, g->loading);
-					puts("going right");
 				}
 				break;
 			case SDL_SCANCODE_DOWN:
@@ -1255,6 +1239,7 @@ int main(int argc, char** argv)
 		cleanup(1);
 	}
 	cvec_str(&g->files, 0, 100);
+	cvec_push_str(&g->files, img_name);
 	printf("reading file names\n");
 
 	int done_loading = load_image_names(dir, img_name, 2000);
@@ -1274,7 +1259,7 @@ int main(int argc, char** argv)
 		}
 
 		if (!done_loading) {
-			done_loading = load_image_names(dir, NULL, 350);
+			done_loading = load_image_names(dir, img_name, 350);
 		}
 
 		for (int i=0; i<g->n_imgs; ++i) {
