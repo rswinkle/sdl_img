@@ -54,7 +54,13 @@ discussed above work while in slideshow mode.
 
 Building
 ========
+On Linux, just run `./build.sh` for debug, `./build_release.sh` for release.
 
+On Windows I use [MSYS2](https://github.com/msys2/msys2/wiki/MSYS2-installation).  I don't
+like/use IDE's and I can't stand the Window's command line.  MSYS2 allows me to have the
+same environment and tools as Linux.  So it's basically the same:
+
+TODO finish this section
 
 
 TODO/IDEAS
