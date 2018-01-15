@@ -14,6 +14,9 @@ SetCompressorDictSize 64
 Name "sdl_img-${VERSION}"
 OutFile "sdl_img-${VERSION}-Setup.exe"
 
+; Not sure how this works if they keep the default install folder
+RequestExecutionLevel user
+
 ; Default install folder
 InstallDir "$PROGRAMfILES64\sdl_img"
 

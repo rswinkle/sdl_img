@@ -1,6 +1,5 @@
 sdl_img
 =======
-
 A simple image viewer based on stb_image.h (with the suggested animated GIF API extension).
 
 Goals / Focus
