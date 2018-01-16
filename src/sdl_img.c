@@ -569,11 +569,32 @@ void setup(const char* img_name)
 		exit(1);
 	}
 
-	// TODO load image before creating window, create window size based on img dimensions
-	g->scr_w = 640;
-	g->scr_h = 480;
+	g->img = g->img1;
+
+	g->img[0].tex = malloc(100*sizeof(SDL_Texture*));
+	g->img[0].frame_capacity = 100;
+
+	g->fullscreen = 0;
+
+	if (!load_image(img_name, &g->img[0], SDL_FALSE)) {
+		cleanup(0);
+	}
+	SDL_DisplayMode dm;
+	if (SDL_GetDesktopDisplayMode(0, &dm) != 0) {
+		printf("Error getting display mode: %s\n", SDL_GetError());
+		g->scr_w = 640;
+		g->scr_h = 480;
+	} else {
+		// don't know a way to get window border/title bar dimensions cross platform,
+		// let alone before I've even created a window, so subtract arbitrary amt for now
+		printf("screen WxH = %d x %d\n", dm.w, dm.h);
+		g->scr_w = MAX(g->img[0].w, 640);
+		g->scr_h = MAX(g->img[0].h, 480);
+		//g->scr_w = MIN(g->scr_w, dm.w-50);
+		//g->scr_h = MIN(g->scr_h, dm.h-150);
+	}
 	
-	g->win = SDL_CreateWindow(img_name, 100, 100, g->scr_w, g->scr_h, SDL_WINDOW_RESIZABLE);
+	g->win = SDL_CreateWindow(img_name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, g->scr_w, g->scr_h, SDL_WINDOW_RESIZABLE);
 	if (!g->win) {
 		snprintf(error_str, 1024, "Couldn't create window: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
@@ -596,20 +617,14 @@ void setup(const char* img_name)
 		cleanup(1);
 	}
 	// get black screen while loading (big gif could take a few seconds)
-	SDL_SetRenderDrawColor(g->ren, 0, 0, 0, 255);
-	SDL_RenderClear(g->ren);
-	SDL_RenderPresent(g->ren);
-
-	g->img = g->img1;
-
-	g->img[0].tex = malloc(100*sizeof(SDL_Texture*));
-	g->img[0].frame_capacity = 100;
-
-	g->fullscreen = 0;
-
-	if (!load_image(img_name, &g->img[0], SDL_TRUE)) {
-		cleanup(0);
-	}
+	// Well, since we have to load the image to get it's dimensions this is now pointless
+	// maybe default to some resolution is better than being smart? or just create an initial
+	// black window and resize after load?
+	//SDL_SetRenderDrawColor(g->ren, 0, 0, 0, 255);
+	//SDL_RenderClear(g->ren);
+	//SDL_RenderPresent(g->ren);
+	
+	create_textures(&g->img[0]);
 
 	SET_MODE1_SCR_RECT();
 	SDL_RenderSetClipRect(g->ren, &g->img[0].scr_rect);
