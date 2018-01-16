@@ -569,30 +569,8 @@ void setup(const char* img_name)
 		exit(1);
 	}
 
-	g->img = g->img1;
-
-	g->img[0].tex = malloc(100*sizeof(SDL_Texture*));
-	g->img[0].frame_capacity = 100;
-
-	g->fullscreen = 0;
-
-	if (!load_image(img_name, &g->img[0], SDL_FALSE)) {
-		cleanup(0);
-	}
-	SDL_DisplayMode dm;
-	if (SDL_GetDesktopDisplayMode(0, &dm) != 0) {
-		printf("Error getting display mode: %s\n", SDL_GetError());
-		g->scr_w = 640;
-		g->scr_h = 480;
-	} else {
-		// don't know a way to get window border/title bar dimensions cross platform,
-		// let alone before I've even created a window, so subtract arbitrary amt for now
-		printf("screen WxH = %d x %d\n", dm.w, dm.h);
-		g->scr_w = MAX(g->img[0].w, 640);
-		g->scr_h = MAX(g->img[0].h, 480);
-		//g->scr_w = MIN(g->scr_w, dm.w-50);
-		//g->scr_h = MIN(g->scr_h, dm.h-150);
-	}
+	g->scr_w = 640;
+	g->scr_h = 480;
 	
 	g->win = SDL_CreateWindow(img_name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, g->scr_w, g->scr_h, SDL_WINDOW_RESIZABLE);
 	if (!g->win) {
@@ -617,14 +595,33 @@ void setup(const char* img_name)
 		cleanup(1);
 	}
 	// get black screen while loading (big gif could take a few seconds)
-	// Well, since we have to load the image to get it's dimensions this is now pointless
-	// maybe default to some resolution is better than being smart? or just create an initial
-	// black window and resize after load?
-	//SDL_SetRenderDrawColor(g->ren, 0, 0, 0, 255);
-	//SDL_RenderClear(g->ren);
-	//SDL_RenderPresent(g->ren);
+	SDL_SetRenderDrawColor(g->ren, 0, 0, 0, 255);
+	SDL_RenderClear(g->ren);
+	SDL_RenderPresent(g->ren);
 	
-	create_textures(&g->img[0]);
+	g->img = g->img1;
+
+	g->img[0].tex = malloc(100*sizeof(SDL_Texture*));
+	g->img[0].frame_capacity = 100;
+
+	g->fullscreen = 0;
+
+	if (!load_image(img_name, &g->img[0], SDL_TRUE)) {
+		cleanup(0);
+	}
+	SDL_DisplayMode dm;
+	if (SDL_GetDesktopDisplayMode(0, &dm) != 0) {
+		printf("Error getting display mode: %s\n", SDL_GetError());
+	} else {
+		// don't know a way to get window border/title bar dimensions cross platform,
+		// but apparently it's not necessary, if the the dimensions are too big it'll get
+		// set to the max windowed size (at least on Linux still need to test windows)
+		printf("screen WxH = %d x %d\n", dm.w, dm.h);
+		g->scr_w = MAX(g->img[0].w, 640);
+		g->scr_h = MAX(g->img[0].h, 480);
+		SDL_SetWindowSize(g->win, g->scr_w, g->scr_h);
+		SDL_SetWindowPosition(g->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+	}
 
 	SET_MODE1_SCR_RECT();
 	SDL_RenderSetClipRect(g->ren, &g->img[0].scr_rect);
@@ -1246,6 +1243,7 @@ int main(int argc, char** argv)
 	g->dirpath = dirpath;
 	g->n_imgs = 1;
 
+	int ticks = SDL_GetTicks();
 	setup(img_name);
 
 	DIR* dir = opendir(dirpath);
@@ -1257,11 +1255,10 @@ int main(int argc, char** argv)
 	cvec_push_str(&g->files, img_name);
 	printf("reading file names\n");
 
-	int done_loading = load_image_names(dir, img_name, 2000);
+	int done_loading = load_image_names(dir, img_name, 2500-(SDL_GetTicks()-ticks));
 
 	printf("done with setup\n");
 
-	int ticks;
 	while (1) {
 		if (handle_events())
 			break;
@@ -1274,7 +1271,7 @@ int main(int argc, char** argv)
 		}
 
 		if (!done_loading) {
-			done_loading = load_image_names(dir, img_name, 350);
+			done_loading = load_image_names(dir, img_name, 300);
 		}
 
 		for (int i=0; i<g->n_imgs; ++i) {
