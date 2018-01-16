@@ -35,9 +35,11 @@ enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 
 #define PATH_SEPARATOR '/'
+#define ZOOM_RATE 0.05
+#define PAN_RATE 0.05
 
-#define MAX(X, Y) ((X > Y) ? X : Y)
-#define MIN(X, Y) ((X < Y) ? X : Y)
+#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 
 #define SET_MODE1_SCR_RECT()                     \
 	do {                                         \
@@ -273,7 +275,7 @@ void set_rect_zoom(img_state* img, int zoom)
 	float aspect = img->w/(float)img->h;
 	int h, w;
 	
-	h = img->disp_rect.h * (1.0 + zoom*0.05);
+	h = img->disp_rect.h * (1.0 + zoom*ZOOM_RATE);
 	w = h * aspect;
 
 	adjust_rect(img, w, h);
@@ -690,8 +692,6 @@ int handle_events()
 	img_state* img;
 
 	static int loading = 0;
-
-
 	g->status = NOCHANGE;
 
 	SDL_Keymod mod_state = SDL_GetModState();
@@ -944,7 +944,6 @@ int handle_events()
 
 			case SDL_SCANCODE_A:
 				g->status = REDRAW;
-				// set image to actual size
 				if (!g->img_focus) {
 					for (int i=0; i<g->n_imgs; ++i) {
 						adjust_rect(&g->img[i], g->img[i].w, g->img[i].h);
@@ -984,7 +983,7 @@ int handle_events()
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
 							if (img->disp_rect.w > img->scr_rect.w) {
-								img->disp_rect.x -= 0.05 * img->disp_rect.w;
+								img->disp_rect.x -= PAN_RATE * img->disp_rect.w;
 								fix_rect(img);
 								panned = 1;
 							}
@@ -992,14 +991,13 @@ int handle_events()
 					} else {
 						img = g->img_focus;
 						if (img->disp_rect.w > img->scr_rect.w) {
-							img->disp_rect.x -= 0.05 * img->disp_rect.w;
+							img->disp_rect.x -= PAN_RATE * img->disp_rect.w;
 							fix_rect(img);
 							panned = 1;
 						}
 					}
 				}
 				if (!loading && !panned) {
-					set_slide_timer = 1;
 					SDL_LockMutex(g->mtx);
 					g->loading = RIGHT;
 					loading = 1;
@@ -1015,7 +1013,7 @@ int handle_events()
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
 							if (img->disp_rect.h > img->scr_rect.h) {
-								img->disp_rect.y -= 0.05 * img->disp_rect.h;
+								img->disp_rect.y -= PAN_RATE * img->disp_rect.h;
 								fix_rect(img);
 								panned = 1;
 							}
@@ -1023,14 +1021,13 @@ int handle_events()
 					} else {
 						img = g->img_focus;
 						if (img->disp_rect.h > img->scr_rect.h) {
-							img->disp_rect.y -= 0.05 * img->disp_rect.h;
+							img->disp_rect.y -= PAN_RATE * img->disp_rect.h;
 							fix_rect(img);
 							panned = 1;
 						}
 					}
 				}
 				if (!loading && !panned) {
-					set_slide_timer = 1;
 					SDL_LockMutex(g->mtx);
 					g->loading = RIGHT;
 					loading = 1;
@@ -1047,7 +1044,7 @@ int handle_events()
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
 							if (img->disp_rect.w > img->scr_rect.w) {
-								img->disp_rect.x += 0.05 * img->disp_rect.w;
+								img->disp_rect.x += PAN_RATE * img->disp_rect.w;
 								fix_rect(img);
 								panned = 1;
 							}
@@ -1055,14 +1052,13 @@ int handle_events()
 					} else {
 						img = g->img_focus;
 						if (img->disp_rect.w > img->scr_rect.w) {
-							img->disp_rect.x += 0.05 * img->disp_rect.w;
+							img->disp_rect.x += PAN_RATE * img->disp_rect.w;
 							fix_rect(img);
 							panned = 1;
 						}
 					}
 				}
 				if (!loading && !panned) {
-					set_slide_timer = 1;
 					SDL_LockMutex(g->mtx);
 					g->loading = LEFT;
 					loading = 1;
@@ -1078,7 +1074,7 @@ int handle_events()
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
 							if (img->disp_rect.h > img->scr_rect.h) {
-								img->disp_rect.y += 0.05 * img->disp_rect.h;
+								img->disp_rect.y += PAN_RATE * img->disp_rect.h;
 								fix_rect(img);
 								panned = 1;
 							}
@@ -1086,14 +1082,13 @@ int handle_events()
 					} else {
 						img = g->img_focus;
 						if (img->disp_rect.h > img->scr_rect.h) {
-							img->disp_rect.y += 0.05 * img->disp_rect.h;
+							img->disp_rect.y += PAN_RATE * img->disp_rect.h;
 							fix_rect(img);
 							panned = 1;
 						}
 					}
 				}
 				if (!loading && !panned) {
-					set_slide_timer = 1;
 					SDL_LockMutex(g->mtx);
 					g->loading = LEFT;
 					loading = 1;
@@ -1104,20 +1099,48 @@ int handle_events()
 
 			case SDL_SCANCODE_MINUS:
 				g->status = REDRAW;
-				if (!g->img_focus) {
-					for (int i=0; i<g->n_imgs; ++i)
-						set_rect_zoom(&g->img[i], -1);
+				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
+					if (!g->img_focus) {
+						for (int i=0; i<g->n_imgs; ++i)
+							set_rect_zoom(&g->img[i], -1);
+					} else {
+						set_rect_zoom(g->img_focus, -1);
+					}
 				} else {
-					set_rect_zoom(g->img_focus, -1);
+					if (!g->img_focus) {
+						for (int i=0; i<g->n_imgs; ++i) {
+							if (g->img[i].frames > 1)
+								g->img[i].delay += 10;
+						}
+					} else {
+						if (g->img_focus->frames > 1)
+							g->img_focus->delay += 10;
+					}
 				}
 				break;
 			case SDL_SCANCODE_EQUALS:
 				g->status = REDRAW;
-				if (!g->img_focus) {
-					for (int i=0; i<g->n_imgs; ++i)
-						set_rect_zoom(&g->img[i], 1);
+				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
+					if (!g->img_focus) {
+						for (int i=0; i<g->n_imgs; ++i)
+							set_rect_zoom(&g->img[i], 1);
+					} else {
+						set_rect_zoom(g->img_focus, 1);
+					}
 				} else {
-					set_rect_zoom(g->img_focus, 1);
+					if (!g->img_focus) {
+						for (int i=0; i<g->n_imgs; ++i) {
+							if (g->img[i].frames > 1) {
+								g->img[i].delay -= 10;
+								g->img[i].delay = MAX(20, g->img[i].delay);
+							}
+						}
+					} else {
+						if (g->img_focus->frames > 1) {
+							g->img_focus->delay -= 10;
+							g->img_focus->delay = MAX(20, g->img_focus->delay);
+						}
+					}
 				}
 				break;
 
@@ -1185,7 +1208,6 @@ int handle_events()
 			g->status = REDRAW;
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_SIZE_CHANGED:
-				printf("resized %d x %d\n", e.window.data1, e.window.data2);
 				g->scr_w = e.window.data1;
 				g->scr_h = e.window.data2;
 
@@ -1201,10 +1223,12 @@ int handle_events()
 				}
 				break;
 			case SDL_WINDOWEVENT_EXPOSED: {
+				/*
 				int x, y;
 				SDL_GetWindowSize(g->win, &x, &y);
 				printf("windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 				puts("exposed event");
+				*/
 			}
 				break;
 			default:

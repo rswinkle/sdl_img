@@ -72,7 +72,8 @@ I'll even try something like AppImage or flatpak long term just for fun.
 
 TODO/IDEAS
 ==========
-- [ ] Let user adjust gif delay up/down with ALT + +/-
+- [x] Let user adjust gif delay up/down with ALT + +/-
+- [x] Make initial window size based on initial image dimensions
 - [ ] Take a text list of image paths as an arg and browse those
 - [ ] Same as above, but allow URL's (download into a tmp/cache directory)
 - [ ] Save memory by having the main thread update images as they're loaded
