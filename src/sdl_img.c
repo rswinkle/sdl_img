@@ -23,10 +23,12 @@
 #include "stb_image.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 //POSIX works with MinGW64
 #include <sys/stat.h>
 #include <dirent.h>
+#include <curl/curl.h>
 
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -345,6 +347,7 @@ void cleanup(int ret)
 
 	SDL_Quit();
 
+	curl_global_cleanup();
 	exit(ret);
 }
 
@@ -1245,6 +1248,11 @@ int handle_events()
 	return 0;
 }
 
+size_t write_data(void* buf, size_t size, size_t num, void* userp)
+{
+	return fwrite(buf, 1, size*num, (FILE*)userp);
+}
+
 int main(int argc, char** argv)
 {
 	if (argc < 2 || argc > 3) {
@@ -1260,8 +1268,10 @@ int main(int argc, char** argv)
 	int ticks;
 	DIR* dir;
 
+	curl_global_init(CURL_GLOBAL_ALL);
 	cvec_str(&g->files, 0, 100);
 	g->n_imgs = 1;
+
 	if (argc == 2) {
 		path = argv[1];
 		//normalize path (stupid windows)
@@ -1286,7 +1296,7 @@ int main(int argc, char** argv)
 		printf("reading file names\n");
 
 		done_loading = load_imgs_dir(dir, img_name, 2500-(SDL_GetTicks()-ticks));
-	} else {
+	} else if (!strcmp(argv[1], "-f")) {
 		FILE* file = fopen(argv[2], "r");
 		if (!file) {
 			perror("fopen");
@@ -1317,9 +1327,72 @@ int main(int argc, char** argv)
 		//mybasename(path, img_name);
 
 		setup(path);
+	} else if (!strcmp(argv[1], "-u")) {
+		FILE* file = fopen(argv[2], "r");
+		FILE* imgfile;
+		if (!file) {
+			perror("fopen");
+			return 1; // make cleanup() more flexible
+		}
+		char* s;
+		CURL* curl = curl_easy_init();
+		CURLcode res;
+		int len;
+		char filename[1024];
+		char cachedir[1024];
+		char* home = getenv("HOME");
+		sprintf(cachedir, "%s/.sdl_img", home);
+		mkdir(cachedir, 0700);
+		while ((s = fgets(dirpath, 4096, file))) {
+			len = strlen(s);
+			s[len-1] = 0;
+
+			char* slash = strrchr(s, '/');
+			if (!slash)
+				continue;
+			snprintf(filename, sizeof(filename), "%s/%s", cachedir, slash+1);
+
+			printf("Getting %s\n%s\n", s, filename);
+			if (!(imgfile = fopen(filename, "wb"))) {
+				perror("fopen");
+				return 0;
+			}
+
+
+			curl_easy_setopt(curl, CURLOPT_URL, s);
+			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+			curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
+
+			res = curl_easy_perform(curl);
+			fclose(imgfile);
+			if (stbi_info(filename, NULL, NULL, NULL))
+				cvec_push_str(&g->files, filename);
+		}
+		fclose(file);
+		curl_easy_cleanup(curl);
+
+		// do we want to sort?  Or use the order in the file?
+		//qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
+
+		g->dirpath = "";
+		printf("%s\n", g->files.a[0]);
+		path = g->files.a[0];
+		//normalize path (stupid windows) necessary in this case? needs testing
+		for (int i=0; i<strlen(path); ++i) {
+			if (path[i] == '\\')
+				path[i] = '/';
+		}
+		//mybasename(path, img_name);
+
+		setup(path);
+
+	} else {
+		printf("Unrecognized option: %s\n", argv[1]);
+		return 0;
 	}
 
 	printf("done with setup\n");
+
 
 	while (1) {
 		if (handle_events())

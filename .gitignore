@@ -16,6 +16,7 @@
 *.out
 *.app
 *.pyc
+*.deb
 
 #ignore ~ files
 *~
@@ -31,3 +32,6 @@ build/*
 
 package/LICENSE*
 package/README.md
+
+misc/
+sdl_img

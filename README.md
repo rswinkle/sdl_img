@@ -74,8 +74,9 @@ TODO/IDEAS
 ==========
 - [x] Let user adjust gif delay up/down with ALT + +/-
 - [x] Make initial window size based on initial image dimensions
-- [ ] Take a text list of image paths as an arg and browse those
+- [x] Take a text list of image paths as an arg and browse those
 - [ ] Same as above, but allow URL's (download into a tmp/cache directory)
+- [ ] Don't lose navigation events while loading
 - [ ] Save memory by having the main thread update images as they're loaded
 - [ ] Clean up code a bit (ongoing)
 - [ ] Automatic updating
