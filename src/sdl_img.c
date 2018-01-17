@@ -421,7 +421,7 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 	return 1;
 }
 
-int load_image_names(DIR* dir, char* initial_image, int milliseconds)
+int load_imgs_dir(DIR* dir, char* initial_image, int milliseconds)
 {
 	struct dirent* entry;
 	struct stat file_stat;
@@ -560,6 +560,7 @@ void setup(const char* img_name)
 	g->win = NULL;
 	g->ren = NULL;
 	char error_str[1024] = { 0 };
+	char title_buf[1024] = { 0 };
 
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
@@ -571,10 +572,12 @@ void setup(const char* img_name)
 		exit(1);
 	}
 
+	// could use stbi_info to get the img dimensions here without fully decoding...
 	g->scr_w = 640;
 	g->scr_h = 480;
+	mybasename(img_name, title_buf);
 	
-	g->win = SDL_CreateWindow(img_name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, g->scr_w, g->scr_h, SDL_WINDOW_RESIZABLE);
+	g->win = SDL_CreateWindow(title_buf, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, g->scr_w, g->scr_h, SDL_WINDOW_RESIZABLE);
 	if (!g->win) {
 		snprintf(error_str, 1024, "Couldn't create window: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
@@ -1143,9 +1146,6 @@ int handle_events()
 					}
 				}
 				break;
-
-
-
 			default:
 				;
 			}
@@ -1247,39 +1247,77 @@ int handle_events()
 
 int main(int argc, char** argv)
 {
-	if (argc != 2) {
+	if (argc < 2 || argc > 3) {
 		printf("usage: %s image_name\n", argv[0]);
+		printf("usage: %s -f text_list_of_images\n", argv[0]);
 		exit(0);
 	}
 
-	char* path = argv[1];
+	char* path = NULL;
 	char dirpath[4096] = { 0 };
 	char img_name[1024] = { 0 };
+	int done_loading = 1;
+	int ticks;
+	DIR* dir;
 
-	//normalize path (stupid windows)
-	for (int i=0; i<strlen(path); ++i) {
-		if (path[i] == '\\')
-			path[i] = '/';
-	}
-	mydirname(path, dirpath);
-	mybasename(path, img_name);
-
-	g->dirpath = dirpath;
-	g->n_imgs = 1;
-
-	int ticks = SDL_GetTicks();
-	setup(img_name);
-
-	DIR* dir = opendir(dirpath);
-	if (!dir) {
-		perror("opendir");
-		cleanup(1);
-	}
 	cvec_str(&g->files, 0, 100);
-	cvec_push_str(&g->files, img_name);
-	printf("reading file names\n");
+	g->n_imgs = 1;
+	if (argc == 2) {
+		path = argv[1];
+		//normalize path (stupid windows)
+		for (int i=0; i<strlen(path); ++i) {
+			if (path[i] == '\\')
+				path[i] = '/';
+		}
+		mydirname(path, dirpath);
+		mybasename(path, img_name);
 
-	int done_loading = load_image_names(dir, img_name, 2500-(SDL_GetTicks()-ticks));
+		g->dirpath = dirpath;
+
+		ticks = SDL_GetTicks();
+		setup(img_name);
+
+		dir = opendir(dirpath);
+		if (!dir) {
+			perror("opendir");
+			cleanup(1);
+		}
+		cvec_push_str(&g->files, img_name);
+		printf("reading file names\n");
+
+		done_loading = load_imgs_dir(dir, img_name, 2500-(SDL_GetTicks()-ticks));
+	} else {
+		FILE* file = fopen(argv[2], "r");
+		if (!file) {
+			perror("fopen");
+			return 1; // make cleanup() more flexible
+		}
+		char* s;
+		int len;
+		while ((s = fgets(dirpath, 4096, file))) {
+			len = strlen(s);
+			s[len-1] = 0;
+			//printf("checking %s\n", s);
+			if (stbi_info(s, NULL, NULL, NULL))
+				cvec_push_str(&g->files, s);
+		}
+		fclose(file);
+
+		// do we want to sort?  Or use the order in the file?
+		//qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
+
+		g->dirpath = "";
+		printf("%s\n", g->files.a[0]);
+		path = g->files.a[0];
+		//normalize path (stupid windows)
+		for (int i=0; i<strlen(path); ++i) {
+			if (path[i] == '\\')
+				path[i] = '/';
+		}
+		//mybasename(path, img_name);
+
+		setup(path);
+	}
 
 	printf("done with setup\n");
 
@@ -1294,8 +1332,8 @@ int main(int argc, char** argv)
 			g->mouse_state = 0;
 		}
 
-		if (!done_loading) {
-			done_loading = load_image_names(dir, img_name, 300);
+		if (!done_loading && argc == 2) {
+			done_loading = load_imgs_dir(dir, img_name, 300);
 		}
 
 		for (int i=0; i<g->n_imgs; ++i) {
