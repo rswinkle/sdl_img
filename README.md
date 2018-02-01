@@ -75,9 +75,12 @@ TODO/IDEAS
 - [x] Let user adjust gif delay up/down with ALT + +/-
 - [x] Make initial window size based on initial image dimensions
 - [x] Take a text list of image paths as an arg and browse those
-- [ ] Same as above, but allow URL's (download into a tmp/cache directory)
-- [ ] Don't lose navigation events while loading
+- [x] Same as above, but allow URL's (download into a tmp/cache directory)
+- [x] Don't waste CPU cycles/battery when viewing static images
+- [ ] Don't lose navigation events while loading (hmm maybe that's a good thing)
 - [ ] Save memory by having the main thread update images as they're loaded
 - [ ] Clean up code a bit (ongoing)
 - [ ] Automatic updating
+- [ ] Travis-CI
+- [ ] Coverity
 - [ ] Figure out why certain rare animated gifs don't load all the frames

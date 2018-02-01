@@ -149,6 +149,9 @@ typedef struct global_state
 static global_state state = { 0 };
 global_state* g = &state;
 
+// TODO hmmm
+int loading;
+
 // works same as SUSv2 libgen.h dirname except that
 // dirpath is user provided output buffer, assumed large
 // enough, return value is dirpath
@@ -697,7 +700,6 @@ int handle_events()
 	char title_buf[1024];
 	img_state* img;
 
-	static int loading = 0;
 	g->status = NOCHANGE;
 
 	SDL_Keymod mod_state = SDL_GetModState();
@@ -1253,11 +1255,23 @@ size_t write_data(void* buf, size_t size, size_t num, void* userp)
 	return fwrite(buf, 1, size*num, (FILE*)userp);
 }
 
+//stupid windows
+void normalize_path(char* path)
+{
+	for (int i=0; i<strlen(path); ++i) {
+		if (path[i] == '\\')
+			path[i] = '/';
+	}
+}
+
 int main(int argc, char** argv)
 {
-	if (argc < 2 || argc > 3) {
+	if (argc < 2) {
 		printf("usage: %s image_name\n", argv[0]);
 		printf("usage: %s -f text_list_of_images\n", argv[0]);
+		printf("usage: %s -u text_list_of_image_urls\n", argv[0]);
+		printf("Or any combination of those uses, ie:\n");
+		printf("usage: %s image1 -f list -u url_list img2 img3\n", argv[0]);
 		exit(0);
 	}
 
@@ -1272,13 +1286,10 @@ int main(int argc, char** argv)
 	cvec_str(&g->files, 0, 100);
 	g->n_imgs = 1;
 
+
 	if (argc == 2) {
 		path = argv[1];
-		//normalize path (stupid windows)
-		for (int i=0; i<strlen(path); ++i) {
-			if (path[i] == '\\')
-				path[i] = '/';
-		}
+		normalize_path(path);
 		mydirname(path, dirpath);
 		mybasename(path, img_name);
 
@@ -1296,104 +1307,108 @@ int main(int argc, char** argv)
 		printf("reading file names\n");
 
 		done_loading = load_imgs_dir(dir, img_name, 2500-(SDL_GetTicks()-ticks));
-	} else if (!strcmp(argv[1], "-f")) {
-		FILE* file = fopen(argv[2], "r");
-		if (!file) {
-			perror("fopen");
-			return 1; // make cleanup() more flexible
-		}
-		char* s;
-		int len;
-		while ((s = fgets(dirpath, 4096, file))) {
-			len = strlen(s);
-			s[len-1] = 0;
-			//printf("checking %s\n", s);
-			if (stbi_info(s, NULL, NULL, NULL))
-				cvec_push_str(&g->files, s);
-		}
-		fclose(file);
-
-		// do we want to sort?  Or use the order in the file?
-		//qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
-
-		g->dirpath = "";
-		printf("%s\n", g->files.a[0]);
-		path = g->files.a[0];
-		//normalize path (stupid windows)
-		for (int i=0; i<strlen(path); ++i) {
-			if (path[i] == '\\')
-				path[i] = '/';
-		}
-		//mybasename(path, img_name);
-
-		setup(path);
-	} else if (!strcmp(argv[1], "-u")) {
-		FILE* file = fopen(argv[2], "r");
-		FILE* imgfile;
-		if (!file) {
-			perror("fopen");
-			return 1; // make cleanup() more flexible
-		}
-		char* s;
-		CURL* curl = curl_easy_init();
-		CURLcode res;
-		int len;
-		char filename[1024];
-		char cachedir[1024];
-		char* home = getenv("HOME");
-		sprintf(cachedir, "%s/.sdl_img", home);
-		mkdir(cachedir, 0700);
-		while ((s = fgets(dirpath, 4096, file))) {
-			len = strlen(s);
-			s[len-1] = 0;
-
-			char* slash = strrchr(s, '/');
-			if (!slash)
-				continue;
-			snprintf(filename, sizeof(filename), "%s/%s", cachedir, slash+1);
-
-			printf("Getting %s\n%s\n", s, filename);
-			if (!(imgfile = fopen(filename, "wb"))) {
-				perror("fopen");
-				return 0;
-			}
-
-
-			curl_easy_setopt(curl, CURLOPT_URL, s);
-			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
-			curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
-
-			res = curl_easy_perform(curl);
-			fclose(imgfile);
-			if (stbi_info(filename, NULL, NULL, NULL))
-				cvec_push_str(&g->files, filename);
-		}
-		fclose(file);
-		curl_easy_cleanup(curl);
-
-		// do we want to sort?  Or use the order in the file?
-		//qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
-
-		g->dirpath = "";
-		printf("%s\n", g->files.a[0]);
-		path = g->files.a[0];
-		//normalize path (stupid windows) necessary in this case? needs testing
-		for (int i=0; i<strlen(path); ++i) {
-			if (path[i] == '\\')
-				path[i] = '/';
-		}
-		//mybasename(path, img_name);
-
-		setup(path);
-
 	} else {
-		printf("Unrecognized option: %s\n", argv[1]);
-		return 0;
+		g->dirpath = "";
+		for (int i=1; i<argc; ++i) {
+			if (!strcmp(argv[i], "-f")) {
+				FILE* file = fopen(argv[++i], "r");
+				if (!file) {
+					perror("fopen");
+					return 1; // make cleanup() more flexible
+				}
+				char* s;
+				int len;
+				while ((s = fgets(dirpath, 4096, file))) {
+					len = strlen(s);
+					s[len-1] = 0;
+					//printf("checking %s\n", s);
+					if (stbi_info(s, NULL, NULL, NULL))
+						cvec_push_str(&g->files, s);
+				}
+				fclose(file);
+
+				// do we want to sort?  Or use the order in the file?
+				//qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
+
+				printf("%s\n", g->files.a[0]);
+				path = g->files.a[0];
+				normalize_path(path);
+				//mybasename(path, img_name);
+
+				//setup(path);
+			} else if (!strcmp(argv[i], "-u")) {
+				FILE* file = fopen(argv[++i], "r");
+				FILE* imgfile;
+				if (!file) {
+					perror("fopen");
+					return 1; // make cleanup() more flexible
+				}
+				char* s;
+				CURL* curl = curl_easy_init();
+				CURLcode res;
+				int len;
+				char filename[1024];
+				char cachedir[1024];
+				char* home = getenv("HOME");
+				sprintf(cachedir, "%s/.sdl_img", home);
+				mkdir(cachedir, 0700);
+				while ((s = fgets(dirpath, 4096, file))) {
+					len = strlen(s);
+					s[len-1] = 0;
+
+					char* slash = strrchr(s, '/');
+					if (!slash)
+						continue;
+					snprintf(filename, sizeof(filename), "%s/%s", cachedir, slash+1);
+
+					printf("Getting %s\n%s\n", s, filename);
+					if (!(imgfile = fopen(filename, "wb"))) {
+						perror("fopen");
+						return 0;
+					}
+
+
+					curl_easy_setopt(curl, CURLOPT_URL, s);
+					curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+					curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
+
+					res = curl_easy_perform(curl);
+					fclose(imgfile);
+					if (stbi_info(filename, NULL, NULL, NULL))
+						cvec_push_str(&g->files, filename);
+				}
+				fclose(file);
+				curl_easy_cleanup(curl);
+
+				// do we want to sort?  Or use the order in the file?
+				//qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
+
+				g->dirpath = "";
+				printf("%s\n", g->files.a[0]);
+				path = g->files.a[0];
+				normalize_path(path);
+				//mybasename(path, img_name);
+
+				//setup(path);
+
+			} else {
+				path = argv[i];
+				normalize_path(path);
+				cvec_push_str(&g->files, path);
+
+				//printf("Unrecognized option: %s\n", argv[1]);
+				//return 0;
+			}
+		}
+
+		path = g->files.a[0];
+		setup(path);
 	}
 
 	printf("done with setup\n");
 
 
+	int is_a_gif;
 	while (1) {
 		if (handle_events())
 			break;
@@ -1409,13 +1424,17 @@ int main(int argc, char** argv)
 			done_loading = load_imgs_dir(dir, img_name, 300);
 		}
 
+		is_a_gif = 0;
 		for (int i=0; i<g->n_imgs; ++i) {
-			if (g->img[i].frames > 1 && ticks - g->img[i].frame_timer > g->img[i].delay) {
-				g->img[i].frame_i = (g->img[i].frame_i + 1) % g->img[i].frames;
-				if (g->img[i].frame_i == 0)
-					g->img[i].looped = 1;
-				g->img[i].frame_timer = ticks; // should be set after present ...
-				g->status = REDRAW;
+			if (g->img[i].frames > 1) {
+				if (ticks - g->img[i].frame_timer > g->img[i].delay) {
+					g->img[i].frame_i = (g->img[i].frame_i + 1) % g->img[i].frames;
+					if (g->img[i].frame_i == 0)
+						g->img[i].looped = 1;
+					g->img[i].frame_timer = ticks; // should be set after present ...
+					g->status = REDRAW;
+				}
+				is_a_gif = 1;
 			}
 		}
 
@@ -1428,6 +1447,10 @@ int main(int argc, char** argv)
 			}
 			SDL_RenderPresent(g->ren);
 		}
+
+		//"sleep" save CPU cycles/battery when not viewing animated gifs
+		if (done_loading && !is_a_gif && !loading)
+			SDL_Delay(100);
 	}
 
 	cleanup(0);
