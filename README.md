@@ -16,13 +16,16 @@ Controls/Usage
 Will open image_name.jpg.  On Windows that would be `sdl_img.exe`, but better
 to just right click on an image of each type and change the default application
 to be sdl_img.exe and then double clicking any image of that type will open it
-with sdl_img.
+with sdl_img.  Left and right will go through images in the same directory in
+alphabetical order.
+
 
 | Controls          | Description |
 | ------------------|-------------|
 | Left (or Up)      | Previous image(s) or pan if appropriate |
 | Right (or Down)   | Next image(s) or pan if appropriate |
 | +/-               | Zoom in/out |
+| ALT + +/-         | Speed up or slow down an animated gif |
 | ALT + Direction   | Next or previous image(s) even when zoomed in |
 | Mouse Wheel       | Zoom in/out |
 | Left click + drag | Pan around a zoomed in image |
@@ -51,6 +54,22 @@ The slideshow feature is smart enough to wait long enough to finish any gif bein
 displayed even if that takes longer than the specificed delay.  ESC ends the slideshow.
 All other controls work while in slideshow mode.
 
+Advanced Usage
+==============
+    ./sdl_img -f list_of_images
+    ./sdl_img -u list_of_image_urls
+    ./sdl_img image1.jpg image2.png
+
+Or any combination of those options, ie
+    ./sdl_img image.jpg -f list1 -u list2 -f list3 image4.gif
+
+When using any of these modes, all the images will be collected in a list in the
+order they're given (not sorted like basic usage).  In addition, any urls will be
+downloaded to a cache directory before startup.  If you have a large list or lists
+of urls, that could take a bit to download so you'd startup would be slow.
+In addition, for now if you have multiple url images with the same name, the later
+ones will simply overwrite the earlier ones in the cache.
+
 Building
 ========
 On Linux, just run `./build.sh` for debug, `./build_release.sh` for release.
@@ -77,9 +96,9 @@ TODO/IDEAS
 - [x] Take a text list of image paths as an arg and browse those
 - [x] Same as above, but allow URL's (download into a tmp/cache directory)
 - [x] Don't waste CPU cycles/battery when viewing static images
+- [ ] Clean up code a bit (ongoing)
 - [ ] Save memory by aliasing when viewing the same image more than once in multimode
 - [ ] Save memory by having the main thread update images as they're loaded
-- [ ] Clean up code a bit (ongoing)
 - [ ] Automatic updating
 - [ ] Travis-CI
 - [ ] Coverity

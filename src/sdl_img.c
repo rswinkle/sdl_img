@@ -1335,6 +1335,11 @@ int main(int argc, char** argv)
 	curl_global_init(CURL_GLOBAL_ALL);
 	cvec_str(&g->files, 0, 100);
 
+	char* exepath = SDL_GetBasePath();
+	// TODO think of a company name
+	char* prefpath = SDL_GetPrefPath("", "sdl_img");
+	printf("%s\n%s\n\n", exepath, prefpath);
+
 	if (argc == 2) {
 		path = argv[1];
 		normalize_path(path);
@@ -1389,10 +1394,7 @@ int main(int argc, char** argv)
 				char filename[1024];
 				char cachedir[1024];
 				char curlerror[CURL_ERROR_SIZE];
-				char* home = getenv("HOME");
-				strcpy(dirpath, home);
-				normalize_path(dirpath);
-				sprintf(cachedir, "%s/.sdl_img", dirpath);
+				sprintf(cachedir, "%scache", prefpath);
 				mkdir(cachedir, 0700);
 				while ((s = fgets(dirpath, 4096, file))) {
 					len = strlen(s);
@@ -1409,10 +1411,13 @@ int main(int argc, char** argv)
 						return 0;
 					}
 
+					// TODO Do I have to set all of these every time or just the ones that change
 					curl_easy_setopt(curl, CURLOPT_URL, s);
 					curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
 					curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
 					curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlerror);
+					curl_easy_setopt(curl, CURLOPT_CAINFO, "ca-bundle.crt");
+					curl_easy_setopt(curl, CURLOPT_CAPATH, exepath);
 
 					if ((res = curl_easy_perform(curl)) != CURLE_OK) {
 						printf("curl: %s\n", curlerror);
@@ -1482,7 +1487,7 @@ int main(int argc, char** argv)
 
 		//"sleep" save CPU cycles/battery when not viewing animated gifs
 		if (done_loading && !is_a_gif && !loading)
-			SDL_Delay(100);
+			SDL_Delay(50);
 	}
 
 	cleanup(0);

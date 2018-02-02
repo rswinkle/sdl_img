@@ -5,7 +5,7 @@
 ; --------------------------------
 
 ; Change these as needed
-!define VERSION "0.91"
+!define VERSION "0.92"
 !define INST_FOLDER "package"
 
 SetCompressor /SOLID /FINAL lzma
@@ -93,6 +93,7 @@ Section "-Core"
 	File ${INST_FOLDER}\LICENSE
 	File ${INST_FOLDER}\LICENSE.txt
 	File ${INST_FOLDER}\README.md
+	File ${INST_FOLDER}\ca-bundle.crt
 
 	WriteUninstaller $INSTDIR\uninstaller.exe
 SectionEnd
