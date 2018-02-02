@@ -36,6 +36,10 @@
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 
+#ifdef _WIN32
+#define mkdir(A, B) mkdir(A)
+#endif
+
 #define PATH_SEPARATOR '/'
 #define ZOOM_RATE 0.05
 #define PAN_RATE 0.05
@@ -382,8 +386,12 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 	// in tex because clear_img(img) should always have been called before
 
 	char fullpath[4096];
+	int ret;
 
-	int ret = snprintf(fullpath, 4096, "%s/%s", g->dirpath, img_name);
+	if (g->dirpath)
+		ret = snprintf(fullpath, 4096, "%s/%s", g->dirpath, img_name);
+	else
+		ret = snprintf(fullpath, 4096, "%s", img_name);
 	if (ret >= 4096) {
 		// TODO add messagebox here?
 		printf("path too long, exiting\n");
@@ -478,11 +486,11 @@ int load_imgs_dir(DIR* dir, char* initial_image, int milliseconds)
 	}
 
 	if (!entry) {
-		printf("Loaded all %zd filenames\n", g->files.size);
+		printf("Loaded all %"PRIuMAX" filenames\n", g->files.size);
 		closedir(dir);
 		return 1;
 	} else {
-		printf("loaded %zd filenames\n", g->files.size);
+		printf("loaded %"PRIuMAX" filenames\n", g->files.size);
 	}
 
 
@@ -629,9 +637,15 @@ void setup(const char* img_name)
 		// don't know a way to get window border/title bar dimensions cross platform,
 		// but apparently it's not necessary, if the the dimensions are too big it'll get
 		// set to the max windowed size (at least on Linux still need to test windows)
+		//
+		// UPDATE: Windows is *not* smart enough to limit window size but will happily
+		// create a "window" where the edges and titlebar are waaaay off the screen
+		// so, just subtracting arbitrary amount from screen dimensions for now
 		printf("screen WxH = %d x %d\n", dm.w, dm.h);
 		g->scr_w = MAX(g->img[0].w, 640);
 		g->scr_h = MAX(g->img[0].h, 480);
+		g->scr_w = MIN(g->scr_w, dm.w-20);
+		g->scr_h = MIN(g->scr_h, dm.h-80);
 		SDL_SetWindowSize(g->win, g->scr_w, g->scr_h);
 		SDL_SetWindowPosition(g->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 	}
@@ -1298,6 +1312,8 @@ void normalize_path(char* path)
 	}
 }
 
+void convert_path(char* path);
+
 int main(int argc, char** argv)
 {
 	if (argc < 2) {
@@ -1340,7 +1356,7 @@ int main(int argc, char** argv)
 
 		done_loading = load_imgs_dir(dir, img_name, 2500-(SDL_GetTicks()-ticks));
 	} else {
-		g->dirpath = "";
+		g->dirpath = NULL;
 		for (int i=1; i<argc; ++i) {
 			if (!strcmp(argv[i], "-f")) {
 				FILE* file = fopen(argv[++i], "r");
@@ -1353,9 +1369,10 @@ int main(int argc, char** argv)
 				while ((s = fgets(dirpath, 4096, file))) {
 					len = strlen(s);
 					s[len-1] = 0;
-					//printf("checking %s\n", s);
-					if (stbi_info(s, NULL, NULL, NULL))
+					if (stbi_info(s, NULL, NULL, NULL)) {
+						normalize_path(s);
 						cvec_push_str(&g->files, s);
+					}
 				}
 				fclose(file);
 			} else if (!strcmp(argv[i], "-u")) {
@@ -1371,8 +1388,11 @@ int main(int argc, char** argv)
 				int len;
 				char filename[1024];
 				char cachedir[1024];
+				char curlerror[CURL_ERROR_SIZE];
 				char* home = getenv("HOME");
-				sprintf(cachedir, "%s/.sdl_img", home);
+				strcpy(dirpath, home);
+				normalize_path(dirpath);
+				sprintf(cachedir, "%s/.sdl_img", dirpath);
 				mkdir(cachedir, 0700);
 				while ((s = fgets(dirpath, 4096, file))) {
 					len = strlen(s);
@@ -1392,11 +1412,16 @@ int main(int argc, char** argv)
 					curl_easy_setopt(curl, CURLOPT_URL, s);
 					curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
 					curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
+					curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlerror);
 
-					res = curl_easy_perform(curl);
+					if ((res = curl_easy_perform(curl)) != CURLE_OK) {
+						printf("curl: %s\n", curlerror);
+					}
 					fclose(imgfile);
 					if (stbi_info(filename, NULL, NULL, NULL))
 						cvec_push_str(&g->files, filename);
+					else
+						printf("%s\n", stbi_failure_reason());
 				}
 				fclose(file);
 				curl_easy_cleanup(curl);
@@ -1408,6 +1433,7 @@ int main(int argc, char** argv)
 		}
 
 		path = g->files.a[0];
+		printf("starting with\n%s\n", path);
 		setup(path);
 	}
 
