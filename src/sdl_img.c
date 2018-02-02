@@ -95,6 +95,7 @@ typedef struct img_state
 	int h;
 
 	int index;
+	int is_dup;
 
 	int frame_i;
 	int delay; // for now just use the same delay for every frame
@@ -610,6 +611,7 @@ void setup(const char* img_name)
 	SDL_RenderClear(g->ren);
 	SDL_RenderPresent(g->ren);
 	
+	g->n_imgs = 1;
 	g->img = g->img1;
 
 	g->img[0].tex = malloc(100*sizeof(SDL_Texture*));
@@ -692,11 +694,35 @@ void replace_img(img_state* i1, img_state* i2)
 	i2->frames = 0;
 }
 
+/*
+int any_zoomed()
+{
+	if (!g->img_focus) {
+		for (int i=0; i<g->n_imgs; ++i) {
+			img = &g->img[i];
+			if (img->disp_rect.h > img->scr_rect.h || img->disp_rect.w > img->scr_rect.w) {
+				img->disp_rect.y += PAN_RATE * img->disp_rect.h;
+				fix_rect(img);
+				zoomed = 1;
+			}
+		}
+	} else {
+		img = g->img_focus;
+		if (img->disp_rect.h > img->scr_rect.h) {
+			img->disp_rect.y += PAN_RATE * img->disp_rect.h;
+			fix_rect(img);
+			zoomed = 1;
+		}
+	}
+	return 0;
+}
+*/
+
 int handle_events()
 {
 	SDL_Event e;
 	int sc;
-	int panned;
+	int zoomed;
 	char title_buf[1024];
 	img_state* img;
 
@@ -984,7 +1010,7 @@ int handle_events()
 			switch (sc) {
 
 			case SDL_SCANCODE_RIGHT:
-				panned = 0;
+				zoomed = 0;
 				g->status = REDRAW;
 				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!g->img_focus) {
@@ -993,19 +1019,21 @@ int handle_events()
 							if (img->disp_rect.w > img->scr_rect.w) {
 								img->disp_rect.x -= PAN_RATE * img->disp_rect.w;
 								fix_rect(img);
-								panned = 1;
+								zoomed = 1;
 							}
+							zoomed = zoomed || img->disp_rect.h > img->scr_rect.h;
 						}
 					} else {
 						img = g->img_focus;
 						if (img->disp_rect.w > img->scr_rect.w) {
 							img->disp_rect.x -= PAN_RATE * img->disp_rect.w;
 							fix_rect(img);
-							panned = 1;
+							zoomed = 1;
 						}
+						zoomed = zoomed || img->disp_rect.h > img->scr_rect.h;
 					}
 				}
-				if (!loading && !panned) {
+				if (!loading && !zoomed) {
 					SDL_LockMutex(g->mtx);
 					g->loading = RIGHT;
 					loading = 1;
@@ -1014,7 +1042,7 @@ int handle_events()
 				}
 				break;
 			case SDL_SCANCODE_DOWN:
-				panned = 0;
+				zoomed = 0;
 				g->status = REDRAW;
 				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!g->img_focus) {
@@ -1023,19 +1051,21 @@ int handle_events()
 							if (img->disp_rect.h > img->scr_rect.h) {
 								img->disp_rect.y -= PAN_RATE * img->disp_rect.h;
 								fix_rect(img);
-								panned = 1;
+								zoomed = 1;
 							}
+							zoomed = zoomed || img->disp_rect.w > img->scr_rect.w;
 						}
 					} else {
 						img = g->img_focus;
 						if (img->disp_rect.h > img->scr_rect.h) {
 							img->disp_rect.y -= PAN_RATE * img->disp_rect.h;
 							fix_rect(img);
-							panned = 1;
+							zoomed = 1;
 						}
+						zoomed = zoomed || img->disp_rect.w > img->scr_rect.w;
 					}
 				}
-				if (!loading && !panned) {
+				if (!loading && !zoomed) {
 					SDL_LockMutex(g->mtx);
 					g->loading = RIGHT;
 					loading = 1;
@@ -1045,7 +1075,7 @@ int handle_events()
 				break;
 
 			case SDL_SCANCODE_LEFT:
-				panned = 0;
+				zoomed = 0;
 				g->status = REDRAW;
 				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!g->img_focus) {
@@ -1054,19 +1084,21 @@ int handle_events()
 							if (img->disp_rect.w > img->scr_rect.w) {
 								img->disp_rect.x += PAN_RATE * img->disp_rect.w;
 								fix_rect(img);
-								panned = 1;
+								zoomed = 1;
 							}
+							zoomed = zoomed || img->disp_rect.h > img->scr_rect.h;
 						}
 					} else {
 						img = g->img_focus;
 						if (img->disp_rect.w > img->scr_rect.w) {
 							img->disp_rect.x += PAN_RATE * img->disp_rect.w;
 							fix_rect(img);
-							panned = 1;
+							zoomed = 1;
 						}
+						zoomed = zoomed || img->disp_rect.h > img->scr_rect.h;
 					}
 				}
-				if (!loading && !panned) {
+				if (!loading && !zoomed) {
 					SDL_LockMutex(g->mtx);
 					g->loading = LEFT;
 					loading = 1;
@@ -1075,7 +1107,7 @@ int handle_events()
 				}
 				break;
 			case SDL_SCANCODE_UP:
-				panned = 0;
+				zoomed = 0;
 				g->status = REDRAW;
 				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!g->img_focus) {
@@ -1084,19 +1116,21 @@ int handle_events()
 							if (img->disp_rect.h > img->scr_rect.h) {
 								img->disp_rect.y += PAN_RATE * img->disp_rect.h;
 								fix_rect(img);
-								panned = 1;
+								zoomed = 1;
 							}
+							zoomed = zoomed || img->disp_rect.w > img->scr_rect.w;
 						}
 					} else {
 						img = g->img_focus;
 						if (img->disp_rect.h > img->scr_rect.h) {
 							img->disp_rect.y += PAN_RATE * img->disp_rect.h;
 							fix_rect(img);
-							panned = 1;
+							zoomed = 1;
 						}
+						zoomed = zoomed || img->disp_rect.w > img->scr_rect.w;
 					}
 				}
-				if (!loading && !panned) {
+				if (!loading && !zoomed) {
 					SDL_LockMutex(g->mtx);
 					g->loading = LEFT;
 					loading = 1;
@@ -1284,8 +1318,6 @@ int main(int argc, char** argv)
 
 	curl_global_init(CURL_GLOBAL_ALL);
 	cvec_str(&g->files, 0, 100);
-	g->n_imgs = 1;
-
 
 	if (argc == 2) {
 		path = argv[1];
@@ -1326,16 +1358,6 @@ int main(int argc, char** argv)
 						cvec_push_str(&g->files, s);
 				}
 				fclose(file);
-
-				// do we want to sort?  Or use the order in the file?
-				//qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
-
-				printf("%s\n", g->files.a[0]);
-				path = g->files.a[0];
-				normalize_path(path);
-				//mybasename(path, img_name);
-
-				//setup(path);
 			} else if (!strcmp(argv[i], "-u")) {
 				FILE* file = fopen(argv[++i], "r");
 				FILE* imgfile;
@@ -1367,7 +1389,6 @@ int main(int argc, char** argv)
 						return 0;
 					}
 
-
 					curl_easy_setopt(curl, CURLOPT_URL, s);
 					curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
 					curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
@@ -1379,25 +1400,10 @@ int main(int argc, char** argv)
 				}
 				fclose(file);
 				curl_easy_cleanup(curl);
-
-				// do we want to sort?  Or use the order in the file?
-				//qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
-
-				g->dirpath = "";
-				printf("%s\n", g->files.a[0]);
-				path = g->files.a[0];
-				normalize_path(path);
-				//mybasename(path, img_name);
-
-				//setup(path);
-
 			} else {
 				path = argv[i];
 				normalize_path(path);
 				cvec_push_str(&g->files, path);
-
-				//printf("Unrecognized option: %s\n", argv[1]);
-				//return 0;
 			}
 		}
 

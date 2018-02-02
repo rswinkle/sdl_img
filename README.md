@@ -77,7 +77,7 @@ TODO/IDEAS
 - [x] Take a text list of image paths as an arg and browse those
 - [x] Same as above, but allow URL's (download into a tmp/cache directory)
 - [x] Don't waste CPU cycles/battery when viewing static images
-- [ ] Don't lose navigation events while loading (hmm maybe that's a good thing)
+- [ ] Save memory by aliasing when viewing the same image more than once in multimode
 - [ ] Save memory by having the main thread update images as they're loaded
 - [ ] Clean up code a bit (ongoing)
 - [ ] Automatic updating
