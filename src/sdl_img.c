@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 //POSIX works with MinGW64
 #include <sys/stat.h>
@@ -337,24 +338,24 @@ int create_textures(img_state* img)
 	return 1;
 }
 
-void cleanup(int ret)
+void cleanup(int ret, int called_setup)
 {
-	for (int i=0; i<g->n_imgs; ++i) {
-		//stbi_image_free(g->img[i].pixels);
+	if (called_setup) {
+		for (int i=0; i<g->n_imgs; ++i) {
+			//stbi_image_free(g->img[i].pixels);
 
-		for (int j=0; j<g->img[i].frames; ++j)
-			SDL_DestroyTexture(g->img[i].tex[j]);
+			for (int j=0; j<g->img[i].frames; ++j)
+				SDL_DestroyTexture(g->img[i].tex[j]);
 
-		free(g->img[i].tex);
+			free(g->img[i].tex);
+		}
+
+		SDL_DestroyRenderer(g->ren);
+		SDL_DestroyWindow(g->win);
+		SDL_Quit();
 	}
 
 	cvec_free_str(&g->files);
-
-	SDL_DestroyRenderer(g->ren);
-	SDL_DestroyWindow(g->win);
-
-	SDL_Quit();
-
 	curl_global_cleanup();
 	exit(ret);
 }
@@ -394,8 +395,9 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 		ret = snprintf(fullpath, 4096, "%s", img_name);
 	if (ret >= 4096) {
 		// TODO add messagebox here?
-		printf("path too long, exiting\n");
-		cleanup(0);
+		// why do I exit here but not on failed to load?
+		printf("path too long\n");
+		return 0;
 	}
 
 	printf("loading %s\n", fullpath);
@@ -438,7 +440,7 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 
 int load_imgs_dir(DIR* dir, char* initial_image, int milliseconds)
 {
-	struct dirent* entry;
+	struct dirent* entry = (struct dirent*)1; // just need it to not be NULL to distinguish from readdir finished
 	struct stat file_stat;
 	char fullpath[4096] = { 0 };
 	int ret, i;
@@ -456,7 +458,7 @@ int load_imgs_dir(DIR* dir, char* initial_image, int milliseconds)
 		ret = snprintf(fullpath, 4096, "%s/%s", g->dirpath, entry->d_name);
 		if (ret >= 4096) {
 			printf("path too long\n");
-			cleanup(0);
+			cleanup(0, 1);
 		}
 		if (stat(fullpath, &file_stat)) {
 			perror("stat");
@@ -480,7 +482,7 @@ int load_imgs_dir(DIR* dir, char* initial_image, int milliseconds)
 	for (i=0; i<g->n_imgs; ++i) {
 		res = bsearch(&names[i], g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
 		if (!res) {
-			cleanup(0);
+			cleanup(0, 1);
 		}
 		g->img[i].index = res - g->files.a;
 	}
@@ -612,7 +614,7 @@ void setup(const char* img_name)
 		snprintf(error_str, 1024, "Software rendering failed: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
 		puts(error_str);
-		cleanup(1);
+		cleanup(1, 1);
 	}
 	// get black screen while loading (big gif could take a few seconds)
 	SDL_SetRenderDrawColor(g->ren, 0, 0, 0, 255);
@@ -628,8 +630,9 @@ void setup(const char* img_name)
 	g->fullscreen = 0;
 
 	if (!load_image(img_name, &g->img[0], SDL_TRUE)) {
-		cleanup(0);
+		cleanup(0, 1);
 	}
+
 	SDL_DisplayMode dm;
 	if (SDL_GetDesktopDisplayMode(0, &dm) != 0) {
 		printf("Error getting display mode: %s\n", SDL_GetError());
@@ -657,12 +660,12 @@ void setup(const char* img_name)
 
 	if (!(g->cnd = SDL_CreateCond())) {
 		printf("Error: %s", SDL_GetError());
-		cleanup(0);
+		cleanup(0, 1);
 	}
 
 	if (!(g->mtx = SDL_CreateMutex())) {
 		printf("Error: %s", SDL_GetError());
-		cleanup(0);
+		cleanup(0, 1);
 	}
 
 	SDL_Thread* loading_thrd;
@@ -707,30 +710,6 @@ void replace_img(img_state* i1, img_state* i2)
 	i2->frame_capacity = tmp;
 	i2->frames = 0;
 }
-
-/*
-int any_zoomed()
-{
-	if (!g->img_focus) {
-		for (int i=0; i<g->n_imgs; ++i) {
-			img = &g->img[i];
-			if (img->disp_rect.h > img->scr_rect.h || img->disp_rect.w > img->scr_rect.w) {
-				img->disp_rect.y += PAN_RATE * img->disp_rect.h;
-				fix_rect(img);
-				zoomed = 1;
-			}
-		}
-	} else {
-		img = g->img_focus;
-		if (img->disp_rect.h > img->scr_rect.h) {
-			img->disp_rect.y += PAN_RATE * img->disp_rect.h;
-			fix_rect(img);
-			zoomed = 1;
-		}
-	}
-	return 0;
-}
-*/
 
 int handle_events()
 {
@@ -1312,8 +1291,6 @@ void normalize_path(char* path)
 	}
 }
 
-void convert_path(char* path);
-
 int main(int argc, char** argv)
 {
 	if (argc < 2) {
@@ -1336,7 +1313,7 @@ int main(int argc, char** argv)
 	cvec_str(&g->files, 0, 100);
 
 	char* exepath = SDL_GetBasePath();
-	// TODO think of a company name
+	// TODO think of a company/org name
 	char* prefpath = SDL_GetPrefPath("", "sdl_img");
 	printf("%s\n%s\n\n", exepath, prefpath);
 
@@ -1354,7 +1331,7 @@ int main(int argc, char** argv)
 		dir = opendir(dirpath);
 		if (!dir) {
 			perror("opendir");
-			cleanup(1);
+			cleanup(1, 1);
 		}
 		cvec_push_str(&g->files, img_name);
 		printf("reading file names\n");
@@ -1367,7 +1344,7 @@ int main(int argc, char** argv)
 				FILE* file = fopen(argv[++i], "r");
 				if (!file) {
 					perror("fopen");
-					return 1; // make cleanup() more flexible
+					cleanup(1, 0);
 				}
 				char* s;
 				int len;
@@ -1385,7 +1362,7 @@ int main(int argc, char** argv)
 				FILE* imgfile;
 				if (!file) {
 					perror("fopen");
-					return 1; // make cleanup() more flexible
+					cleanup(1, 0);
 				}
 				char* s;
 				CURL* curl = curl_easy_init();
@@ -1396,6 +1373,12 @@ int main(int argc, char** argv)
 				char curlerror[CURL_ERROR_SIZE];
 				sprintf(cachedir, "%scache", prefpath);
 				mkdir(cachedir, 0700);
+				curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+				curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlerror);
+				#ifdef _WIN32
+				curl_easy_setopt(curl, CURLOPT_CAINFO, "ca-bundle.crt");
+				curl_easy_setopt(curl, CURLOPT_CAPATH, exepath);
+				#endif
 				while ((s = fgets(dirpath, 4096, file))) {
 					len = strlen(s);
 					s[len-1] = 0;
@@ -1408,16 +1391,11 @@ int main(int argc, char** argv)
 					printf("Getting %s\n%s\n", s, filename);
 					if (!(imgfile = fopen(filename, "wb"))) {
 						perror("fopen");
-						return 0;
+						cleanup(1, 0);
 					}
 
-					// TODO Do I have to set all of these every time or just the ones that change
 					curl_easy_setopt(curl, CURLOPT_URL, s);
-					curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
 					curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
-					curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlerror);
-					curl_easy_setopt(curl, CURLOPT_CAINFO, "ca-bundle.crt");
-					curl_easy_setopt(curl, CURLOPT_CAPATH, exepath);
 
 					if ((res = curl_easy_perform(curl)) != CURLE_OK) {
 						printf("curl: %s\n", curlerror);
@@ -1490,7 +1468,7 @@ int main(int argc, char** argv)
 			SDL_Delay(50);
 	}
 
-	cleanup(0);
+	cleanup(0, 1);
 
 	//never get here
 	return 0;
