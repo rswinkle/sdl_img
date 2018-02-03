@@ -1293,6 +1293,7 @@ void normalize_path(char* path)
 
 int main(int argc, char** argv)
 {
+	// TODO add --version option
 	if (argc < 2) {
 		printf("usage: %s image_name\n", argv[0]);
 		printf("usage: %s -f text_list_of_images\n", argv[0]);

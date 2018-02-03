@@ -66,7 +66,7 @@ Or any combination of those options, ie
 When using any of these modes, all the images will be collected in a list in the
 order they're given (not sorted like basic usage).  In addition, any urls will be
 downloaded to a cache directory before startup.  If you have a large list or lists
-of urls, that could take a bit to download so you'd startup would be slow.
+of urls, that could take a bit to download so your startup would be slow.
 In addition, for now if you have multiple url images with the same name, the later
 ones will simply overwrite the earlier ones in the cache.
 
@@ -96,6 +96,7 @@ TODO/IDEAS
 - [x] Take a text list of image paths as an arg and browse those
 - [x] Same as above, but allow URL's (download into a tmp/cache directory)
 - [x] Don't waste CPU cycles/battery when viewing static images
+- [ ] Add window icon (either static or based on current image(s))
 - [ ] Clean up code a bit (ongoing)
 - [ ] Save memory by aliasing when viewing the same image more than once in multimode
 - [ ] Save memory by having the main thread update images as they're loaded
