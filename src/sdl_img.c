@@ -44,6 +44,7 @@ enum { NOTHING, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 #define PATH_SEPARATOR '/'
 #define ZOOM_RATE 0.05
 #define PAN_RATE 0.05
+#define MIN_GIF_DELAY 10
 
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
@@ -424,6 +425,7 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 		img->delay = *(short*)(&img->pixels[size]) * 10;
 		if (!img->delay)
 			img->delay = 100;
+		img->delay = MAX(MIN_GIF_DELAY, img->delay);
 		printf("%d frames %d delay\n", frames, img->delay);
 	}
 
@@ -1167,13 +1169,13 @@ int handle_events()
 						for (int i=0; i<g->n_imgs; ++i) {
 							if (g->img[i].frames > 1) {
 								g->img[i].delay -= 10;
-								g->img[i].delay = MAX(20, g->img[i].delay);
+								g->img[i].delay = MAX(MIN_GIF_DELAY, g->img[i].delay);
 							}
 						}
 					} else {
 						if (g->img_focus->frames > 1) {
 							g->img_focus->delay -= 10;
-							g->img_focus->delay = MAX(20, g->img_focus->delay);
+							g->img_focus->delay = MAX(MIN_GIF_DELAY, g->img_focus->delay);
 						}
 					}
 				}
@@ -1464,9 +1466,11 @@ int main(int argc, char** argv)
 			SDL_RenderPresent(g->ren);
 		}
 
-		//"sleep" save CPU cycles/battery when not viewing animated gifs
+		//"sleep" save CPU cycles/battery especially when not viewing animated gifs
 		if (done_loading && !is_a_gif && !loading)
 			SDL_Delay(50);
+		else
+			SDL_Delay(MIN_GIF_DELAY/2);
 	}
 
 	cleanup(0, 1);
