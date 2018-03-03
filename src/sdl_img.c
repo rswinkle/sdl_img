@@ -45,6 +45,9 @@ enum { NOTHING, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 #define ZOOM_RATE 0.05
 #define PAN_RATE 0.05
 #define MIN_GIF_DELAY 10
+#define HIDE_CURSOR_TIMER 5000
+#define MAX_STARTUP_TIME 2500
+#define SLEEP_TIME 50
 
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
@@ -1339,7 +1342,7 @@ int main(int argc, char** argv)
 		cvec_push_str(&g->files, img_name);
 		printf("reading file names\n");
 
-		done_loading = load_imgs_dir(dir, img_name, 2500-(SDL_GetTicks()-ticks));
+		done_loading = load_imgs_dir(dir, img_name, MAX_STARTUP_TIME-(SDL_GetTicks()-ticks));
 	} else {
 		g->dirpath = NULL;
 		for (int i=1; i<argc; ++i) {
@@ -1433,7 +1436,7 @@ int main(int argc, char** argv)
 
 		ticks = SDL_GetTicks();
 
-		if (g->mouse_state && ticks - g->mouse_timer > 5000) {
+		if (g->mouse_state && ticks - g->mouse_timer > HIDE_CURSOR_TIMER) {
 			SDL_ShowCursor(SDL_DISABLE);
 			g->mouse_state = 0;
 		}
@@ -1468,7 +1471,7 @@ int main(int argc, char** argv)
 
 		//"sleep" save CPU cycles/battery especially when not viewing animated gifs
 		if (done_loading && !is_a_gif && !loading)
-			SDL_Delay(50);
+			SDL_Delay(SLEEP_TIME);
 		else
 			SDL_Delay(MIN_GIF_DELAY/2);
 	}
