@@ -411,7 +411,6 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 		printf("failed to load %s: %s\n", fullpath, stbi_failure_reason());
 		return 0;
 	}
-	printf("failed to load %s: %s\n", fullpath, stbi_failure_reason());
 
 	if (frames > img->frame_capacity) {
 		// img->tex is either NULL or previously alloced

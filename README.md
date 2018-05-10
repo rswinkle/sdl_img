@@ -103,4 +103,4 @@ TODO/IDEAS
 - [ ] Automatic updating
 - [ ] Travis-CI
 - [ ] Coverity
-- [ ] Figure out why certain rare animated gifs don't load all the frames
+- [x] Figure out why certain rare animated gifs don't load all the frames
