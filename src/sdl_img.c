@@ -18,7 +18,7 @@
 #define CVECTOR_IMPLEMENTATION
 #include "cvector.h"
 
-#define STBI_FAILURE_USERMSG
+//#define STBI_FAILURE_USERMSG
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -411,6 +411,7 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 		printf("failed to load %s: %s\n", fullpath, stbi_failure_reason());
 		return 0;
 	}
+	printf("failed to load %s: %s\n", fullpath, stbi_failure_reason());
 
 	if (frames > img->frame_capacity) {
 		// img->tex is either NULL or previously alloced
@@ -419,13 +420,13 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 	}
 
 	int size = img->w * img->h * 4;
-	//gif delay is in 100ths, ticks are 1000ths
+	//gif delay is in 100ths, ticks are 1000ths, but newer stb_image converts for us
 	//assume that the delay is the same for all frames (never seen anything else anyway)
 	//and if delay is 0, default to 10 fps
 	img->looped = 1;
 	if (frames > 1) {
 		img->looped = 0;
-		img->delay = *(short*)(&img->pixels[size]) * 10;
+		img->delay = *(short*)(&img->pixels[size]); // * 10;
 		if (!img->delay)
 			img->delay = 100;
 		img->delay = MAX(MIN_GIF_DELAY, img->delay);
