@@ -4,5 +4,11 @@ compiler:
   - gcc
   - clang
 
+addons:
+  apt:
+    sources:
+    packages:
+      - libsdl2-dev
+
 script:
   - ./build.sh
