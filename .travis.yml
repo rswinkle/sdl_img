@@ -6,11 +6,13 @@ compiler:
   - clang
 
 before_install:
-  - travis_retry curl -L https://www.libsdl.org/release/SDL2-2.0.4.tar.gz | tar xz
-  - cd SDL2-2.0.4
-  - ./configure
-  - make
-  - sudo make install
+  - sudo apt -qq update
+  - sudo apt install libsdl2-dev
+    #  - travis_retry curl -L https://www.libsdl.org/release/SDL2-2.0.4.tar.gz | tar xz
+    #  - cd SDL2-2.0.4
+    #  - ./configure
+    #  - make
+    #  - sudo make install
 
 script:
   - ./build.sh
