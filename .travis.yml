@@ -1,15 +1,16 @@
 dist: xenial
-sudo: false
+sudo: true
 language: c
 compiler:
   - gcc
   - clang
 
-addons:
-  apt:
-    sources:
-    packages:
-      - libsdl2-dev
+before_install:
+  - travis_retry curl -L https://www.libsdl.org/release/SDL2-2.0.4.tar.gz | tar xz
+  - cd SDL2-2.0.4
+  - ./configure
+  - make
+  - sudo make install
 
 script:
   - ./build.sh
