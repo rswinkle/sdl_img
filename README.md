@@ -1,5 +1,8 @@
 sdl_img
 =======
+
+[![Build Status](https://travis-ci.org/rswinkle/C_Interpreter.svg?branch=master)](https://travis-ci.org/rswinkle/C_Interpreter)
+
 A simple image viewer based on stb_image.h (with the suggested animated GIF API extension).
 
 Goals / Focus
