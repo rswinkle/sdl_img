@@ -1,25 +1,17 @@
-dist: xenial
+dist: trusty
 sudo: true
 language: c
 compiler:
   - gcc
   - clang
 
-addons:
-  apt:
-    update: true
-    packages:
-      - libsdl2-dev
-
-
-        #before_install:
-        #- sudo apt -qq update
-        #- sudo apt install libsdl2-dev
-    #  - travis_retry curl -L https://www.libsdl.org/release/SDL2-2.0.4.tar.gz | tar xz
-    #  - cd SDL2-2.0.4
-    #  - ./configure
-    #  - make
-    #  - sudo make install
+before_install:
+  - travis_retry curl -L https://www.libsdl.org/release/SDL2-2.0.4.tar.gz | tar xz
+  - cd SDL2-2.0.4
+  - ./configure
+  - make
+  - sudo make install
+  - cd ..
 
 script:
   - ./build.sh
