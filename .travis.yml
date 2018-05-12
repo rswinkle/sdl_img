@@ -5,6 +5,30 @@ compiler:
   - gcc
   - clang
 
+
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "M6gUTTLyD4n7kNjNl9e58By9QR/f0XJdbXoupFAeklWRcq21DeARNclJXGpEYZaD84i2CYkWm5R634LUSd/fgV+E4iurYOPILHVg+W/5sFzSSkpsN4/6cpSipAbtaBhlBzwW0+xL4EuQ0IozA4vm594omTm25MGy3rPOZPojQVMk+dUf+qxKMEJvKk7sM0mfPyYPSHZSIUT8of8LCjpdNqvnQ5vSef5npTSwMCCSBzigROBH/Qduee6jo6EOkTsfLbWzvpafY8gsJb4yYtH9hX11TMzicmYw8YlsSr5FvgR41W1QZVJvbEyS73RlC3EmltqOfT81SgW2zIX44uIyYdd+226y6gg9VwZFYd0ry22r+qxKql9Mai/gwSkvJIsgJ0aIWvy+TkqpJBsUU6aifw1ZNRoAD/BB6loGPRgNn/lMrdA0+exBEF1s8aTQZZENyUzqyF1lfj+MvSrJmxh6iZ8xjPdGK2RuYr5W4eel2up7mW2Gpic/zKwF6inEaDHTKCW/XkbKnIGc7V5OAEf+6z7pi3SzgnTTe+UCLQOQe5vt0shBbwhZFsPGi95DfACktsv9Cd6a5kT5IjVpTPVisaiHZxjaoWiZt2RmPIFiBPxW62RkRosN0pne7F5ANqm8C/0+S2hgVSZLMNq5FgVPjmHQSMgs3Ncjic4dgKBt71g="
+
+
+# what is this, checking the key?
+before_install:
+  - echo -n | openssl s_client -connect https://scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
+
+addons:
+  coverity_scan:
+    project:
+      name: "rswinkle/sdl_img"
+      description: "A simple cross-platform image viewer"
+    notification_email: rob121618@gmail.com
+    # build_command_prepend: "<Your build preprocessing command here>"
+    build_command: "./build.sh"
+    branch_pattern: coverity_scan
+
+
+
 before_install:
   - travis_retry curl -L https://www.libsdl.org/release/SDL2-2.0.4.tar.gz | tar xz
   - cd SDL2-2.0.4
