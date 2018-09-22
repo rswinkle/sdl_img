@@ -735,6 +735,27 @@ int handle_events()
 	int ticks = SDL_GetTicks();
 	int set_slide_timer = 0;
 
+	SDL_MessageBoxButtonData buttons[] = {
+		//{ /* .flags, .buttonid, .text */        0, 0, "no" },
+		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "yes" },
+		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "cancel" },
+	};
+
+	char delete_prompt[1024];
+	char full_img_path[1024];
+
+	SDL_MessageBoxData messageboxdata = {
+		SDL_MESSAGEBOX_WARNING, /* .flags */
+		NULL, /* .window */
+		"Warning", /* .title */
+		NULL, /* .message to be set later */
+		SDL_arraysize(buttons), /* .numbuttons */
+		buttons, /* .buttons */
+		NULL /* .colorScheme, NULL = system default */
+	};
+
+	int buttonid;
+
 	if (g->slideshow && !loading && ticks - g->slide_timer > g->slideshow) {
 		int i;
 		// make sure all current gifs have gotten to the end
@@ -806,6 +827,29 @@ int handle_events()
 						g->status = REDRAW;
 						SDL_SetWindowFullscreen(g->win, 0);
 						g->fullscreen = 0;
+					}
+				}
+				break;
+
+			case SDL_SCANCODE_DELETE:
+				// only delete in single image mode to avoid confusion and complication
+				if (g->n_imgs == 1) {
+					if (g->dirpath)
+						sprintf(full_img_path, "%s/%s", g->dirpath, g->files.a[g->img[0].index]);
+					else
+						strncpy(full_img_path, g->files.a[g->img[0].index], 1024);
+					snprintf(delete_prompt, 1024, "Are you sure you want to delete '%s'?", full_img_path);
+					messageboxdata.message = delete_prompt;
+					SDL_ShowMessageBox(&messageboxdata, &buttonid);
+					if (buttonid == 1) {
+						if (remove(full_img_path)) {
+							perror("Failed to delete image");
+						} else {
+							printf("Deleted %s\n", full_img_path);
+							cvec_erase_str(&g->files, g->img[0].index, g->img[0].index);
+							g->img[0].index--; // since everything shifted left, we need to pre-decrement to not skip an image
+							SDL_PushEvent(&right);
+						}
 					}
 				}
 				break;
@@ -1356,7 +1400,12 @@ int main(int argc, char** argv)
 				int len;
 				while ((s = fgets(dirpath, 4096, file))) {
 					len = strlen(s);
-					s[len-1] = 0;
+					s[len-1] = 0;  // get rid of '\n'
+					// handle quoted paths
+					if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
+						s[len-2] = 0;
+						memmove(s, &s[1], len-2);
+					}
 					if (stbi_info(s, NULL, NULL, NULL)) {
 						normalize_path(s);
 						cvec_push_str(&g->files, s);
@@ -1388,6 +1437,11 @@ int main(int argc, char** argv)
 				while ((s = fgets(dirpath, 4096, file))) {
 					len = strlen(s);
 					s[len-1] = 0;
+					// handle quoted paths
+					if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
+						s[len-2] = 0;
+						memmove(s, &s[1], len-2);
+					}
 
 					char* slash = strrchr(s, '/');
 					if (!slash)

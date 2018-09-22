@@ -37,6 +37,7 @@ alphabetical order.
 | F                 | Best Fit |
 | ALT + F or F11    | Toggle Fullscreen |
 | ESC               | Exit (or exit Slideshow mode then fullscreen) |
+| Delete            | Delete the current image and move to the next (only in single mode) |
 | CTRL + 1          | Single image mode |
 | CTRL + 2          | Double image mode |
 | CTRL + 4          | Quad image mode   |
@@ -100,6 +101,8 @@ TODO/IDEAS
 - [x] Take a text list of image paths as an arg and browse those
 - [x] Same as above, but allow URL's (download into a tmp/cache directory)
 - [x] Don't waste CPU cycles/battery when viewing static images
+- [x] Can delete current image in single image mode
+- [x] Handle quoted paths/urls in -f/-u files
 - [ ] Add window icon (either static or based on current image(s))
 - [ ] Clean up code a bit (ongoing)
 - [ ] Save memory by aliasing when viewing the same image more than once in multimode
