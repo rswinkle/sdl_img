@@ -22,6 +22,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
@@ -36,6 +39,10 @@
 
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
+
+typedef uint8_t u8;
+typedef int16_t i16;
+typedef int32_t i32;
 
 #ifdef _WIN32
 #define mkdir(A, B) mkdir(A)
@@ -99,7 +106,7 @@ enum { NOTHING, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 
 typedef struct img_state
 {
-	unsigned char* pixels;
+	u8* pixels;
 	int w;
 	int h;
 
@@ -335,9 +342,9 @@ int create_textures(img_state* img)
 		}
 	}
 
-	// don't need the pixels anymore (don't plan on adding editting features)
-	stbi_image_free(img->pixels);
-	img->pixels = NULL;
+	// can't do this anymore, need it for rotations
+	//stbi_image_free(img->pixels);
+	//img->pixels = NULL;
 
 	return 1;
 }
@@ -683,14 +690,15 @@ void setup(const char* img_name)
 
 void clear_img(img_state* img)
 {
-	//stbi_image_free(img->pixels);
 	for (int i=0; i<img->frames; ++i) {
 		SDL_DestroyTexture(img->tex[i]);
 	}
 
 	//could clear everything else but these are the important
 	//ones logic is based on
-	//img->pixels = NULL;
+	//stbi_image_free(img->pixels);
+	free(img->pixels);
+	img->pixels = NULL;
 	img->frames = 0;
 }
 
@@ -741,7 +749,7 @@ int handle_events()
 		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "cancel" },
 	};
 
-	char delete_prompt[1024];
+	char msgbox_prompt[1024];
 	char full_img_path[1024];
 
 	SDL_MessageBoxData messageboxdata = {
@@ -838,8 +846,8 @@ int handle_events()
 						sprintf(full_img_path, "%s/%s", g->dirpath, g->files.a[g->img[0].index]);
 					else
 						strncpy(full_img_path, g->files.a[g->img[0].index], 1024);
-					snprintf(delete_prompt, 1024, "Are you sure you want to delete '%s'?", full_img_path);
-					messageboxdata.message = delete_prompt;
+					snprintf(msgbox_prompt, 1024, "Are you sure you want to delete '%s'?", full_img_path);
+					messageboxdata.message = msgbox_prompt;
 					SDL_ShowMessageBox(&messageboxdata, &buttonid);
 					if (buttonid == 1) {
 						if (remove(full_img_path)) {
@@ -851,6 +859,64 @@ int handle_events()
 							SDL_PushEvent(&right);
 						}
 					}
+				}
+				break;
+
+			// Rotate left
+			case SDL_SCANCODE_L:
+				// only rotate in single image mode to avoid confusion and complication
+				if (g->n_imgs == 1) {
+					img = &g->img[0];
+					if (g->dirpath)
+						sprintf(full_img_path, "%s/%s", g->dirpath, g->files.a[img->index]);
+					else
+						strncpy(full_img_path, g->files.a[img->index], 1024);
+
+					snprintf(msgbox_prompt, 1024, "Do you want to save changes to '%s'?", full_img_path);
+					messageboxdata.message = msgbox_prompt;
+					SDL_ShowMessageBox(&messageboxdata, &buttonid);
+
+					// TODO make function, that also handles gifs
+					
+					int w = img->w, h = img->h;
+					int sz = w*h;
+					int frames = img->frames;
+					u8* rotated = NULL;
+					if (frames > 1) {
+						rotated = malloc(frames*(sz*4+2));
+						*(i16*)(&rotated[sz*4]) = img->delay;
+					} else {
+						rotated = malloc(sz*4);
+					}
+					u8* pix = img->pixels;
+					i32 *p, *rot;
+					for (int k=0; k<frames; ++k) {
+						rot = (i32*)&rotated[k*(sz*4+2)];
+						p = (i32*)&pix[k*(sz*4+2)];
+						for (int i=0; i<h; ++i) {
+							for (int j=0; j<w; ++j) {
+								rot[(w-j-1)*h+i] = p[i*w+j];
+							}
+						}
+					}
+
+					//for (int i=0; i<img->frames; ++i) {
+					//	SDL_DestroyTexture(img->tex[i]);
+					//}
+					//
+					//free(img->pixels);
+					clear_img(img);
+					g->img[0].w = h;
+					g->img[0].h = w;
+					g->img[0].frames = frames;
+					g->img[0].pixels = (uint8_t*)rotated;
+					create_textures(&g->img[0]);
+					SET_MODE1_SCR_RECT();
+					g->status = REDRAW;
+
+					if (img->frames == 1)
+						stbi_write_jpg(full_img_path, h, w, 4, rotated, 50);
+					//free(rotated);
 				}
 				break;
 
