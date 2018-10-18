@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <inttypes.h>
 
 //POSIX works with MinGW64
@@ -119,6 +120,7 @@ typedef struct img_state
 	int frame_capacity;
 	int frame_timer;
 	int looped;
+	int rotated;
 	
 	SDL_Texture** tex;
 
@@ -168,6 +170,7 @@ global_state* g = &state;
 
 // TODO hmmm
 int loading;
+
 
 // works same as SUSv2 libgen.h dirname except that
 // dirpath is user provided output buffer, assumed large
@@ -349,15 +352,73 @@ int create_textures(img_state* img)
 	return 1;
 }
 
+void clear_img(img_state* img)
+{
+	for (int i=0; i<img->frames; ++i) {
+		SDL_DestroyTexture(img->tex[i]);
+	}
+
+	if (img->rotated && img->frames == 1) {
+		char msgbox_prompt[1024];
+		char full_img_path[1024];
+		int buttonid;
+
+		SDL_MessageBoxButtonData buttons[] = {
+			//{ /* .flags, .buttonid, .text */        0, 0, "no" },
+			{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "yes" },
+			{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "no" },
+		};
+
+		SDL_MessageBoxData messageboxdata = {
+			SDL_MESSAGEBOX_WARNING, /* .flags */
+			NULL, /* .window */
+			"Warning", /* .title */
+			NULL, /* .message to be set later */
+			SDL_arraysize(buttons), /* .numbuttons */
+			buttons, /* .buttons */
+			NULL /* .colorScheme, NULL = system default */
+		};
+
+		if (g->dirpath)
+			sprintf(full_img_path, "%s/%s", g->dirpath, g->files.a[img->index]);
+		else
+			strncpy(full_img_path, g->files.a[img->index], 1024);
+
+
+		snprintf(msgbox_prompt, 1024, "Do you want to save changes to '%s'?", full_img_path);
+		messageboxdata.message = msgbox_prompt;
+		SDL_ShowMessageBox(&messageboxdata, &buttonid);
+
+		if (buttonid == 1) {
+			char* ext = strrchr(full_img_path, '.');
+			if (!ext) {
+				ext = ".jpg";
+				strcat(full_img_path, ext);
+			}
+			if (!strcasecmp(ext, ".png"))
+				stbi_write_png(full_img_path, img->w, img->h, 4, img->pixels, img->w*4);
+			else if (!strcasecmp(ext, ".bmp"))
+				stbi_write_bmp(full_img_path, img->w, img->h, 4, img->pixels);
+			else if (!strcasecmp(ext, ".tga"))
+				stbi_write_tga(full_img_path, img->w, img->h, 4, img->pixels);
+			else
+				stbi_write_jpg(full_img_path, img->w, img->h, 4, img->pixels, 100);
+		}
+	}
+	//could clear everything else but these are the important
+	//ones logic is based on
+	//stbi_image_free(img->pixels);
+	free(img->pixels);
+	img->pixels = NULL;
+	img->frames = 0;
+	img->rotated = 0;
+}
+
 void cleanup(int ret, int called_setup)
 {
 	if (called_setup) {
 		for (int i=0; i<g->n_imgs; ++i) {
-			//stbi_image_free(g->img[i].pixels);
-
-			for (int j=0; j<g->img[i].frames; ++j)
-				SDL_DestroyTexture(g->img[i].tex[j]);
-
+			clear_img(&g->img[i]);
 			free(g->img[i].tex);
 		}
 
@@ -688,20 +749,6 @@ void setup(const char* img_name)
 
 }
 
-void clear_img(img_state* img)
-{
-	for (int i=0; i<img->frames; ++i) {
-		SDL_DestroyTexture(img->tex[i]);
-	}
-
-	//could clear everything else but these are the important
-	//ones logic is based on
-	//stbi_image_free(img->pixels);
-	free(img->pixels);
-	img->pixels = NULL;
-	img->frames = 0;
-}
-
 void toggle_fullscreen()
 {
 	g->status = REDRAW;
@@ -722,6 +769,47 @@ void replace_img(img_state* i1, img_state* i2)
 	i2->tex = tmptex;
 	i2->frame_capacity = tmp;
 	i2->frames = 0;
+}
+
+void rotate_img(img_state* img, int left)
+{
+	int w = img->w, h = img->h;
+	int sz = w*h;
+	int frames = img->frames;
+	u8* rotated = NULL;
+	if (frames > 1) {
+		rotated = malloc(frames*(sz*4+2));
+		*(i16*)(&rotated[sz*4]) = img->delay;
+	} else {
+		rotated = malloc(sz*4);
+	}
+	u8* pix = img->pixels;
+	i32 *p, *rot;
+	for (int k=0; k<frames; ++k) {
+		rot = (i32*)&rotated[k*(sz*4+2)];
+		p = (i32*)&pix[k*(sz*4+2)];
+		for (int i=0; i<h; ++i) {
+			for (int j=0; j<w; ++j) {
+				if (left)
+					rot[(w-j-1)*h+i] = p[i*w+j];
+				else
+					rot[(j+1)*h-i-1] = p[i*w+j];
+			}
+		}
+	}
+
+	// don't call clear_img here because could do multiple
+	// rotations and don't want to prompt to save for each one
+	for (int i=0; i<img->frames; ++i) {
+		SDL_DestroyTexture(img->tex[i]);
+	}
+	free(pix);
+
+	img->w = h;
+	img->h = w;
+	img->frames = frames;
+	img->pixels = rotated;
+	img->rotated = 1;
 }
 
 int handle_events()
@@ -749,9 +837,6 @@ int handle_events()
 		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "cancel" },
 	};
 
-	char msgbox_prompt[1024];
-	char full_img_path[1024];
-
 	SDL_MessageBoxData messageboxdata = {
 		SDL_MESSAGEBOX_WARNING, /* .flags */
 		NULL, /* .window */
@@ -761,6 +846,9 @@ int handle_events()
 		buttons, /* .buttons */
 		NULL /* .colorScheme, NULL = system default */
 	};
+
+	char msgbox_prompt[1024];
+	char full_img_path[1024];
 
 	int buttonid;
 
@@ -862,61 +950,23 @@ int handle_events()
 				}
 				break;
 
-			// Rotate left
+			// Rotate
 			case SDL_SCANCODE_L:
+			case SDL_SCANCODE_R:
 				// only rotate in single image mode to avoid confusion and complication
-				if (g->n_imgs == 1) {
-					img = &g->img[0];
-					if (g->dirpath)
-						sprintf(full_img_path, "%s/%s", g->dirpath, g->files.a[img->index]);
+				img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
+				if (img) {
+					rotate_img(img, sc == SDL_SCANCODE_L);
+					create_textures(img);
+					if (g->n_imgs == 1)
+						SET_MODE1_SCR_RECT();
+					else if (g->n_imgs == 2)
+						SET_MODE2_SCR_RECTS();
+					else if (g->n_imgs == 4)
+						SET_MODE4_SCR_RECTS();
 					else
-						strncpy(full_img_path, g->files.a[img->index], 1024);
-
-					snprintf(msgbox_prompt, 1024, "Do you want to save changes to '%s'?", full_img_path);
-					messageboxdata.message = msgbox_prompt;
-					SDL_ShowMessageBox(&messageboxdata, &buttonid);
-
-					// TODO make function, that also handles gifs
-					
-					int w = img->w, h = img->h;
-					int sz = w*h;
-					int frames = img->frames;
-					u8* rotated = NULL;
-					if (frames > 1) {
-						rotated = malloc(frames*(sz*4+2));
-						*(i16*)(&rotated[sz*4]) = img->delay;
-					} else {
-						rotated = malloc(sz*4);
-					}
-					u8* pix = img->pixels;
-					i32 *p, *rot;
-					for (int k=0; k<frames; ++k) {
-						rot = (i32*)&rotated[k*(sz*4+2)];
-						p = (i32*)&pix[k*(sz*4+2)];
-						for (int i=0; i<h; ++i) {
-							for (int j=0; j<w; ++j) {
-								rot[(w-j-1)*h+i] = p[i*w+j];
-							}
-						}
-					}
-
-					//for (int i=0; i<img->frames; ++i) {
-					//	SDL_DestroyTexture(img->tex[i]);
-					//}
-					//
-					//free(img->pixels);
-					clear_img(img);
-					g->img[0].w = h;
-					g->img[0].h = w;
-					g->img[0].frames = frames;
-					g->img[0].pixels = (uint8_t*)rotated;
-					create_textures(&g->img[0]);
-					SET_MODE1_SCR_RECT();
+						SET_MODE8_SCR_RECTS();
 					g->status = REDRAW;
-
-					if (img->frames == 1)
-						stbi_write_jpg(full_img_path, h, w, 4, rotated, 50);
-					//free(rotated);
 				}
 				break;
 

@@ -37,6 +37,7 @@ alphabetical order.
 | F                 | Best Fit |
 | ALT + F or F11    | Toggle Fullscreen |
 | ESC               | Exit (or exit Slideshow mode then fullscreen) |
+| L/R               | Rotate the current image left/right, prompts for saving appropriately |
 | Delete            | Delete the current image and move to the next (only in single mode) |
 | CTRL + 1          | Single image mode |
 | CTRL + 2          | Double image mode |
@@ -58,6 +59,12 @@ image selected and go to single mode, that is the image that will be used.
 The slideshow feature is smart enough to wait long enough to finish any gif being
 displayed even if that takes longer than the specificed delay.  ESC ends the slideshow.
 All other controls work while in slideshow mode.
+
+Something to note about the rotation functionality are that while it will rotate any
+image, it will only ask whether you're sure you want to save single frame images because
+stb_image_write does not support gifs at all, let alone animated gifs.  It will try to
+detect the type from the extension and output that type if possible, otherwise jpg is
+the default.
 
 Advanced Usage
 ==============
