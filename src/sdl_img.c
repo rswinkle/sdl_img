@@ -394,6 +394,8 @@ void clear_img(img_state* img)
 			if (!ext) {
 				ext = ".jpg";
 				strcat(full_img_path, ext);
+				// TODO should I delete the original? If so, I need
+				// to update g->files.a[img->index] with the new name
 			}
 			if (!strcasecmp(ext, ".png"))
 				stbi_write_png(full_img_path, img->w, img->h, 4, img->pixels, img->w*4);
@@ -613,11 +615,10 @@ int load_new_images(void* data)
 					do {
 						img[i].index = wrap(img[i].index + tmp);
 					} while (!(ret = load_image(g->files.a[img[i].index], &img[i], SDL_FALSE)));
-					set_rect_bestfit(&img[i], g->fullscreen);
+					set_rect_bestfit(&img[i], g->fullscreen | g->slideshow);
 				}
 				// just set title to upper left image when !img_focus
 				SDL_SetWindowTitle(g->win, mybasename(g->files.a[img[0].index], title_buf));
-
 			} else {
 				tmp = (load_what == RIGHT) ? 1 : -1;
 				img[0].index = g->img_focus->index;
@@ -625,7 +626,7 @@ int load_new_images(void* data)
 					img[0].index = wrap(img[0].index + tmp);
 				} while (!(ret = load_image(g->files.a[img[0].index], &img[0], SDL_FALSE)));
 				img[0].scr_rect = g->img_focus->scr_rect;
-				set_rect_bestfit(&img[0], g->fullscreen);
+				set_rect_bestfit(&img[0], g->fullscreen | g->slideshow);
 				SDL_SetWindowTitle(g->win, mybasename(g->files.a[img[0].index], title_buf));
 			}
 		} else {
