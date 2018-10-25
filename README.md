@@ -33,8 +33,8 @@ alphabetical order.
 | ALT + Direction   | Next or previous image(s) even when zoomed in |
 | Mouse Wheel       | Zoom in/out |
 | Left click + drag | Pan around a zoomed in image |
-| A                 | Actual Size |
-| F                 | Best Fit |
+| A                 | Actual size |
+| F                 | Toggle fill screen mode |
 | ALT + F or F11    | Toggle Fullscreen |
 | ESC               | Exit (or exit Slideshow mode then fullscreen) |
 | L/R               | Rotate the current image left/right, prompts for saving appropriately |
@@ -58,7 +58,9 @@ image selected and go to single mode, that is the image that will be used.
 
 The slideshow feature is smart enough to wait long enough to finish any gif being
 displayed even if that takes longer than the specificed delay.  ESC ends the slideshow.
-All other controls work while in slideshow mode.
+All other controls work while in slideshow mode, meaning starting a slideshow does not
+automatically toggle to fullscreen, it will run in double, quad or oct-image mode, or
+even on a single image selected within those modes.
 
 Something to note about the rotation functionality are that while it will rotate any
 image, it will only ask whether you're sure you want to save single frame images because
