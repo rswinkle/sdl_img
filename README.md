@@ -28,6 +28,7 @@ alphabetical order.
 | ------------------|-------------|
 | Left (or Up)      | Previous image(s) or pan if appropriate |
 | Right (or Down)   | Next image(s) or pan if appropriate |
+| Space             | Next image(s) |
 | +/-               | Zoom in/out |
 | ALT + +/-         | Speed up or slow down an animated gif |
 | ALT + Direction   | Next or previous image(s) even when zoomed in |
@@ -111,12 +112,14 @@ TODO/IDEAS
 - [x] Same as above, but allow URL's (download into a tmp/cache directory)
 - [x] Don't waste CPU cycles/battery when viewing static images
 - [x] Can delete current image in single image mode
+- [x] Can rotate images (and save the changes if not animated gifs)
 - [x] Handle quoted paths/urls in -f/-u files
 - [ ] Add window icon (either static or based on current image(s))
 - [ ] Clean up code a bit (ongoing)
 - [ ] Save memory by aliasing when viewing the same image more than once in multimode
 - [ ] Save memory by having the main thread update images as they're loaded
+- [ ] AppImage and/or Flatpak
 - [ ] Automatic updating
-- [ ] Travis-CI
-- [ ] Coverity
+- [x] Travis-CI
+- [x] Coverity
 - [x] Figure out why certain rare animated gifs don't load all the frames

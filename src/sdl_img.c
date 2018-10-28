@@ -827,9 +827,10 @@ int handle_events()
 
 	SDL_Keymod mod_state = SDL_GetModState();
 
-	SDL_Event right;
-	right.type = SDL_KEYDOWN;
-	right.key.keysym.scancode = SDL_SCANCODE_RIGHT;
+	// use space to move to next image(s) even if zoomed in, ie during slideshow
+	SDL_Event space;
+	space.type = SDL_KEYDOWN;
+	space.key.keysym.scancode = SDL_SCANCODE_SPACE;
 
 	int ticks = SDL_GetTicks();
 	int set_slide_timer = 0;
@@ -864,7 +865,7 @@ int handle_events()
 				break;
 		}
 		if (i == g->n_imgs) {
-			SDL_PushEvent(&right);
+			SDL_PushEvent(&space);
 		}
 	}
 
@@ -947,7 +948,7 @@ int handle_events()
 							printf("Deleted %s\n", full_img_path);
 							cvec_erase_str(&g->files, g->img[0].index, g->img[0].index);
 							g->img[0].index--; // since everything shifted left, we need to pre-decrement to not skip an image
-							SDL_PushEvent(&right);
+							SDL_PushEvent(&space);
 						}
 					}
 				}
@@ -1171,6 +1172,17 @@ int handle_events()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 
+			case SDL_SCANCODE_SPACE:
+				if (!loading) {
+					SDL_LockMutex(g->mtx);
+					g->loading = RIGHT;
+					loading = 1;
+					SDL_CondSignal(g->cnd);
+					SDL_UnlockMutex(g->mtx);
+				}
+				break;
+
+			// TODO merge RIGHT/DOWN and LEFT/UP?
 			case SDL_SCANCODE_RIGHT:
 				zoomed = 0;
 				g->status = REDRAW;
