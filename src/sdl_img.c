@@ -922,6 +922,7 @@ int handle_events()
 					return 1;
 				} else {
 					if (g->slideshow) {
+						puts("Ending slideshow");
 						g->slideshow = 0;
 					} else if (g->fullscreen) {
 						g->status = REDRAW;
@@ -987,6 +988,7 @@ int handle_events()
 			case SDL_SCANCODE_F10:
 				g->slideshow = (sc - SDL_SCANCODE_CAPSLOCK)*1000;
 				set_slide_timer = 1;
+				puts("Starting slideshow");
 				break;
 
 			case SDL_SCANCODE_F11:
