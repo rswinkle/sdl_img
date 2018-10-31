@@ -39,7 +39,7 @@
 #include <SDL.h>
 
 enum { QUIT, REDRAW, NOCHANGE };
-enum { NOTHING, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
+enum { NOTHING = 0, SCANNING = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 
 typedef uint8_t u8;
 typedef int16_t i16;
@@ -170,7 +170,7 @@ static global_state state = { 0 };
 global_state* g = &state;
 
 // TODO hmmm
-int loading;
+//int loading;
 
 
 // works same as SUSv2 libgen.h dirname except that
@@ -575,6 +575,60 @@ int load_imgs_dir(DIR* dir, char* initial_image, int milliseconds)
 	return 0;
 }
 
+int scandir(void* data)
+{
+	char fullpath[4096] = { 0 };
+	struct stat file_stat;
+	struct dirent* entry;
+	int ret, i=0;;
+	DIR* dir;
+
+	char* initial_image = data;
+
+	dir = opendir(g->dirpath);
+	if (!dir) {
+		perror("opendir");
+		cleanup(1, 1);
+	}
+
+	printf("Scanning %s for images...\n", g->dirpath);
+	while ((entry = readdir(dir))) {
+		ret = snprintf(fullpath, 4096, "%s/%s", g->dirpath, entry->d_name);
+		if (ret >= 4096) {
+			printf("path too long\n");
+			cleanup(0, 1);
+		}
+		if (stat(fullpath, &file_stat)) {
+			perror("stat");
+			continue;
+		}
+
+		// if it's a regular file and an image stb_image recognizes an not the initial image
+		if (S_ISREG(file_stat.st_mode) && stbi_info(fullpath, NULL, NULL, NULL)) {
+			cvec_push_str(&g->files, entry->d_name);
+		}
+		i++;
+		if (i % 200 == 0)
+			printf("scanned %d\n", i);
+	}
+
+	//printf("sorting images\n");
+	qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
+
+	printf("finding current image to update index\n");
+	char** res;
+	res = bsearch(&initial_image, g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
+	if (!res) {
+		cleanup(0, 1);
+	}
+	g->img[0].index = res - g->files.a;
+
+	printf("Loaded all %"PRIuMAX" filenames\n", g->files.size);
+	closedir(dir);
+	g->loading = 0;
+	return 1;
+}
+
 int wrap(int z)
 {
    int n = g->files.size;
@@ -592,7 +646,7 @@ int load_new_images(void* data)
 	
 	while (1) {
 		SDL_LockMutex(g->mtx);
-		while (!g->loading) {
+		while (g->loading < 2) {
 			SDL_CondWait(g->cnd, g->mtx);
 		}
 		load_what = g->loading;
@@ -822,6 +876,7 @@ int handle_events()
 	int zoomed;
 	char title_buf[1024];
 	img_state* img;
+	int loading = g->loading;
 
 	g->status = NOCHANGE;
 
@@ -904,7 +959,6 @@ int handle_events()
 		}
 		g->done_loading = 0;
 		g->status = REDRAW;
-		loading = 0;
 		if (g->slideshow)
 			set_slide_timer = 1;
 	}
@@ -934,7 +988,7 @@ int handle_events()
 
 			case SDL_SCANCODE_DELETE:
 				// only delete in single image mode to avoid confusion and complication
-				if (g->n_imgs == 1) {
+				if (!g->loading && g->n_imgs == 1) {
 					if (g->dirpath)
 						sprintf(full_img_path, "%s/%s", g->dirpath, g->files.a[g->img[0].index]);
 					else
@@ -958,20 +1012,21 @@ int handle_events()
 			// Rotate
 			case SDL_SCANCODE_L:
 			case SDL_SCANCODE_R:
-				// only rotate in single image mode to avoid confusion and complication
-				img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
-				if (img) {
-					rotate_img(img, sc == SDL_SCANCODE_L);
-					create_textures(img);
-					if (g->n_imgs == 1)
-						SET_MODE1_SCR_RECT();
-					else if (g->n_imgs == 2)
-						SET_MODE2_SCR_RECTS();
-					else if (g->n_imgs == 4)
-						SET_MODE4_SCR_RECTS();
-					else
-						SET_MODE8_SCR_RECTS();
-					g->status = REDRAW;
+				if (!g->loading) {
+					img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
+					if (img) {
+						rotate_img(img, sc == SDL_SCANCODE_L);
+						create_textures(img);
+						if (g->n_imgs == 1)
+							SET_MODE1_SCR_RECT();
+						else if (g->n_imgs == 2)
+							SET_MODE2_SCR_RECTS();
+						else if (g->n_imgs == 4)
+							SET_MODE4_SCR_RECTS();
+						else
+							SET_MODE8_SCR_RECTS();
+						g->status = REDRAW;
+					}
 				}
 				break;
 
@@ -1032,7 +1087,7 @@ int handle_events()
 			case SDL_SCANCODE_2:
 				g->status = REDRAW;
 				set_slide_timer = 1;
-				if (!loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
+				if (!g->loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (g->n_imgs != 2 && g->files.size >= 2) {
 
 						// TODO hmm
@@ -1115,7 +1170,7 @@ int handle_events()
 			case SDL_SCANCODE_8:
 				g->status = REDRAW;
 				set_slide_timer = 1;
-				if (!loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
+				if (!g->loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (g->n_imgs != 8 && g->files.size >= 8) {
 						if (g->n_imgs < 8) {
 							SDL_LockMutex(g->mtx);
@@ -1175,7 +1230,7 @@ int handle_events()
 			switch (sc) {
 
 			case SDL_SCANCODE_SPACE:
-				if (!loading) {
+				if (!g->loading) {
 					SDL_LockMutex(g->mtx);
 					g->loading = RIGHT;
 					loading = 1;
@@ -1188,7 +1243,7 @@ int handle_events()
 			case SDL_SCANCODE_RIGHT:
 				zoomed = 0;
 				g->status = REDRAW;
-				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (g->loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
@@ -1209,7 +1264,7 @@ int handle_events()
 						zoomed = zoomed || img->disp_rect.h > img->scr_rect.h;
 					}
 				}
-				if (!loading && !zoomed) {
+				if (!g->loading && !zoomed) {
 					SDL_LockMutex(g->mtx);
 					g->loading = RIGHT;
 					loading = 1;
@@ -1220,7 +1275,7 @@ int handle_events()
 			case SDL_SCANCODE_DOWN:
 				zoomed = 0;
 				g->status = REDRAW;
-				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (g->loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
@@ -1241,7 +1296,7 @@ int handle_events()
 						zoomed = zoomed || img->disp_rect.w > img->scr_rect.w;
 					}
 				}
-				if (!loading && !zoomed) {
+				if (!g->loading && !zoomed) {
 					SDL_LockMutex(g->mtx);
 					g->loading = RIGHT;
 					loading = 1;
@@ -1253,7 +1308,7 @@ int handle_events()
 			case SDL_SCANCODE_LEFT:
 				zoomed = 0;
 				g->status = REDRAW;
-				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (g->loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
@@ -1274,7 +1329,7 @@ int handle_events()
 						zoomed = zoomed || img->disp_rect.h > img->scr_rect.h;
 					}
 				}
-				if (!loading && !zoomed) {
+				if (!g->loading && !zoomed) {
 					SDL_LockMutex(g->mtx);
 					g->loading = LEFT;
 					loading = 1;
@@ -1285,7 +1340,7 @@ int handle_events()
 			case SDL_SCANCODE_UP:
 				zoomed = 0;
 				g->status = REDRAW;
-				if (loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (g->loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
@@ -1306,7 +1361,7 @@ int handle_events()
 						zoomed = zoomed || img->disp_rect.w > img->scr_rect.w;
 					}
 				}
-				if (!loading && !zoomed) {
+				if (!g->loading && !zoomed) {
 					SDL_LockMutex(g->mtx);
 					g->loading = LEFT;
 					loading = 1;
@@ -1489,9 +1544,7 @@ int main(int argc, char** argv)
 	char* path = NULL;
 	char dirpath[4096] = { 0 };
 	char img_name[1024] = { 0 };
-	int done_loading = 1;
 	int ticks;
-	DIR* dir;
 
 	curl_global_init(CURL_GLOBAL_ALL);
 	cvec_str(&g->files, 0, 100);
@@ -1509,18 +1562,15 @@ int main(int argc, char** argv)
 
 		g->dirpath = dirpath;
 
-		ticks = SDL_GetTicks();
 		setup(img_name);
 
-		dir = opendir(dirpath);
-		if (!dir) {
-			perror("opendir");
-			cleanup(1, 1);
+		SDL_Thread* scandir_thrd;
+		g->loading = SCANNING;
+		if (!(scandir_thrd = SDL_CreateThread(scandir, "scandir_thrd", img_name))) {
+			puts("couldn't create thread");
 		}
-		cvec_push_str(&g->files, img_name);
-		printf("reading file names\n");
+		SDL_DetachThread(scandir_thrd);
 
-		done_loading = load_imgs_dir(dir, img_name, MAX_STARTUP_TIME-(SDL_GetTicks()-ticks));
 	} else {
 		g->dirpath = NULL;
 		for (int i=1; i<argc; ++i) {
@@ -1629,10 +1679,6 @@ int main(int argc, char** argv)
 			g->mouse_state = 0;
 		}
 
-		if (!done_loading && argc == 2) {
-			done_loading = load_imgs_dir(dir, img_name, 300);
-		}
-
 		is_a_gif = 0;
 		for (int i=0; i<g->n_imgs; ++i) {
 			if (g->img[i].frames > 1) {
@@ -1658,7 +1704,7 @@ int main(int argc, char** argv)
 		}
 
 		//"sleep" save CPU cycles/battery especially when not viewing animated gifs
-		if (done_loading && !is_a_gif && !loading)
+		if (!is_a_gif && !g->loading)
 			SDL_Delay(SLEEP_TIME);
 		else
 			SDL_Delay(MIN_GIF_DELAY/2);
