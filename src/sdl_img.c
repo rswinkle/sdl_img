@@ -470,7 +470,6 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 		ret = snprintf(fullpath, 4096, "%s", img_name);
 	if (ret >= 4096) {
 		// TODO add messagebox here?
-		// why do I exit here but not on failed to load?
 		printf("path too long\n");
 		return 0;
 	}
@@ -514,67 +513,6 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 	return 1;
 }
 
-int load_imgs_dir(DIR* dir, char* initial_image, int milliseconds)
-{
-	struct dirent* entry = (struct dirent*)1; // just need it to not be NULL to distinguish from readdir finished
-	struct stat file_stat;
-	char fullpath[4096] = { 0 };
-	int ret, i;
-
-	char* names[8] = { 0 };
-	for (i=0; i<g->n_imgs; ++i) {
-		names[i] = g->files.a[g->img[i].index];
-		printf("names[%d] = %s\n", i, names[i]);
-	}
-
-	int ticks, start;
-	ticks = start = SDL_GetTicks();
-
-	while (ticks - start < milliseconds && (entry = readdir(dir))) {
-		ret = snprintf(fullpath, 4096, "%s/%s", g->dirpath, entry->d_name);
-		if (ret >= 4096) {
-			printf("path too long\n");
-			cleanup(0, 1);
-		}
-		if (stat(fullpath, &file_stat)) {
-			perror("stat");
-			continue;
-		}
-
-		// if it's a regular file and an image stb_image recognizes an not the initial image
-		if (S_ISREG(file_stat.st_mode) && stbi_info(fullpath, NULL, NULL, NULL) && strcmp(initial_image, entry->d_name)) {
-			cvec_push_str(&g->files, entry->d_name);
-		}
-
-		ticks = SDL_GetTicks();
-	}
-
-	// could do it manually since I maintain sorted
-	//printf("sorting images\n");
-	qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
-
-	printf("finding current images to update indices\n");
-	char** res;
-	for (i=0; i<g->n_imgs; ++i) {
-		res = bsearch(&names[i], g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
-		if (!res) {
-			cleanup(0, 1);
-		}
-		g->img[i].index = res - g->files.a;
-	}
-
-	if (!entry) {
-		printf("Loaded all %"PRIuMAX" filenames\n", g->files.size);
-		closedir(dir);
-		return 1;
-	} else {
-		printf("loaded %"PRIuMAX" filenames\n", g->files.size);
-	}
-
-
-	return 0;
-}
-
 int scandir(void* data)
 {
 	char fullpath[4096] = { 0 };
@@ -603,16 +541,16 @@ int scandir(void* data)
 			continue;
 		}
 
-		// if it's a regular file and an image stb_image recognizes an not the initial image
-		if (S_ISREG(file_stat.st_mode) && stbi_info(fullpath, NULL, NULL, NULL)) {
+		// if it's a regular file and an image stb_image recognizes
+		if (S_ISREG(file_stat.st_mode)) { // && stbi_info(fullpath, NULL, NULL, NULL)) {
 			cvec_push_str(&g->files, entry->d_name);
 		}
 		i++;
-		if (i % 200 == 0)
+		if (i % 400 == 0)
 			printf("scanned %d\n", i);
 	}
 
-	//printf("sorting images\n");
+	printf("sorting images\n");
 	qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
 
 	printf("finding current image to update index\n");
@@ -769,7 +707,7 @@ void setup(const char* img_name)
 	} else {
 		// don't know a way to get window border/title bar dimensions cross platform,
 		// but apparently it's not necessary, if the the dimensions are too big it'll get
-		// set to the max windowed size (at least on Linux still need to test windows)
+		// set to the max windowed size (at least on Linux)
 		//
 		// UPDATE: Windows is *not* smart enough to limit window size but will happily
 		// create a "window" where the edges and titlebar are waaaay off the screen
@@ -1564,12 +1502,13 @@ int main(int argc, char** argv)
 
 		setup(img_name);
 
-		SDL_Thread* scandir_thrd;
+		//SDL_Thread* scandir_thrd;
 		g->loading = SCANNING;
-		if (!(scandir_thrd = SDL_CreateThread(scandir, "scandir_thrd", img_name))) {
-			puts("couldn't create thread");
-		}
-		SDL_DetachThread(scandir_thrd);
+		scandir(img_name);
+		//if (!(scandir_thrd = SDL_CreateThread(scandir, "scandir_thrd", img_name))) {
+		//	puts("couldn't create thread");
+		//}
+		//SDL_DetachThread(scandir_thrd);
 
 	} else {
 		g->dirpath = NULL;
