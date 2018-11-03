@@ -56,6 +56,7 @@ typedef int32_t i32;
 #define HIDE_CURSOR_TIMER 5000
 #define MAX_STARTUP_TIME 2500
 #define SLEEP_TIME 50
+#define STRBUF_SZ 1024
 
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
@@ -187,11 +188,9 @@ char* mydirname(const char* path, char* dirpath)
 	char* last_slash = strrchr(path, PATH_SEPARATOR);
 	if (last_slash) {
 		strncpy(dirpath, path, last_slash-path);
-		puts("1");
 	} else {
 		dirpath[0] = '.';
 		dirpath[1] = 0;
-		puts("2");
 	}
 
 	return dirpath;
@@ -360,8 +359,8 @@ void clear_img(img_state* img)
 	}
 
 	if (img->rotated && img->frames == 1) {
-		char msgbox_prompt[1024];
-		char full_img_path[1024];
+		char msgbox_prompt[STRBUF_SZ];
+		char full_img_path[STRBUF_SZ];
 		int buttonid;
 
 		SDL_MessageBoxButtonData buttons[] = {
@@ -383,10 +382,10 @@ void clear_img(img_state* img)
 		if (g->dirpath)
 			sprintf(full_img_path, "%s/%s", g->dirpath, g->files.a[img->index]);
 		else
-			strncpy(full_img_path, g->files.a[img->index], 1024);
+			strncpy(full_img_path, g->files.a[img->index], STRBUF_SZ-1);
 
 
-		snprintf(msgbox_prompt, 1024, "Do you want to save changes to '%s'?", full_img_path);
+		snprintf(msgbox_prompt, STRBUF_SZ, "Do you want to save changes to '%s'?", full_img_path);
 		messageboxdata.message = msgbox_prompt;
 		SDL_ShowMessageBox(&messageboxdata, &buttonid);
 
@@ -461,16 +460,16 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 	// img->frames should always be 0 and there should be no allocated textures
 	// in tex because clear_img(img) should always have been called before
 
-	char fullpath[4096];
+	char fullpath[STRBUF_SZ];
 	int ret;
 
 	if (g->dirpath)
-		ret = snprintf(fullpath, 4096, "%s/%s", g->dirpath, img_name);
+		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", g->dirpath, img_name);
 	else
-		ret = snprintf(fullpath, 4096, "%s", img_name);
-	if (ret >= 4096) {
+		ret = snprintf(fullpath, STRBUF_SZ, "%s", img_name);
+	if (ret >= STRBUF_SZ) {
 		// TODO add messagebox here?
-		printf("path too long\n");
+		puts("path too long");
 		return 0;
 	}
 
@@ -484,7 +483,10 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 
 	if (frames > img->frame_capacity) {
 		// img->tex is either NULL or previously alloced
-		img->tex = realloc(img->tex, frames*sizeof(SDL_Texture*));
+		if (!(img->tex = realloc(img->tex, frames*sizeof(SDL_Texture*)))) {
+			perror("Couldn't allocate tex array");
+			return 0;
+		}
 		img->frame_capacity = frames;
 	}
 
@@ -515,7 +517,7 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 
 int scandir(void* data)
 {
-	char fullpath[4096] = { 0 };
+	char fullpath[STRBUF_SZ] = { 0 };
 	struct stat file_stat;
 	struct dirent* entry;
 	int ret, i=0;;
@@ -531,8 +533,8 @@ int scandir(void* data)
 
 	printf("Scanning %s for images...\n", g->dirpath);
 	while ((entry = readdir(dir))) {
-		ret = snprintf(fullpath, 4096, "%s/%s", g->dirpath, entry->d_name);
-		if (ret >= 4096) {
+		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", g->dirpath, entry->d_name);
+		if (ret >= STRBUF_SZ) {
 			printf("path too long\n");
 			cleanup(0, 1);
 		}
@@ -578,7 +580,7 @@ int wrap(int z)
 int load_new_images(void* data)
 {
 	int tmp;
-	char title_buf[1024];
+	char title_buf[STRBUF_SZ];
 	int ret;
 	int load_what;
 	
@@ -643,14 +645,14 @@ void setup(const char* img_name)
 {
 	g->win = NULL;
 	g->ren = NULL;
-	char error_str[1024] = { 0 };
-	char title_buf[1024] = { 0 };
+	char error_str[STRBUF_SZ] = { 0 };
+	char title_buf[STRBUF_SZ] = { 0 };
 
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
 	SDL_SetMainReady();
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-		snprintf(error_str, 1024, "Couldn't initialize SDL: %s; exiting.", SDL_GetError());
+		snprintf(error_str, STRBUF_SZ, "Couldn't initialize SDL: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
 		puts(error_str);
 		exit(1);
@@ -663,7 +665,7 @@ void setup(const char* img_name)
 	
 	g->win = SDL_CreateWindow(title_buf, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, g->scr_w, g->scr_h, SDL_WINDOW_RESIZABLE);
 	if (!g->win) {
-		snprintf(error_str, 1024, "Couldn't create window: %s; exiting.", SDL_GetError());
+		snprintf(error_str, STRBUF_SZ, "Couldn't create window: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
 		puts(error_str);
 		exit(1);
@@ -671,14 +673,14 @@ void setup(const char* img_name)
 
 	g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	if (!g->ren) {
-		snprintf(error_str, 1024, "%s, falling back to software renderer.", SDL_GetError());
+		snprintf(error_str, STRBUF_SZ, "%s, falling back to software renderer.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Warning: No HW Acceleration", error_str, g->win);
 		puts(error_str);
 		g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_SOFTWARE);
 	}
 
 	if (!g->ren) {
-		snprintf(error_str, 1024, "Software rendering failed: %s; exiting.", SDL_GetError());
+		snprintf(error_str, STRBUF_SZ, "Software rendering failed: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
 		puts(error_str);
 		cleanup(1, 1);
@@ -691,7 +693,10 @@ void setup(const char* img_name)
 	g->n_imgs = 1;
 	g->img = g->img1;
 
-	g->img[0].tex = malloc(100*sizeof(SDL_Texture*));
+	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
+		perror("Couldn't allocate tex array");
+		cleanup(0, 1);
+	}
 	g->img[0].frame_capacity = 100;
 
 	g->fullscreen = 0;
@@ -773,10 +778,16 @@ void rotate_img(img_state* img, int left)
 	int frames = img->frames;
 	u8* rotated = NULL;
 	if (frames > 1) {
-		rotated = malloc(frames*(sz*4+2));
+		if (!(rotated = malloc(frames*(sz*4+2)))) {
+			perror("Couldn't allocate rotated");
+			cleanup(0, 1);
+		}
 		*(i16*)(&rotated[sz*4]) = img->delay;
 	} else {
-		rotated = malloc(sz*4);
+		if (!(rotated = malloc(sz*4))) {
+			perror("Couldn't allocate rotated");
+			cleanup(0, 1);
+		}
 	}
 	u8* pix = img->pixels;
 	i32 *p, *rot;
@@ -812,7 +823,7 @@ int handle_events()
 	SDL_Event e;
 	int sc;
 	int zoomed;
-	char title_buf[1024];
+	char title_buf[STRBUF_SZ];
 	img_state* img;
 	int loading = g->loading;
 
@@ -844,23 +855,10 @@ int handle_events()
 		NULL /* .colorScheme, NULL = system default */
 	};
 
-	char msgbox_prompt[1024];
-	char full_img_path[1024];
+	char msgbox_prompt[STRBUF_SZ];
+	char full_img_path[STRBUF_SZ];
 
 	int buttonid;
-
-	if (g->slideshow && !loading && ticks - g->slide_timer > g->slideshow) {
-		int i;
-		// make sure all current gifs have gotten to the end
-		// at least once
-		for (i=0; i<g->n_imgs; ++i) {
-			if (!g->img[i].looped)
-				break;
-		}
-		if (i == g->n_imgs) {
-			SDL_PushEvent(&space);
-		}
-	}
 
 	SDL_LockMutex(g->mtx);
 	if (g->done_loading) {
@@ -902,6 +900,20 @@ int handle_events()
 	}
 	SDL_UnlockMutex(g->mtx);
 
+	if (g->slideshow && !g->loading && !set_slide_timer && ticks - g->slide_timer > g->slideshow) {
+		int i;
+		// make sure all current gifs have gotten to the end
+		// at least once
+		for (i=0; i<g->n_imgs; ++i) {
+			if (!g->img[i].looped)
+				break;
+		}
+		if (i == g->n_imgs) {
+			SDL_PushEvent(&space);
+		}
+	}
+
+
 	while (SDL_PollEvent(&e)) {
 		switch (e.type) {
 		case SDL_QUIT:
@@ -930,8 +942,8 @@ int handle_events()
 					if (g->dirpath)
 						sprintf(full_img_path, "%s/%s", g->dirpath, g->files.a[g->img[0].index]);
 					else
-						strncpy(full_img_path, g->files.a[g->img[0].index], 1024);
-					snprintf(msgbox_prompt, 1024, "Are you sure you want to delete '%s'?", full_img_path);
+						strncpy(full_img_path, g->files.a[g->img[0].index], STRBUF_SZ-1);
+					snprintf(msgbox_prompt, STRBUF_SZ, "Are you sure you want to delete '%s'?", full_img_path);
 					messageboxdata.message = msgbox_prompt;
 					SDL_ShowMessageBox(&messageboxdata, &buttonid);
 					if (buttonid == 1) {
@@ -1480,8 +1492,8 @@ int main(int argc, char** argv)
 	}
 
 	char* path = NULL;
-	char dirpath[4096] = { 0 };
-	char img_name[1024] = { 0 };
+	char dirpath[STRBUF_SZ] = { 0 };
+	char img_name[STRBUF_SZ] = { 0 };
 	int ticks;
 
 	curl_global_init(CURL_GLOBAL_ALL);
@@ -1521,7 +1533,7 @@ int main(int argc, char** argv)
 				}
 				char* s;
 				int len;
-				while ((s = fgets(dirpath, 4096, file))) {
+				while ((s = fgets(dirpath, STRBUF_SZ, file))) {
 					len = strlen(s);
 					s[len-1] = 0;  // get rid of '\n'
 					// handle quoted paths
@@ -1546,20 +1558,27 @@ int main(int argc, char** argv)
 				CURL* curl = curl_easy_init();
 				CURLcode res;
 				int len;
-				char filename[1024];
-				char cachedir[1024];
+				char filename[STRBUF_SZ];
+				char cachedir[STRBUF_SZ];
 				char curlerror[CURL_ERROR_SIZE];
-				sprintf(cachedir, "%scache", prefpath);
-				mkdir(cachedir, 0700);
+				len = snprintf(cachedir, STRBUF_SZ, "%scache", prefpath);
+				if (len >= STRBUF_SZ) {
+					puts("cache path too long");
+					cleanup(1, 0);
+				}
+				if (mkdir(cachedir, 0700)) {
+					perror("Failed to make cache directory");
+					cleanup(1, 0);
+				}
 				curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
 				curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlerror);
 				#ifdef _WIN32
 				curl_easy_setopt(curl, CURLOPT_CAINFO, "ca-bundle.crt");
 				curl_easy_setopt(curl, CURLOPT_CAPATH, exepath);
 				#endif
-				while ((s = fgets(dirpath, 4096, file))) {
+				while ((s = fgets(dirpath, STRBUF_SZ, file))) {
 					len = strlen(s);
-					s[len-1] = 0;
+					s[len-1] = 0;  // remove '\n'
 					// handle quoted paths
 					if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
 						s[len-2] = 0;
@@ -1569,7 +1588,11 @@ int main(int argc, char** argv)
 					char* slash = strrchr(s, '/');
 					if (!slash)
 						continue;
-					snprintf(filename, sizeof(filename), "%s/%s", cachedir, slash+1);
+					len = snprintf(filename, STRBUF_SZ, "%s/%s", cachedir, slash+1);
+					if (len >= STRBUF_SZ) {
+						puts("url too long");
+						cleanup(1, 0);
+					}
 
 					printf("Getting %s\n%s\n", s, filename);
 					if (!(imgfile = fopen(filename, "wb"))) {
