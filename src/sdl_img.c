@@ -837,7 +837,6 @@ int handle_events()
 	space.key.keysym.scancode = SDL_SCANCODE_SPACE;
 
 	int ticks = SDL_GetTicks();
-	int set_slide_timer = 0;
 
 	SDL_MessageBoxButtonData buttons[] = {
 		//{ /* .flags, .buttonid, .text */        0, 0, "no" },
@@ -896,11 +895,11 @@ int handle_events()
 		g->done_loading = 0;
 		g->status = REDRAW;
 		if (g->slideshow)
-			set_slide_timer = 1;
+			g->slide_timer =  SDL_GetTicks();
 	}
 	SDL_UnlockMutex(g->mtx);
 
-	if (g->slideshow && !g->loading && !set_slide_timer && ticks - g->slide_timer > g->slideshow) {
+	if (g->slideshow && !g->loading && ticks - g->slide_timer > g->slideshow) {
 		int i;
 		// make sure all current gifs have gotten to the end
 		// at least once
@@ -992,7 +991,7 @@ int handle_events()
 			case SDL_SCANCODE_F9:
 			case SDL_SCANCODE_F10:
 				g->slideshow = (sc - SDL_SCANCODE_CAPSLOCK)*1000;
-				set_slide_timer = 1;
+				g->slide_timer =  SDL_GetTicks();
 				puts("Starting slideshow");
 				break;
 
@@ -1007,7 +1006,7 @@ int handle_events()
 			case SDL_SCANCODE_1:
 				if (g->n_imgs != 1 && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					g->status = REDRAW;
-					set_slide_timer = 1;
+					g->slide_timer =  SDL_GetTicks();
 					// TODO refactor into function?  don't free everything everytime
 					// make load_image smarter
 					if (g->img_focus && g->img_focus != &g->img[0]) {
@@ -1036,7 +1035,7 @@ int handle_events()
 				break;
 			case SDL_SCANCODE_2:
 				g->status = REDRAW;
-				set_slide_timer = 1;
+				g->slide_timer =  SDL_GetTicks();
 				if (!g->loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (g->n_imgs != 2 && g->files.size >= 2) {
 
@@ -1071,7 +1070,7 @@ int handle_events()
 				break;
 			case SDL_SCANCODE_4:
 				g->status = REDRAW;
-				set_slide_timer = 1;
+				g->slide_timer =  SDL_GetTicks();
 				if (!g->loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (g->n_imgs != 4 && g->files.size >= 4) {
 						
@@ -1119,7 +1118,7 @@ int handle_events()
 				break;
 			case SDL_SCANCODE_8:
 				g->status = REDRAW;
-				set_slide_timer = 1;
+				g->slide_timer =  SDL_GetTicks();
 				if (!g->loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (g->n_imgs != 8 && g->files.size >= 8) {
 						if (g->n_imgs < 8) {
@@ -1456,10 +1455,6 @@ int handle_events()
 			}
 			break;
 		}
-	}
-
-	if (set_slide_timer) {
-		g->slide_timer =  SDL_GetTicks();
 	}
 
 	return 0;
