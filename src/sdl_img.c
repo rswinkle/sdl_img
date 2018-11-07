@@ -583,6 +583,7 @@ int load_new_images(void* data)
 	char title_buf[STRBUF_SZ];
 	int ret;
 	int load_what;
+	int last;
 	
 	while (1) {
 		SDL_LockMutex(g->mtx);
@@ -604,32 +605,46 @@ int load_new_images(void* data)
 				img[i].scr_rect = g->img[i].scr_rect;
 			
 			if (!g->img_focus) {
-				tmp = (load_what == RIGHT) ? g->n_imgs : -g->n_imgs;
-				for (int i=0; i<g->n_imgs; ++i) {
-					img[i].index = g->img[i].index;
-					do {
-						img[i].index = wrap(img[i].index + tmp);
-					} while (!(ret = load_image(g->files.a[img[i].index], &img[i], SDL_FALSE)));
-					set_rect_bestfit(&img[i], g->fullscreen | g->slideshow | g->fill_mode);
+				if (load_what == RIGHT) {
+					last = g->img[g->n_imgs-1].index;
+					for (int i=0; i<g->n_imgs; ++i) {
+						do {
+							last = wrap(last + 1);
+						} while (!(ret = load_image(g->files.a[last], &img[i], SDL_FALSE)));
+						set_rect_bestfit(&img[i], g->fullscreen | g->slideshow | g->fill_mode);
+						img[i].index = last;
+					}
+				} else {
+					last = g->img[0].index;
+					for (int i=g->n_imgs-1; i>=0; --i) {
+						do {
+							last = wrap(last - 1);
+						} while (!(ret = load_image(g->files.a[last], &img[i], SDL_FALSE)));
+						set_rect_bestfit(&img[i], g->fullscreen | g->slideshow | g->fill_mode);
+						img[i].index = last;
+					}
 				}
+
 				// just set title to upper left image when !img_focus
 				SDL_SetWindowTitle(g->win, mybasename(g->files.a[img[0].index], title_buf));
 			} else {
 				tmp = (load_what == RIGHT) ? 1 : -1;
-				img[0].index = g->img_focus->index;
+				last = g->img_focus->index;
 				do {
-					img[0].index = wrap(img[0].index + tmp);
-				} while (!(ret = load_image(g->files.a[img[0].index], &img[0], SDL_FALSE)));
+					last = wrap(last + tmp);
+				} while (!(ret = load_image(g->files.a[last], &img[0], SDL_FALSE)));
+				img[0].index = last;
 				img[0].scr_rect = g->img_focus->scr_rect;
 				set_rect_bestfit(&img[0], g->fullscreen | g->slideshow | g->fill_mode);
 				SDL_SetWindowTitle(g->win, mybasename(g->files.a[img[0].index], title_buf));
 			}
 		} else {
+			last = g->img[g->n_imgs-1].index;
 			for (int i=g->n_imgs; i<load_what; ++i) {
-				g->img[i].index = g->img[i-1].index;
 				do {
-					g->img[i].index = wrap(g->img[i].index + 1);
-				} while (!(ret = load_image(g->files.a[g->img[i].index], &g->img[i], SDL_FALSE)));
+					last = wrap(last + 1);
+				} while (!(ret = load_image(g->files.a[last], &g->img[i], SDL_FALSE)));
+				g->img[i].index = last;
 			}
 
 		}
