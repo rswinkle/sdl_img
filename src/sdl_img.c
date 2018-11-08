@@ -148,6 +148,7 @@ typedef struct global_state
 	int status;
 
 	char* dirpath;
+	char* cachedir;
 
 	cvector_str files;
 
@@ -229,6 +230,11 @@ char* mybasename(const char* path, char* base)
 int cmp_string_lt(const void* a, const void* b)
 {
 	return strcmp(*(const char**)a, *(const char**)b);
+}
+
+size_t write_data(void* buf, size_t size, size_t num, void* userp)
+{
+	return fwrite(buf, 1, size*num, (FILE*)userp);
 }
 
 //need to think about best way to organize following 4 functions' functionality
@@ -454,6 +460,57 @@ void print_img_state(img_state* img)
 	printf("disp_rect = %d %d %d %d\n}\n", img->disp_rect.x, img->disp_rect.y, img->disp_rect.w, img->disp_rect.h);
 }
 
+int curl_image(int img_idx)
+{
+	CURL* curl = curl_easy_init();
+	CURLcode res;
+	char filename[STRBUF_SZ];
+	char curlerror[CURL_ERROR_SIZE];
+	char* s = g->files.a[img_idx];
+	FILE* imgfile;
+
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlerror);
+	#ifdef _WIN32
+	curl_easy_setopt(curl, CURLOPT_CAINFO, "ca-bundle.crt");
+	curl_easy_setopt(curl, CURLOPT_CAPATH, exepath);
+	#endif
+
+	char* slash = strrchr(s, '/');
+	if (!slash) {
+		puts("invalid url");
+		goto exit_cleanup;
+	}
+	int len = snprintf(filename, STRBUF_SZ, "%s/%s", g->cachedir, slash+1);
+	if (len >= STRBUF_SZ) {
+		puts("url too long");
+		goto exit_cleanup;
+	}
+
+	printf("Getting %s\n%s\n", s, filename);
+	if (!(imgfile = fopen(filename, "wb"))) {
+		perror("fopen");
+		goto exit_cleanup;
+	}
+
+	curl_easy_setopt(curl, CURLOPT_URL, s);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
+
+	if ((res = curl_easy_perform(curl)) != CURLE_OK) {
+		printf("curl error: %s\n", curlerror);
+		goto exit_cleanup;
+	}
+	fclose(imgfile);
+	cvec_replace_str(&g->files, img_idx, filename, NULL);
+
+	curl_easy_cleanup(curl);
+	return 1;
+
+exit_cleanup:
+	curl_easy_cleanup(curl);
+	return 0;
+}
+
 int load_image(const char* img_name, img_state* img, int make_textures)
 {
 	int frames, n;
@@ -467,7 +524,7 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 	if (g->dirpath)
 		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", g->dirpath, img_name);
 	else
-		ret = snprintf(fullpath, STRBUF_SZ, "%s", img_name);
+		ret = snprintf(fullpath, STRBUF_SZ, "%s", img_name); // TODO strncpy?
 	if (ret >= STRBUF_SZ) {
 		// TODO add messagebox here?
 		puts("path too long");
@@ -611,7 +668,11 @@ int load_new_images(void* data)
 					for (int i=0; i<g->n_imgs; ++i) {
 						do {
 							last = wrap(last + 1);
-						} while (!(ret = load_image(g->files.a[last], &img[i], SDL_FALSE)));
+							ret = load_image(g->files.a[last], &img[i], SDL_FALSE);
+							if (!ret)
+								if (curl_image(last))
+									ret = load_image(g->files.a[last], &img[i], SDL_FALSE);
+						} while (!ret);
 						set_rect_bestfit(&img[i], g->fullscreen | g->slideshow | g->fill_mode);
 						img[i].index = last;
 					}
@@ -620,7 +681,12 @@ int load_new_images(void* data)
 					for (int i=g->n_imgs-1; i>=0; --i) {
 						do {
 							last = wrap(last - 1);
-						} while (!(ret = load_image(g->files.a[last], &img[i], SDL_FALSE)));
+							ret = load_image(g->files.a[last], &img[i], SDL_FALSE);
+							if (!ret)
+							if (!ret)
+								if (curl_image(last))
+									ret = load_image(g->files.a[last], &img[i], SDL_FALSE);
+						} while (!ret);
 						set_rect_bestfit(&img[i], g->fullscreen | g->slideshow | g->fill_mode);
 						img[i].index = last;
 					}
@@ -633,7 +699,11 @@ int load_new_images(void* data)
 				last = g->img_focus->index;
 				do {
 					last = wrap(last + tmp);
-				} while (!(ret = load_image(g->files.a[last], &img[0], SDL_FALSE)));
+					ret = load_image(g->files.a[last], &img[0], SDL_FALSE);
+					if (!ret)
+						if (curl_image(last))
+							ret = load_image(g->files.a[last], &img[0], SDL_FALSE);
+				} while (!ret);
 				img[0].index = last;
 				img[0].scr_rect = g->img_focus->scr_rect;
 				set_rect_bestfit(&img[0], g->fullscreen | g->slideshow | g->fill_mode);
@@ -644,7 +714,11 @@ int load_new_images(void* data)
 			for (int i=g->n_imgs; i<load_what; ++i) {
 				do {
 					last = wrap(last + 1);
-				} while (!(ret = load_image(g->files.a[last], &g->img[i], SDL_FALSE)));
+					ret = load_image(g->files.a[last], &g->img[i], SDL_FALSE);
+					if (!ret)
+						if (curl_image(last))
+							ret = load_image(g->files.a[last], &g->img[i], SDL_FALSE);
+				} while (!ret);
 				g->img[i].index = last;
 			}
 
@@ -718,7 +792,15 @@ void setup(const char* img_name)
 	g->fullscreen = 0;
 	g->fill_mode = 0;
 
-	if (!load_image(img_name, &g->img[0], SDL_TRUE)) {
+	// TODO best way to structure this?
+	int ret = load_image(img_name, &g->img[0], SDL_TRUE);
+	if (!ret) {
+		if (curl_image(0)) {
+			ret = load_image(g->files.a[0], &g->img[0], SDL_TRUE);
+			img_name = g->files.a[0];
+		}
+	}
+	if (!ret) {
 		cleanup(0, 1);
 	}
 
@@ -1484,11 +1566,6 @@ int handle_events()
 	return 0;
 }
 
-size_t write_data(void* buf, size_t size, size_t num, void* userp)
-{
-	return fwrite(buf, 1, size*num, (FILE*)userp);
-}
-
 //stupid windows
 void normalize_path(char* path)
 {
@@ -1513,15 +1590,30 @@ int main(int argc, char** argv)
 	char* path = NULL;
 	char dirpath[STRBUF_SZ] = { 0 };
 	char img_name[STRBUF_SZ] = { 0 };
+	char cachedir[STRBUF_SZ] = { 0 };
 	int ticks;
 
-	curl_global_init(CURL_GLOBAL_ALL);
+	if (curl_global_init(CURL_GLOBAL_ALL)) {
+		puts("Failed to initialize libcurl");
+		//cleanup(1, 0);
+	}
 	cvec_str(&g->files, 0, 100);
 
 	char* exepath = SDL_GetBasePath();
 	// TODO think of a company/org name
 	char* prefpath = SDL_GetPrefPath("", "sdl_img");
 	printf("%s\n%s\n\n", exepath, prefpath);
+
+	int len = snprintf(cachedir, STRBUF_SZ, "%scache", prefpath);
+	if (len >= STRBUF_SZ) {
+		puts("cache path too long");
+		cleanup(1, 0);
+	}
+	if (mkdir(cachedir, 0700) && errno != EEXIST) {
+		perror("Failed to make cache directory");
+		cleanup(1, 0);
+	}
+	g->cachedir = cachedir;
 
 	if (argc == 2) {
 		path = argv[1];
@@ -1562,39 +1654,16 @@ int main(int argc, char** argv)
 					}
 					normalize_path(s);
 					cvec_push_str(&g->files, s);
-					if (g->files.size == 1)
-						setup(g->files.a[0]);
 				}
 				fclose(file);
 			} else if (!strcmp(argv[i], "-u")) {
 				FILE* file = fopen(argv[++i], "r");
-				FILE* imgfile;
 				if (!file) {
 					perror("fopen");
 					cleanup(1, 0);
 				}
 				char* s;
-				CURL* curl = curl_easy_init();
-				CURLcode res;
 				int len;
-				char filename[STRBUF_SZ];
-				char cachedir[STRBUF_SZ];
-				char curlerror[CURL_ERROR_SIZE];
-				len = snprintf(cachedir, STRBUF_SZ, "%scache", prefpath);
-				if (len >= STRBUF_SZ) {
-					puts("cache path too long");
-					cleanup(1, 0);
-				}
-				if (mkdir(cachedir, 0700) && errno != EEXIST) {
-					perror("Failed to make cache directory");
-					cleanup(1, 0);
-				}
-				curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
-				curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlerror);
-				#ifdef _WIN32
-				curl_easy_setopt(curl, CURLOPT_CAINFO, "ca-bundle.crt");
-				curl_easy_setopt(curl, CURLOPT_CAPATH, exepath);
-				#endif
 				while ((s = fgets(dirpath, STRBUF_SZ, file))) {
 					len = strlen(s);
 					s[len-1] = 0;  // remove '\n'
@@ -1604,41 +1673,18 @@ int main(int argc, char** argv)
 						memmove(s, &s[1], len-2);
 					}
 
-					char* slash = strrchr(s, '/');
-					if (!slash)
-						continue;
-					len = snprintf(filename, STRBUF_SZ, "%s/%s", cachedir, slash+1);
-					if (len >= STRBUF_SZ) {
-						puts("url too long");
-						cleanup(1, 0);
-					}
-
-					printf("Getting %s\n%s\n", s, filename);
-					if (!(imgfile = fopen(filename, "wb"))) {
-						perror("fopen");
-						cleanup(1, 0);
-					}
-
-					curl_easy_setopt(curl, CURLOPT_URL, s);
-					curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
-
-					if ((res = curl_easy_perform(curl)) != CURLE_OK) {
-						printf("curl: %s\n", curlerror);
-					}
-					fclose(imgfile);
-					cvec_push_str(&g->files, filename);
-					if (g->files.size == 1)
-						setup(g->files.a[0]);
+					puts(s);
+					cvec_push_str(&g->files, s);
 				}
 				fclose(file);
-				curl_easy_cleanup(curl);
 			} else {
 				normalize_path(argv[i]);
 				cvec_push_str(&g->files, argv[i]);
-				if (g->files.size == 1)
-					setup(argv[i]);
 			}
 		}
+		printf("loaded all %ld filenames\n", g->files.size);
+
+		setup(g->files.a[0]);
 	}
 
 	printf("done with arguments\n");

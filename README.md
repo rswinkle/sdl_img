@@ -115,7 +115,7 @@ TODO/IDEAS
 - [x] Can rotate images (and save the changes if not animated gifs)
 - [x] Handle quoted paths/urls in -f/-u files
 - [ ] Add window icon (either static or based on current image(s))
-- [ ] Speed up initial startup when a directory has a large number of images
+- [x] Speed up initial startup when a directory has a large number of images
 - [ ] Clean up code a bit (ongoing)
 - [ ] Save memory by aliasing when viewing the same image more than once in multimode
 - [ ] Save memory by having the main thread update images as they're loaded
