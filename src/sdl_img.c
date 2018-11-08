@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <inttypes.h>
 
 //POSIX works with MinGW64
@@ -543,7 +544,7 @@ int scandir(void* data)
 			continue;
 		}
 
-		// if it's a regular file and an image stb_image recognizes
+		// if it's a regular file (checking for valid image makes startup too slow)
 		if (S_ISREG(file_stat.st_mode)) { // && stbi_info(fullpath, NULL, NULL, NULL)) {
 			cvec_push_str(&g->files, entry->d_name);
 		}
@@ -741,8 +742,14 @@ void setup(const char* img_name)
 		SDL_SetWindowPosition(g->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 	}
 
+
+	SDL_Event e;
+	while (SDL_PollEvent(&e)) {
+		;  // apparently we have to "handle" the window change event for it to fully process
+	}
+
 	SET_MODE1_SCR_RECT();
-	SDL_RenderSetClipRect(g->ren, &g->img[0].scr_rect);
+	SDL_RenderClear(g->ren);
 	SDL_RenderCopy(g->ren, g->img[0].tex[g->img[0].frame_i], NULL, &g->img[0].disp_rect);
 	SDL_RenderPresent(g->ren);
 
@@ -761,6 +768,8 @@ void setup(const char* img_name)
 		puts("couldn't create thread");
 	}
 	SDL_DetachThread(loading_thrd);
+
+	printf("Done with setup\nStarting with %s\n", img_name);
 
 }
 
@@ -1551,10 +1560,10 @@ int main(int argc, char** argv)
 						s[len-2] = 0;
 						memmove(s, &s[1], len-2);
 					}
-					if (stbi_info(s, NULL, NULL, NULL)) {
-						normalize_path(s);
-						cvec_push_str(&g->files, s);
-					}
+					normalize_path(s);
+					cvec_push_str(&g->files, s);
+					if (g->files.size == 1)
+						setup(g->files.a[0]);
 				}
 				fclose(file);
 			} else if (!strcmp(argv[i], "-u")) {
@@ -1576,7 +1585,7 @@ int main(int argc, char** argv)
 					puts("cache path too long");
 					cleanup(1, 0);
 				}
-				if (mkdir(cachedir, 0700)) {
+				if (mkdir(cachedir, 0700) && errno != EEXIST) {
 					perror("Failed to make cache directory");
 					cleanup(1, 0);
 				}
@@ -1617,26 +1626,22 @@ int main(int argc, char** argv)
 						printf("curl: %s\n", curlerror);
 					}
 					fclose(imgfile);
-					if (stbi_info(filename, NULL, NULL, NULL))
-						cvec_push_str(&g->files, filename);
-					else
-						printf("%s\n", stbi_failure_reason());
+					cvec_push_str(&g->files, filename);
+					if (g->files.size == 1)
+						setup(g->files.a[0]);
 				}
 				fclose(file);
 				curl_easy_cleanup(curl);
 			} else {
-				path = argv[i];
-				normalize_path(path);
-				cvec_push_str(&g->files, path);
+				normalize_path(argv[i]);
+				cvec_push_str(&g->files, argv[i]);
+				if (g->files.size == 1)
+					setup(argv[i]);
 			}
 		}
-
-		path = g->files.a[0];
-		printf("starting with\n%s\n", path);
-		setup(path);
 	}
 
-	printf("done with setup\n");
+	printf("done with arguments\n");
 
 
 	int is_a_gif;
