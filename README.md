@@ -71,19 +71,16 @@ the default.
 
 Advanced Usage
 ==============
-    ./sdl_img -f list_of_images
-    ./sdl_img -u list_of_image_urls
+    ./sdl_img -f list_of_images (urls or local paths or mixed, doesn't matter)
     ./sdl_img image1.jpg image2.png
 
 Or any combination of those options, ie
-    ./sdl_img image.jpg -f list1 -u list2 -f list3 image4.gif
+    ./sdl_img image.jpg -f list1 example.com/image.jpg -f list3 image4.gif
 
 When using any of these modes, all the images will be collected in a list in the
-order they're given (not sorted like basic usage).  In addition, any urls will be
-downloaded to a cache directory before startup.  If you have a large list or lists
-of urls, that could take a bit to download so your startup would be slow.
-In addition, for now if you have multiple url images with the same name, the later
-ones will simply overwrite the earlier ones in the cache.
+order they're given (not sorted like basic usage).  For now, if you have multiple
+url images with the same name, the ones downloaded later will simply overwrite
+the earlier ones in the cache.
 
 Building
 ========
@@ -113,7 +110,7 @@ TODO/IDEAS
 - [x] Don't waste CPU cycles/battery when viewing static images
 - [x] Can delete current image in single image mode
 - [x] Can rotate images (and save the changes if not animated gifs)
-- [x] Handle quoted paths/urls in -f/-u files
+- [x] Handle quoted paths/urls in -f files
 - [ ] Add window icon (either static or based on current image(s))
 - [x] Speed up initial startup when a directory has a large number of images
 - [ ] Clean up code a bit (ongoing)

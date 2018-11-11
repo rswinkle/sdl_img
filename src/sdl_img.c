@@ -795,7 +795,7 @@ void setup(const char* img_name)
 	// TODO best way to structure this?
 	int ret = load_image(img_name, &g->img[0], SDL_TRUE);
 	if (!ret) {
-		if (curl_image(0)) {
+		if (g->files.size && curl_image(0)) {
 			ret = load_image(g->files.a[0], &g->img[0], SDL_TRUE);
 			img_name = g->files.a[0];
 		}
@@ -1580,10 +1580,9 @@ int main(int argc, char** argv)
 	// TODO add --version option
 	if (argc < 2) {
 		printf("usage: %s image_name\n", argv[0]);
-		printf("usage: %s -f text_list_of_images\n", argv[0]);
-		printf("usage: %s -u text_list_of_image_urls\n", argv[0]);
+		printf("usage: %s -f text_list_of_image_paths/urls\n", argv[0]);
 		printf("Or any combination of those uses, ie:\n");
-		printf("usage: %s image1 -f list -u url_list img2 img3\n", argv[0]);
+		printf("usage: %s image.jpg -f list1 example.com/image.jpg -f list3 image4.gif\n", argv[0]);
 		exit(0);
 	}
 
@@ -1653,27 +1652,6 @@ int main(int argc, char** argv)
 						memmove(s, &s[1], len-2);
 					}
 					normalize_path(s);
-					cvec_push_str(&g->files, s);
-				}
-				fclose(file);
-			} else if (!strcmp(argv[i], "-u")) {
-				FILE* file = fopen(argv[++i], "r");
-				if (!file) {
-					perror("fopen");
-					cleanup(1, 0);
-				}
-				char* s;
-				int len;
-				while ((s = fgets(dirpath, STRBUF_SZ, file))) {
-					len = strlen(s);
-					s[len-1] = 0;  // remove '\n'
-					// handle quoted paths
-					if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
-						s[len-2] = 0;
-						memmove(s, &s[1], len-2);
-					}
-
-					puts(s);
 					cvec_push_str(&g->files, s);
 				}
 				fclose(file);
