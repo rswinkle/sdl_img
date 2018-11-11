@@ -71,11 +71,15 @@ the default.
 
 Advanced Usage
 ==============
-    ./sdl_img -f list_of_images (urls or local paths or mixed, doesn't matter)
-    ./sdl_img image1.jpg image2.png
+```bash
+./sdl_img -f list_of_images (urls or local paths or mixed, doesn't matter)
+./sdl_img image1.jpg image2.png
+```
 
 Or any combination of those options, ie
-    ./sdl_img image.jpg -f list1 example.com/image.jpg -f list3 image4.gif
+```bash
+./sdl_img image.jpg -f list1 example.com/image.jpg -f list3 image4.gif
+```
 
 When using any of these modes, all the images will be collected in a list in the
 order they're given (not sorted like basic usage).  For now, if you have multiple
