@@ -1503,6 +1503,8 @@ int handle_events()
 				}
 				g->status = REDRAW;
 			}
+
+		// fall through intentional (mouse movement or button clicks should unhide cursor)
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
 			SDL_ShowCursor(SDL_ENABLE);
