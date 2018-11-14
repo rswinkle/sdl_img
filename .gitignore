@@ -21,6 +21,8 @@
 #ignore ~ files
 *~
 *.gif
+*.jpg
+*.png
 *.kate-swp
 CMakeFiles/*
 CMakeCache.txt

@@ -40,9 +40,10 @@
 #include <SDL.h>
 
 enum { QUIT, REDRAW, NOCHANGE };
-enum { NOTHING = 0, SCANNING = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
+enum { NOTHING = 0, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 
 typedef uint8_t u8;
+typedef uint32_t u32;
 typedef int16_t i16;
 typedef int32_t i32;
 
@@ -169,6 +170,7 @@ typedef struct global_state
 } global_state;
 
 // Use a pointer in case I ever move this to another TU, though it's unlikely
+// Also I know initializing a global to 0 is redundant but meh
 static global_state state = { 0 };
 global_state* g = &state;
 
@@ -343,7 +345,7 @@ int create_textures(img_state* img)
 	for (int i=0; i<img->frames; ++i) {
 		img->tex[i] = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, img->w, img->h);
 		if (!img->tex[i]) {
-			printf("Error: %s\n", SDL_GetError());
+			printf("Error creating texture: %s\n", SDL_GetError());
 			return 0;
 		}
 		if (SDL_UpdateTexture(img->tex[i], NULL, img->pixels+(size+2)*i, img->w*4)) {
@@ -602,7 +604,7 @@ int scandir(void* data)
 		}
 
 		// if it's a regular file (checking for valid image makes startup too slow)
-		if (S_ISREG(file_stat.st_mode)) { // && stbi_info(fullpath, NULL, NULL, NULL)) {
+		if (S_ISREG(file_stat.st_mode) && strcmp(entry->d_name, initial_image)) { // && stbi_info(fullpath, NULL, NULL, NULL)) {
 			cvec_push_str(&g->files, entry->d_name);
 		}
 		i++;
@@ -731,7 +733,7 @@ int load_new_images(void* data)
 	}
 }
 
-void setup(const char* img_name)
+int setup()
 {
 	g->win = NULL;
 	g->ren = NULL;
@@ -748,12 +750,50 @@ void setup(const char* img_name)
 		exit(1);
 	}
 
-	// could use stbi_info to get the img dimensions here without fully decoding...
-	g->scr_w = 640;
-	g->scr_h = 480;
+	g->n_imgs = 1;
+	g->img = g->img1;
+
+	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
+		perror("Couldn't allocate tex array");
+		cleanup(0, 1);
+	}
+	g->img[0].frame_capacity = 100;
+	g->fill_mode = 0;
+
+	char* img_name = g->files.a[0];
+	int was_url = 0;
+	// TODO best way to structure this?
+	int ret = load_image(img_name, &g->img[0], SDL_FALSE);
+	if (!ret) {
+		if (curl_image(0)) {
+			ret = load_image(g->files.a[0], &g->img[0], SDL_FALSE);
+			img_name = g->files.a[0];
+			was_url = 1;
+		}
+	}
+
+	if (!ret) {
+		cleanup(0, 1);
+	}
+
+	SDL_Rect r;
+	if (SDL_GetDisplayUsableBounds(0, &r)) {
+		printf("Error getting usable bounds: %s\n", SDL_GetError());
+		r.w = 640;
+		r.h = 480;
+	}
+	g->scr_w = MAX(g->img[0].w, 640);
+	g->scr_h = MAX(g->img[0].h, 480);
+	g->scr_w = MIN(g->scr_w, r.w);
+	g->scr_h = MIN(g->scr_h, r.h);
+
+	u32 win_flags = (g->fullscreen) ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_RESIZABLE;
+
+	// TODO do I need to update scr_w and src_h if it's fullscreen?  is there an initial window event?
+
 	mybasename(img_name, title_buf);
 	
-	g->win = SDL_CreateWindow(title_buf, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, g->scr_w, g->scr_h, SDL_WINDOW_RESIZABLE);
+	g->win = SDL_CreateWindow(title_buf, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, g->scr_w, g->scr_h, win_flags);
 	if (!g->win) {
 		snprintf(error_str, STRBUF_SZ, "Couldn't create window: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
@@ -775,60 +815,16 @@ void setup(const char* img_name)
 		puts(error_str);
 		cleanup(1, 1);
 	}
-	// get black screen while loading (big gif could take a few seconds)
-	SDL_SetRenderDrawColor(g->ren, 0, 0, 0, 255);
-	SDL_RenderClear(g->ren);
-	SDL_RenderPresent(g->ren);
 	
-	g->n_imgs = 1;
-	g->img = g->img1;
+	// can't create textures till after we have a renderer (otherwise we'd pass SDL_TRUE)
+	// to load_image above
+	if (!create_textures(&g->img[0]))
+		cleanup(1, 1);
 
-	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
-		perror("Couldn't allocate tex array");
-		cleanup(0, 1);
-	}
-	g->img[0].frame_capacity = 100;
-
-	g->fullscreen = 0;
-	g->fill_mode = 0;
-
-	// TODO best way to structure this?
-	int ret = load_image(img_name, &g->img[0], SDL_TRUE);
-	if (!ret) {
-		if (g->files.size && curl_image(0)) {
-			ret = load_image(g->files.a[0], &g->img[0], SDL_TRUE);
-			img_name = g->files.a[0];
-		}
-	}
-	if (!ret) {
-		cleanup(0, 1);
-	}
-
-	SDL_DisplayMode dm;
-	if (SDL_GetDesktopDisplayMode(0, &dm) != 0) {
-		printf("Error getting display mode: %s\n", SDL_GetError());
-	} else {
-		// don't know a way to get window border/title bar dimensions cross platform,
-		// but apparently it's not necessary, if the the dimensions are too big it'll get
-		// set to the max windowed size (at least on Linux)
-		//
-		// UPDATE: Windows is *not* smart enough to limit window size but will happily
-		// create a "window" where the edges and titlebar are waaaay off the screen
-		// so, just subtracting arbitrary amount from screen dimensions for now
-		printf("screen WxH = %d x %d\n", dm.w, dm.h);
-		g->scr_w = MAX(g->img[0].w, 640);
-		g->scr_h = MAX(g->img[0].h, 480);
-		g->scr_w = MIN(g->scr_w, dm.w-20);
-		g->scr_h = MIN(g->scr_h, dm.h-80);
-		SDL_SetWindowSize(g->win, g->scr_w, g->scr_h);
-		SDL_SetWindowPosition(g->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-	}
-
-
-	SDL_Event e;
-	while (SDL_PollEvent(&e)) {
-		;  // apparently we have to "handle" the window change event for it to fully process
-	}
+	//SDL_Event e;
+	//while (SDL_PollEvent(&e)) {
+	//	;  // apparently we have to "handle" the window change event for it to fully process
+	//}
 
 	SET_MODE1_SCR_RECT();
 	SDL_RenderClear(g->ren);
@@ -853,6 +849,7 @@ void setup(const char* img_name)
 
 	printf("Done with setup\nStarting with %s\n", img_name);
 
+	return was_url;
 }
 
 void toggle_fullscreen()
@@ -931,7 +928,7 @@ int handle_events()
 	int zoomed;
 	char title_buf[STRBUF_SZ];
 	img_state* img;
-	int loading = g->loading;
+	int loading = g->loading; // TODO to use a local copy or not that is the question
 
 	g->status = NOCHANGE;
 
@@ -1582,13 +1579,12 @@ int main(int argc, char** argv)
 	// TODO add --version option
 	if (argc < 2) {
 		printf("usage: %s image_name\n", argv[0]);
-		printf("usage: %s -f text_list_of_image_paths/urls\n", argv[0]);
+		printf("usage: %s -l text_list_of_image_paths/urls\n", argv[0]);
 		printf("Or any combination of those uses, ie:\n");
-		printf("usage: %s image.jpg -f list1 example.com/image.jpg -f list3 image4.gif\n", argv[0]);
+		printf("usage: %s image.jpg -l list1 example.com/image.jpg -l list3 image4.gif\n", argv[0]);
 		exit(0);
 	}
 
-	char* path = NULL;
 	char dirpath[STRBUF_SZ] = { 0 };
 	char img_name[STRBUF_SZ] = { 0 };
 	char cachedir[STRBUF_SZ] = { 0 };
@@ -1616,59 +1612,50 @@ int main(int argc, char** argv)
 	}
 	g->cachedir = cachedir;
 
-	if (argc == 2) {
-		path = argv[1];
-		normalize_path(path);
-		mydirname(path, dirpath);
-		mybasename(path, img_name);
+	g->dirpath = NULL;
+	for (int i=1; i<argc; ++i) {
+		if (!strcmp(argv[i], "-l")) {
+			FILE* file = fopen(argv[++i], "r");
+			if (!file) {
+				perror("fopen");
+				cleanup(1, 0);
+			}
+			char* s;
+			int len;
+			while ((s = fgets(dirpath, STRBUF_SZ, file))) {
+				len = strlen(s);
+				s[len-1] = 0;  // get rid of '\n'
+				// handle quoted paths
+				if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
+					s[len-2] = 0;
+					memmove(s, &s[1], len-2);
+				}
+				normalize_path(s);
+				cvec_push_str(&g->files, s);
+			}
+			fclose(file);
+		} else if (!strcmp(argv[i], "-f")) {
+			g->fullscreen = 1;
+		} else {
+			normalize_path(argv[i]);
+			cvec_push_str(&g->files, argv[i]);
+		}
+	}
+	printf("done with %d arguments\n", argc-1);
+
+	int was_url = setup();
+
+	if (g->files.size == 1 && !was_url) {
+		mydirname(g->files.a[0], dirpath);
+		mybasename(g->files.a[0], img_name);
+
+		printf("Old to new\n%s\n%s\n", g->files.a[0], img_name);
+		cvec_replace_str(&g->files, 0, img_name, NULL);
 
 		g->dirpath = dirpath;
-
-		setup(img_name);
-
-		//SDL_Thread* scandir_thrd;
-		g->loading = SCANNING;
 		scandir(img_name);
-		//if (!(scandir_thrd = SDL_CreateThread(scandir, "scandir_thrd", img_name))) {
-		//	puts("couldn't create thread");
-		//}
-		//SDL_DetachThread(scandir_thrd);
-
-	} else {
-		g->dirpath = NULL;
-		for (int i=1; i<argc; ++i) {
-			if (!strcmp(argv[i], "-f")) {
-				FILE* file = fopen(argv[++i], "r");
-				if (!file) {
-					perror("fopen");
-					cleanup(1, 0);
-				}
-				char* s;
-				int len;
-				while ((s = fgets(dirpath, STRBUF_SZ, file))) {
-					len = strlen(s);
-					s[len-1] = 0;  // get rid of '\n'
-					// handle quoted paths
-					if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
-						s[len-2] = 0;
-						memmove(s, &s[1], len-2);
-					}
-					normalize_path(s);
-					cvec_push_str(&g->files, s);
-				}
-				fclose(file);
-			} else {
-				normalize_path(argv[i]);
-				cvec_push_str(&g->files, argv[i]);
-			}
-		}
-		printf("loaded all %ld filenames\n", g->files.size);
-
-		setup(g->files.a[0]);
+		printf("Scanned %lu files in %s\n", g->files.size, dirpath);
 	}
-
-	printf("done with arguments\n");
-
 
 	int is_a_gif;
 	while (1) {

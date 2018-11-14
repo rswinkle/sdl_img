@@ -13,9 +13,10 @@ Goals / Focus
 * Learn/Practice/Fun
 * Not really focused on speed, if it's fast enough on my chromebook it's good enough
 
-Controls/Usage
-==============
+Controls/Basic Usage
+====================
     ./sdl_img image_name.jpg
+    ./sdl_img -f image_name.jpg  (to start in full screen mode)
 
 Will open image_name.jpg.  On Windows that would be `sdl_img.exe`, but better
 to just right click on an image of each type and change the default application
@@ -72,13 +73,13 @@ the default.
 Advanced Usage
 ==============
 ```bash
-./sdl_img -f list_of_images (urls or local paths or mixed, doesn't matter)
+./sdl_img -l list_of_images (urls or local paths or mixed, doesn't matter)
 ./sdl_img image1.jpg image2.png
 ```
 
 Or any combination of those options, ie
 ```bash
-./sdl_img image.jpg -f list1 example.com/image.jpg -f list3 image4.gif
+./sdl_img image.jpg -l list1 example.com/image.jpg -l list3 image4.gif
 ```
 
 When using any of these modes, all the images will be collected in a list in the
@@ -114,7 +115,7 @@ TODO/IDEAS
 - [x] Don't waste CPU cycles/battery when viewing static images
 - [x] Can delete current image in single image mode
 - [x] Can rotate images (and save the changes if not animated gifs)
-- [x] Handle quoted paths/urls in -f files
+- [x] Handle quoted paths/urls in -l files
 - [ ] Add window icon (either static or based on current image(s))
 - [x] Speed up initial startup when a directory has a large number of images
 - [ ] Clean up code a bit (ongoing)
