@@ -116,6 +116,8 @@ TODO/IDEAS
 - [x] Can delete current image in single image mode
 - [x] Can rotate images (and save the changes if not animated gifs)
 - [x] Handle quoted paths/urls in -l files
+- [ ] Handle being given a directory as an argument(s)
+- [ ] Add argument -s [1-10] to start in slideshow mode
 - [ ] Add window icon (either static or based on current image(s))
 - [x] Speed up initial startup when a directory has a large number of images
 - [ ] Clean up code a bit (ongoing)
