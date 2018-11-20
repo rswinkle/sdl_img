@@ -31,7 +31,7 @@ addons:
 
 before_install:
   - travis_retry curl -L https://www.libsdl.org/release/SDL2-2.0.5.tar.gz | tar xz
-  - cd SDL2-2.0.4
+  - cd SDL2-2.0.5
   - ./configure
   - make
   - sudo make install
