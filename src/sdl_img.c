@@ -821,11 +821,6 @@ int setup()
 	if (!create_textures(&g->img[0]))
 		cleanup(1, 1);
 
-	//SDL_Event e;
-	//while (SDL_PollEvent(&e)) {
-	//	;  // apparently we have to "handle" the window change event for it to fully process
-	//}
-
 	SET_MODE1_SCR_RECT();
 	SDL_RenderClear(g->ren);
 	SDL_RenderCopy(g->ren, g->img[0].tex[g->img[0].frame_i], NULL, &g->img[0].disp_rect);
