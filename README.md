@@ -75,12 +75,15 @@ Advanced Usage
 ```bash
 ./sdl_img -l list_of_images (urls or local paths or mixed, doesn't matter)
 ./sdl_img image1.jpg image2.png
+./sdl_img image1.jpg -s 4
 ```
 
 Or any combination of those options, ie
 ```bash
-./sdl_img image.jpg -l list1 example.com/image.jpg -l list3 image4.gif
+./sdl_img image.jpg -l list1 -s 8 example.com/image.jpg -l list3 image4.gif -f
 ```
+The option -s [delay] means start in slideshow mode with the given delay in seconds.
+If delay is not 1-10 or is missing, delay will be set to 3 seconds.
 
 When using any of these modes, all the images will be collected in a list in the
 order they're given (not sorted like basic usage).  For now, if you have multiple
@@ -117,6 +120,7 @@ TODO/IDEAS
 - [x] Can rotate images (and save the changes if not animated gifs)
 - [x] Handle quoted paths/urls in -l files
 - [ ] Handle being given a directory as an argument(s)
+- [x] Add argument -s [1-10] to start in slideshow mode
 - [x] Add argument -s [1-10] to start in slideshow mode
 - [ ] Add window icon (either static or based on current image(s))
 - [x] Speed up initial startup when a directory has a large number of images
