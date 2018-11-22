@@ -63,49 +63,49 @@ typedef int32_t i32;
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 
-#define SET_MODE1_SCR_RECT()                                    \
-	do {                                                        \
-	g->img[0].scr_rect.x = 0;                                   \
-	g->img[0].scr_rect.y = 0;                                   \
-	g->img[0].scr_rect.w = g->scr_w;                            \
-	g->img[0].scr_rect.h = g->scr_h;                            \
-	set_rect_bestfit(&g->img[0], g->fullscreen | g->fill_mode); \
+#define SET_MODE1_SCR_RECT()                                                   \
+	do {                                                                       \
+	g->img[0].scr_rect.x = 0;                                                  \
+	g->img[0].scr_rect.y = 0;                                                  \
+	g->img[0].scr_rect.w = g->scr_w;                                           \
+	g->img[0].scr_rect.h = g->scr_h;                                           \
+	set_rect_bestfit(&g->img[0], g->fullscreen | g->slideshow | g->fill_mode); \
 	} while (0)
 
-#define SET_MODE2_SCR_RECTS()                                   \
-	do {                                                        \
-	g->img[0].scr_rect.x = 0;                                   \
-	g->img[0].scr_rect.y = 0;                                   \
-	g->img[0].scr_rect.w = g->scr_w/2;                          \
-	g->img[0].scr_rect.h = g->scr_h;                            \
-	g->img[1].scr_rect.x = g->scr_w/2;                          \
-	g->img[1].scr_rect.y = 0;                                   \
-	g->img[1].scr_rect.w = g->scr_w/2;                          \
-	g->img[1].scr_rect.h = g->scr_h;                            \
-	set_rect_bestfit(&g->img[0], g->fullscreen | g->fill_mode); \
-	set_rect_bestfit(&g->img[1], g->fullscreen | g->fill_mode); \
+#define SET_MODE2_SCR_RECTS()                                                  \
+	do {                                                                       \
+	g->img[0].scr_rect.x = 0;                                                  \
+	g->img[0].scr_rect.y = 0;                                                  \
+	g->img[0].scr_rect.w = g->scr_w/2;                                         \
+	g->img[0].scr_rect.h = g->scr_h;                                           \
+	g->img[1].scr_rect.x = g->scr_w/2;                                         \
+	g->img[1].scr_rect.y = 0;                                                  \
+	g->img[1].scr_rect.w = g->scr_w/2;                                         \
+	g->img[1].scr_rect.h = g->scr_h;                                           \
+	set_rect_bestfit(&g->img[0], g->fullscreen | g->slideshow | g->fill_mode); \
+	set_rect_bestfit(&g->img[1], g->fullscreen | g->slideshow | g->fill_mode); \
 	} while (0)
 
-#define SET_MODE4_SCR_RECTS()                                        \
-	do {                                                             \
-	for (int i=0; i<4; ++i) {                                        \
-		g->img[i].scr_rect.x = (i%2)*g->scr_w/2;                     \
-		g->img[i].scr_rect.y = (i/2)*g->scr_h/2;                     \
-		g->img[i].scr_rect.w = g->scr_w/2;                           \
-		g->img[i].scr_rect.h = g->scr_h/2;                           \
-		set_rect_bestfit(&g->img[i], g->fullscreen | g->fill_mode);  \
-	}                                                                \
+#define SET_MODE4_SCR_RECTS()                                                       \
+	do {                                                                            \
+	for (int i=0; i<4; ++i) {                                                       \
+		g->img[i].scr_rect.x = (i%2)*g->scr_w/2;                                    \
+		g->img[i].scr_rect.y = (i/2)*g->scr_h/2;                                    \
+		g->img[i].scr_rect.w = g->scr_w/2;                                          \
+		g->img[i].scr_rect.h = g->scr_h/2;                                          \
+		set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);  \
+	}                                                                               \
 	} while (0)
 
-#define SET_MODE8_SCR_RECTS()                                        \
-	do {                                                             \
-	for (int i=0; i<8; ++i) {                                        \
-		g->img[i].scr_rect.x = (i%4)*g->scr_w/4;                     \
-		g->img[i].scr_rect.y = (i/4)*g->scr_h/2;                     \
-		g->img[i].scr_rect.w = g->scr_w/4;                           \
-		g->img[i].scr_rect.h = g->scr_h/2;                           \
-		set_rect_bestfit(&g->img[i], g->fullscreen | g->fill_mode);  \
-	}                                                                \
+#define SET_MODE8_SCR_RECTS()                                                       \
+	do {                                                                            \
+	for (int i=0; i<8; ++i) {                                                       \
+		g->img[i].scr_rect.x = (i%4)*g->scr_w/4;                                    \
+		g->img[i].scr_rect.y = (i/4)*g->scr_h/2;                                    \
+		g->img[i].scr_rect.w = g->scr_w/4;                                          \
+		g->img[i].scr_rect.h = g->scr_h/2;                                          \
+		set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);  \
+	}                                                                               \
 	} while (0)
 
 typedef struct img_state
@@ -1610,6 +1610,10 @@ int main(int argc, char** argv)
 	g->dirpath = NULL;
 	for (int i=1; i<argc; ++i) {
 		if (!strcmp(argv[i], "-l")) {
+			if (i+1 == argc) {
+				puts("Error missing list file following -l");
+				break;
+			}
 			FILE* file = fopen(argv[++i], "r");
 			if (!file) {
 				perror("fopen");
@@ -1629,6 +1633,31 @@ int main(int argc, char** argv)
 				cvec_push_str(&g->files, s);
 			}
 			fclose(file);
+		} else if (!strcmp(argv[i], "-s")) {
+			int delay;
+			if (i+1 == argc) {
+				puts("No time following -s, defaulting to 3 seconds.");
+				delay = 3;
+			} else {
+				char* end;
+				delay = strtol(argv[++i], &end, 10);
+				if (delay <= 0 || delay > 10) {
+					if (delay == 0 && end == argv[i]) {
+						puts("No time given for -s, defaulting to 3 seconds");
+						i--;
+					} else {
+						printf("Invalid slideshow time given %d (should be 1-10), defaulting to 3 seconds\n", delay);
+					}
+					delay = 3;
+				}
+			}
+			// have to do this rather than just setting g->slideshow/slide_timer because
+			// timer should start *after* first image is displayed
+			SDL_Event start_slideshow;
+			start_slideshow.type = SDL_KEYUP;
+			start_slideshow.key.keysym.scancode = SDL_SCANCODE_CAPSLOCK + delay; // get proper F1-10 code
+			SDL_PushEvent(&start_slideshow);
+
 		} else if (!strcmp(argv[i], "-f")) {
 			g->fullscreen = 1;
 		} else {
@@ -1696,7 +1725,6 @@ int main(int argc, char** argv)
 	}
 
 	cleanup(0, 1);
-
 	//never get here
 	return 0;
 }
