@@ -844,6 +844,9 @@ int setup()
 
 	printf("Done with setup\nStarting with %s\n", img_name);
 
+	g->mouse_timer = SDL_GetTicks();
+	g->mouse_state = 1;
+
 	return was_url;
 }
 
