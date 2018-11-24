@@ -1,0 +1,43 @@
+I used this process and fpm command to create rpm files but similar would work
+for any Unix OS or package type, see fpm help
+
+You can get and read about fpm here:
+https://github.com/jordansissel/fpm
+
+Also note, if you're using this on CentOS/RHEL, they use such outdated
+packages, their default ruby version is too old for fpm to work.  You have
+to install and enable the SCLs before you run the fpm command, ie
+
+(after it's installed):
+scl enable rh-ruby22 bash
+============================================================
+
+
+./configure --prefix=/usr
+make install DESTDIR=/home/rswinkle/testinstall/
+cd ~
+
+fpm -s dir -t deb -v 0.7 -n sdl_img -C package \
+--log info --verbose \
+-d "libsdl2-2.0-0" \
+-m "Robert Winkler <rob121618@gmail.com>" \
+--rpm-summary "Davinci - A tool to manipulate and view various types of data" \
+--vendor "Mars Space Flight Facility at Arizona State University" \
+--license GPLv2 \
+--url "http://davinci.asu.edu" \
+--description \
+"Davinci is an interpreted language that looks and feels a lot like C, \
+but has additional vector oriented features that make working with blocks \
+of data a lot easier. This makes davinci well suited for use as a data \
+processing tool, allowing symbolic and mathematical manipulation \
+of hyperspectral data for imaging spectroscopy applications."
+
+
+
+
+fpm -s dir -t deb -v 0.93 -n sdl_img -C package_linux \
+--log info --verbose \
+-d "libsdl2-2.0-0" -d "libcurl3" \
+-m "Robert Winkler <rob121618@gmail.com>" \
+--license MIT \
+--url "https://github.com/rswinkle/sdl_img"
