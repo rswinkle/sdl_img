@@ -35,9 +35,9 @@ of hyperspectral data for imaging spectroscopy applications."
 
 
 
-fpm -s dir -t deb -v 0.93 -n sdl_img -C package_linux \
+fpm -s dir -t deb -v 0.95 -n sdl_img -C package_linux \
 --log info --verbose \
--d "libsdl2-2.0-0" -d "libcurl3" \
+-d "libsdl2-2.0-0 >= 2.0.5" -d "libcurl3" \
 -m "Robert Winkler <rob121618@gmail.com>" \
 --license MIT \
 --url "https://github.com/rswinkle/sdl_img"
