@@ -41,6 +41,7 @@
 
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
+enum { IMAGE, URL, DIRECTORY };
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -607,8 +608,8 @@ int scandir(void* data)
 			continue;
 		}
 
-		// if it's a regular file (checking for valid image makes startup too slow)
-		if (S_ISREG(file_stat.st_mode) && strcmp(entry->d_name, initial_image)) { // && stbi_info(fullpath, NULL, NULL, NULL)) {
+		// if it's a regular file and not the initial image (checking for valid image makes startup too slow)
+		if (S_ISREG(file_stat.st_mode) && (!initial_image || strcmp(entry->d_name, initial_image))) { // && stbi_info(fullpath, NULL, NULL, NULL)) {
 			cvec_push_str(&g->files, entry->d_name);
 		}
 		i++;
@@ -619,13 +620,15 @@ int scandir(void* data)
 	printf("sorting images\n");
 	qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
 
-	printf("finding current image to update index\n");
-	char** res;
-	res = bsearch(&initial_image, g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
-	if (!res) {
-		cleanup(0, 1);
+	if (initial_image) {
+		printf("finding current image to update index\n");
+		char** res;
+		res = bsearch(&initial_image, g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
+		if (!res) {
+			cleanup(0, 1);
+		}
+		g->img[0].index = res - g->files.a;
 	}
-	g->img[0].index = res - g->files.a;
 
 	printf("Loaded all %"PRIuMAX" filenames\n", g->files.size);
 	closedir(dir);
@@ -737,7 +740,7 @@ int load_new_images(void* data)
 	}
 }
 
-int setup()
+int setup(char* dirpath)
 {
 	g->win = NULL;
 	g->ren = NULL;
@@ -765,14 +768,25 @@ int setup()
 	g->fill_mode = 0;
 
 	char* img_name = g->files.a[0];
-	int was_url = 0;
+	int what = IMAGE;
 	// TODO best way to structure this?
 	int ret = load_image(img_name, &g->img[0], SDL_FALSE);
 	if (!ret) {
 		if (curl_image(0)) {
 			ret = load_image(g->files.a[0], &g->img[0], SDL_FALSE);
 			img_name = g->files.a[0];
-			was_url = 1;
+			what = URL;
+		} else if (g->files.size == 1) {
+			struct stat file_stat;
+			if (!stat(g->files.a[0], &file_stat) && S_ISDIR(file_stat.st_mode)) {
+				strncpy(dirpath, g->files.a[0], STRBUF_SZ); // dirpath[STRBUF_SZ-1] = 0; // worth it?
+				g->dirpath = dirpath;
+				cvec_erase_str(&g->files, 0, 0);
+				scandir(NULL);
+				printf("Scanned %lu files in %s\n", g->files.size, dirpath);
+				what = DIRECTORY;
+				ret = load_image(img_name, &g->img[0], SDL_FALSE);
+			}
 		}
 	}
 
@@ -851,7 +865,7 @@ int setup()
 	g->mouse_timer = SDL_GetTicks();
 	g->mouse_state = 1;
 
-	return was_url;
+	return what;
 }
 
 void toggle_fullscreen()
@@ -1689,9 +1703,9 @@ int main(int argc, char** argv)
 	}
 	printf("done with %d arguments\n", argc-1);
 
-	int was_url = setup();
-
-	if (g->files.size == 1 && !was_url) {
+	int what = setup(dirpath);
+		
+	if (g->files.size == 1 && what != URL && what != DIRECTORY) {
 		mydirname(g->files.a[0], dirpath);
 		mybasename(g->files.a[0], img_name);
 
@@ -1702,6 +1716,7 @@ int main(int argc, char** argv)
 		scandir(img_name);
 		printf("Scanned %lu files in %s\n", g->files.size, dirpath);
 	}
+
 
 	int is_a_gif;
 	while (1) {
