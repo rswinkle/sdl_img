@@ -51,6 +51,10 @@ typedef int32_t i32;
 #define mkdir(A, B) mkdir(A)
 #endif
 
+// TODO hmm
+#define VERSION 0.95
+#define VERSION_STR "sdl_img 0.95"
+
 #define PATH_SEPARATOR '/'
 #define ZOOM_RATE 0.05
 #define PAN_RATE 0.05
@@ -1572,14 +1576,23 @@ void normalize_path(char* path)
 	}
 }
 
+void print_help(char* prog_name, int verbose)
+{
+	// TODO improve/expand this
+	if (!verbose) {
+		puts("Usage:");
+		printf("  %s image_name\n", prog_name);
+		printf("  %s -l text_list_of_image_paths/urls\n", prog_name);
+		printf("Or any combination of those uses, ie:\n");
+		printf("  %s image.jpg -l list1 example.com/image.jpg -l list3 image4.gif\n", prog_name);
+	} else {
+	}
+}
+
 int main(int argc, char** argv)
 {
-	// TODO add --version option
 	if (argc < 2) {
-		printf("usage: %s image_name\n", argv[0]);
-		printf("usage: %s -l text_list_of_image_paths/urls\n", argv[0]);
-		printf("Or any combination of those uses, ie:\n");
-		printf("usage: %s image.jpg -l list1 example.com/image.jpg -l list3 image4.gif\n", argv[0]);
+		print_help(argv[0], SDL_FALSE);
 		exit(0);
 	}
 
@@ -1597,7 +1610,7 @@ int main(int argc, char** argv)
 	char* exepath = SDL_GetBasePath();
 	// TODO think of a company/org name
 	char* prefpath = SDL_GetPrefPath("", "sdl_img");
-	printf("%s\n%s\n\n", exepath, prefpath);
+	//printf("%s\n%s\n\n", exepath, prefpath);
 
 	int len = snprintf(cachedir, STRBUF_SZ, "%scache", prefpath);
 	if (len >= STRBUF_SZ) {
@@ -1636,10 +1649,10 @@ int main(int argc, char** argv)
 				cvec_push_str(&g->files, s);
 			}
 			fclose(file);
-		} else if (!strcmp(argv[i], "-s")) {
+		} else if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {
 			int delay;
 			if (i+1 == argc) {
-				puts("No time following -s, defaulting to 3 seconds.");
+				puts("No delay following -s, defaulting to 3 second delay.");
 				delay = 3;
 			} else {
 				char* end;
@@ -1661,8 +1674,14 @@ int main(int argc, char** argv)
 			start_slideshow.key.keysym.scancode = SDL_SCANCODE_CAPSLOCK + delay; // get proper F1-10 code
 			SDL_PushEvent(&start_slideshow);
 
-		} else if (!strcmp(argv[i], "-f")) {
+		} else if (!strcmp(argv[i], "-f") || !strcmp(argv[i], "--fullscreen")) {
 			g->fullscreen = 1;
+		} else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--version")) {
+			puts(VERSION_STR);
+			cleanup(1, 0);
+		} else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
+			print_help(argv[0], SDL_TRUE);
+			cleanup(1, 0);
 		} else {
 			normalize_path(argv[i]);
 			cvec_push_str(&g->files, argv[i]);

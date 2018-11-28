@@ -1,11 +1,11 @@
 .\" Man page for SDL_IMG
-.TH SDL_IMG 1 "14 November 2018" sdl_img
+.TH SDL_IMG 1 "26 November 2018" sdl_img
 .\" Please adjust this date when revising the manpage.
 .\"
 .SH "NAME"
-sdl \- A simple but unique image viewer based on stb_image and SDL2
+sdl_img \- A simple but unique image viewer based on stb_image and SDL2
 .SH "SYNOPSIS"
-.B ./sdl_img image_name.jpg
+.B ./sdl_img [-f] [-s [delay]] [files] [-l text_list]
 
 .B ./sdl_img -l list_of_images (urls or local paths or mixed, doesn't matter)
 
@@ -15,33 +15,72 @@ sdl \- A simple but unique image viewer based on stb_image and SDL2
 
 .SH "DESCRIPTION"
 \fBsdl_img\fR is designed to be simple, easy to use image viewer that implements
-some unique features while still having a short (<2 KLOC not including
+some unique features while still having a short (~1500 SLOC not including
 libraries) simple codebase.  It handles all the normal functions of an image
 viewer (browsing through directories, zoom, pan, rotate, delete, slideshow).
-.PP
-Where it differs
+.TS
+l l .
+Controls	Description
+Left (or Up)      	Previous image(s) or pan if appropriate
+Right (or Down)   	Next image(s) or pan if appropriate
+Space             	Next image(s)
++/-               	Zoom in/out
+ALT + +/-         	Speed up or slow down an animated gif
+ALT + Direction   	Next or previous image(s) even when zoomed in
+Mouse Wheel       	Zoom in/out
+Left click + drag 	Pan around a zoomed in image
+A                 	Actual size
+F                 	Toggle fill screen mode
+ALT + F or F11    	Toggle Fullscreen
+ESC               	Exit (or exit Slideshow mode then fullscreen)
+L/R               	Rotate the current image left/right, prompts for saving appropriately
+Delete            	Delete the current image and move to the next (only in single mode)
+CTRL + 1          	Single image mode
+CTRL + 2          	Double image mode
+CTRL + 4          	Quad image mode
+CTRL + 8          	8 image mode
+F1 - F10          	Start a slideshow with 1 - 10 second delay
+.TE
+
+The most notable unique feature is being able to view more than a single image at once.
+
+Within each image mode the basic controls work on all images simultaneously
+unless a specific image is selected by hitting 1-n and then they operate only
+on that image, ie cycling, zooming, fit will only effect that image.
+To return to "all at once" mode, hit 0.  In this way you can compare multiple
+images simultaneously with a single viewer instance (even if they aren't sequential
+alphabetically).  Switching from a higher mode to a lower will show the first n images
+of the higher mode where n is the lower number.  An exception is if you have an
+image selected and go to single mode, that is the image that will be used.
+
+The slideshow feature is smart enough to wait long enough to finish any gif being
+displayed even if that takes longer than the specificed delay.  ESC ends the slideshow.
+All other controls work while in slideshow mode, meaning starting a slideshow does not
+automatically toggle to fullscreen, it will run in double, quad or oct-image mode, or
+even on a single image selected within those modes.
+
+Something to note about the rotation functionality are that while it will rotate any
+image, it will only ask whether you're sure you want to save single frame images because
+stb_image_write does not support gifs at all, let alone animated gifs.  It will try to
+detect the type from the extension and output that type if possible, otherwise jpg is
+the default.
+Where it differs from most viewers is in its more unique features.  These
+include multi-image modes, specifically 2, 4 and 8 image modes where all the
+normal controls (with the exception of delete) continue to work, either on
+the entire set of images or an individual selected from the group.
 .PP
 .SH "OPTIONS"
 .TP
 \fBfilename(s)...\fR
-Specifies the image to open when \fBeom\fR starts. If this is not specified, \fBeom\fR will start with a blank window and you may open a file from the menu or by using the shortcut CTRL+O. \fBeom\fR also supports handling of remote files.
-.TP
-\fB\-\-display=DISPLAY\fR
-X display to use.
+Specifies the image to open when \fBsdl_img\fR starts. \fBsdl_img\fR also supports handling of remote files.
 .TP
 \fB\-f, \-\-fullscreen\fR
-Start \fBeom\fR in fullscreen mode.
-.TP
-\fB\-c, \-\-disable-image-collection\fR
-Disable image collection viewer.
+Start \fBsdl_img\fR in fullscreen mode.
 .TP
 \fB\-s, \-\-slide-show\fR
 Open in slideshow mode.
 .TP
-\fB\-n, \-\-new-instance\fR
-Start a new instance instead of reusing an existing window.
-.TP
-\fB\-\-version\fR
+\fB-v, \-\-version\fR
 Output version information and exit.
 .TP
 \fB\-h, \-\-help\fR
@@ -50,24 +89,20 @@ Print standard command line options.
 \fB\-\-help\-all\fR
 Print all command line options.
 .P
-This program also accepts the standard GTK options.
 .SH "EXAMPLES"
-\fBeom \-f http://mate-desktop.org/assets/img/icons/mate.png\fR
+\fBsdl_img \-f http://mate-desktop.org/assets/img/icons/mate.png\fR
 .RS 4
 Open the referenced file in fullscreen mode.
 .RE
 .PP
-\fBeom \-s /usr/share/eom/icons/hicolor/scalable/actions\fR
+\fBsdl_img \-s /usr/share/eom/icons/hicolor/scalable/actions\fR
 .RS 4
 Open the images in the referenced directory in slideshow mode.
 .SH "BUGS"
 .SS Should you encounter any bugs, they may be reported at: 
-http://github.com/mate-desktop/eom/issues
+http://github.com/rswinkle/sdl_img/issues
 .SH "AUTHORS"
-.SS This Manual Page has been written for the MATE Desktop Environment by:
-Scott Balneaves <sbalneav@mate-desktop.org> (2013)
-Adam Erdman <hekel@archlinux.info> (2014)
+Robert Winkler <rob121618@gmail.com>
 .SH "SEE ALSO"
 .SS
-Eye of MATE documentation can be found from the "Help" menu, or by pressing the F1 key. 
-Further information may also be available at: http://wiki.mate-desktop.org/docs
+More information can be found at http://github.com/rswinkle/sdl_img
