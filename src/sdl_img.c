@@ -785,7 +785,7 @@ int setup(char* dirpath)
 				scandir(NULL);
 				printf("Scanned %lu files in %s\n", g->files.size, dirpath);
 				what = DIRECTORY;
-				ret = load_image(img_name, &g->img[0], SDL_FALSE);
+				ret = load_image(g->files.a[0], &g->img[0], SDL_FALSE);
 			}
 		}
 	}
