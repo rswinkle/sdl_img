@@ -769,7 +769,7 @@ int setup(char* dirpath)
 
 	char* img_name = g->files.a[0];
 	int what = IMAGE;
-	// TODO best way to structure this?
+	// TODO best way to structure this and use in main()?
 	int ret = load_image(img_name, &g->img[0], SDL_FALSE);
 	if (!ret) {
 		if (curl_image(0)) {
@@ -944,7 +944,6 @@ int handle_events()
 	int zoomed;
 	char title_buf[STRBUF_SZ];
 	img_state* img;
-	int loading = g->loading; // TODO to use a local copy or not that is the question
 
 	g->status = NOCHANGE;
 
@@ -1162,7 +1161,6 @@ int handle_events()
 						if (g->n_imgs == 1) {
 							SDL_LockMutex(g->mtx);
 							g->loading = MODE2;
-							loading = 1;
 							SDL_CondSignal(g->cnd);
 							SDL_UnlockMutex(g->mtx);
 						} else {
@@ -1196,7 +1194,6 @@ int handle_events()
 						if (g->n_imgs < 4) {
 							SDL_LockMutex(g->mtx);
 							g->loading = MODE4;
-							loading = 1;
 							SDL_CondSignal(g->cnd);
 							SDL_UnlockMutex(g->mtx);
 						} else {
@@ -1243,7 +1240,6 @@ int handle_events()
 						if (g->n_imgs < 8) {
 							SDL_LockMutex(g->mtx);
 							g->loading = MODE8;
-							loading = 1;
 							SDL_CondSignal(g->cnd);
 							SDL_UnlockMutex(g->mtx);
 						} else {
@@ -1301,7 +1297,6 @@ int handle_events()
 				if (!g->loading) {
 					SDL_LockMutex(g->mtx);
 					g->loading = RIGHT;
-					loading = 1;
 					SDL_CondSignal(g->cnd);
 					SDL_UnlockMutex(g->mtx);
 				}
@@ -1335,7 +1330,6 @@ int handle_events()
 				if (!g->loading && !zoomed) {
 					SDL_LockMutex(g->mtx);
 					g->loading = RIGHT;
-					loading = 1;
 					SDL_CondSignal(g->cnd);
 					SDL_UnlockMutex(g->mtx);
 				}
@@ -1367,7 +1361,6 @@ int handle_events()
 				if (!g->loading && !zoomed) {
 					SDL_LockMutex(g->mtx);
 					g->loading = RIGHT;
-					loading = 1;
 					SDL_CondSignal(g->cnd);
 					SDL_UnlockMutex(g->mtx);
 				}
@@ -1400,7 +1393,6 @@ int handle_events()
 				if (!g->loading && !zoomed) {
 					SDL_LockMutex(g->mtx);
 					g->loading = LEFT;
-					loading = 1;
 					SDL_CondSignal(g->cnd);
 					SDL_UnlockMutex(g->mtx);
 				}
@@ -1432,7 +1424,6 @@ int handle_events()
 				if (!g->loading && !zoomed) {
 					SDL_LockMutex(g->mtx);
 					g->loading = LEFT;
-					loading = 1;
 					SDL_CondSignal(g->cnd);
 					SDL_UnlockMutex(g->mtx);
 				}
