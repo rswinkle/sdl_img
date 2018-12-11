@@ -1,1 +1,1 @@
-groff -man -Tascii -t manpage.txt | less
+groff -man -Tascii -t sdl_img.1 | less

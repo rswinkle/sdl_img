@@ -1592,14 +1592,18 @@ void normalize_path(char* path)
 
 void print_help(char* prog_name, int verbose)
 {
-	// TODO improve/expand this
-	if (!verbose) {
-		puts("Usage:");
-		printf("  %s image_name\n", prog_name);
-		printf("  %s -l text_list_of_image_paths/urls\n", prog_name);
-		printf("Or any combination of those uses, ie:\n");
-		printf("  %s image.jpg -l list1 example.com/image.jpg -l list3 image4.gif\n", prog_name);
-	} else {
+	puts("Usage:");
+	printf("  %s image_name\n", prog_name);
+	printf("  %s -l text_list_of_image_paths/urls\n", prog_name);
+	puts("\nOr any combination of those uses, ie:");
+	printf("  %s image.jpg -l list1 example.com/image.jpg -l list3 image4.gif\n", prog_name);
+
+	if (verbose) {
+		puts("\nApplication Options:");
+		puts("  -f, --fullscreen                   Start in fullscreen mode");
+		puts("  -s, --slide-show [delay=3]         Start in slideshow mode");
+		puts("  -v, --version                      Show the version");
+		puts("  -h, --help                         Show this help");
 	}
 }
 
@@ -1621,7 +1625,9 @@ int main(int argc, char** argv)
 	}
 	cvec_str(&g->files, 0, 100);
 
-	char* exepath = SDL_GetBasePath();
+	// Not currently used
+	// char* exepath = SDL_GetBasePath();
+
 	// TODO think of a company/org name
 	char* prefpath = SDL_GetPrefPath("", "sdl_img");
 	//printf("%s\n%s\n\n", exepath, prefpath);
