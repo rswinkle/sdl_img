@@ -15,3 +15,11 @@ fpm -s dir -t deb -v 0.95 -n sdl_img -C package_linux \
 -m "Robert Winkler <rob121618@gmail.com>" \
 --license MIT \
 --url "https://github.com/rswinkle/sdl_img"
+
+
+fpm -s dir -t tar -v 0.95 -n sdl_img -C package_linux \
+--log info --verbose \
+-d "libsdl2-2.0-0 >= 2.0.5" -d "libcurl3" \
+-m "Robert Winkler <rob121618@gmail.com>" \
+--license MIT \
+--url "https://github.com/rswinkle/sdl_img"
