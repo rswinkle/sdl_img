@@ -480,7 +480,7 @@ int curl_image(int img_idx)
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlerror);
 	#ifdef _WIN32
 	curl_easy_setopt(curl, CURLOPT_CAINFO, "ca-bundle.crt");
-	curl_easy_setopt(curl, CURLOPT_CAPATH, exepath);
+	curl_easy_setopt(curl, CURLOPT_CAPATH, SDL_GetBasePath());
 	#endif
 
 	char* slash = strrchr(s, '/');

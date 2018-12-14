@@ -5,7 +5,7 @@
 ; --------------------------------
 
 ; Change these as needed
-!define VERSION "0.92"
+!define VERSION "0.95"
 !define INST_FOLDER "package"
 
 SetCompressor /SOLID /FINAL lzma
@@ -43,7 +43,7 @@ InstallDir "$PROGRAMfILES64\sdl_img"
 ; !define MUI_WELCOMEPAGE_TITLE "Welcome to the sdl_img Setup"
 
 
-!define MUI_WELCOMEPAGE_TEXT "http://robertwinkler.com/projects/sdl_img$\r$\n$\r$\nThis will install sdl_img on your computer.$\r$\n$\r$\nsdl_img is an image viewer built using the SDL2 and stb_image libraries.  Thanks to the latter, it has support for 9 different image formats including JPEG, PNG, BMP and GIF.  sdl_img focuses on interesting, unique features like multi-image browsing."
+!define MUI_WELCOMEPAGE_TEXT "http://robertwinkler.com/projects/sdl_img$\r$\n$\r$\nThis will install sdl_img on your computer.$\r$\n$\r$\nsdl_img is an image viewer built using the SDL2 and stb_image libraries.  Thanks to the latter, it has support for many different image formats including JPEG, PNG, BMP, GIF, and netpbm.  sdl_img focuses on interesting, unique features like multi-image browsing."
 
 
 !define MUI_FINISHPAGE_LINK "sdl_img Website"
@@ -86,7 +86,11 @@ InstallDir "$PROGRAMfILES64\sdl_img"
 Section "-Core"
 	SetOutPath $INSTDIR
 	File ${INST_FOLDER}\sdl_img.exe
-	File ${INST_FOLDER}\SDL2.dll
+
+	;SetOutPath $INSTDIR\lib
+	File ${INST_FOLDER}\*.dll
+
+	; SetOutPath $INSTDIR\lib
 	File ${INST_FOLDER}\sdl_img.ico
 	File ${INST_FOLDER}\sdl_img.bmp
 	File ${INST_FOLDER}\sdl_img2.bmp
@@ -95,7 +99,15 @@ Section "-Core"
 	File ${INST_FOLDER}\README.md
 	File ${INST_FOLDER}\ca-bundle.crt
 
-	WriteUninstaller $INSTDIR\uninstaller.exe
+	WriteUninstaller $INSTDIR\uninstall.exe
+
+	;WriteRegStr SHCTX "Software\sdl_img " "" $INSTDIR
+	WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\sdl_img" "DisplayName" "sdl_img"
+	WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\sdl_img" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
+	WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\sdl_img" "QuietUninstallString" "$\"$INSTDIR\uninstall.exe$\" /S"
+
+
+
 SectionEnd
 
 ; I'll put back the group if I ever add other optional sections
@@ -135,8 +147,30 @@ SectionEnd
 ; NOTE in Uninstall section $INSTDIR contains location of uninstaller
 ; not necessarily the same value as in the installer section
 Section "Uninstall"
-	RMDir /r /REBOOTOK $INSTDIR
+	; RMDir /r /REBOOTOK $INSTDIR
+	;
+	delete $INSTDIR\sdl_img.exe
+	delete $INSTDIR\*.dll
+	delete $INSTDIR\sdl_img.ico
+	delete $INSTDIR\sdl_img.bmp
+	delete $INSTDIR\sdl_img2.bmp
+	delete $INSTDIR\LICENSE
+	delete $INSTDIR\LICENSE.txt
+	delete $INSTDIR\README.md
+	delete $INSTDIR\ca-bundle.crt
 
+	rmdir /r $INSTDIR\src
+
+	; remove uninstaller last
+	delete $INSTDIR\uninstall.exe
+
+	; will only remove if dir is empty
+	rmDir $INSTDIR
+
+	DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\sdl_img"
+
+
+	; don't forget this 
 	RMDir /r $STARTMENU\sdl_img
 
 
