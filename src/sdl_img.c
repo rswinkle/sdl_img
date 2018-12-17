@@ -16,6 +16,7 @@
 // IN THE SOFTWARE.
 
 #define CVECTOR_IMPLEMENTATION
+#define CVEC_ONLY_STR
 #include "cvector.h"
 
 //#define STBI_FAILURE_USERMSG
