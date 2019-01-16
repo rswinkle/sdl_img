@@ -820,19 +820,18 @@ int setup(char* dirpath)
 		exit(1);
 	}
 
-	g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-	if (!g->ren) {
-		snprintf(error_str, STRBUF_SZ, "%s, falling back to software renderer.", SDL_GetError());
-		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Warning: No HW Acceleration", error_str, g->win);
-		puts(error_str);
-		g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_SOFTWARE);
-	}
-
+	// No real reason for hardware acceleration and especially on older and/or mobile gpu's you can
+	// run into images larger than the max texture size which will then fail to load/display
+	g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_SOFTWARE | SDL_RENDERER_PRESENTVSYNC);
 	if (!g->ren) {
 		snprintf(error_str, STRBUF_SZ, "Software rendering failed: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
 		puts(error_str);
 		cleanup(1, 1);
+	}
+
+	if (!g->ren) {
+		puts(error_str);
 	}
 	
 	// can't create textures till after we have a renderer (otherwise we'd pass SDL_TRUE)
