@@ -822,7 +822,7 @@ int setup(char* dirpath)
 
 	// No real reason for hardware acceleration and especially on older and/or mobile gpu's you can
 	// run into images larger than the max texture size which will then fail to load/display
-	g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_SOFTWARE | SDL_RENDERER_PRESENTVSYNC);
+	g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_SOFTWARE);
 	if (!g->ren) {
 		snprintf(error_str, STRBUF_SZ, "Software rendering failed: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
@@ -1608,6 +1608,8 @@ int main(int argc, char** argv)
 	char dirpath[STRBUF_SZ] = { 0 };
 	char img_name[STRBUF_SZ] = { 0 };
 	char cachedir[STRBUF_SZ] = { 0 };
+	char customcache[STRBUF_SZ] = { 0 };
+	char datebuf[200] = { 0 };
 	int ticks;
 
 	if (curl_global_init(CURL_GLOBAL_ALL)) {
@@ -1623,7 +1625,14 @@ int main(int argc, char** argv)
 	char* prefpath = SDL_GetPrefPath("", "sdl_img");
 	//printf("%s\n%s\n\n", exepath, prefpath);
 
-	int len = snprintf(cachedir, STRBUF_SZ, "%scache", prefpath);
+	time_t t;
+	struct tm *tmp;
+	t = time(NULL);
+	tmp = localtime(&t);
+	strftime(datebuf, sizeof(datebuf), "%F", tmp);
+	//strftime(datebuf, sizeof(datebuf), "%Y%m%d", tmp);
+
+	int len = snprintf(cachedir, STRBUF_SZ, "%scache/%s", prefpath, datebuf);
 	if (len >= STRBUF_SZ) {
 		puts("cache path too long");
 		cleanup(1, 0);
@@ -1684,7 +1693,16 @@ int main(int argc, char** argv)
 			start_slideshow.type = SDL_KEYUP;
 			start_slideshow.key.keysym.scancode = SDL_SCANCODE_CAPSLOCK + delay; // get proper F1-10 code
 			SDL_PushEvent(&start_slideshow);
-
+		} else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--cache")) {
+			if (i+1 == argc) {
+				puts("no cache directory provieded, using default cache location.");
+			} else {
+				if (mkdir(argv[++i], 0700) && errno != EEXIST) {
+					perror("Failed to make cache directory");
+					cleanup(1, 0);
+				}
+				g->cachedir = argv[i];
+			}
 		} else if (!strcmp(argv[i], "-f") || !strcmp(argv[i], "--fullscreen")) {
 			g->fullscreen = 1;
 		} else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--version")) {
@@ -1713,7 +1731,6 @@ int main(int argc, char** argv)
 		scandir(img_name);
 		printf("Scanned %lu files in %s\n", g->files.size, dirpath);
 	}
-
 
 	int is_a_gif;
 	while (1) {
