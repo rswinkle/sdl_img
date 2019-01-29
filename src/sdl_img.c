@@ -1599,6 +1599,7 @@ void print_help(char* prog_name, int verbose)
 		puts("\nApplication Options:");
 		puts("  -f, --fullscreen                   Start in fullscreen mode");
 		puts("  -s, --slide-show [delay=3]         Start in slideshow mode");
+		puts("  -c, --cache ./your_cache_loc       Use specified directory as cache");
 		puts("  -v, --version                      Show the version");
 		puts("  -h, --help                         Show this help");
 	}

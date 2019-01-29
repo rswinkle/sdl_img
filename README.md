@@ -76,6 +76,7 @@ Advanced Usage
 ./sdl_img -l list_of_images (urls or local paths or mixed, doesn't matter)
 ./sdl_img image1.jpg image2.png
 ./sdl_img image1.jpg -s 4
+./sdl_img -l list_of_urls -c ./custom_cache_dir
 ```
 
 Or any combination of those options, ie
@@ -87,8 +88,13 @@ If delay is not 1-10 or is missing, delay will be set to 3 seconds.
 
 When using any of these modes, all the images will be collected in a list in the
 order they're given (not sorted like basic usage).  For now, if you have multiple
-url images with the same name, the ones downloaded later will simply overwrite
-the earlier ones in the cache.
+url images with the same name, downloaded on the same day, the one downloaded last
+will simply overwrite the earlier ones in the cache.  This is because the cache does
+create subdirectories by date of the form YYYY-MM-DD for easy browsing/cleaning.
+
+There is also the -c/--cache option which allows you to specify a custom cache
+location (only for this instance) which can be useful if you know you want to
+save these images and don't want to bother copying them from the normal cache later.
 
 Building
 ========
