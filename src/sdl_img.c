@@ -786,7 +786,13 @@ int setup(char* dirpath)
 				scandir(NULL);
 				printf("Scanned %lu files in %s\n", g->files.size, dirpath);
 				what = DIRECTORY;
-				ret = load_image(g->files.a[0], &g->img[0], SDL_FALSE);
+				for (int i=0; i<g->files.size; ++i) {   // find first valid image in dir
+					if ((ret = load_image(g->files.a[i], &g->img[0], SDL_FALSE))) {
+						img_name = g->files.a[i];
+						g->img[0].index = i;
+						break;
+					}
+				}
 			}
 		}
 	}
