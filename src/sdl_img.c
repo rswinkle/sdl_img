@@ -233,8 +233,108 @@ char* mybasename(const char* path, char* base)
 	return base;
 }
 
-// TODO use http://stereopsis.com/strcmp4humans.html
-// or slightly modified in stb-imv?
+
+// NOTE(rswinkle): string sorting taken from
+// https://github.com/nothings/stb-imv/blob/master/imv.c
+//
+//derived from michael herf's code: http://www.stereopsis.com/strcmp4humans.html
+
+// sorts like this:
+//     foo.jpg
+//     foo1.jpg
+//     foo2.jpg
+//     foo10.jpg
+//     foo_1.jpg
+//     food.jpg
+
+// use upper, not lower, to get better sorting versus '_'
+// no, use lower not upper, to get sorting that matches explorer
+extern inline char tupper(char b)
+{
+	if (b >= 'A' && b <= 'Z') return b - 'A' + 'a';
+	//if (b >= 'a' && b <= 'z') return b - 'a' + 'A';
+	return b;
+}
+
+extern inline char isnum(char b)
+{
+	if (b >= '0' && b <= '9') return 1;
+	return 0;
+}
+
+extern inline int parsenum(char **a_p)
+{
+	char *a = *a_p;
+	int result = *a - '0';
+	++a;
+
+	while (isnum(*a)) {
+		result *= 10;
+		result += *a - '0';
+		++a;
+	}
+
+	*a_p = a-1;
+	return result;
+}
+
+int StringCompare(char *a, char *b)
+{
+   char *orig_a = a, *orig_b = b;
+
+	if (a == b) return 0;
+
+	if (a == NULL) return -1;
+	if (b == NULL) return 1;
+
+	while (*a && *b) {
+
+		int a0, b0;	// will contain either a number or a letter
+
+		if (isnum(*a) && isnum(*b)) {
+			a0 = parsenum(&a);
+			b0 = parsenum(&b);
+		} else {
+		// if they are mixed number and character, use ASCII comparison
+		// order between them (number before character), not herf's
+		// approach (numbers after everything else). this produces the order:
+		//     foo.jpg
+		//     foo1.jpg
+		//     food.jpg
+		//     foo_.jpg
+		// which I think looks better than having foo_ before food (but
+		// I could be wrong, given how a blank space sorts)
+
+			a0 = tupper(*a);
+			b0 = tupper(*b);
+		}
+
+		if (a0 < b0) return -1;
+		if (a0 > b0) return 1;
+
+		++a;
+		++b;
+	}
+
+	if (*a) return 1;
+	if (*b) return -1;
+
+	{
+		// if strings differ only by leading 0s, use case-insensitive ASCII sort
+		// (note, we should work this out more efficiently by noticing which one changes length first)
+		int z = strcasecmp(orig_a, orig_b);
+		if (z) return z;
+		// if identical case-insensitive, return ASCII sort
+		return strcmp(orig_a, orig_b);
+	}
+}
+
+int StringCompareSort(const void *p, const void *q)
+{
+   return StringCompare(*(char **) p, *(char **) q);
+}
+
+// plain sort
 int cmp_string_lt(const void* a, const void* b)
 {
 	return strcmp(*(const char**)a, *(const char**)b);
@@ -619,12 +719,12 @@ int scandir(void* data)
 	}
 
 	printf("sorting images\n");
-	qsort(g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
+	qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
 
 	if (initial_image) {
 		printf("finding current image to update index\n");
 		char** res;
-		res = bsearch(&initial_image, g->files.a, g->files.size, sizeof(char*), cmp_string_lt);
+		res = bsearch(&initial_image, g->files.a, g->files.size, sizeof(char*), StringCompareSort);
 		if (!res) {
 			cleanup(0, 1);
 		}
@@ -1541,12 +1641,22 @@ int handle_events()
 			}
 			break;
 
-		case SDL_WINDOWEVENT:
+		case SDL_WINDOWEVENT: {
 			g->status = REDRAW;
+			//puts("window event");
+			int x, y;
+			SDL_GetWindowSize(g->win, &x, &y);
+			//printf("windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 			switch (e.window.event) {
+			case SDL_WINDOWEVENT_RESIZED:
+				g->scr_w = e.window.data1;
+				g->scr_h = e.window.data2;
+				//printf("resized %d %d\n", g->scr_w, g->scr_h);
+				break;
 			case SDL_WINDOWEVENT_SIZE_CHANGED:
 				g->scr_w = e.window.data1;
 				g->scr_h = e.window.data2;
+				//printf("size changed %d %d\n", g->scr_w, g->scr_h);
 
 				// TODO how/where to reset all the "subscreens" rects
 				if (g->n_imgs == 1) {
@@ -1560,14 +1670,13 @@ int handle_events()
 				}
 				break;
 			case SDL_WINDOWEVENT_EXPOSED: {
-				/*
+				//puts("exposed");
 				int x, y;
 				SDL_GetWindowSize(g->win, &x, &y);
-				printf("windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
-				puts("exposed event");
-				*/
+				//printf("windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
+				//puts("exposed event");
 			}
-				break;
+		} break;
 			default:
 				;
 			}
@@ -1615,7 +1724,6 @@ int main(int argc, char** argv)
 	char dirpath[STRBUF_SZ] = { 0 };
 	char img_name[STRBUF_SZ] = { 0 };
 	char cachedir[STRBUF_SZ] = { 0 };
-	char customcache[STRBUF_SZ] = { 0 };
 	char datebuf[200] = { 0 };
 	int ticks;
 
@@ -1766,11 +1874,13 @@ int main(int argc, char** argv)
 		}
 
 		if (g->status == REDRAW) {
+			//puts("redraw");
 			SDL_RenderSetClipRect(g->ren, NULL);
 			SDL_RenderClear(g->ren);
 			for (int i=0; i<g->n_imgs; ++i) {
 				SDL_RenderSetClipRect(g->ren, &g->img[i].scr_rect);
 				SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
+				//print_img_state(&g->img[i]);
 			}
 			SDL_RenderPresent(g->ren);
 		}
