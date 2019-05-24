@@ -26,6 +26,20 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+// TODO sin, cos, sqrt etc.
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_IO
+//#define NK_INCLUDE_FONT_BAKING
+//#define NK_INCLUDE_DEFAULT_FONT
+#include "nuklear_sdl.c"
+
+
+
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -141,6 +155,9 @@ typedef struct global_state
 {
 	SDL_Window* win;
 	SDL_Renderer* ren;
+	struct nk_context* ctx;
+
+	struct nk_rect gui_rect;
 
 	int scr_w;
 	int scr_h;
@@ -939,6 +956,11 @@ int setup(char* dirpath)
 	if (!g->ren) {
 		puts(error_str);
 	}
+
+	if (!(g->ctx = nk_sdl_init(g->win, g->ren))) {
+		puts("nk_sdl_init() failed!");
+		cleanup(1, 1);
+	}
 	
 	// can't create textures till after we have a renderer (otherwise we'd pass SDL_TRUE)
 	// to load_image above
@@ -1137,15 +1159,28 @@ int handle_events()
 	}
 
 
+	int mouse_x, mouse_y;
+	u32 mouse_button_mask = SDL_GetMouseState(&mouse_x, &mouse_y);
+	
+	int m_in_gui = 0;
+	if (mouse_x >= g->gui_rect.x && mouse_x < g->gui_rect.x+g->gui_rect.w &&
+	    mouse_y >= g->gui_rect.y && mouse_y < g->gui_rect.y+g->gui_rect.h)
+	{
+		m_in_gui = 1;
+	}
+
+	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
 		switch (e.type) {
 		case SDL_QUIT:
+			//nk_input_end(g->ctx);
 			return 1;
 		case SDL_KEYUP:
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
 				if (!g->fullscreen && !g->slideshow) {
+					//nk_input_end(g->ctx);
 					return 1;
 				} else {
 					if (g->slideshow) {
@@ -1588,7 +1623,9 @@ int handle_events()
 			break;
 
 		case SDL_MOUSEMOTION:
-			if (SDL_GetMouseState(NULL, NULL) & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+			if (m_in_gui) {
+				nk_sdl_handle_event(&e);
+			} else if (mouse_button_mask & SDL_BUTTON(SDL_BUTTON_LEFT)) {
 				img = NULL;
 				if (!g->img_focus) {
 					for (int i=0; i<g->n_imgs; ++i) {
@@ -1611,12 +1648,18 @@ int handle_events()
 					}
 					fix_rect(img);
 				}
-				g->status = REDRAW;
 			}
+			g->status = REDRAW;
 
-		// fall through intentional (mouse movement or button clicks should unhide cursor)
+			SDL_ShowCursor(SDL_ENABLE);
+			g->mouse_timer = SDL_GetTicks();
+			g->mouse_state = 1;
+			break;
+
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
+			nk_sdl_handle_event(&e);
+			g->status = REDRAW;
 			SDL_ShowCursor(SDL_ENABLE);
 			g->mouse_timer = SDL_GetTicks();
 			g->mouse_state = 1;
@@ -1683,6 +1726,7 @@ int handle_events()
 			break;
 		}
 	}
+	nk_input_end(g->ctx);
 
 	return 0;
 }
@@ -1847,6 +1891,9 @@ int main(int argc, char** argv)
 		printf("Scanned %lu files in %s\n", g->files.size, dirpath);
 	}
 
+	int gui_flags = NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|
+	                NK_WINDOW_MINIMIZABLE|NK_WINDOW_TITLE;
+
 	int is_a_gif;
 	while (1) {
 		if (handle_events())
@@ -1857,6 +1904,21 @@ int main(int argc, char** argv)
 		if (g->mouse_state && ticks - g->mouse_timer > HIDE_CURSOR_TIMER) {
 			SDL_ShowCursor(SDL_DISABLE);
 			g->mouse_state = 0;
+			g->status = REDRAW;
+		}
+		if (g->mouse_state) {
+			if (nk_begin(g->ctx, "Controls", nk_rect(50, 50, 210, 250),
+				NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_SCALABLE|
+				NK_WINDOW_MINIMIZABLE|NK_WINDOW_TITLE))
+			{
+				g->gui_rect = nk_window_get_bounds(g->ctx);
+				//printf("gui %f %f %f %f\n", g->gui_rect.x, g->gui_rect.y, g->gui_rect.w, g->gui_rect.h);
+
+				nk_layout_row_static(g->ctx, 30, 80, 1);
+				if (nk_button_label(g->ctx, "button"))
+					fprintf(stdout, "button pressed\n");
+			}
+			nk_end(g->ctx);
 		}
 
 		is_a_gif = 0;
@@ -1873,8 +1935,11 @@ int main(int argc, char** argv)
 			}
 		}
 
-		if (g->status == REDRAW) {
+		if (g->mouse_state || g->status == REDRAW) {
 			//puts("redraw");
+			//
+			// gui drawing changes draw color so have to reset to black every time
+			SDL_SetRenderDrawColor(g->ren, 0, 0, 0, 255);
 			SDL_RenderSetClipRect(g->ren, NULL);
 			SDL_RenderClear(g->ren);
 			for (int i=0; i<g->n_imgs; ++i) {
@@ -1882,8 +1947,12 @@ int main(int argc, char** argv)
 				SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
 				//print_img_state(&g->img[i]);
 			}
-			SDL_RenderPresent(g->ren);
 		}
+		if (g->mouse_state)
+			nk_sdl_render();
+		SDL_RenderPresent(g->ren);
+
+
 
 		//"sleep" save CPU cycles/battery especially when not viewing animated gifs
 		if (!is_a_gif && !g->loading)
