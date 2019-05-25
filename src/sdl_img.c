@@ -57,6 +57,7 @@
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 enum { IMAGE, URL, DIRECTORY };
+enum { NEXT, PREV, NUM_USEREVENTS };
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -158,6 +159,7 @@ typedef struct global_state
 	struct nk_context* ctx;
 
 	struct nk_rect gui_rect;
+	u32 userevents;  // TODO better name?
 
 	int scr_w;
 	int scr_h;
@@ -961,6 +963,15 @@ int setup(char* dirpath)
 		puts("nk_sdl_init() failed!");
 		cleanup(1, 1);
 	}
+
+	// TODO
+	// next and prev events?
+	g->userevents = SDL_RegisterEvents(NUM_USEREVENTS);
+	if (g->userevents == (u32)-1) {
+		printf("Error: %s", SDL_GetError());
+		cleanup(0, 1);
+	}
+	printf("g->userevents = %u\n", g->userevents);
 	
 	// can't create textures till after we have a renderer (otherwise we'd pass SDL_TRUE)
 	// to load_image above
@@ -1065,6 +1076,18 @@ void rotate_img(img_state* img, int left)
 	img->rotated = 1;
 }
 
+int try_move(int direction)
+{
+	if (!g->loading) {
+		SDL_LockMutex(g->mtx);
+		g->loading = direction;
+		SDL_CondSignal(g->cnd);
+		SDL_UnlockMutex(g->mtx);
+		return 1;
+	}
+	return 0;
+}
+
 int handle_events()
 {
 	SDL_Event e;
@@ -1081,6 +1104,7 @@ int handle_events()
 	SDL_Event space;
 	space.type = SDL_KEYDOWN;
 	space.key.keysym.scancode = SDL_SCANCODE_SPACE;
+
 
 	int ticks = SDL_GetTicks();
 
@@ -1171,6 +1195,17 @@ int handle_events()
 
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
+		if (e.type >= g->userevents && e.type < g->userevents + NUM_USEREVENTS) {
+			e.type -= g->userevents;
+			switch (e.type) {
+			case NEXT:
+			case PREV:
+				try_move(e.type == NEXT ? RIGHT : LEFT);
+				break;
+			}
+			continue;
+		}
+
 		switch (e.type) {
 		case SDL_QUIT:
 			//nk_input_end(g->ctx);
@@ -1878,6 +1913,15 @@ int main(int argc, char** argv)
 	printf("done with %d arguments\n", argc-1);
 
 	int what = setup(dirpath);
+
+
+	// TODO worth doing this or just having a single event
+	// and changing type before every push?
+	SDL_Event user_events[NUM_USEREVENTS] = { 0 };
+	for (int i=0; i<NUM_USEREVENTS; ++i) {
+		user_events[i].type = g->userevents+i;
+	}
+
 		
 	if (g->files.size == 1 && what != URL && what != DIRECTORY) {
 		mydirname(g->files.a[0], dirpath);
@@ -1891,8 +1935,7 @@ int main(int argc, char** argv)
 		printf("Scanned %lu files in %s\n", g->files.size, dirpath);
 	}
 
-	int gui_flags = NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|
-	                NK_WINDOW_MINIMIZABLE|NK_WINDOW_TITLE;
+	int gui_flags = 0; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 
 	int is_a_gif;
 	while (1) {
@@ -1907,16 +1950,20 @@ int main(int argc, char** argv)
 			g->status = REDRAW;
 		}
 		if (g->mouse_state) {
-			if (nk_begin(g->ctx, "Controls", nk_rect(50, 50, 210, 250),
-				NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_SCALABLE|
-				NK_WINDOW_MINIMIZABLE|NK_WINDOW_TITLE))
+			if (nk_begin(g->ctx, "Controls", nk_rect(0, g->scr_h-80, g->scr_w, 80), gui_flags))
 			{
 				g->gui_rect = nk_window_get_bounds(g->ctx);
 				//printf("gui %f %f %f %f\n", g->gui_rect.x, g->gui_rect.y, g->gui_rect.w, g->gui_rect.h);
 
-				nk_layout_row_static(g->ctx, 30, 80, 1);
-				if (nk_button_label(g->ctx, "button"))
-					fprintf(stdout, "button pressed\n");
+				nk_layout_row_static(g->ctx, 0, 80, 2);
+				nk_button_set_behavior(g->ctx, NK_BUTTON_REPEATER);
+				if (nk_button_symbol_label(g->ctx, NK_SYMBOL_TRIANGLE_LEFT, "prev", NK_TEXT_RIGHT)) {
+					SDL_PushEvent(&user_events[PREV]);
+				}
+				if (nk_button_symbol_label(g->ctx, NK_SYMBOL_TRIANGLE_RIGHT, "next", NK_TEXT_LEFT)) {
+					SDL_PushEvent(&user_events[NEXT]);
+				}
+				nk_button_set_behavior(g->ctx, NK_BUTTON_DEFAULT);
 			}
 			nk_end(g->ctx);
 		}
