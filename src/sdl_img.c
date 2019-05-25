@@ -54,7 +54,7 @@
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 enum { IMAGE, URL, DIRECTORY };
-enum { NEXT, PREV, NUM_USEREVENTS };
+enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, NUM_USEREVENTS };
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -1092,6 +1092,37 @@ int try_move(int direction)
 	return 0;
 }
 
+void do_zoom(int dir)
+{
+	if (!g->img_focus) {
+		for (int i=0; i<g->n_imgs; ++i)
+			set_rect_zoom(&g->img[i], dir);
+	} else {
+		set_rect_zoom(g->img_focus, dir);
+	}
+}
+
+void do_rotate(int left)
+{
+	img_state* img;
+	if (!g->loading) {
+		img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
+		if (img) {
+			rotate_img(img, left);
+			create_textures(img);
+			if (g->n_imgs == 1)
+				SET_MODE1_SCR_RECT();
+			else if (g->n_imgs == 2)
+				SET_MODE2_SCR_RECTS();
+			else if (g->n_imgs == 4)
+				SET_MODE4_SCR_RECTS();
+			else
+				SET_MODE8_SCR_RECTS();
+			g->status = REDRAW;
+		}
+	}
+}
+
 int handle_events()
 {
 	SDL_Event e;
@@ -1108,7 +1139,6 @@ int handle_events()
 	SDL_Event space;
 	space.type = SDL_KEYDOWN;
 	space.key.keysym.scancode = SDL_SCANCODE_SPACE;
-
 
 	int ticks = SDL_GetTicks();
 
@@ -1206,6 +1236,14 @@ int handle_events()
 			case PREV:
 				try_move(e.type == NEXT ? RIGHT : LEFT);
 				break;
+			case ZOOM_PLUS:
+			case ZOOM_MINUS:
+				do_zoom(e.type == ZOOM_PLUS ? 1 : -1);
+				break;
+			case ROT_LEFT:
+			case ROT_RIGHT:
+				do_rotate(e.type == ROT_LEFT);
+				break;
 			}
 			continue;
 		}
@@ -1259,22 +1297,7 @@ int handle_events()
 			// Rotate
 			case SDL_SCANCODE_L:
 			case SDL_SCANCODE_R:
-				if (!g->loading) {
-					img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
-					if (img) {
-						rotate_img(img, sc == SDL_SCANCODE_L);
-						create_textures(img);
-						if (g->n_imgs == 1)
-							SET_MODE1_SCR_RECT();
-						else if (g->n_imgs == 2)
-							SET_MODE2_SCR_RECTS();
-						else if (g->n_imgs == 4)
-							SET_MODE4_SCR_RECTS();
-						else
-							SET_MODE8_SCR_RECTS();
-						g->status = REDRAW;
-					}
-				}
+				do_rotate(sc == SDL_SCANCODE_L);
 				break;
 
 			// CAPSLOCK comes right before F1 and F1-F12 are contiguous
@@ -1595,12 +1618,7 @@ int handle_events()
 			case SDL_SCANCODE_MINUS:
 				g->status = REDRAW;
 				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
-					if (!g->img_focus) {
-						for (int i=0; i<g->n_imgs; ++i)
-							set_rect_zoom(&g->img[i], -1);
-					} else {
-						set_rect_zoom(g->img_focus, -1);
-					}
+					do_zoom(-1);
 				} else {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
@@ -1616,12 +1634,7 @@ int handle_events()
 			case SDL_SCANCODE_EQUALS:
 				g->status = REDRAW;
 				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
-					if (!g->img_focus) {
-						for (int i=0; i<g->n_imgs; ++i)
-							set_rect_zoom(&g->img[i], 1);
-					} else {
-						set_rect_zoom(g->img_focus, 1);
-					}
+					do_zoom(1);
 				} else {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
@@ -1784,32 +1797,49 @@ void draw_gui(struct nk_context* ctx)
 {
 	char info_buf[STRBUF_SZ];
 	int len;
-	int gui_flags = 0; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
+	int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 	SDL_Event event = { 0 };
 	img_state* img;
 
-	if (nk_begin(ctx, "Controls", nk_rect(0, g->scr_h-80, g->scr_w, 80), gui_flags))
+	if (nk_begin(ctx, "Controls", nk_rect(0, g->scr_h-100, g->scr_w, 100), gui_flags))
 	{
 		g->gui_rect = nk_window_get_bounds(ctx);
 		//printf("gui %f %f %f %f\n", g->gui_rect.x, g->gui_rect.y, g->gui_rect.w, g->gui_rect.h);
 
-		nk_layout_row_static(ctx, 0, 80, 2);
+		nk_layout_row_static(ctx, 0, 80, 7);
+		//nk_layout_row_dynamic(ctx, 0, 4);
 		nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
 		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_LEFT, "prev", NK_TEXT_RIGHT)) {
 			event.type = g->userevents + PREV;
-			//SDL_PushEvent(&user_events[PREV]);
 			SDL_PushEvent(&event);
 		}
 		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_RIGHT, "next", NK_TEXT_LEFT)) {
 			event.type = g->userevents + NEXT;
-			//SDL_PushEvent(&user_events[NEXT]);
+			SDL_PushEvent(&event);
+		}
+
+		nk_label(ctx, "zoom:", NK_TEXT_RIGHT);
+		if (nk_button_label(ctx, "-")) {
+			event.type = g->userevents + ZOOM_MINUS;
+			SDL_PushEvent(&event);
+		}
+		if (nk_button_label(ctx, "+")) {
+			event.type = g->userevents + ZOOM_PLUS;
 			SDL_PushEvent(&event);
 		}
 		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
-		if (g->n_imgs == 1) {
+		if (nk_button_label(ctx, "Rot Left")) {
+			event.type = g->userevents + ROT_LEFT;
+			SDL_PushEvent(&event);
+		}
+		if (nk_button_label(ctx, "Rot Right")) {
+			event.type = g->userevents + ROT_RIGHT;
+			SDL_PushEvent(&event);
+		}
 
+		if (g->n_imgs == 1) {
 			img = &g->img[0];
-			int len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels   %d %%", img->w, img->h, (int)(img->disp_rect.h*100.0/img->h));
+			len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels   %d %%", img->w, img->h, (int)(img->disp_rect.h*100.0/img->h));
 			if (len >= STRBUF_SZ) {
 				puts("info path too long");
 				cleanup(1, 1);
