@@ -81,7 +81,9 @@ typedef int32_t i32;
 #define SLEEP_TIME 50
 #define STRBUF_SZ 1024
 
+#ifndef MAX
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
+#endif
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 
 #define SET_MODE1_SCR_RECT()                                                   \
@@ -436,6 +438,9 @@ void set_rect_zoom(img_state* img, int zoom)
 	
 	h = img->disp_rect.h * (1.0 + zoom*ZOOM_RATE);
 	w = h * aspect;
+
+	if (h < 0.02 * img->h || h > 20 * img->h)
+		return;
 
 	adjust_rect(img, w, h);
 }
@@ -1470,12 +1475,7 @@ int handle_events()
 			switch (sc) {
 
 			case SDL_SCANCODE_SPACE:
-				if (!g->loading) {
-					SDL_LockMutex(g->mtx);
-					g->loading = RIGHT;
-					SDL_CondSignal(g->cnd);
-					SDL_UnlockMutex(g->mtx);
-				}
+				try_move(RIGHT);
 				break;
 
 			// TODO merge RIGHT/DOWN and LEFT/UP?
@@ -1503,11 +1503,8 @@ int handle_events()
 						zoomed = zoomed || img->disp_rect.h > img->scr_rect.h;
 					}
 				}
-				if (!g->loading && !zoomed) {
-					SDL_LockMutex(g->mtx);
-					g->loading = RIGHT;
-					SDL_CondSignal(g->cnd);
-					SDL_UnlockMutex(g->mtx);
+				if (!zoomed) {
+					try_move(RIGHT);
 				}
 				break;
 			case SDL_SCANCODE_DOWN:
@@ -1534,11 +1531,8 @@ int handle_events()
 						zoomed = zoomed || img->disp_rect.w > img->scr_rect.w;
 					}
 				}
-				if (!g->loading && !zoomed) {
-					SDL_LockMutex(g->mtx);
-					g->loading = RIGHT;
-					SDL_CondSignal(g->cnd);
-					SDL_UnlockMutex(g->mtx);
+				if (!zoomed) {
+					try_move(RIGHT);
 				}
 				break;
 
@@ -1566,11 +1560,8 @@ int handle_events()
 						zoomed = zoomed || img->disp_rect.h > img->scr_rect.h;
 					}
 				}
-				if (!g->loading && !zoomed) {
-					SDL_LockMutex(g->mtx);
-					g->loading = LEFT;
-					SDL_CondSignal(g->cnd);
-					SDL_UnlockMutex(g->mtx);
+				if (!zoomed) {
+					try_move(LEFT);
 				}
 				break;
 			case SDL_SCANCODE_UP:
@@ -1597,11 +1588,8 @@ int handle_events()
 						zoomed = zoomed || img->disp_rect.w > img->scr_rect.w;
 					}
 				}
-				if (!g->loading && !zoomed) {
-					SDL_LockMutex(g->mtx);
-					g->loading = LEFT;
-					SDL_CondSignal(g->cnd);
-					SDL_UnlockMutex(g->mtx);
+				if (!zoomed) {
+					try_move(LEFT);
 				}
 				break;
 
@@ -1793,6 +1781,47 @@ void print_help(char* prog_name, int verbose)
 	}
 }
 
+void draw_gui(struct nk_context* ctx)
+{
+	char info_buf[STRBUF_SZ];
+	int len;
+	int gui_flags = 0; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
+	SDL_Event event = { 0 };
+
+	if (nk_begin(ctx, "Controls", nk_rect(0, g->scr_h-80, g->scr_w, 80), gui_flags))
+	{
+		g->gui_rect = nk_window_get_bounds(ctx);
+		//printf("gui %f %f %f %f\n", g->gui_rect.x, g->gui_rect.y, g->gui_rect.w, g->gui_rect.h);
+
+		nk_layout_row_static(ctx, 0, 80, 2);
+		nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
+		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_LEFT, "prev", NK_TEXT_RIGHT)) {
+			event.type = g->userevents + PREV;
+			//SDL_PushEvent(&user_events[PREV]);
+			SDL_PushEvent(&event);
+		}
+		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_RIGHT, "next", NK_TEXT_LEFT)) {
+			event.type = g->userevents + NEXT;
+			//SDL_PushEvent(&user_events[NEXT]);
+			SDL_PushEvent(&event);
+		}
+		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
+		/*
+		if (g->n_imgs == 1) {
+
+			int len = snprintf(info, STRBUF_SZ, "%d x %d pixels   ", prefpath, datebuf);
+			if (len >= STRBUF_SZ) {
+				puts("cache path too long");
+				cleanup(1, 0);
+			}
+			nk_layout_row_static(ctx, 0, 80, 2);
+		}
+		*/
+	}
+	nk_end(ctx);
+}
+
+
 int main(int argc, char** argv)
 {
 	if (argc < 2) {
@@ -1935,7 +1964,6 @@ int main(int argc, char** argv)
 		printf("Scanned %lu files in %s\n", g->files.size, dirpath);
 	}
 
-	int gui_flags = 0; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 
 	int is_a_gif;
 	while (1) {
@@ -1950,22 +1978,7 @@ int main(int argc, char** argv)
 			g->status = REDRAW;
 		}
 		if (g->mouse_state) {
-			if (nk_begin(g->ctx, "Controls", nk_rect(0, g->scr_h-80, g->scr_w, 80), gui_flags))
-			{
-				g->gui_rect = nk_window_get_bounds(g->ctx);
-				//printf("gui %f %f %f %f\n", g->gui_rect.x, g->gui_rect.y, g->gui_rect.w, g->gui_rect.h);
-
-				nk_layout_row_static(g->ctx, 0, 80, 2);
-				nk_button_set_behavior(g->ctx, NK_BUTTON_REPEATER);
-				if (nk_button_symbol_label(g->ctx, NK_SYMBOL_TRIANGLE_LEFT, "prev", NK_TEXT_RIGHT)) {
-					SDL_PushEvent(&user_events[PREV]);
-				}
-				if (nk_button_symbol_label(g->ctx, NK_SYMBOL_TRIANGLE_RIGHT, "next", NK_TEXT_LEFT)) {
-					SDL_PushEvent(&user_events[NEXT]);
-				}
-				nk_button_set_behavior(g->ctx, NK_BUTTON_DEFAULT);
-			}
-			nk_end(g->ctx);
+			draw_gui(g->ctx);
 		}
 
 		is_a_gif = 0;
