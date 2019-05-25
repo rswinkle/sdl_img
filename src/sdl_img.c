@@ -37,9 +37,6 @@
 #include "nuklear_sdl.c"
 
 
-
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -437,10 +434,12 @@ void set_rect_zoom(img_state* img, int zoom)
 	int h, w;
 	
 	h = img->disp_rect.h * (1.0 + zoom*ZOOM_RATE);
-	w = h * aspect;
+	if (h < 0.02 * img->h)
+		h = 0.02 * img->h;
+	if (h > 20 * img->h)
+		h = 20 * img->h;
 
-	if (h < 0.02 * img->h || h > 20 * img->h)
-		return;
+	w = h * aspect;
 
 	adjust_rect(img, w, h);
 }
@@ -1787,6 +1786,7 @@ void draw_gui(struct nk_context* ctx)
 	int len;
 	int gui_flags = 0; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 	SDL_Event event = { 0 };
+	img_state* img;
 
 	if (nk_begin(ctx, "Controls", nk_rect(0, g->scr_h-80, g->scr_w, 80), gui_flags))
 	{
@@ -1806,17 +1806,17 @@ void draw_gui(struct nk_context* ctx)
 			SDL_PushEvent(&event);
 		}
 		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
-		/*
 		if (g->n_imgs == 1) {
 
-			int len = snprintf(info, STRBUF_SZ, "%d x %d pixels   ", prefpath, datebuf);
+			img = &g->img[0];
+			int len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels   %d %%", img->w, img->h, (int)(img->disp_rect.h*100.0/img->h));
 			if (len >= STRBUF_SZ) {
-				puts("cache path too long");
-				cleanup(1, 0);
+				puts("info path too long");
+				cleanup(1, 1);
 			}
-			nk_layout_row_static(ctx, 0, 80, 2);
+			nk_layout_row_static(ctx, 0, g->scr_w, 1);
+			nk_label(ctx, info_buf, NK_TEXT_LEFT);
 		}
-		*/
 	}
 	nk_end(ctx);
 }
@@ -1943,15 +1943,6 @@ int main(int argc, char** argv)
 
 	int what = setup(dirpath);
 
-
-	// TODO worth doing this or just having a single event
-	// and changing type before every push?
-	SDL_Event user_events[NUM_USEREVENTS] = { 0 };
-	for (int i=0; i<NUM_USEREVENTS; ++i) {
-		user_events[i].type = g->userevents+i;
-	}
-
-		
 	if (g->files.size == 1 && what != URL && what != DIRECTORY) {
 		mydirname(g->files.a[0], dirpath);
 		mybasename(g->files.a[0], img_name);
@@ -1963,7 +1954,6 @@ int main(int argc, char** argv)
 		scandir(img_name);
 		printf("Scanned %lu files in %s\n", g->files.size, dirpath);
 	}
-
 
 	int is_a_gif;
 	while (1) {
