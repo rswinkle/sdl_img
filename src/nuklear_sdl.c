@@ -178,7 +178,7 @@ nk_sdl_draw_text(SDL_Renderer* renderer, short x, short y, unsigned short w, uns
 	const char *text, int len, nk_sdl_Font *font, struct nk_color cbg, struct nk_color cfg)
 {
 	int i; 
-   
+
 	nk_sdl_fill_rect(renderer, x, y, len * font->width, font->height, 0, cbg);
 	for (i = 0; i < len; i++) {
 		characterRGBA(renderer, x, y, text[i], cfg.r, cfg.g, cfg.b, cfg.a); 
