@@ -115,8 +115,27 @@ void draw_gui(struct nk_context* ctx)
 		//g->gui_rect = nk_window_get_bounds(ctx);
 		//printf("gui %f %f %f %f\n", g->gui_rect.x, g->gui_rect.y, g->gui_rect.w, g->gui_rect.h);
 
-		nk_layout_row_static(ctx, 0, 80, 12);
+		//nk_layout_row_static(ctx, 0, 80, 12);
 		//nk_layout_row_dynamic(ctx, 0, 12);
+		
+		nk_layout_row_template_begin(ctx, 0);
+		nk_layout_row_template_push_static(ctx, 80); 
+		nk_layout_row_template_push_static(ctx, 80);
+
+		nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 40);
+
+		nk_layout_row_template_push_static(ctx, 90);
+		nk_layout_row_template_push_static(ctx, 90);
+
+		nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_end(ctx);
+
 		nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
 		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_LEFT, "prev", NK_TEXT_RIGHT)) {
 			;
