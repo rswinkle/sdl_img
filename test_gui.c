@@ -110,8 +110,12 @@ void draw_gui(struct nk_context* ctx)
 	int scr_w, scr_h;
 	SDL_GetWindowSize(win, &scr_w, &scr_h);
 
-	if (nk_begin(ctx, "Controls", nk_rect(0, scr_h-100, scr_w, 100), gui_flags))
-	{
+	struct nk_rect bounds;
+	const struct nk_input* in = &ctx->input;
+
+
+	if (nk_begin(ctx, "Menu", nk_rect(0, 0, scr_w, 60), gui_flags)) {
+
 		//g->gui_rect = nk_window_get_bounds(ctx);
 		//printf("gui %f %f %f %f\n", g->gui_rect.x, g->gui_rect.y, g->gui_rect.w, g->gui_rect.h);
 
@@ -152,6 +156,11 @@ void draw_gui(struct nk_context* ctx)
 			;
 		}
 		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
+
+		bounds = nk_widget_bounds(ctx);
+		if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+			nk_tooltip(ctx, "Testing 1 2 3");
+		}
 		if (nk_button_label(ctx, "Rot Left")) {
 			;
 		}
@@ -172,9 +181,12 @@ void draw_gui(struct nk_context* ctx)
 		if (nk_button_label(ctx, "8")) {
 			n_imgs = 8;
 		}
+	}
+	nk_end(ctx);
 
 
-		
+	if (nk_begin(ctx, "Controls", nk_rect(0, scr_h-30, scr_w, 30), gui_flags))
+	{
 		if (n_imgs == 1) {
 			len = snprintf(info_buf, STRBUF_SZ, "1000 x 600 pixels   55 %%");
 			if (len >= STRBUF_SZ) {
