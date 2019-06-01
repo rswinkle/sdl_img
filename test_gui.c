@@ -23,6 +23,7 @@
 int n_imgs = 1;
 SDL_Window* win;
 SDL_Renderer* ren;
+int running;
 
 void draw_gui(struct nk_context* ctx);
 
@@ -31,7 +32,6 @@ int main(void)
 	struct nk_color background;
 	struct nk_colorf bg;
 	int win_width, win_height;
-	int running = 1;
 	struct nk_context *ctx;
 	/* float bg[4]; */
 
@@ -40,6 +40,8 @@ int main(void)
 		printf( "Can't init SDL:  %s\n", SDL_GetError( ) );
 		return 1;
 	}
+
+	running = 1;
 
 	int win_flags = SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE;
 
@@ -113,6 +115,9 @@ void draw_gui(struct nk_context* ctx)
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
 
+	static int fill = 0;
+	static int slideshow = 0;
+
 
 	if (nk_begin(ctx, "Menu", nk_rect(0, 0, scr_w, 60), gui_flags)) {
 
@@ -123,22 +128,47 @@ void draw_gui(struct nk_context* ctx)
 		//nk_layout_row_dynamic(ctx, 0, 12);
 		
 		nk_layout_row_template_begin(ctx, 0);
-		nk_layout_row_template_push_static(ctx, 80); 
+
+		// menu
+		nk_layout_row_template_push_static(ctx, 50);
+
+		// prev next
+		nk_layout_row_template_push_static(ctx, 80);
 		nk_layout_row_template_push_static(ctx, 80);
 
+		// zoom, -, +
 		nk_layout_row_template_push_static(ctx, 80);
 		nk_layout_row_template_push_static(ctx, 40);
 		nk_layout_row_template_push_static(ctx, 40);
 
+		// best fit, slideshow, and actual size
+		nk_layout_row_template_push_static(ctx, 90);
 		nk_layout_row_template_push_static(ctx, 90);
 		nk_layout_row_template_push_static(ctx, 90);
 
+
+		// Rotate left and right
+		nk_layout_row_template_push_static(ctx, 90);
+		nk_layout_row_template_push_static(ctx, 90);
+
+		// Mode 1 2 4 8
 		nk_layout_row_template_push_static(ctx, 80);
 		nk_layout_row_template_push_static(ctx, 40);
 		nk_layout_row_template_push_static(ctx, 40);
 		nk_layout_row_template_push_static(ctx, 40);
 		nk_layout_row_template_push_static(ctx, 40);
 		nk_layout_row_template_end(ctx);
+
+		if (nk_menu_begin_label(ctx, "MENU", NK_TEXT_LEFT, nk_vec2(120, 200))) {
+			nk_layout_row_dynamic(ctx, 0, 1);
+			nk_menu_item_label(ctx, "About", NK_TEXT_LEFT);
+			nk_menu_item_label(ctx, "Delete", NK_TEXT_LEFT);
+			if (nk_menu_item_label(ctx, "Exit", NK_TEXT_LEFT)) {
+				running = 0;
+			}
+
+			nk_menu_end(ctx);
+		}
 
 		nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
 		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_LEFT, "prev", NK_TEXT_RIGHT)) {
@@ -156,6 +186,15 @@ void draw_gui(struct nk_context* ctx)
 			;
 		}
 		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
+
+
+		nk_checkbox_label(ctx, "Best Fit", &fill);
+		nk_checkbox_label(ctx, "Slideshow", &slideshow);
+		if (nk_button_label(ctx, "Actual")) {
+			;
+		}
+
+
 
 		bounds = nk_widget_bounds(ctx);
 		if (nk_input_is_mouse_hovering_rect(in, bounds)) {
