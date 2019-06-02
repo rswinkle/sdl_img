@@ -34,7 +34,10 @@
 #define NK_INCLUDE_STANDARD_IO
 //#define NK_INCLUDE_FONT_BAKING
 //#define NK_INCLUDE_DEFAULT_FONT
-#include "nuklear_sdl.c"
+#define NK_IMPLEMENTATION
+#define NK_SDL_IMPLEMENTATION
+#include "nuklear.h"
+#include "nuklear_sdl.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1951,7 +1954,7 @@ int main(int argc, char** argv)
 			SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
 		}
 		if (g->mouse_state)
-			nk_sdl_render();
+			nk_sdl_render(NULL, nk_false);
 		SDL_RenderPresent(g->ren);
 
 
