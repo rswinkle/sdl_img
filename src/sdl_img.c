@@ -52,7 +52,7 @@
 #include <SDL.h>
 
 enum { QUIT, REDRAW, NOCHANGE };
-enum { NOTHING = 0, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
+enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 enum { IMAGE, URL, DIRECTORY };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT,
        MODE_CHANGE, NUM_USEREVENTS };
@@ -1128,6 +1128,8 @@ void do_mode_change(int mode)
 {
 	// mode is an enum that also == the number of images
 	if (g->n_imgs != mode && g->files.size >= mode) {
+		g->status = REDRAW;
+		g->slide_timer =  SDL_GetTicks();
 
 		if (g->n_imgs < mode) {
 			SDL_LockMutex(g->mtx);
@@ -1135,16 +1137,27 @@ void do_mode_change(int mode)
 			SDL_CondSignal(g->cnd);
 			SDL_UnlockMutex(g->mtx);
 		} else {
-			for (int i=g->n_imgs-1; i>mode-1; --i)
-				clear_img(&g->img[i]);
+			if (mode != MODE1 || !g->img_focus || g->img_focus == &g->img[0]) {
+				for (int i=g->n_imgs-1; i>mode-1; --i)
+					clear_img(&g->img[i]);
+			} else {
+				// if mode1 and focus and focus != img[0] have to
+				// clear the others and move focus to 0
+				for (int i=0; i<g->n_imgs; ++i) {
+					if (g->img_focus != &g->img[i]) {
+						clear_img(&g->img[i]);
+					}
+				}
+				replace_img(&g->img[0], g->img_focus);
+			}
 
-			//if (mode == 1)
-			//
-			if (mode == 2)
+			if (mode == MODE1)
+				SET_MODE1_SCR_RECT();
+			if (mode == MODE2)
 				SET_MODE2_SCR_RECTS();
-			else if (mode == 4)
+			else if (mode == MODE4)
 				SET_MODE4_SCR_RECTS();
-			else if (mode == 8)
+			else if (mode == MODE8)
 				SET_MODE8_SCR_RECTS();
 
 			g->n_imgs = mode;
@@ -1361,38 +1374,14 @@ int handle_events()
 				SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img[0].index], title_buf));
 				break;
 			case SDL_SCANCODE_1:
-				if (!g->loading && g->n_imgs != 1 && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-					g->status = REDRAW;
-					g->slide_timer =  SDL_GetTicks();
-					// TODO refactor into function?  don't free everything everytime
-					// make load_image smarter
-					if (g->img_focus && g->img_focus != &g->img[0]) {
-						for (int i=0; i<g->n_imgs; ++i) {
-							if (g->img_focus == &g->img[i]) {
-								continue;
-							}
-
-							clear_img(&g->img[i]);
-						}
-						replace_img(&g->img[0], g->img_focus);
-
-					} else {
-						for (int i=1; i<g->n_imgs; ++i) {
-							clear_img(&g->img[i]);
-						}
-					}
-					SET_MODE1_SCR_RECT();
-					g->n_imgs = 1;
-					g->img_focus = NULL;
-
+				if (!g->loading && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					do_mode_change(MODE1);
 				} else if (g->n_imgs >= 2) {
 					g->img_focus = &g->img[0];
 					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index], title_buf));
 				}
 				break;
 			case SDL_SCANCODE_2:
-				g->status = REDRAW;
-				g->slide_timer =  SDL_GetTicks();
 				if (!g->loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					do_mode_change(MODE2);
 				} else if (g->n_imgs >= 2) {
@@ -1408,8 +1397,6 @@ int handle_events()
 				}
 				break;
 			case SDL_SCANCODE_4:
-				g->status = REDRAW;
-				g->slide_timer =  SDL_GetTicks();
 				if (!g->loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					do_mode_change(MODE4);
 				} else if (g->n_imgs >= 4) {
@@ -1439,8 +1426,6 @@ int handle_events()
 				}
 				break;
 			case SDL_SCANCODE_8:
-				g->status = REDRAW;
-				g->slide_timer =  SDL_GetTicks();
 				if (!g->loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					do_mode_change(MODE8);
 				} else if (g->n_imgs >= 8) {
@@ -1826,9 +1811,9 @@ void draw_gui(struct nk_context* ctx)
 
 		nk_label(ctx, "mode:", NK_TEXT_RIGHT);
 		if (nk_button_label(ctx, "1")) {
-			//event.type = g->userevents + MODE_CHANGE;
-			//event.user.code = MODE
-			//SDL_PushEvent(&event);
+			event.type = g->userevents + MODE_CHANGE;
+			event.user.code = MODE1;
+			SDL_PushEvent(&event);
 		}
 		if (nk_button_label(ctx, "2")) {
 			event.type = g->userevents + MODE_CHANGE;
