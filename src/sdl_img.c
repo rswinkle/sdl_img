@@ -1835,6 +1835,11 @@ int main(int argc, char** argv)
 			char* s;
 			int len;
 			while ((s = fgets(dirpath, STRBUF_SZ, file))) {
+				// ignore comments in gqview/gthumb collection format useful
+				// when combined with findimagedupes collection output
+				if (s[0] == '#')
+					continue;
+
 				len = strlen(s);
 				s[len-1] = 0;  // get rid of '\n'
 				// handle quoted paths
@@ -1894,6 +1899,10 @@ int main(int argc, char** argv)
 		}
 	}
 	printf("done with %d arguments\n", argc-1);
+	if (!g->files.size) {
+		puts("No images provided, exiting (empty list perhaps?)");
+		cleanup(1, 0);
+	}
 
 	int what = setup(dirpath);
 
