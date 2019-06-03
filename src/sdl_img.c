@@ -223,6 +223,7 @@ char* mydirname(const char* path, char* dirpath)
 	char* last_slash = strrchr(path, PATH_SEPARATOR);
 	if (last_slash) {
 		strncpy(dirpath, path, last_slash-path);
+		dirpath[last_slash-path] = 0;
 	} else {
 		dirpath[0] = '.';
 		dirpath[1] = 0;
@@ -1752,7 +1753,7 @@ int handle_events()
 //stupid windows
 void normalize_path(char* path)
 {
-	for (int i=0; i<strlen(path); ++i) {
+	for (int i=0; path[i]; ++i) {
 		if (path[i] == '\\')
 			path[i] = '/';
 	}
@@ -1820,6 +1821,7 @@ int main(int argc, char** argv)
 	}
 	g->cachedir = cachedir;
 
+	int given_list = 0;
 	g->dirpath = NULL;
 	for (int i=1; i<argc; ++i) {
 		if (!strcmp(argv[i], "-l")) {
@@ -1832,8 +1834,8 @@ int main(int argc, char** argv)
 				perror("fopen");
 				cleanup(1, 0);
 			}
+			given_list = 1;
 			char* s;
-			int len;
 			while ((s = fgets(dirpath, STRBUF_SZ, file))) {
 				// ignore comments in gqview/gthumb collection format useful
 				// when combined with findimagedupes collection output
@@ -1841,7 +1843,8 @@ int main(int argc, char** argv)
 					continue;
 
 				len = strlen(s);
-				s[len-1] = 0;  // get rid of '\n'
+				if (s[len-1] == '\n')
+					s[len-1] = 0;
 				// handle quoted paths
 				if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
 					s[len-2] = 0;
@@ -1898,15 +1901,16 @@ int main(int argc, char** argv)
 			cvec_push_str(&g->files, argv[i]);
 		}
 	}
-	printf("done with %d arguments\n", argc-1);
 	if (!g->files.size) {
 		puts("No images provided, exiting (empty list perhaps?)");
 		cleanup(1, 0);
 	}
+	printf("found %lu images in args\n", g->files.size);
 
 	int what = setup(dirpath);
 
-	if (g->files.size == 1 && what != URL && what != DIRECTORY) {
+	// if given a single local image, scan all the files in the same directory
+	if (!given_list && g->files.size == 1 && what != URL && what != DIRECTORY) {
 		mydirname(g->files.a[0], dirpath);
 		mybasename(g->files.a[0], img_name);
 
