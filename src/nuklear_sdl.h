@@ -17,7 +17,7 @@
 
 typedef struct nk_sdl_Font nk_sdl_Font;
 
-NK_API struct nk_context *nk_sdl_init(SDL_Window* window, SDL_Renderer* renderer);
+NK_API struct nk_context *nk_sdl_init(SDL_Window* window, SDL_Renderer* renderer, float x_scale, float y_scale);
 NK_API void nk_sdl_handle_event(SDL_Event *evt);
 NK_API void nk_sdl_scale(float x_scale, float y_scale);
 NK_API void nk_sdl_render(struct nk_color* clear, int do_present);

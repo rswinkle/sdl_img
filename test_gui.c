@@ -148,7 +148,7 @@ int main(void)
 		nk_input_end(ctx);
 
 		/* GUI */
-		//draw_gui(ctx);
+		draw_gui(ctx);
 		draw_simple_gui(ctx);
 
 
@@ -205,6 +205,7 @@ void draw_simple_gui(struct nk_context* ctx)
 	}
 	nk_end(ctx);
 
+	/*
 	if (nk_begin(ctx, "demo2", nk_rect(400/cur_x_scale, 100/cur_y_scale, 200, 400), gui_flags)) {
 		nk_layout_row_static(ctx, 0, 80, 2);
 		if (nk_button_label(ctx, "hello")) {
@@ -217,6 +218,7 @@ void draw_simple_gui(struct nk_context* ctx)
 		nk_checkbox_label(ctx, "Slideshow", &slideshow);
 	}
 	nk_end(ctx);
+	*/
 
 }
 
@@ -233,24 +235,25 @@ void draw_gui(struct nk_context* ctx)
 	int scr_w, scr_h;
 	int out_w, out_h;
 	SDL_GetWindowSize(win, &win_w, &win_h);
-	SDL_RenderGetLogicalSize(ren, &scr_w, &scr_h);
+	//SDL_RenderGetLogicalSize(ren, &scr_w, &scr_h);
 	SDL_GetRendererOutputSize(ren, &out_w, &out_h);
 
-	printf("win %d x %d\nlog %d x %d\nout %d x %d\n", win_w, win_h, scr_w, scr_h, out_w, out_h);
+	float scale_x, scale_y;
+	SDL_RenderGetScale(ren, &scale_x, &scale_y);
+	//scale_y = 2;
+	printf("scale = %.2f x %.2f\n", scale_x, scale_y);
 
-	float x_scale, y_scale;
-	SDL_RenderGetScale(ren, &x_scale, &y_scale);
-	//y_scale = 2;
-	printf("scale = %.2f x %.2f\n", x_scale, y_scale);
+	scr_w = out_w/scale_x;
+	scr_h = out_h/scale_y;
+
+	printf("win %d x %d\nlog %d x %d\nout %d x %d\n", win_w, win_h, scr_w, scr_h, out_w, out_h);
 
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
 
 	static int fill = nk_false;
 
-
-	/*
-	if (nk_begin(ctx, "Menu", nk_rect(0, 0, scr_w, 60/y_scale), gui_flags)) {
+	if (nk_begin(ctx, "Menu", nk_rect(0, 0, scr_w, 30), gui_flags)) {
 
 		//g->gui_rect = nk_window_get_bounds(ctx);
 		//printf("gui %f %f %f %f\n", g->gui_rect.x, g->gui_rect.y, g->gui_rect.w, g->gui_rect.h);
@@ -261,41 +264,57 @@ void draw_gui(struct nk_context* ctx)
 		nk_layout_row_template_begin(ctx, 0);
 
 		// menu
-		nk_layout_row_template_push_static(ctx, 50 / x_scale);
+		nk_layout_row_template_push_static(ctx, 50);
 
 		// prev next
-		nk_layout_row_template_push_static(ctx, 80 / x_scale);
-		nk_layout_row_template_push_static(ctx, 80 / x_scale);
+		nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, 80);
 
 		// zoom, -, +
-		nk_layout_row_template_push_static(ctx, 80 / x_scale);
-		nk_layout_row_template_push_static(ctx, 40 / x_scale);
-		nk_layout_row_template_push_static(ctx, 40 / x_scale);
+		//nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 40);
 
 		// best fit, slideshow, and actual size
-		nk_layout_row_template_push_static(ctx, 90 / x_scale);
-		nk_layout_row_template_push_static(ctx, 90 / x_scale);
-		nk_layout_row_template_push_static(ctx, 90 / x_scale);
+		nk_layout_row_template_push_static(ctx, 40);
+
+		//nk_layout_row_template_push_static(ctx, 90);
+		nk_layout_row_template_push_static(ctx, 90);
+		nk_layout_row_template_push_static(ctx, 90);
 
 
 		// Rotate left and right
-		nk_layout_row_template_push_static(ctx, 90 / x_scale);
-		nk_layout_row_template_push_static(ctx, 90 / x_scale);
+		nk_layout_row_template_push_static(ctx, 90);
+		nk_layout_row_template_push_static(ctx, 90);
 
 		// Mode 1 2 4 8
-		nk_layout_row_template_push_static(ctx, 80 / x_scale);
-		nk_layout_row_template_push_static(ctx, 40 / x_scale);
-		nk_layout_row_template_push_static(ctx, 40 / x_scale);
-		nk_layout_row_template_push_static(ctx, 40 / x_scale);
-		nk_layout_row_template_push_static(ctx, 40 / x_scale);
+		/*
+		nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 40);
+		*/
+
 		nk_layout_row_template_end(ctx);
 
-		if (nk_menu_begin_label(ctx, "MENU", NK_TEXT_LEFT, nk_vec2(120/x_scale, 200/y_scale))) {
+		if (nk_menu_begin_label(ctx, "MENU", NK_TEXT_LEFT, nk_vec2(200, 400))) {
 			nk_layout_row_dynamic(ctx, 0, 1);
 			if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
 				show_about = nk_true;
 			}
-			nk_menu_item_label(ctx, "Delete", NK_TEXT_LEFT);
+
+			nk_label(ctx, "Image Actions", NK_TEXT_LEFT);
+				nk_menu_item_label(ctx, "Delete", NK_TEXT_RIGHT);
+				nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_RIGHT);
+				nk_menu_item_label(ctx, "Rotate Right", NK_TEXT_RIGHT);
+
+			nk_label(ctx, "Viewing Mode", NK_TEXT_LEFT);
+				nk_menu_item_label(ctx, "1 image", NK_TEXT_RIGHT);
+				nk_menu_item_label(ctx, "2 images", NK_TEXT_RIGHT);
+				nk_menu_item_label(ctx, "4 images", NK_TEXT_RIGHT);
+				nk_menu_item_label(ctx, "8 images", NK_TEXT_RIGHT);
+
 			if (nk_menu_item_label(ctx, "Exit", NK_TEXT_LEFT)) {
 				running = 0;
 			}
@@ -311,9 +330,17 @@ void draw_gui(struct nk_context* ctx)
 			;
 		}
 
-		nk_label(ctx, "zoom:", NK_TEXT_RIGHT);
+		//nk_label(ctx, "zoom:", NK_TEXT_RIGHT);
+		bounds = nk_widget_bounds(ctx);
+		if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+			nk_tooltip(ctx, "Shrink the image");
+		}
 		if (nk_button_label(ctx, "-")) {
 			;
+		}
+		bounds = nk_widget_bounds(ctx);
+		if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+			nk_tooltip(ctx, "Enlarge the image");
 		}
 		if (nk_button_label(ctx, "+")) {
 			;
@@ -321,18 +348,15 @@ void draw_gui(struct nk_context* ctx)
 		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
 
 
-		nk_checkbox_label(ctx, "Best Fit", &fill);
+
+		//nk_select_symbol_label(ctx, NK_SYMBOL_RECT_OUTLINE, "Best fit", NK_TEXT_RIGHT, fill);
+		nk_selectable_symbol_label(ctx, NK_SYMBOL_RECT_OUTLINE, "", NK_TEXT_RIGHT, &fill);
+		//nk_checkbox_label(ctx, "Best Fit", &fill);
 		nk_checkbox_label(ctx, "Slideshow", &slideshow);
 		if (nk_button_label(ctx, "Actual")) {
 			;
 		}
 
-
-
-		bounds = nk_widget_bounds(ctx);
-		if (nk_input_is_mouse_hovering_rect(in, bounds)) {
-			nk_tooltip(ctx, "Testing 1 2 3");
-		}
 		if (nk_button_label(ctx, "Rot Left")) {
 			;
 		}
@@ -340,6 +364,7 @@ void draw_gui(struct nk_context* ctx)
 			;
 		}
 
+		/*
 		nk_label(ctx, "mode:", NK_TEXT_RIGHT);
 		if (nk_button_label(ctx, "1")) {
 			n_imgs = 1;
@@ -353,12 +378,13 @@ void draw_gui(struct nk_context* ctx)
 		if (nk_button_label(ctx, "8")) {
 			n_imgs = 8;
 		}
+		*/
 
 		if (show_about)
 		{
 			static int license_len;;
 			license_len = strlen(license);
-			int w = 400/x_scale, h = 400/y_scale;
+			int w = 400/scale_x, h = 400/scale_y;
 			struct nk_rect s;
 			s.x = scr_w/2-w/2;
 			s.y = scr_h/2-h/2;
@@ -366,7 +392,7 @@ void draw_gui(struct nk_context* ctx)
 			s.h = h;
 			if (nk_popup_begin(ctx, NK_POPUP_STATIC, "About sdl_img", NK_WINDOW_CLOSABLE, s))
 			{
-				nk_layout_row_dynamic(ctx, 20/y_scale, 1);
+				nk_layout_row_dynamic(ctx, 20/scale_y, 1);
 				nk_label(ctx, "sdl_img 1.0", NK_TEXT_CENTERED);
 				nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
 				nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
@@ -389,7 +415,6 @@ void draw_gui(struct nk_context* ctx)
 	}
 
 	nk_end(ctx);
-	*/
 
 
 
