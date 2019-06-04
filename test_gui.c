@@ -53,6 +53,7 @@ char license[STRBUF_SZ*4] =
 
 
 void draw_gui(struct nk_context* ctx);
+void draw_simple_gui(struct nk_context* ctx);
 
 int main(void)
 {
@@ -88,10 +89,17 @@ int main(void)
 		return 1;
 	}
 
-	if (SDL_RenderSetLogicalSize(ren, WINDOW_WIDTH*3/4, WINDOW_HEIGHT*3/4)) {
+	float x_scale = 1;
+	float y_scale = 1.33;
+
+	SDL_RenderSetScale(ren, x_scale, y_scale);
+
+	/*
+	if (SDL_RenderSetLogicalSize(ren, WINDOW_WIDTH*x_scale, WINDOW_HEIGHT*y_scale)) {
 		printf("logical size failure: %s\n", SDL_GetError());
 		return 1;
 	}
+	*/
 
 	if (!(ctx = nk_sdl_init(win, ren))) {
 		printf("nk_sdl_init() failed!");
@@ -119,7 +127,7 @@ int main(void)
 					goto cleanup;
 			} else if (evt.type == SDL_WINDOWEVENT) {
 				if (evt.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-					SDL_RenderSetLogicalSize(ren, evt.window.data1*3/4, evt.window.data2*3/4);
+					//SDL_RenderSetLogicalSize(ren, evt.window.data1*x_scale, evt.window.data2*y_scale);
 				}
 			}
 			nk_sdl_handle_event(&evt);
@@ -127,7 +135,8 @@ int main(void)
 		nk_input_end(ctx);
 
 		/* GUI */
-		draw_gui(ctx);
+		//draw_gui(ctx);
+		draw_simple_gui(ctx);
 
 
 		SDL_Delay(50);
@@ -146,6 +155,55 @@ cleanup:
 	SDL_Quit();
 	return 0;
 }
+
+
+
+void draw_simple_gui(struct nk_context* ctx)
+{
+	int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
+
+	int win_w, win_h;
+	int scr_w, scr_h;
+	int out_w, out_h;
+	SDL_GetWindowSize(win, &win_w, &win_h);
+	SDL_RenderGetLogicalSize(ren, &scr_w, &scr_h);
+	SDL_GetRendererOutputSize(ren, &out_w, &out_h);
+
+	float x_scale, y_scale;
+	SDL_RenderGetScale(ren, &x_scale, &y_scale);
+	printf("scale = %.2f x %.2f\n", x_scale, y_scale);
+
+	int fill = 0, slideshow = 0;
+
+	if (nk_begin(ctx, "demo", nk_rect(100/x_scale, 100/y_scale, 200, 400), gui_flags)) {
+		nk_layout_row_static(ctx, 0, 80, 2);
+		if (nk_button_label(ctx, "hello")) {
+			;
+		}
+		if (nk_button_label(ctx, "goodbye")) {
+			;
+		}
+		nk_checkbox_label(ctx, "Best Fit", &fill);
+		nk_checkbox_label(ctx, "Slideshow", &slideshow);
+	}
+	nk_end(ctx);
+
+	if (nk_begin(ctx, "demo2", nk_rect(400/x_scale, 100/y_scale, 200, 400), gui_flags)) {
+		nk_layout_row_static(ctx, 0, 80, 2);
+		if (nk_button_label(ctx, "hello")) {
+			;
+		}
+		if (nk_button_label(ctx, "goodbye")) {
+			;
+		}
+		nk_checkbox_label(ctx, "Best Fit", &fill);
+		nk_checkbox_label(ctx, "Slideshow", &slideshow);
+	}
+	nk_end(ctx);
+
+}
+
+
 
 void draw_gui(struct nk_context* ctx)
 {
@@ -174,6 +232,7 @@ void draw_gui(struct nk_context* ctx)
 	static int fill = nk_false;
 
 
+	/*
 	if (nk_begin(ctx, "Menu", nk_rect(0, 0, scr_w, 60/y_scale), gui_flags)) {
 
 		//g->gui_rect = nk_window_get_bounds(ctx);
@@ -313,6 +372,7 @@ void draw_gui(struct nk_context* ctx)
 	}
 
 	nk_end(ctx);
+	*/
 
 
 
