@@ -1,3 +1,11 @@
+
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <inttypes.h>
+
 // TODO sin, cos, sqrt etc.
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
@@ -6,14 +14,12 @@
 #define NK_INCLUDE_STANDARD_IO
 //#define NK_INCLUDE_FONT_BAKING
 //#define NK_INCLUDE_DEFAULT_FONT
-#include "nuklear_sdl.c"
+#define NK_IMPLEMENTATION
+#define NK_SDL_IMPLEMENTATION
+#include "nuklear.h"
+#include "nuklear_sdl.h"
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <inttypes.h>
 
 #define WINDOW_WIDTH 1200
 #define WINDOW_HEIGHT 800
@@ -27,7 +33,7 @@ int running;
 int slideshow = nk_false;
 int show_about = nk_false;
 
-char license[1024] =
+char license[STRBUF_SZ*4] =
 "The MIT License (MIT)\n"
 "\n"
 "Copyright (c) 2017-2019 Robert Winkler\n"
@@ -82,6 +88,11 @@ int main(void)
 		return 1;
 	}
 
+	if (SDL_RenderSetLogicalSize(ren, WINDOW_WIDTH*3/4, WINDOW_HEIGHT*3/4)) {
+		printf("logical size failure: %s\n", SDL_GetError());
+		return 1;
+	}
+
 	if (!(ctx = nk_sdl_init(win, ren))) {
 		printf("nk_sdl_init() failed!");
 		return 1;
@@ -106,6 +117,10 @@ int main(void)
 					slideshow = 0;
 				else
 					goto cleanup;
+			} else if (evt.type == SDL_WINDOWEVENT) {
+				if (evt.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+					SDL_RenderSetLogicalSize(ren, evt.window.data1*3/4, evt.window.data2*3/4);
+				}
 			}
 			nk_sdl_handle_event(&evt);
 		}
@@ -119,7 +134,7 @@ int main(void)
 		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 		SDL_RenderSetClipRect(ren, NULL);
 		SDL_RenderClear(ren);
-		nk_sdl_render();
+		nk_sdl_render(NULL, 0);
 		SDL_RenderPresent(ren);
 
 	}
@@ -139,8 +154,19 @@ void draw_gui(struct nk_context* ctx)
 	int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 	SDL_Event event = { 0 };
 
+	int win_w, win_h;
 	int scr_w, scr_h;
-	SDL_GetWindowSize(win, &scr_w, &scr_h);
+	int out_w, out_h;
+	SDL_GetWindowSize(win, &win_w, &win_h);
+	SDL_RenderGetLogicalSize(ren, &scr_w, &scr_h);
+	SDL_GetRendererOutputSize(ren, &out_w, &out_h);
+
+	printf("win %d x %d\nlog %d x %d\nout %d x %d\n", win_w, win_h, scr_w, scr_h, out_w, out_h);
+
+	float x_scale, y_scale;
+	SDL_RenderGetScale(ren, &x_scale, &y_scale);
+	//y_scale = 2;
+	printf("scale = %.2f x %.2f\n", x_scale, y_scale);
 
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
@@ -148,47 +174,47 @@ void draw_gui(struct nk_context* ctx)
 	static int fill = nk_false;
 
 
-	if (nk_begin(ctx, "Menu", nk_rect(0, 0, scr_w, 60), gui_flags)) {
+	if (nk_begin(ctx, "Menu", nk_rect(0, 0, scr_w, 60/y_scale), gui_flags)) {
 
 		//g->gui_rect = nk_window_get_bounds(ctx);
 		//printf("gui %f %f %f %f\n", g->gui_rect.x, g->gui_rect.y, g->gui_rect.w, g->gui_rect.h);
 
-		//nk_layout_row_static(ctx, 0, 80, 12);
-		//nk_layout_row_dynamic(ctx, 0, 12);
+		//nk_layout_row_static(ctx, 0, 80, 16);
+		//nk_layout_row_dynamic(ctx, 0, 16);
 		
 		nk_layout_row_template_begin(ctx, 0);
 
 		// menu
-		nk_layout_row_template_push_static(ctx, 50);
+		nk_layout_row_template_push_static(ctx, 50 / x_scale);
 
 		// prev next
-		nk_layout_row_template_push_static(ctx, 80);
-		nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, 80 / x_scale);
+		nk_layout_row_template_push_static(ctx, 80 / x_scale);
 
 		// zoom, -, +
-		nk_layout_row_template_push_static(ctx, 80);
-		nk_layout_row_template_push_static(ctx, 40);
-		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 80 / x_scale);
+		nk_layout_row_template_push_static(ctx, 40 / x_scale);
+		nk_layout_row_template_push_static(ctx, 40 / x_scale);
 
 		// best fit, slideshow, and actual size
-		nk_layout_row_template_push_static(ctx, 90);
-		nk_layout_row_template_push_static(ctx, 90);
-		nk_layout_row_template_push_static(ctx, 90);
+		nk_layout_row_template_push_static(ctx, 90 / x_scale);
+		nk_layout_row_template_push_static(ctx, 90 / x_scale);
+		nk_layout_row_template_push_static(ctx, 90 / x_scale);
 
 
 		// Rotate left and right
-		nk_layout_row_template_push_static(ctx, 90);
-		nk_layout_row_template_push_static(ctx, 90);
+		nk_layout_row_template_push_static(ctx, 90 / x_scale);
+		nk_layout_row_template_push_static(ctx, 90 / x_scale);
 
 		// Mode 1 2 4 8
-		nk_layout_row_template_push_static(ctx, 80);
-		nk_layout_row_template_push_static(ctx, 40);
-		nk_layout_row_template_push_static(ctx, 40);
-		nk_layout_row_template_push_static(ctx, 40);
-		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 80 / x_scale);
+		nk_layout_row_template_push_static(ctx, 40 / x_scale);
+		nk_layout_row_template_push_static(ctx, 40 / x_scale);
+		nk_layout_row_template_push_static(ctx, 40 / x_scale);
+		nk_layout_row_template_push_static(ctx, 40 / x_scale);
 		nk_layout_row_template_end(ctx);
 
-		if (nk_menu_begin_label(ctx, "MENU", NK_TEXT_LEFT, nk_vec2(120, 200))) {
+		if (nk_menu_begin_label(ctx, "MENU", NK_TEXT_LEFT, nk_vec2(120/x_scale, 200/y_scale))) {
 			nk_layout_row_dynamic(ctx, 0, 1);
 			if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
 				show_about = nk_true;
@@ -256,7 +282,7 @@ void draw_gui(struct nk_context* ctx)
 		{
 			static int license_len;;
 			license_len = strlen(license);
-			int w = 400, h = 400;
+			int w = 400/x_scale, h = 400/y_scale;
 			struct nk_rect s;
 			s.x = scr_w/2-w/2;
 			s.y = scr_h/2-h/2;
@@ -264,7 +290,7 @@ void draw_gui(struct nk_context* ctx)
 			s.h = h;
 			if (nk_popup_begin(ctx, NK_POPUP_STATIC, "About sdl_img", NK_WINDOW_CLOSABLE, s))
 			{
-				nk_layout_row_dynamic(ctx, 20, 1);
+				nk_layout_row_dynamic(ctx, 20/y_scale, 1);
 				nk_label(ctx, "sdl_img 1.0", NK_TEXT_CENTERED);
 				nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
 				nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website

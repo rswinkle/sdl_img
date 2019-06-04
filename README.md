@@ -130,6 +130,9 @@ TODO/IDEAS
 - [ ] Add window icon (either static or based on current image(s))
 - [x] Speed up initial startup when a directory has a large number of images
 - [x] Change sorting to use strcmp for humans
+- [ ] shuffle/sort by last modified, size etc.
+- [ ] remove non-images (or unsupported images) from list without affecting startup time
+- [ ] Nuklear GUI
 - [ ] Clean up code a bit (ongoing)
 - [ ] Save memory by aliasing when viewing the same image more than once in multimode
 - [ ] Save memory by having the main thread update images as they're loaded
