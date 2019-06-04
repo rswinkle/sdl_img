@@ -89,8 +89,16 @@ int main(void)
 		return 1;
 	}
 
-	float x_scale = 1;
-	float y_scale = 1.33;
+	float hdpi, vdpi, ddpi;
+	SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi);
+	printf("DPIs: %.2f %.2f %.2f\n", ddpi, hdpi, vdpi);
+
+	SDL_Rect r;
+	SDL_GetDisplayBounds(0, &r);
+	printf("display bounds: %d %d %d %d\n", r.x, r.y, r.w, r.h);
+
+	float x_scale = hdpi/72 * 1.5;  // adjust for dpi, then go from 8pt font to 12pt
+	float y_scale = vdpi/72 * 1.5;
 
 	SDL_RenderSetScale(ren, x_scale, y_scale);
 
@@ -171,7 +179,7 @@ void draw_simple_gui(struct nk_context* ctx)
 
 	float x_scale, y_scale;
 	SDL_RenderGetScale(ren, &x_scale, &y_scale);
-	printf("scale = %.2f x %.2f\n", x_scale, y_scale);
+	//printf("scale = %.2f x %.2f\n", x_scale, y_scale);
 
 	int fill = 0, slideshow = 0;
 
