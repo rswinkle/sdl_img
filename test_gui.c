@@ -33,6 +33,9 @@ int running;
 int slideshow = nk_false;
 int show_about = nk_false;
 
+float x_scale;
+float y_scale;
+
 char license[STRBUF_SZ*4] =
 "The MIT License (MIT)\n"
 "\n"
@@ -97,8 +100,8 @@ int main(void)
 	SDL_GetDisplayBounds(0, &r);
 	printf("display bounds: %d %d %d %d\n", r.x, r.y, r.w, r.h);
 
-	float x_scale = hdpi/72 * 1.5;  // adjust for dpi, then go from 8pt font to 12pt
-	float y_scale = vdpi/72 * 1.5;
+	x_scale = hdpi/72;  // adjust for dpi, then go from 8pt font to 12pt
+	y_scale = vdpi/72;
 
 	SDL_RenderSetScale(ren, x_scale, y_scale);
 
@@ -109,7 +112,7 @@ int main(void)
 	}
 	*/
 
-	if (!(ctx = nk_sdl_init(win, ren))) {
+	if (!(ctx = nk_sdl_init(win, ren, x_scale, y_scale))) {
 		printf("nk_sdl_init() failed!");
 		return 1;
 	}
@@ -119,6 +122,8 @@ int main(void)
 	bg = nk_color_cf(background);
 	while (running)
 	{
+		SDL_RenderSetScale(ren, x_scale, y_scale);
+		nk_sdl_scale(x_scale, y_scale);
 		/* Input */
 		SDL_Event evt;
 		nk_input_begin(ctx);
@@ -177,26 +182,30 @@ void draw_simple_gui(struct nk_context* ctx)
 	SDL_RenderGetLogicalSize(ren, &scr_w, &scr_h);
 	SDL_GetRendererOutputSize(ren, &out_w, &out_h);
 
-	float x_scale, y_scale;
-	SDL_RenderGetScale(ren, &x_scale, &y_scale);
-	//printf("scale = %.2f x %.2f\n", x_scale, y_scale);
+	float cur_x_scale, cur_y_scale;
+	SDL_RenderGetScale(ren, &cur_x_scale, &cur_y_scale);
+	//printf("scale = %.2f x %.2f\n", cur_x_scale, cur_y_scale);
 
 	int fill = 0, slideshow = 0;
 
-	if (nk_begin(ctx, "demo", nk_rect(100/x_scale, 100/y_scale, 200, 400), gui_flags)) {
+	if (nk_begin(ctx, "demo", nk_rect(100/cur_x_scale, 100/cur_y_scale, 200, 400), gui_flags)) {
 		nk_layout_row_static(ctx, 0, 80, 2);
 		if (nk_button_label(ctx, "hello")) {
-			;
+			puts("down");
+			x_scale -= 0.25;
+			y_scale -= 0.25;
 		}
 		if (nk_button_label(ctx, "goodbye")) {
-			;
+			puts("up");
+			x_scale += 0.25;
+			y_scale += 0.25;
 		}
 		nk_checkbox_label(ctx, "Best Fit", &fill);
 		nk_checkbox_label(ctx, "Slideshow", &slideshow);
 	}
 	nk_end(ctx);
 
-	if (nk_begin(ctx, "demo2", nk_rect(400/x_scale, 100/y_scale, 200, 400), gui_flags)) {
+	if (nk_begin(ctx, "demo2", nk_rect(400/cur_x_scale, 100/cur_y_scale, 200, 400), gui_flags)) {
 		nk_layout_row_static(ctx, 0, 80, 2);
 		if (nk_button_label(ctx, "hello")) {
 			;
