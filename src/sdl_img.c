@@ -185,6 +185,7 @@ typedef struct global_state
 	int fill_mode;
 	int mouse_timer;
 	int mouse_state;
+	int show_about;
 
 	int slideshow;
 	int slide_timer;
@@ -920,7 +921,7 @@ int setup(char* dirpath)
 				strncpy(dirpath, g->files.a[0], STRBUF_SZ); // dirpath[STRBUF_SZ-1] = 0; // worth it?
 
 				// because seeing // in a path bothers me (I do %s/%s, dirpath, name
-				// to get a full path before loading
+				// to get a full path before loading)
 				int len = strlen(dirpath);
 				if (dirpath[len-1] == '/')
 					dirpath[len-1] = 0;
@@ -954,7 +955,7 @@ int setup(char* dirpath)
 	g->scr_w = MAX(g->img[0].w, 640);
 	g->scr_h = MAX(g->img[0].h, 480);
 	g->scr_w = MIN(g->scr_w, r.w);
-	g->scr_h = MIN(g->scr_h, r.h);
+	g->scr_h = MIN(g->scr_h, r.h-40); // UsableBounds doesn't account for bottom panel in Mate :-/
 
 	u32 win_flags = (g->fullscreen) ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_RESIZABLE;
 
@@ -962,7 +963,7 @@ int setup(char* dirpath)
 
 	mybasename(img_name, title_buf);
 	
-	g->win = SDL_CreateWindow(title_buf, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, g->scr_w, g->scr_h, win_flags);
+	g->win = SDL_CreateWindow(title_buf, SDL_WINDOWPOS_CENTERED, 0, g->scr_w, g->scr_h, win_flags);
 	if (!g->win) {
 		snprintf(error_str, STRBUF_SZ, "Couldn't create window: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
@@ -984,6 +985,8 @@ int setup(char* dirpath)
 		puts(error_str);
 	}
 
+	float x_scale = 1, y_scale = 1;
+	SDL_RenderSetScale(g->ren, x_scale, y_scale);
 	if (!(g->ctx = nk_sdl_init(g->win, g->ren, 1, 1))) {
 		puts("nk_sdl_init() failed!");
 		cleanup(1, 1);
@@ -1186,6 +1189,47 @@ void do_mode_change(int mode)
 	}
 }
 
+void do_delete(SDL_Event* next)
+{
+	char full_img_path[STRBUF_SZ];
+
+	SDL_MessageBoxButtonData buttons[] = {
+		//{ /* .flags, .buttonid, .text */        0, 0, "no" },
+		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "yes" },
+		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "cancel" },
+	};
+
+	SDL_MessageBoxData messageboxdata = {
+		SDL_MESSAGEBOX_WARNING, /* .flags */
+		NULL, /* .window */
+		"Warning", /* .title */
+		NULL, /* .message to be set later */
+		SDL_arraysize(buttons), /* .numbuttons */
+		buttons, /* .buttons */
+		NULL /* .colorScheme, NULL = system default */
+	};
+	int buttonid;
+
+	char msgbox_prompt[STRBUF_SZ];
+	if (g->dirpath)
+		sprintf(full_img_path, "%s/%s", g->dirpath, g->files.a[g->img[0].index]);
+	else
+		strncpy(full_img_path, g->files.a[g->img[0].index], STRBUF_SZ-1);
+	snprintf(msgbox_prompt, STRBUF_SZ, "Are you sure you want to delete '%s'?", full_img_path);
+	messageboxdata.message = msgbox_prompt;
+	SDL_ShowMessageBox(&messageboxdata, &buttonid);
+	if (buttonid == 1) {
+		if (remove(full_img_path)) {
+			perror("Failed to delete image");
+		} else {
+			printf("Deleted %s\n", full_img_path);
+			cvec_erase_str(&g->files, g->img[0].index, g->img[0].index);
+			g->img[0].index--; // since everything shifted left, we need to pre-decrement to not skip an image
+			SDL_PushEvent(next);
+		}
+	}
+}
+
 int handle_events()
 {
 	SDL_Event e;
@@ -1204,27 +1248,6 @@ int handle_events()
 	space.key.keysym.scancode = SDL_SCANCODE_SPACE;
 
 	int ticks = SDL_GetTicks();
-
-	SDL_MessageBoxButtonData buttons[] = {
-		//{ /* .flags, .buttonid, .text */        0, 0, "no" },
-		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "yes" },
-		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "cancel" },
-	};
-
-	SDL_MessageBoxData messageboxdata = {
-		SDL_MESSAGEBOX_WARNING, /* .flags */
-		NULL, /* .window */
-		"Warning", /* .title */
-		NULL, /* .message to be set later */
-		SDL_arraysize(buttons), /* .numbuttons */
-		buttons, /* .buttons */
-		NULL /* .colorScheme, NULL = system default */
-	};
-
-	char msgbox_prompt[STRBUF_SZ];
-	char full_img_path[STRBUF_SZ];
-
-	int buttonid;
 
 	SDL_LockMutex(g->mtx);
 	if (g->done_loading) {
@@ -1289,6 +1312,7 @@ int handle_events()
 	{
 		m_in_gui = 1;
 	}
+	m_in_gui = 1;
 
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
@@ -1324,11 +1348,15 @@ int handle_events()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
-				if (!g->fullscreen && !g->slideshow) {
+				if (!g->fullscreen && !g->slideshow && !g->show_about) {
 					//nk_input_end(g->ctx);
 					return 1;
 				} else {
-					if (g->slideshow) {
+					if (g->show_about) {
+						//g->show_about = nk_false;
+						//g->status = REDRAW;
+						// TODO wait for nuklear issue response
+					} else if (g->slideshow) {
 						puts("Ending slideshow");
 						g->slideshow = 0;
 					} else if (g->fullscreen) {
@@ -1342,23 +1370,7 @@ int handle_events()
 			case SDL_SCANCODE_DELETE:
 				// only delete in single image mode to avoid confusion and complication
 				if (!g->loading && g->n_imgs == 1) {
-					if (g->dirpath)
-						sprintf(full_img_path, "%s/%s", g->dirpath, g->files.a[g->img[0].index]);
-					else
-						strncpy(full_img_path, g->files.a[g->img[0].index], STRBUF_SZ-1);
-					snprintf(msgbox_prompt, STRBUF_SZ, "Are you sure you want to delete '%s'?", full_img_path);
-					messageboxdata.message = msgbox_prompt;
-					SDL_ShowMessageBox(&messageboxdata, &buttonid);
-					if (buttonid == 1) {
-						if (remove(full_img_path)) {
-							perror("Failed to delete image");
-						} else {
-							printf("Deleted %s\n", full_img_path);
-							cvec_erase_str(&g->files, g->img[0].index, g->img[0].index);
-							g->img[0].index--; // since everything shifted left, we need to pre-decrement to not skip an image
-							SDL_PushEvent(&space);
-						}
-					}
+					do_delete(&space);
 				}
 				break;
 
@@ -1649,9 +1661,7 @@ int handle_events()
 			break;
 
 		case SDL_MOUSEMOTION:
-			if (m_in_gui) {
-				nk_sdl_handle_event(&e);
-			} else if (mouse_button_mask & SDL_BUTTON(SDL_BUTTON_LEFT)) {
+			if (mouse_button_mask & SDL_BUTTON(SDL_BUTTON_LEFT)) {
 				img = NULL;
 				if (!g->img_focus) {
 					for (int i=0; i<g->n_imgs; ++i) {
@@ -1684,7 +1694,7 @@ int handle_events()
 
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
-			nk_sdl_handle_event(&e);
+			//nk_sdl_handle_event(&e);
 			g->status = REDRAW;
 			SDL_ShowCursor(SDL_ENABLE);
 			g->mouse_timer = SDL_GetTicks();
@@ -1751,6 +1761,8 @@ int handle_events()
 			}
 			break;
 		}
+
+		nk_sdl_handle_event(&e);
 	}
 	nk_input_end(g->ctx);
 

@@ -10,13 +10,97 @@ void draw_gui(struct nk_context* ctx)
 	img_state* img;
 	char* sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
 
-	if (nk_begin(ctx, "Controls", nk_rect(0, g->scr_h-100, g->scr_w, 100), gui_flags))
+	int out_w, out_h;
+	SDL_GetRendererOutputSize(g->ren, &out_w, &out_h);
+	float scale_x, scale_y;
+	SDL_RenderGetScale(g->ren, &scale_x, &scale_y);
+	int scr_w = out_w/scale_x;
+	int scr_h = out_h/scale_y;
+
+	//printf("%d x %d\n", g->scr_w, g->scr_h);
+	//printf("%d x %d %.2f %.2f\n", scr_w, scr_h, scale_x, scale_y);
+
+	struct nk_rect bounds;
+	const struct nk_input* in = &ctx->input;
+
+	if (nk_begin(ctx, "Controls", nk_rect(0, 0, scr_w, 30), gui_flags))
 	{
 		g->gui_rect = nk_window_get_bounds(ctx);
-		//printf("gui %f %f %f %f\n", g->gui_rect.x, g->gui_rect.y, g->gui_rect.w, g->gui_rect.h);
 
-		nk_layout_row_static(ctx, 0, 80, 7);
-		//nk_layout_row_dynamic(ctx, 0, 4);
+		nk_layout_row_template_begin(ctx, 0);
+
+		// menu
+		nk_layout_row_template_push_static(ctx, 50);
+
+		// prev next
+		nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, 80);
+
+		// zoom, -, +
+		//nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 40);
+
+		// best fit, slideshow, and actual size
+		nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, 80);
+
+		// Rotate left and right
+		nk_layout_row_template_push_static(ctx, 90);
+		nk_layout_row_template_push_static(ctx, 90);
+
+		// Mode 1 2 4 8
+		/*
+		nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 40);
+		*/
+		nk_layout_row_template_end(ctx);
+
+		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(200, 400))) {
+			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
+				g->show_about = nk_true;
+			}
+
+			nk_label(ctx, "Image Actions", NK_TEXT_LEFT);
+				nk_menu_item_label(ctx, "Delete", NK_TEXT_RIGHT);
+				nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_RIGHT);
+				nk_menu_item_label(ctx, "Rotate Right", NK_TEXT_RIGHT);
+
+			nk_label(ctx, "Viewing Mode", NK_TEXT_LEFT);
+				if (nk_menu_item_label(ctx, "1 image", NK_TEXT_RIGHT)) {
+					event.type = g->userevents + MODE_CHANGE;
+					event.user.code = MODE1;
+					SDL_PushEvent(&event);
+				}
+				if (nk_menu_item_label(ctx, "2 images", NK_TEXT_RIGHT)) {
+					event.type = g->userevents + MODE_CHANGE;
+					event.user.code = MODE2;
+					SDL_PushEvent(&event);
+				}
+				if (nk_menu_item_label(ctx, "4 images", NK_TEXT_RIGHT)) {
+					event.type = g->userevents + MODE_CHANGE;
+					event.user.code = MODE4;
+					SDL_PushEvent(&event);
+				}
+				if (nk_menu_item_label(ctx, "8 images", NK_TEXT_RIGHT)) {
+					event.type = g->userevents + MODE_CHANGE;
+					event.user.code = MODE8;
+					SDL_PushEvent(&event);
+				}
+
+			if (nk_menu_item_label(ctx, "Exit", NK_TEXT_LEFT)) {
+				event.type = SDL_QUIT;
+				SDL_PushEvent(&event);
+			}
+
+			nk_menu_end(ctx);
+		}
+
 		nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
 		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_LEFT, "prev", NK_TEXT_RIGHT)) {
 			event.type = g->userevents + PREV;
@@ -27,16 +111,29 @@ void draw_gui(struct nk_context* ctx)
 			SDL_PushEvent(&event);
 		}
 
-		nk_label(ctx, "zoom:", NK_TEXT_RIGHT);
-		if (nk_button_label(ctx, "-")) {
+
+		//bounds = nk_widget_bounds(ctx);
+		if (nk_button_symbol(ctx, NK_SYMBOL_MINUS)) {
 			event.type = g->userevents + ZOOM_MINUS;
 			SDL_PushEvent(&event);
 		}
-		if (nk_button_label(ctx, "+")) {
+		//bounds = nk_widget_bounds(ctx);
+		if (nk_button_symbol(ctx, NK_SYMBOL_PLUS)) {
 			event.type = g->userevents + ZOOM_PLUS;
 			SDL_PushEvent(&event);
 		}
+
+
 		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
+		
+		nk_selectable_label(ctx, "Best fit", NK_TEXT_RIGHT, &g->fill_mode);
+		// TODO
+		nk_selectable_label(ctx, "Slideshow", NK_TEXT_RIGHT, &g->fill_mode);
+
+		if (nk_button_label(ctx, "Actual")) {
+			;
+		}
+
 		if (nk_button_label(ctx, "Rot Left")) {
 			event.type = g->userevents + ROT_LEFT;
 			SDL_PushEvent(&event);
@@ -46,6 +143,7 @@ void draw_gui(struct nk_context* ctx)
 			SDL_PushEvent(&event);
 		}
 
+		/*
 		nk_label(ctx, "mode:", NK_TEXT_RIGHT);
 		if (nk_button_label(ctx, "1")) {
 			event.type = g->userevents + MODE_CHANGE;
@@ -67,8 +165,44 @@ void draw_gui(struct nk_context* ctx)
 			event.user.code = MODE8;
 			SDL_PushEvent(&event);
 		}
+		*/
+
+		// still don't know if this has to be inside the if or just
+		// before the nk_end()
+		if (g->show_about)
+		{
+			int w = 400, h = 400;
+			struct nk_rect s;
+			s.x = scr_w/2-w/2;
+			s.y = scr_h/2-h/2;
+			s.w = w;
+			s.h = h;
+			if (nk_popup_begin(ctx, NK_POPUP_STATIC, "About sdl_img", NK_WINDOW_CLOSABLE, s))
+			{
+				nk_layout_row_dynamic(ctx, 20/scale_y, 1);
+				nk_label(ctx, "sdl_img 1.0", NK_TEXT_CENTERED);
+				nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
+				nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
+				nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
+
+				// credits
+				// Sean T Barret (sp?) single header libraries
+				// stb_image, stb_image_write
+				//
+				// nuklear (which also uses stb libs)
+				//
+				// My own cvector lib
+
+				nk_popup_end(ctx);
+			} else g->show_about = nk_false;
+		}
+	}
+	nk_end(ctx);
 
 
+
+	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-30, scr_w, 30), gui_flags))
+	{
 		if (g->n_imgs == 1) {
 			img = &g->img[0];
 
@@ -89,7 +223,7 @@ void draw_gui(struct nk_context* ctx)
 				puts("info path too long");
 				cleanup(1, 1);
 			}
-			nk_layout_row_static(ctx, 0, g->scr_w, 1);
+			nk_layout_row_static(ctx, 0, scr_w, 1);
 			nk_label(ctx, info_buf, NK_TEXT_LEFT);
 		}
 	}

@@ -132,12 +132,15 @@ int main(void)
 				goto cleanup;
 
 			if (evt.type == SDL_KEYUP && evt.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
-				if (show_about)
+				if (show_about) {
 					show_about = nk_false;
-				else if (slideshow)
+					//nk_popup_close(ctx);
+					//nk_popup_end(ctx);
+				} else if (slideshow) {
 					slideshow = 0;
-				else
+				} else {
 					goto cleanup;
+				}
 			} else if (evt.type == SDL_WINDOWEVENT) {
 				if (evt.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
 					//SDL_RenderSetLogicalSize(ren, evt.window.data1*x_scale, evt.window.data2*y_scale);
@@ -149,7 +152,7 @@ int main(void)
 
 		/* GUI */
 		draw_gui(ctx);
-		draw_simple_gui(ctx);
+		//draw_simple_gui(ctx);
 
 
 		SDL_Delay(50);
@@ -241,12 +244,12 @@ void draw_gui(struct nk_context* ctx)
 	float scale_x, scale_y;
 	SDL_RenderGetScale(ren, &scale_x, &scale_y);
 	//scale_y = 2;
-	printf("scale = %.2f x %.2f\n", scale_x, scale_y);
+	//printf("scale = %.2f x %.2f\n", scale_x, scale_y);
 
 	scr_w = out_w/scale_x;
 	scr_h = out_h/scale_y;
 
-	printf("win %d x %d\nlog %d x %d\nout %d x %d\n", win_w, win_h, scr_w, scr_h, out_w, out_h);
+	//printf("win %d x %d\nlog %d x %d\nout %d x %d\n", win_w, win_h, scr_w, scr_h, out_w, out_h);
 
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
@@ -258,7 +261,7 @@ void draw_gui(struct nk_context* ctx)
 	int total_width = 0;
 	int do_zoom = 0, do_toggles = 0, do_rotates = 0;
 	what_hover = 0;
-	if (nk_begin(ctx, "Menu", nk_rect(0, 0, scr_w, 30), gui_flags)) {
+	if (nk_begin(ctx, "Controls", nk_rect(0, 0, scr_w, 30), gui_flags)) {
 
 		//g->gui_rect = nk_window_get_bounds(ctx);
 		//printf("gui %f %f %f %f\n", g->gui_rect.x, g->gui_rect.y, g->gui_rect.w, g->gui_rect.h);
@@ -312,7 +315,7 @@ void draw_gui(struct nk_context* ctx)
 		*/
 		nk_layout_row_template_end(ctx);
 
-		if (nk_menu_begin_label(ctx, "MENU", NK_TEXT_LEFT, nk_vec2(200, 400))) {
+		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(200, 400))) {
 			nk_layout_row_dynamic(ctx, 0, 1);
 			if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
 				show_about = nk_true;
@@ -426,11 +429,10 @@ void draw_gui(struct nk_context* ctx)
 end_main_gui:
 		// still don't know if this has to be inside the if or just
 		// before the nk_end()
-		if (show_about)
-		{
+		if (show_about) {
 			static int license_len;;
 			license_len = strlen(license);
-			int w = 400/scale_x, h = 400/scale_y;
+			int w = 400, h = 400; ///scale_x, h = 400/scale_y;
 			struct nk_rect s;
 			s.x = scr_w/2-w/2;
 			s.y = scr_h/2-h/2;
@@ -464,7 +466,7 @@ end_main_gui:
 
 
 
-	if (nk_begin(ctx, "Controls", nk_rect(0, scr_h-30, scr_w, 30), gui_flags))
+	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-30, scr_w, 30), gui_flags))
 	{
 		if (n_imgs == 1) {
 			len = snprintf(info_buf, STRBUF_SZ, "1000 x 600 pixels   55 %%");
