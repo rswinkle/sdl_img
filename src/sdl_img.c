@@ -918,6 +918,13 @@ int setup(char* dirpath)
 			struct stat file_stat;
 			if (!stat(g->files.a[0], &file_stat) && S_ISDIR(file_stat.st_mode)) {
 				strncpy(dirpath, g->files.a[0], STRBUF_SZ); // dirpath[STRBUF_SZ-1] = 0; // worth it?
+
+				// because seeing // in a path bothers me (I do %s/%s, dirpath, name
+				// to get a full path before loading
+				int len = strlen(dirpath);
+				if (dirpath[len-1] == '/')
+					dirpath[len-1] = 0;
+
 				g->dirpath = dirpath;
 				cvec_erase_str(&g->files, 0, 0);
 				scandir(NULL);
