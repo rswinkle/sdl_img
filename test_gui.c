@@ -255,6 +255,8 @@ void draw_gui(struct nk_context* ctx)
 	static int hovering = 0;
 	static int what_hover = 0;
 
+	int total_width = 0;
+	int do_zoom = 0, do_toggles = 0, do_rotates = 0;
 	what_hover = 0;
 	if (nk_begin(ctx, "Menu", nk_rect(0, 0, scr_w, 30), gui_flags)) {
 
@@ -273,20 +275,32 @@ void draw_gui(struct nk_context* ctx)
 		nk_layout_row_template_push_static(ctx, 80);
 		nk_layout_row_template_push_static(ctx, 80);
 
+		total_width += 50 + 80 + 80;
+
 		// zoom, -, +
 		//nk_layout_row_template_push_static(ctx, 80);
 		nk_layout_row_template_push_static(ctx, 40);
 		nk_layout_row_template_push_static(ctx, 40);
 
+		total_width += 80;
+		if (total_width < scr_w)
+			do_zoom = 1;
+
 		// best fit, slideshow, and actual size
 		nk_layout_row_template_push_static(ctx, 80);
 		nk_layout_row_template_push_static(ctx, 80);
-		nk_layout_row_template_push_static(ctx, 90);
+		nk_layout_row_template_push_static(ctx, 80);
 
+		total_width += 240;
+		if (total_width < scr_w)
+			do_toggles = 1;
 
 		// Rotate left and right
 		nk_layout_row_template_push_static(ctx, 90);
 		nk_layout_row_template_push_static(ctx, 90);
+		total_width += 180;
+		if (total_width < scr_w)
+			do_rotates = 1;
 
 		// Mode 1 2 4 8
 		/*
@@ -296,7 +310,6 @@ void draw_gui(struct nk_context* ctx)
 		nk_layout_row_template_push_static(ctx, 40);
 		nk_layout_row_template_push_static(ctx, 40);
 		*/
-
 		nk_layout_row_template_end(ctx);
 
 		if (nk_menu_begin_label(ctx, "MENU", NK_TEXT_LEFT, nk_vec2(200, 400))) {
@@ -331,6 +344,9 @@ void draw_gui(struct nk_context* ctx)
 			;
 		}
 
+		if (!do_zoom)
+			goto end_main_gui;
+
 		//nk_label(ctx, "zoom:", NK_TEXT_RIGHT);
 		bounds = nk_widget_bounds(ctx);
 		if (nk_input_is_mouse_hovering_rect(in, bounds)) {
@@ -354,7 +370,8 @@ void draw_gui(struct nk_context* ctx)
 		}
 		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
 
-
+		if (!do_toggles)
+			goto end_main_gui;
 
 		//nk_select_symbol_label(ctx, NK_SYMBOL_RECT_OUTLINE, "Best fit", NK_TEXT_RIGHT, fill);
 		//nk_selectable_symbol_label(ctx, NK_SYMBOL_RECT_OUTLINE, "Best fit", NK_TEXT_RIGHT, &fill);
@@ -380,6 +397,9 @@ void draw_gui(struct nk_context* ctx)
 			;
 		}
 
+		if (!do_rotates)
+			goto end_main_gui;
+
 		if (nk_button_label(ctx, "Rot Left")) {
 			;
 		}
@@ -403,6 +423,9 @@ void draw_gui(struct nk_context* ctx)
 		}
 		*/
 
+end_main_gui:
+		// still don't know if this has to be inside the if or just
+		// before the nk_end()
 		if (show_about)
 		{
 			static int license_len;;
