@@ -252,7 +252,10 @@ void draw_gui(struct nk_context* ctx)
 	const struct nk_input* in = &ctx->input;
 
 	static int fill = nk_false;
+	static int hovering = 0;
+	static int what_hover = 0;
 
+	what_hover = 0;
 	if (nk_begin(ctx, "Menu", nk_rect(0, 0, scr_w, 30), gui_flags)) {
 
 		//g->gui_rect = nk_window_get_bounds(ctx);
@@ -276,10 +279,8 @@ void draw_gui(struct nk_context* ctx)
 		nk_layout_row_template_push_static(ctx, 40);
 
 		// best fit, slideshow, and actual size
-		nk_layout_row_template_push_static(ctx, 40);
-
-		//nk_layout_row_template_push_static(ctx, 90);
-		nk_layout_row_template_push_static(ctx, 90);
+		nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, 80);
 		nk_layout_row_template_push_static(ctx, 90);
 
 
@@ -333,16 +334,22 @@ void draw_gui(struct nk_context* ctx)
 		//nk_label(ctx, "zoom:", NK_TEXT_RIGHT);
 		bounds = nk_widget_bounds(ctx);
 		if (nk_input_is_mouse_hovering_rect(in, bounds)) {
-			nk_tooltip(ctx, "Shrink the image");
+			hovering++;
+			if (hovering > 20)
+				nk_tooltip(ctx, "Shrink the image");
+			what_hover = 1;
 		}
-		if (nk_button_label(ctx, "-")) {
+		if (nk_button_symbol(ctx, NK_SYMBOL_MINUS)) {
 			;
 		}
 		bounds = nk_widget_bounds(ctx);
 		if (nk_input_is_mouse_hovering_rect(in, bounds)) {
-			nk_tooltip(ctx, "Enlarge the image");
+			hovering++;
+			if (hovering > 20)
+				nk_tooltip(ctx, "Enlarge the image");
+			what_hover = 2;
 		}
-		if (nk_button_label(ctx, "+")) {
+		if (nk_button_symbol(ctx, NK_SYMBOL_PLUS)) {
 			;
 		}
 		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
@@ -350,9 +357,25 @@ void draw_gui(struct nk_context* ctx)
 
 
 		//nk_select_symbol_label(ctx, NK_SYMBOL_RECT_OUTLINE, "Best fit", NK_TEXT_RIGHT, fill);
-		nk_selectable_symbol_label(ctx, NK_SYMBOL_RECT_OUTLINE, "", NK_TEXT_RIGHT, &fill);
-		//nk_checkbox_label(ctx, "Best Fit", &fill);
-		nk_checkbox_label(ctx, "Slideshow", &slideshow);
+		//nk_selectable_symbol_label(ctx, NK_SYMBOL_RECT_OUTLINE, "Best fit", NK_TEXT_RIGHT, &fill);
+		bounds = nk_widget_bounds(ctx);
+		if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+			hovering++;
+			if (hovering > 20)
+				nk_tooltip(ctx, "Toggle fit image to window");
+			what_hover = 3;
+		}
+		nk_selectable_label(ctx, "Best fit", NK_TEXT_RIGHT, &fill);
+		bounds = nk_widget_bounds(ctx);
+		if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+			hovering++;
+			if (hovering > 20)
+				nk_tooltip(ctx, "Toggle start a slideshow");
+			what_hover = 4;
+		}
+		nk_selectable_label(ctx, "Slideshow", NK_TEXT_RIGHT, &slideshow);
+
+
 		if (nk_button_label(ctx, "Actual")) {
 			;
 		}
@@ -431,6 +454,9 @@ void draw_gui(struct nk_context* ctx)
 		}
 	}
 	nk_end(ctx);
+
+	if (!what_hover)
+		hovering = 0;
 }
 
 
