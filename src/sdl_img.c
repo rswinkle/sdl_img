@@ -977,7 +977,7 @@ int setup(char* dirpath)
 		puts(error_str);
 	}
 
-	if (!(g->ctx = nk_sdl_init(g->win, g->ren))) {
+	if (!(g->ctx = nk_sdl_init(g->win, g->ren, 1, 1))) {
 		puts("nk_sdl_init() failed!");
 		cleanup(1, 1);
 	}
