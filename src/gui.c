@@ -6,7 +6,7 @@ void draw_gui(struct nk_context* ctx)
 	char info_buf[STRBUF_SZ];
 	int len;
 	int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
-	SDL_Event event = { 0 };
+	SDL_Event event = { .type = g->userevent };
 	img_state* img;
 	char* sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
 
@@ -68,28 +68,34 @@ void draw_gui(struct nk_context* ctx)
 
 			nk_label(ctx, "Image Actions", NK_TEXT_LEFT);
 				nk_menu_item_label(ctx, "Delete", NK_TEXT_RIGHT);
-				nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_RIGHT);
-				nk_menu_item_label(ctx, "Rotate Right", NK_TEXT_RIGHT);
+				if (nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_RIGHT)) {
+					event.user.code = ROT_LEFT;
+					SDL_PushEvent(&event);
+				}
+				if (nk_menu_item_label(ctx, "Rotate Right", NK_TEXT_RIGHT)) {
+					event.user.code = ROT_RIGHT;
+					SDL_PushEvent(&event);
+				}
 
 			nk_label(ctx, "Viewing Mode", NK_TEXT_LEFT);
 				if (nk_menu_item_label(ctx, "1 image", NK_TEXT_RIGHT)) {
-					event.type = g->userevents + MODE_CHANGE;
-					event.user.code = MODE1;
+					event.user.code = MODE_CHANGE;
+					event.user.data1 = (void*)MODE1;
 					SDL_PushEvent(&event);
 				}
 				if (nk_menu_item_label(ctx, "2 images", NK_TEXT_RIGHT)) {
-					event.type = g->userevents + MODE_CHANGE;
-					event.user.code = MODE2;
+					event.user.code = MODE_CHANGE;
+					event.user.data1 = (void*)MODE2;
 					SDL_PushEvent(&event);
 				}
 				if (nk_menu_item_label(ctx, "4 images", NK_TEXT_RIGHT)) {
-					event.type = g->userevents + MODE_CHANGE;
-					event.user.code = MODE4;
+					event.user.code = MODE_CHANGE;
+					event.user.data1 = (void*)MODE4;
 					SDL_PushEvent(&event);
 				}
 				if (nk_menu_item_label(ctx, "8 images", NK_TEXT_RIGHT)) {
-					event.type = g->userevents + MODE_CHANGE;
-					event.user.code = MODE8;
+					event.user.code = MODE_CHANGE;
+					event.user.data1 = (void*)MODE8;
 					SDL_PushEvent(&event);
 				}
 
@@ -103,23 +109,23 @@ void draw_gui(struct nk_context* ctx)
 
 		nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
 		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_LEFT, "prev", NK_TEXT_RIGHT)) {
-			event.type = g->userevents + PREV;
+			event.user.code = PREV;
 			SDL_PushEvent(&event);
 		}
 		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_RIGHT, "next", NK_TEXT_LEFT)) {
-			event.type = g->userevents + NEXT;
+			event.user.code = NEXT;
 			SDL_PushEvent(&event);
 		}
 
 
 		//bounds = nk_widget_bounds(ctx);
 		if (nk_button_symbol(ctx, NK_SYMBOL_MINUS)) {
-			event.type = g->userevents + ZOOM_MINUS;
+			event.user.code = ZOOM_MINUS;
 			SDL_PushEvent(&event);
 		}
 		//bounds = nk_widget_bounds(ctx);
 		if (nk_button_symbol(ctx, NK_SYMBOL_PLUS)) {
-			event.type = g->userevents + ZOOM_PLUS;
+			event.user.code = ZOOM_PLUS;
 			SDL_PushEvent(&event);
 		}
 
@@ -135,34 +141,34 @@ void draw_gui(struct nk_context* ctx)
 		}
 
 		if (nk_button_label(ctx, "Rot Left")) {
-			event.type = g->userevents + ROT_LEFT;
+			event.user.code = ROT_LEFT;
 			SDL_PushEvent(&event);
 		}
 		if (nk_button_label(ctx, "Rot Right")) {
-			event.type = g->userevents + ROT_RIGHT;
+			event.user.code = ROT_RIGHT;
 			SDL_PushEvent(&event);
 		}
 
 		/*
 		nk_label(ctx, "mode:", NK_TEXT_RIGHT);
 		if (nk_button_label(ctx, "1")) {
-			event.type = g->userevents + MODE_CHANGE;
-			event.user.code = MODE1;
+			event.user.code = MODE_CHANGE;
+			event.user.data1 = MODE1;
 			SDL_PushEvent(&event);
 		}
 		if (nk_button_label(ctx, "2")) {
-			event.type = g->userevents + MODE_CHANGE;
-			event.user.code = MODE2;
+			event.user.code = MODE_CHANGE;
+			event.user.data1 = MODE2;
 			SDL_PushEvent(&event);
 		}
 		if (nk_button_label(ctx, "4")) {
-			event.type = g->userevents + MODE_CHANGE;
-			event.user.code = MODE4;
+			event.user.code = MODE_CHANGE;
+			event.user.data1 = MODE4;
 			SDL_PushEvent(&event);
 		}
 		if (nk_button_label(ctx, "8")) {
-			event.type = g->userevents + MODE_CHANGE;
-			event.user.code = MODE8;
+			event.user.code = MODE_CHANGE;
+			event.user.data1 = MODE8;
 			SDL_PushEvent(&event);
 		}
 		*/

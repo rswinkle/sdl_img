@@ -162,7 +162,7 @@ typedef struct global_state
 	struct nk_context* ctx;
 
 	struct nk_rect gui_rect;
-	u32 userevents;  // TODO better name?
+	u32 userevent;
 
 	int scr_w;
 	int scr_h;
@@ -886,7 +886,7 @@ int setup(char* dirpath)
 	char error_str[STRBUF_SZ] = { 0 };
 	char title_buf[STRBUF_SZ] = { 0 };
 
-	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 
 	SDL_SetMainReady();
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -973,6 +973,8 @@ int setup(char* dirpath)
 
 	// No real reason for hardware acceleration and especially on older and/or mobile gpu's you can
 	// run into images larger than the max texture size which will then fail to load/display
+	//
+	// on the other hand, hardware rendering does decrease scaling artifacts...
 	g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_SOFTWARE);
 	if (!g->ren) {
 		snprintf(error_str, STRBUF_SZ, "Software rendering failed: %s; exiting.", SDL_GetError());
@@ -994,12 +996,12 @@ int setup(char* dirpath)
 
 	// TODO
 	// next and prev events?
-	g->userevents = SDL_RegisterEvents(NUM_USEREVENTS);
-	if (g->userevents == (u32)-1) {
+	g->userevent = SDL_RegisterEvents(1);
+	if (g->userevent == (u32)-1) {
 		printf("Error: %s", SDL_GetError());
 		cleanup(0, 1);
 	}
-	printf("g->userevents = %u\n", g->userevents);
+	printf("g->userevent = %u\n", g->userevent);
 	
 	// can't create textures till after we have a renderer (otherwise we'd pass SDL_TRUE)
 	// to load_image above
@@ -1314,27 +1316,28 @@ int handle_events()
 	}
 	m_in_gui = 1;
 
+	int code;
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
-		if (e.type >= g->userevents && e.type < g->userevents + NUM_USEREVENTS) {
-			e.type -= g->userevents;
-			switch (e.type) {
+		if (e.type == g->userevent) {
+			code = e.user.code;
+			switch (code) {
 			case NEXT:
 			case PREV:
-				try_move(e.type == NEXT ? RIGHT : LEFT);
+				try_move(code == NEXT ? RIGHT : LEFT);
 				break;
 			case ZOOM_PLUS:
 			case ZOOM_MINUS:
-				do_zoom(e.type == ZOOM_PLUS ? 1 : -1);
+				do_zoom(code == ZOOM_PLUS ? 1 : -1);
 				break;
 			case ROT_LEFT:
 			case ROT_RIGHT:
-				do_rotate(e.type == ROT_LEFT);
+				do_rotate(code == ROT_LEFT);
 				break;
 			case MODE_CHANGE:
 				g->status = REDRAW;
 				g->slide_timer =  SDL_GetTicks();
-				do_mode_change(e.user.code);
+				do_mode_change((int)e.user.data1);
 				break;
 			}
 			continue;
@@ -1960,7 +1963,7 @@ int main(int argc, char** argv)
 		is_a_gif = 0;
 		for (int i=0; i<g->n_imgs; ++i) {
 			if (g->img[i].frames > 1) {
-				if (ticks - g->img[i].frame_timer > g->img[i].delay) {
+				if (ticks - g->img[i].frame_timer >= g->img[i].delay) {
 					g->img[i].frame_i = (g->img[i].frame_i + 1) % g->img[i].frames;
 					if (g->img[i].frame_i == 0)
 						g->img[i].looped = 1;
