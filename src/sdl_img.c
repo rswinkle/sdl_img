@@ -165,6 +165,9 @@ typedef struct global_state
 	SDL_Renderer* ren;
 	struct nk_context* ctx;
 
+	// scaling is for GUI only
+	float x_scale;
+	float y_scale;
 	struct nk_rect gui_rect;
 	u32 userevent;
 
@@ -385,6 +388,8 @@ size_t write_data(void* buf, size_t size, size_t num, void* userp)
 void adjust_rect(img_state* img, int w, int h)
 {
 	int x, y;
+	// TODO not use mouse when doing zoom with GUI or Actual Size
+	// just keep image centered in those cases
 	SDL_GetMouseState(&x, &y);
 	
 	int l = img->scr_rect.x;
@@ -1003,9 +1008,15 @@ int setup(char* dirpath)
 		puts(error_str);
 	}
 
-	float x_scale = 1, y_scale = 1;
-	SDL_RenderSetScale(g->ren, x_scale, y_scale);
-	if (!(g->ctx = nk_sdl_init(g->win, g->ren, 1, 1))) {
+	float hdpi, vdpi, ddpi;
+	SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi);
+	printf("DPIs: %.2f %.2f %.2f\n", ddpi, hdpi, vdpi);
+
+	// adjust for dpi, then go from 8pt font to 12pt
+	g->x_scale = hdpi/72;
+	g->y_scale = vdpi/72;
+
+	if (!(g->ctx = nk_sdl_init(g->win, g->ren, g->x_scale, g->y_scale))) {
 		puts("nk_sdl_init() failed!");
 		cleanup(1, 1);
 	}
@@ -2018,8 +2029,11 @@ int main(int argc, char** argv)
 			}
 			SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
 		}
-		if (g->mouse_state)
+		if (g->mouse_state) {
+			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
 			nk_sdl_render(NULL, nk_false);
+			SDL_RenderSetScale(g->ren, 1, 1);
+		}
 		SDL_RenderPresent(g->ren);
 
 

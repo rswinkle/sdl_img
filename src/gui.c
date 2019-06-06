@@ -10,15 +10,10 @@ void draw_gui(struct nk_context* ctx)
 	img_state* img;
 	char* sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
 
-	int out_w, out_h;
-	SDL_GetRendererOutputSize(g->ren, &out_w, &out_h);
-	float scale_x, scale_y;
-	SDL_RenderGetScale(g->ren, &scale_x, &scale_y);
-	int scr_w = out_w/scale_x;
-	int scr_h = out_h/scale_y;
-
-	//printf("%d x %d\n", g->scr_w, g->scr_h);
-	//printf("%d x %d %.2f %.2f\n", scr_w, scr_h, scale_x, scale_y);
+	// Can't use actual screen size g->scr_w/h have to
+	// calculate logical screen size since GUI is scaled
+	int scr_w = out_w/g->x_scale;
+	int scr_h = out_h/g->y_scale;
 
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
