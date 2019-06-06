@@ -78,12 +78,26 @@ typedef int64_t i64;
 #define VERSION_STR "sdl_img 0.95"
 
 #define PATH_SEPARATOR '/'
-#define ZOOM_RATE 0.08
 #define PAN_RATE 0.05
 #define MIN_GIF_DELAY 10
 #define HIDE_CURSOR_TIMER 5000
 #define SLEEP_TIME 50
 #define STRBUF_SZ 1024
+
+// zoom is calculated
+// h = old_h * (1.0 + zoom*ZOOM_RATE)
+// zoom is divided by GIF_ZOOM_DIV if any
+// current image is gif because fps is higher
+// which speeds up GUI button repeat
+//
+// It doesn't affect mouse/keyboard so I should
+// probably change do_zoom to only divide in the
+// gif/gui case...
+#define ZOOM_RATE 0.01
+#define GUI_ZOOM 5
+#define SCROLL_ZOOM 12
+#define KEY_ZOOM 12
+#define GIF_ZOOM_DIV 3
 
 #ifndef MAX
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
@@ -1148,9 +1162,17 @@ int try_move(int direction)
 void do_zoom(int dir)
 {
 	if (!g->img_focus) {
+		for (int i=0; i<g->n_imgs; ++i) {
+			if (g->img[i].frames > 1) {
+				dir /= GIF_ZOOM_DIV;
+				break;
+			}
+		}
 		for (int i=0; i<g->n_imgs; ++i)
 			set_rect_zoom(&g->img[i], dir);
 	} else {
+		if (g->img_focus->frames > 1)
+			dir /= GIF_ZOOM_DIV;
 		set_rect_zoom(g->img_focus, dir);
 	}
 }
@@ -1367,7 +1389,7 @@ int handle_events()
 				break;
 			case ZOOM_PLUS:
 			case ZOOM_MINUS:
-				do_zoom(code == ZOOM_PLUS ? 1 : -1);
+				do_zoom(code == ZOOM_PLUS ? GUI_ZOOM : -GUI_ZOOM);
 				break;
 			case ROT_LEFT:
 			case ROT_RIGHT:
@@ -1664,7 +1686,7 @@ int handle_events()
 			case SDL_SCANCODE_MINUS:
 				g->status = REDRAW;
 				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
-					do_zoom(-1);
+					do_zoom(-KEY_ZOOM);
 				} else {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
@@ -1680,7 +1702,7 @@ int handle_events()
 			case SDL_SCANCODE_EQUALS:
 				g->status = REDRAW;
 				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
-					do_zoom(1);
+					do_zoom(KEY_ZOOM);
 				} else {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
@@ -1747,19 +1769,9 @@ int handle_events()
 		case SDL_MOUSEWHEEL:
 			g->status = REDRAW;
 			if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
-				if (!g->img_focus) {
-					for (int i=0; i<g->n_imgs; ++i)
-						set_rect_zoom(&g->img[i], e.wheel.y);
-				} else {
-					set_rect_zoom(g->img_focus, e.wheel.y);
-				}
+				do_zoom(e.wheel.y*SCROLL_ZOOM);
 			} else {
-				if (!g->img_focus) {
-					for (int i=0; i<g->n_imgs; ++i)
-						set_rect_zoom(&g->img[i], -e.wheel.y);
-				} else {
-				set_rect_zoom(g->img_focus, -e.wheel.y);
-				}
+				do_zoom(-e.wheel.y*SCROLL_ZOOM);
 			}
 			break;
 
