@@ -12,8 +12,8 @@ void draw_gui(struct nk_context* ctx)
 
 	// Can't use actual screen size g->scr_w/h have to
 	// calculate logical screen size since GUI is scaled
-	int scr_w = out_w/g->x_scale;
-	int scr_h = out_h/g->y_scale;
+	int scr_w = g->scr_w/g->x_scale;
+	int scr_h = g->scr_h/g->y_scale;
 
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
@@ -61,6 +61,9 @@ void draw_gui(struct nk_context* ctx)
 				g->show_about = nk_true;
 			}
 
+			// TODO maybe make dynamic menus, ie since Nuklear doesn't support popups of popups
+			// make Image Actions/Viewing mode change state of entire menu to only
+			// show sub buttons
 			nk_label(ctx, "Image Actions", NK_TEXT_LEFT);
 				if (nk_menu_item_label(ctx, "Delete", NK_TEXT_RIGHT)) {
 					event.user.code = DELETE;
@@ -135,7 +138,8 @@ void draw_gui(struct nk_context* ctx)
 		nk_selectable_label(ctx, "Slideshow", NK_TEXT_RIGHT, &g->fill_mode);
 
 		if (nk_button_label(ctx, "Actual")) {
-			;
+			event.user.code = ACTUAL_SIZE;
+			SDL_PushEvent(&event);
 		}
 
 		if (nk_button_label(ctx, "Rot Left")) {

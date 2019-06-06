@@ -61,7 +61,7 @@ enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 enum { IMAGE, URL, DIRECTORY };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT,
-       MODE_CHANGE, DELETE, NUM_USEREVENTS };
+       MODE_CHANGE, DELETE, ACTUAL_SIZE, NUM_USEREVENTS };
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -1259,6 +1259,18 @@ void do_delete(SDL_Event* next)
 	}
 }
 
+void do_actual_size()
+{
+	g->status = REDRAW;
+	if (!g->img_focus) {
+		for (int i=0; i<g->n_imgs; ++i) {
+			adjust_rect(&g->img[i], g->img[i].w, g->img[i].h);
+		}
+	} else {
+		adjust_rect(g->img_focus, g->img_focus->w, g->img_focus->h);
+	}
+}
+
 int handle_events()
 {
 	SDL_Event e;
@@ -1365,6 +1377,9 @@ int handle_events()
 				g->status = REDRAW;
 				g->slide_timer =  SDL_GetTicks();
 				do_mode_change((i64)e.user.data1);
+				break;
+			case ACTUAL_SIZE:
+				do_actual_size();
 				break;
 			case DELETE:
 				do_delete(&space);
@@ -1501,14 +1516,7 @@ int handle_events()
 				break;
 
 			case SDL_SCANCODE_A:
-				g->status = REDRAW;
-				if (!g->img_focus) {
-					for (int i=0; i<g->n_imgs; ++i) {
-						adjust_rect(&g->img[i], g->img[i].w, g->img[i].h);
-					}
-				} else {
-					adjust_rect(g->img_focus, g->img_focus->w, g->img_focus->h);
-				}
+				do_actual_size();
 				break;
 
 			case SDL_SCANCODE_F: {
