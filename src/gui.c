@@ -54,6 +54,23 @@ void draw_gui(struct nk_context* ctx)
 		nk_layout_row_template_end(ctx);
 
 		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(200, 400))) {
+			nk_layout_row_dynamic(ctx, 0, 3);
+			nk_label(ctx, "GUI:", NK_TEXT_LEFT);
+			if (nk_menu_item_label(ctx, "-", NK_TEXT_CENTERED)) {
+				g->x_scale -= 0.5;
+				g->y_scale -= 0.5;
+				if (g->x_scale < 1) {
+					g->x_scale = 1;
+					g->y_scale = 1;
+				}
+				nk_sdl_scale(g->x_scale, g->y_scale);
+			}
+			if (nk_menu_item_label(ctx, "+", NK_TEXT_CENTERED)) {
+				g->x_scale += 0.5;
+				g->y_scale += 0.5;
+				nk_sdl_scale(g->x_scale, g->y_scale);
+			}
+
 			nk_layout_row_dynamic(ctx, 0, 1);
 			if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
 				g->show_about = nk_true;

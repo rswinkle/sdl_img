@@ -1024,9 +1024,9 @@ int setup(char* dirpath)
 	SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi);
 	printf("DPIs: %.2f %.2f %.2f\n", ddpi, hdpi, vdpi);
 
-	// adjust for dpi, then go from 8pt font to 12pt
-	g->x_scale = hdpi/72;
-	g->y_scale = vdpi/72;
+	// could adjust for dpi, then adjust for font size if necessary
+	g->x_scale = 2; //hdpi/72;
+	g->y_scale = 2; //vdpi/72;
 
 	if (!(g->ctx = nk_sdl_init(g->win, g->ren, g->x_scale, g->y_scale))) {
 		puts("nk_sdl_init() failed!");

@@ -100,8 +100,8 @@ int main(void)
 	SDL_GetDisplayBounds(0, &r);
 	printf("display bounds: %d %d %d %d\n", r.x, r.y, r.w, r.h);
 
-	x_scale = hdpi/72;  // adjust for dpi, then go from 8pt font to 12pt
-	y_scale = vdpi/72;
+	x_scale = 1; //hdpi/72;  // adjust for dpi, then go from 8pt font to 12pt
+	y_scale = 1; //vdpi/72;
 
 	SDL_RenderSetScale(ren, x_scale, y_scale);
 
@@ -316,6 +316,22 @@ void draw_gui(struct nk_context* ctx)
 		nk_layout_row_template_end(ctx);
 
 		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(200, 400))) {
+			nk_layout_row_dynamic(ctx, 0, 3);
+			nk_label(ctx, "GUI:", NK_TEXT_LEFT);
+			if (nk_menu_item_label(ctx, "-", NK_TEXT_CENTERED)) {
+				x_scale -= 0.5;
+				y_scale -= 0.5;
+				if (x_scale < 1 || y_scale < 1) {
+					x_scale = 1;
+					y_scale = 1;
+				}
+			}
+			if (nk_menu_item_label(ctx, "+", NK_TEXT_CENTERED)) {
+				x_scale += 0.5;
+				y_scale += 0.5;
+			}
+
+
 			nk_layout_row_dynamic(ctx, 0, 1);
 			if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
 				show_about = nk_true;
