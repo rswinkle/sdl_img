@@ -338,9 +338,11 @@ void draw_gui(struct nk_context* ctx)
 			}
 
 			nk_label(ctx, "Image Actions", NK_TEXT_LEFT);
-				nk_menu_item_label(ctx, "Delete", NK_TEXT_RIGHT);
+				nk_menu_item_label(ctx, "Actual Size", NK_TEXT_RIGHT);
+				nk_menu_item_label(ctx, "Best Fit", NK_TEXT_RIGHT);
 				nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_RIGHT);
 				nk_menu_item_label(ctx, "Rotate Right", NK_TEXT_RIGHT);
+				nk_menu_item_label(ctx, "Delete", NK_TEXT_RIGHT);
 
 			nk_label(ctx, "Viewing Mode", NK_TEXT_LEFT);
 				nk_menu_item_label(ctx, "1 image", NK_TEXT_RIGHT);

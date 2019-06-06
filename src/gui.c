@@ -1,5 +1,6 @@
 
 void cleanup(int ret, int called_setup);
+void set_rect_bestfit(img_state* img, int fill_screen);
 
 void draw_gui(struct nk_context* ctx)
 {
@@ -148,9 +149,19 @@ void draw_gui(struct nk_context* ctx)
 
 		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
 		
-		nk_selectable_label(ctx, "Best fit", NK_TEXT_RIGHT, &g->fill_mode);
+		if (nk_selectable_label(ctx, "Best fit", NK_TEXT_RIGHT, &g->fill_mode)) {
+			if (!g->img_focus) {
+				for (int i=0; i<g->n_imgs; ++i)
+					set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);
+			} else {
+				set_rect_bestfit(g->img_focus, g->fullscreen | g->slideshow | g->fill_mode);
+			}
+		}
 		// TODO
-		nk_selectable_label(ctx, "Slideshow", NK_TEXT_RIGHT, &g->fill_mode);
+		if (nk_selectable_label(ctx, "Slideshow", NK_TEXT_RIGHT, &g->slideshow)) {
+			if (g->slideshow)
+				g->slideshow = 3000; // default to 3 seconds
+		}
 
 		if (nk_button_label(ctx, "Actual")) {
 			event.user.code = ACTUAL_SIZE;
