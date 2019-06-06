@@ -20,8 +20,6 @@ void draw_gui(struct nk_context* ctx)
 
 	if (nk_begin(ctx, "Controls", nk_rect(0, 0, scr_w, 30), gui_flags))
 	{
-		g->gui_rect = nk_window_get_bounds(ctx);
-
 		nk_layout_row_template_begin(ctx, 0);
 
 		// menu

@@ -182,7 +182,6 @@ typedef struct global_state
 	// scaling is for GUI only
 	float x_scale;
 	float y_scale;
-	struct nk_rect gui_rect;
 	u32 userevent;
 
 	int scr_w;
@@ -227,12 +226,8 @@ typedef struct global_state
 static global_state state = { 0 };
 global_state* g = &state;
 
-// TODO hmmm
-//int loading;
-
 // has to come after all the enums/macros/struct defs etc. 
 #include "gui.c"
-
 
 // works same as SUSv2 libgen.h dirname except that
 // dirpath is user provided output buffer, assumed large
@@ -283,7 +278,6 @@ char* mybasename(const char* path, char* base)
 
 	return base;
 }
-
 
 // NOTE(rswinkle): string sorting taken from
 // https://github.com/nothings/stb-imv/blob/master/imv.c
@@ -616,6 +610,7 @@ void cleanup(int ret, int called_setup)
 }
 
 // debug
+#ifndef NDEBUG
 void print_img_state(img_state* img)
 {
 	printf("{\nimg = %p\n", img);
@@ -633,6 +628,9 @@ void print_img_state(img_state* img)
 	printf("scr_rect = %d %d %d %d\n", img->scr_rect.x, img->scr_rect.y, img->scr_rect.w, img->scr_rect.h);
 	printf("disp_rect = %d %d %d %d\n}\n", img->disp_rect.x, img->disp_rect.y, img->disp_rect.w, img->disp_rect.h);
 }
+#else
+#define print_img_state(x)
+#endif
 
 int curl_image(int img_idx)
 {
@@ -953,7 +951,7 @@ int setup(char* dirpath)
 		} else if (g->files.size == 1) {
 			struct stat file_stat;
 			if (!stat(g->files.a[0], &file_stat) && S_ISDIR(file_stat.st_mode)) {
-				strncpy(dirpath, g->files.a[0], STRBUF_SZ); // dirpath[STRBUF_SZ-1] = 0; // worth it?
+				strncpy(dirpath, g->files.a[0], STRBUF_SZ);
 
 				// because seeing // in a path bothers me (I do %s/%s, dirpath, name
 				// to get a full path before loading)
@@ -1042,7 +1040,6 @@ int setup(char* dirpath)
 		printf("Error: %s", SDL_GetError());
 		cleanup(0, 1);
 	}
-	printf("g->userevent = %u\n", g->userevent);
 	
 	// can't create textures till after we have a renderer (otherwise we'd pass SDL_TRUE)
 	// to load_image above
@@ -1216,7 +1213,7 @@ void do_mode_change(int mode)
 					clear_img(&g->img[i]);
 			} else {
 				// if mode1 and focus and focus != img[0] have to
-				// clear the others and move focus to 0
+				// clear the others and move focused img to img[0]
 				for (int i=0; i<g->n_imgs; ++i) {
 					if (g->img_focus != &g->img[i]) {
 						clear_img(&g->img[i]);
@@ -1369,14 +1366,6 @@ int handle_events()
 	int mouse_x, mouse_y;
 	u32 mouse_button_mask = SDL_GetMouseState(&mouse_x, &mouse_y);
 	
-	int m_in_gui = 0;
-	if (mouse_x >= g->gui_rect.x && mouse_x < g->gui_rect.x+g->gui_rect.w &&
-	    mouse_y >= g->gui_rect.y && mouse_y < g->gui_rect.y+g->gui_rect.h)
-	{
-		m_in_gui = 1;
-	}
-	m_in_gui = 1;
-
 	int code;
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
@@ -1414,7 +1403,7 @@ int handle_events()
 
 		switch (e.type) {
 		case SDL_QUIT:
-			//nk_input_end(g->ctx);
+			//nk_input_end(g->ctx); // TODO need these?
 			return 1;
 		case SDL_KEYUP:
 			sc = e.key.keysym.scancode;
@@ -1427,7 +1416,7 @@ int handle_events()
 					if (g->show_about) {
 						//g->show_about = nk_false;
 						//g->status = REDRAW;
-						// TODO wait for nuklear issue response
+						// TODO modify nuklear to support this, submit pull request
 					} else if (g->slideshow) {
 						puts("Ending slideshow");
 						g->slideshow = 0;
@@ -1446,7 +1435,6 @@ int handle_events()
 				}
 				break;
 
-			// Rotate
 			case SDL_SCANCODE_L:
 			case SDL_SCANCODE_R:
 				do_rotate(sc == SDL_SCANCODE_L);
@@ -1759,7 +1747,6 @@ int handle_events()
 
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
-			//nk_sdl_handle_event(&e);
 			g->status = REDRAW;
 			SDL_ShowCursor(SDL_ENABLE);
 			g->mouse_timer = SDL_GetTicks();
@@ -1817,6 +1804,8 @@ int handle_events()
 			break;
 		}
 
+		// TODO leave it here where it calls for every event
+		// or put it back in mouse and key events?
 		nk_sdl_handle_event(&e);
 	}
 	nk_input_end(g->ctx);
@@ -1891,7 +1880,7 @@ int main(int argc, char** argv)
 
 	if (curl_global_init(CURL_GLOBAL_ALL)) {
 		puts("Failed to initialize libcurl");
-		//cleanup(1, 0);
+		cleanup(1, 0);
 	}
 	cvec_str(&g->files, 0, 100);
 
@@ -2036,8 +2025,6 @@ int main(int argc, char** argv)
 		}
 
 		if (g->mouse_state || g->status == REDRAW) {
-			//puts("redraw");
-			//
 			// gui drawing changes draw color so have to reset to black every time
 			SDL_SetRenderDrawColor(g->ren, 0, 0, 0, 255);
 			SDL_RenderSetClipRect(g->ren, NULL);
@@ -2045,7 +2032,7 @@ int main(int argc, char** argv)
 			for (int i=0; i<g->n_imgs; ++i) {
 				SDL_RenderSetClipRect(g->ren, &g->img[i].scr_rect);
 				SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
-				//print_img_state(&g->img[i]);
+				print_img_state(&g->img[i]);
 			}
 			SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
 		}
@@ -2055,7 +2042,6 @@ int main(int argc, char** argv)
 			SDL_RenderSetScale(g->ren, 1, 1);
 		}
 		SDL_RenderPresent(g->ren);
-
 
 
 		//"sleep" save CPU cycles/battery especially when not viewing animated gifs
