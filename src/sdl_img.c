@@ -67,6 +67,7 @@ typedef uint8_t u8;
 typedef uint32_t u32;
 typedef int16_t i16;
 typedef int32_t i32;
+typedef int64_t i64;
 
 #ifdef _WIN32
 #define mkdir(A, B) mkdir(A)
@@ -77,11 +78,10 @@ typedef int32_t i32;
 #define VERSION_STR "sdl_img 0.95"
 
 #define PATH_SEPARATOR '/'
-#define ZOOM_RATE 0.05
+#define ZOOM_RATE 0.08
 #define PAN_RATE 0.05
 #define MIN_GIF_DELAY 10
 #define HIDE_CURSOR_TIMER 5000
-#define MAX_STARTUP_TIME 2500
 #define SLEEP_TIME 50
 #define STRBUF_SZ 1024
 
@@ -452,10 +452,15 @@ void set_rect_zoom(img_state* img, int zoom)
 	int h, w;
 	
 	h = img->disp_rect.h * (1.0 + zoom*ZOOM_RATE);
-	if (h < 0.02 * img->h)
-		h = 0.02 * img->h;
-	if (h > 20 * img->h)
+	if (zoom > 0 && h == img->disp_rect.h) {
+		h = img->disp_rect.h + 10; // 10 is arbitrary
+	} else if (h < 0.025 * img->h) { // so is 2.5%
+		h = 0.025 * img->h;
+	}
+
+	if (h > 20 * img->h) {
 		h = 20 * img->h;
+	}
 
 	w = h * aspect;
 
@@ -1348,7 +1353,7 @@ int handle_events()
 			case MODE_CHANGE:
 				g->status = REDRAW;
 				g->slide_timer =  SDL_GetTicks();
-				do_mode_change((int)e.user.data1);
+				do_mode_change((i64)e.user.data1);
 				break;
 			case DELETE:
 				do_delete(&space);
