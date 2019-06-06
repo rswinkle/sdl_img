@@ -185,6 +185,9 @@ typedef struct global_state
 
 	cvector_str files;
 
+	FILE* fav_file;
+	cvector_str fav_list;
+
 	int fullscreen;
 	int fill_mode;
 	int mouse_timer;
@@ -1812,6 +1815,31 @@ void print_help(char* prog_name, int verbose)
 	}
 }
 
+void read_list(cvector_str* images, FILE* file)
+{
+	char* s;
+	char line[STRBUF_SZ] = { 0 };
+	int len;
+
+	while ((s = fgets(line, STRBUF_SZ, file))) {
+		// ignore comments in gqview/gthumb collection format useful
+		// when combined with findimagedupes collection output
+		if (s[0] == '#')
+			continue;
+
+		len = strlen(s);
+		if (s[len-1] == '\n')
+			s[len-1] = 0;
+		// handle quoted paths
+		if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
+			s[len-2] = 0;
+			memmove(s, &s[1], len-2);
+		}
+		normalize_path(s);
+		cvec_push_str(images, s);
+	}
+}
+
 int main(int argc, char** argv)
 {
 	if (argc < 2) {
@@ -1850,6 +1878,7 @@ int main(int argc, char** argv)
 		puts("cache path too long");
 		cleanup(1, 0);
 	}
+	// TODO fix bug when parent dir sdl_img doesn't exist
 	if (mkdir(cachedir, 0700) && errno != EEXIST) {
 		perror("Failed to make cache directory");
 		cleanup(1, 0);
@@ -1870,24 +1899,7 @@ int main(int argc, char** argv)
 				cleanup(1, 0);
 			}
 			given_list = 1;
-			char* s;
-			while ((s = fgets(dirpath, STRBUF_SZ, file))) {
-				// ignore comments in gqview/gthumb collection format useful
-				// when combined with findimagedupes collection output
-				if (s[0] == '#')
-					continue;
-
-				len = strlen(s);
-				if (s[len-1] == '\n')
-					s[len-1] = 0;
-				// handle quoted paths
-				if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
-					s[len-2] = 0;
-					memmove(s, &s[1], len-2);
-				}
-				normalize_path(s);
-				cvec_push_str(&g->files, s);
-			}
+			read_list(&g->files, file);
 			fclose(file);
 		} else if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {
 			int delay;

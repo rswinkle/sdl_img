@@ -133,6 +133,7 @@ TODO/IDEAS
 - [ ] shuffle/sort by last modified, size etc.
 - [ ] remove non-images (or unsupported images) from list without affecting startup time
 - [ ] Nuklear GUI
+- [ ] save to favorites or more general "collection" saving
 - [ ] Clean up code a bit (ongoing)
 - [ ] Save memory by aliasing when viewing the same image more than once in multimode
 - [ ] Save memory by having the main thread update images as they're loaded
