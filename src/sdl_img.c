@@ -19,6 +19,10 @@
 #define CVEC_ONLY_STR
 #include "cvector.h"
 
+// was messing with tcc
+//#define STBI_NO_SIMD
+//#define SDL_DISABLE_IMMINTRIN_H
+//
 //#define STBI_FAILURE_USERMSG
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -57,7 +61,7 @@ enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 enum { IMAGE, URL, DIRECTORY };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT,
-       MODE_CHANGE, NUM_USEREVENTS };
+       MODE_CHANGE, DELETE, NUM_USEREVENTS };
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -264,7 +268,9 @@ char* mybasename(const char* path, char* base)
 // NOTE(rswinkle): string sorting taken from
 // https://github.com/nothings/stb-imv/blob/master/imv.c
 //
-//derived from michael herf's code: http://www.stereopsis.com/strcmp4humans.html
+// derived from michael herf's code: http://www.stereopsis.com/strcmp4humans.html
+//
+// Also see GNU strverscmp for similar functionality
 
 // sorts like this:
 //     foo.jpg
@@ -719,7 +725,9 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 	return 1;
 }
 
-int scandir(void* data)
+// renamed to not conflict with <dirent.h>'s scandir
+// which I could probably use to accomplish the most of this...
+int myscandir(void* data)
 {
 	char fullpath[STRBUF_SZ] = { 0 };
 	struct stat file_stat;
@@ -928,7 +936,7 @@ int setup(char* dirpath)
 
 				g->dirpath = dirpath;
 				cvec_erase_str(&g->files, 0, 0);
-				scandir(NULL);
+				myscandir(NULL);
 				printf("Scanned %lu files in %s\n", g->files.size, dirpath);
 				what = DIRECTORY;
 				for (int i=0; i<g->files.size; ++i) {   // find first valid image in dir
@@ -1339,6 +1347,11 @@ int handle_events()
 				g->slide_timer =  SDL_GetTicks();
 				do_mode_change((int)e.user.data1);
 				break;
+			case DELETE:
+				do_delete(&space);
+				break;
+			default:
+				puts("Unknown user event!");
 			}
 			continue;
 		}
@@ -1940,7 +1953,7 @@ int main(int argc, char** argv)
 		cvec_replace_str(&g->files, 0, img_name, NULL);
 
 		g->dirpath = dirpath;
-		scandir(img_name);
+		myscandir(img_name);
 		printf("Scanned %lu files in %s\n", g->files.size, dirpath);
 	}
 

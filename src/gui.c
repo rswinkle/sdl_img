@@ -67,7 +67,10 @@ void draw_gui(struct nk_context* ctx)
 			}
 
 			nk_label(ctx, "Image Actions", NK_TEXT_LEFT);
-				nk_menu_item_label(ctx, "Delete", NK_TEXT_RIGHT);
+				if (nk_menu_item_label(ctx, "Delete", NK_TEXT_RIGHT)) {
+					event.user.code = DELETE;
+					SDL_PushEvent(&event);
+				}
 				if (nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_RIGHT)) {
 					event.user.code = ROT_LEFT;
 					SDL_PushEvent(&event);
