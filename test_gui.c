@@ -33,10 +33,13 @@ SDL_Window* win;
 SDL_Renderer* ren;
 int running;
 int slideshow = nk_false;
+int slide_delay = 3;
 int show_about = nk_false;
+int show_prefs = nk_false;
 int menu_state = MENU_NONE;
 
-
+struct nk_colorf bg;
+struct nk_color bg2;
 
 float x_scale;
 float y_scale;
@@ -65,8 +68,6 @@ void draw_simple_gui(struct nk_context* ctx);
 
 int main(void)
 {
-	struct nk_color background;
-	struct nk_colorf bg;
 	int win_width, win_height;
 	struct nk_context *ctx;
 	/* float bg[4]; */
@@ -123,8 +124,8 @@ int main(void)
 	}
 
 
-	background = nk_rgb(28,48,62);
-	bg = nk_color_cf(background);
+	bg2 = nk_rgb(28,48,62);
+	bg = nk_color_cf(bg2);
 	while (running)
 	{
 		SDL_RenderSetScale(ren, x_scale, y_scale);
@@ -161,7 +162,7 @@ int main(void)
 
 
 		SDL_Delay(50);
-		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+		SDL_SetRenderDrawColor(ren, bg2.r, bg2.g, bg2.b, bg2.a);
 		SDL_RenderSetClipRect(ren, NULL);
 		SDL_RenderClear(ren);
 		nk_sdl_render(NULL, 0);
@@ -237,6 +238,10 @@ void draw_gui(struct nk_context* ctx)
 	char info_buf[STRBUF_SZ];
 	int len;
 	int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
+
+	// closable gives the x, if you use it it won't come back (probably have to call show() or
+	// something...
+	int prefs_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
 	SDL_Event event = { 0 };
 
 	int win_w, win_h;
@@ -342,7 +347,13 @@ void draw_gui(struct nk_context* ctx)
 				y_scale += 0.5;
 			}
 
+
+
+
 			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_menu_item_label(ctx, "Preferences", NK_TEXT_LEFT)) {
+				show_prefs = nk_true;
+			}
 			if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
 				show_about = nk_true;
 			}
@@ -522,6 +533,50 @@ end_main_gui:
 	}
 
 	nk_end(ctx);
+
+	if (show_prefs) {
+		int w = 400, h = 400; ///scale_x, h = 400/scale_y;
+		struct nk_rect s;
+		s.x = scr_w/2-w/2;
+		s.y = scr_h/2-h/2;
+		s.w = w;
+		s.h = h;
+		char cache[] = "/home/someone/.local/share/sdl_img";
+
+		if (nk_begin(ctx, "Preferences", s, prefs_flags)) {
+			nk_layout_row_dynamic(ctx, 0, 2);
+			nk_label(ctx, "background:", NK_TEXT_LEFT);
+			if (nk_combo_begin_color(ctx, nk_rgb_cf(bg), nk_vec2(nk_widget_width(ctx), 400))) {
+				nk_layout_row_dynamic(ctx, 120, 1);
+				bg = nk_color_picker(ctx, bg, NK_RGBA);
+				nk_layout_row_dynamic(ctx, 25, 1);
+				bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f,0.005f);
+				bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f,0.005f);
+				bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f,0.005f);
+				bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f,0.005f);
+				bg2 = nk_rgb_cf(bg);
+				nk_combo_end(ctx);
+			}
+
+			nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
+			nk_property_int(ctx, "", 1, &slide_delay, 10, 1, 0.05);
+
+
+			nk_layout_row_dynamic(ctx, 0, 1);
+			nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
+			nk_label(ctx, cache, NK_TEXT_RIGHT);
+
+
+
+
+			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_button_label(ctx, "Ok")) {
+				show_prefs = 0;;
+			}
+		}
+		nk_end(ctx);
+
+	}
 
 
 
