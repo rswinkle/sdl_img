@@ -26,12 +26,17 @@
 
 #define STRBUF_SZ 1024
 
+enum { MENU_NONE, MENU_EDIT, MENU_VIEW };
+
 int n_imgs = 1;
 SDL_Window* win;
 SDL_Renderer* ren;
 int running;
 int slideshow = nk_false;
 int show_about = nk_false;
+int menu_state = MENU_NONE;
+
+
 
 float x_scale;
 float y_scale;
@@ -255,6 +260,7 @@ void draw_gui(struct nk_context* ctx)
 	const struct nk_input* in = &ctx->input;
 
 	static int fill = nk_false;
+	static int fullscreen = nk_false;
 	static int hovering = 0;
 	static int what_hover = 0;
 
@@ -315,7 +321,12 @@ void draw_gui(struct nk_context* ctx)
 		*/
 		nk_layout_row_template_end(ctx);
 
-		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(200, 400))) {
+		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(400, 400))) {
+
+			enum nk_collapse_states state;
+			float ratios[] = { 0.7f, 0.3f, 0.8f, 0.2f };
+
+			// always show these
 			nk_layout_row_dynamic(ctx, 0, 3);
 			nk_label(ctx, "GUI:", NK_TEXT_LEFT);
 			if (nk_menu_item_label(ctx, "-", NK_TEXT_CENTERED)) {
@@ -331,28 +342,58 @@ void draw_gui(struct nk_context* ctx)
 				y_scale += 0.5;
 			}
 
-
 			nk_layout_row_dynamic(ctx, 0, 1);
 			if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
 				show_about = nk_true;
 			}
-
-			nk_label(ctx, "Image Actions", NK_TEXT_LEFT);
-				nk_menu_item_label(ctx, "Actual Size", NK_TEXT_RIGHT);
-				nk_menu_item_label(ctx, "Best Fit", NK_TEXT_RIGHT);
-				nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_RIGHT);
-				nk_menu_item_label(ctx, "Rotate Right", NK_TEXT_RIGHT);
-				nk_menu_item_label(ctx, "Delete", NK_TEXT_RIGHT);
-
-			nk_label(ctx, "Viewing Mode", NK_TEXT_LEFT);
-				nk_menu_item_label(ctx, "1 image", NK_TEXT_RIGHT);
-				nk_menu_item_label(ctx, "2 images", NK_TEXT_RIGHT);
-				nk_menu_item_label(ctx, "4 images", NK_TEXT_RIGHT);
-				nk_menu_item_label(ctx, "8 images", NK_TEXT_RIGHT);
-
 			if (nk_menu_item_label(ctx, "Exit", NK_TEXT_LEFT)) {
 				running = 0;
 			}
+
+			state = (menu_state == MENU_EDIT) ? NK_MAXIMIZED: NK_MINIMIZED;
+			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Image Actions", &state)) {
+				menu_state = MENU_EDIT;
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+
+				nk_selectable_label(ctx, "Slideshow", NK_TEXT_LEFT, &slideshow);
+				nk_label(ctx, "F1 - F10/ESC", NK_TEXT_RIGHT);
+
+				nk_selectable_label(ctx, "Fullscreen", NK_TEXT_LEFT, &fullscreen);
+				nk_label(ctx, "ALT+F or F11", NK_TEXT_RIGHT);
+
+				nk_menu_item_label(ctx, "Actual Size", NK_TEXT_LEFT);
+				nk_label(ctx, "A", NK_TEXT_RIGHT);
+
+				nk_selectable_label(ctx, "Best Fit", NK_TEXT_LEFT, &fill);
+				nk_label(ctx, "F", NK_TEXT_RIGHT);
+
+				nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_LEFT);
+				nk_label(ctx, "L", NK_TEXT_RIGHT);
+
+				nk_menu_item_label(ctx, "Rotate Right", NK_TEXT_LEFT);
+				nk_label(ctx, "R", NK_TEXT_RIGHT);
+
+				nk_menu_item_label(ctx, "Delete", NK_TEXT_LEFT);
+				nk_label(ctx, "DEL", NK_TEXT_RIGHT);
+
+				nk_tree_pop(ctx);
+			} else menu_state = (menu_state == MENU_EDIT) ? MENU_NONE: menu_state;
+
+			state = (menu_state == MENU_VIEW) ? NK_MAXIMIZED: NK_MINIMIZED;
+			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Viewing Mode", &state)) {
+				menu_state = MENU_VIEW;
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
+				nk_menu_item_label(ctx, "1 image", NK_TEXT_LEFT);
+				nk_label(ctx, "CTRL+1", NK_TEXT_RIGHT);
+				nk_menu_item_label(ctx, "2 images", NK_TEXT_LEFT);
+				nk_label(ctx, "CTRL+2", NK_TEXT_RIGHT);
+				nk_menu_item_label(ctx, "4 images", NK_TEXT_LEFT);
+				nk_label(ctx, "CTRL+4", NK_TEXT_RIGHT);
+				nk_menu_item_label(ctx, "8 images", NK_TEXT_LEFT);
+				nk_label(ctx, "CTRL+8", NK_TEXT_RIGHT);
+				nk_tree_pop(ctx);
+			} else menu_state = (menu_state == MENU_VIEW) ? MENU_NONE: menu_state;
+
 
 			nk_menu_end(ctx);
 		}
