@@ -142,6 +142,8 @@ int main(void)
 					show_about = nk_false;
 					//nk_popup_close(ctx);
 					//nk_popup_end(ctx);
+				} else if (show_prefs) {
+					show_prefs = nk_false;
 				} else if (slideshow) {
 					slideshow = 0;
 				} else {
@@ -417,9 +419,6 @@ void draw_gui(struct nk_context* ctx)
 			;
 		}
 
-		if (!do_zoom)
-			goto end_main_gui;
-
 		//nk_label(ctx, "zoom:", NK_TEXT_RIGHT);
 		bounds = nk_widget_bounds(ctx);
 		if (nk_input_is_mouse_hovering_rect(in, bounds)) {
@@ -443,9 +442,8 @@ void draw_gui(struct nk_context* ctx)
 		}
 		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
 
-		if (!do_toggles)
-			goto end_main_gui;
 
+		/*
 		//nk_select_symbol_label(ctx, NK_SYMBOL_RECT_OUTLINE, "Best fit", NK_TEXT_RIGHT, fill);
 		//nk_selectable_symbol_label(ctx, NK_SYMBOL_RECT_OUTLINE, "Best fit", NK_TEXT_RIGHT, &fill);
 		bounds = nk_widget_bounds(ctx);
@@ -470,8 +468,6 @@ void draw_gui(struct nk_context* ctx)
 			;
 		}
 
-		if (!do_rotates)
-			goto end_main_gui;
 
 		if (nk_button_label(ctx, "Rot Left")) {
 			;
@@ -480,7 +476,6 @@ void draw_gui(struct nk_context* ctx)
 			;
 		}
 
-		/*
 		nk_label(ctx, "mode:", NK_TEXT_RIGHT);
 		if (nk_button_label(ctx, "1")) {
 			n_imgs = 1;
@@ -496,43 +491,58 @@ void draw_gui(struct nk_context* ctx)
 		}
 		*/
 
-end_main_gui:
 		// still don't know if this has to be inside the if or just
 		// before the nk_end()
-		if (show_about) {
-			static int license_len;;
-			license_len = strlen(license);
-			int w = 400, h = 400; ///scale_x, h = 400/scale_y;
-			struct nk_rect s;
-			s.x = scr_w/2-w/2;
-			s.y = scr_h/2-h/2;
-			s.w = w;
-			s.h = h;
-			if (nk_popup_begin(ctx, NK_POPUP_STATIC, "About sdl_img", NK_WINDOW_CLOSABLE, s))
-			{
-				nk_layout_row_dynamic(ctx, 20/scale_y, 1);
-				nk_label(ctx, "sdl_img 1.0", NK_TEXT_CENTERED);
-				nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
-				nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
-				nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
-
-				// credits
-				// Sean T Barret (sp?) single header libraries
-				// stb_image, stb_image_write
-				//
-				// nuklear (which also uses stb libs)
-				//
-				// My own cvector lib
-
-				//nk_layout_row_dynamic(ctx, 200, 1);
-				//nk_label_wrap(ctx, license);
-				//nk_edit_string(ctx, NK_EDIT_BOX, license, &license_len, 1024, nk_filter_default);
-				nk_popup_end(ctx);
-			} else show_about = nk_false;
-		}
 	}
 
 	nk_end(ctx);
+
+	if (show_about) {
+		static int license_len;;
+		license_len = strlen(license);
+		int w = 500, h = 400; ///scale_x, h = 400/scale_y;
+		struct nk_rect s;
+		s.x = scr_w/2-w/2;
+		s.y = scr_h/2-h/2;
+		s.w = w;
+		s.h = h;
+		if (nk_begin(ctx, "About sdl_img", s, prefs_flags))
+		{
+			nk_layout_row_dynamic(ctx, 0, 1);
+			nk_label(ctx, "sdl_img 1.0", NK_TEXT_CENTERED);
+			nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
+			nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
+			nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
+
+			nk_label(ctx, "Credits:", NK_TEXT_CENTERED);
+			nk_layout_row_dynamic(ctx, 0, 2);
+			nk_label(ctx, "stb_image, stb_image_write", NK_TEXT_LEFT);
+			nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
+			nk_label(ctx, "SDL2", NK_TEXT_LEFT);
+			nk_label(ctx, "libsdl.org", NK_TEXT_RIGHT);
+			nk_label(ctx, "SDL2_gfx", NK_TEXT_LEFT);
+			nk_label(ctx, "ferzkopp.net", NK_TEXT_RIGHT);
+			nk_label(ctx, "nuklear GUI", NK_TEXT_LEFT);
+			nk_label(ctx, "github.com/vurtun/nuklear", NK_TEXT_RIGHT);
+
+			// Sean T Barret (sp?) single header libraries
+			// stb_image, stb_image_write
+			//
+			// nuklear (which also uses stb libs)
+			//
+			// My own cvector lib
+
+			//nk_layout_row_dynamic(ctx, 200, 1);
+			//nk_label_wrap(ctx, license);
+			//nk_edit_string(ctx, NK_EDIT_BOX, license, &license_len, 1024, nk_filter_default);
+			//
+			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_button_label(ctx, "Ok")) {
+				show_about = 0;;
+			}
+		}
+		nk_end(ctx);
+	}
 
 	if (show_prefs) {
 		int w = 400, h = 400; ///scale_x, h = 400/scale_y;
@@ -565,9 +575,6 @@ end_main_gui:
 			nk_layout_row_dynamic(ctx, 0, 1);
 			nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
 			nk_label(ctx, cache, NK_TEXT_RIGHT);
-
-
-
 
 			nk_layout_row_dynamic(ctx, 0, 1);
 			if (nk_button_label(ctx, "Ok")) {
