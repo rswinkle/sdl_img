@@ -1434,10 +1434,10 @@ int handle_events()
 					return 1;
 				} else {
 					if (g->show_about) {
-						//g->show_about = nk_false;
-						//g->status = REDRAW;
-						// TODO modify nuklear to support this, submit pull request
-					} else if (g->slideshow) {
+						g->show_about = nk_false;
+					} else if (g->show_prefs) {
+						g->show_prefs = nk_false;
+					}else if (g->slideshow) {
 						puts("Ending slideshow");
 						g->slideshow = 0;
 					} else if (g->fullscreen) {

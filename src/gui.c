@@ -222,6 +222,7 @@ void draw_gui(struct nk_context* ctx)
 		}
 
 
+		/*
 		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
 		
 		if (nk_selectable_label(ctx, "Best fit", NK_TEXT_RIGHT, &g->fill_mode)) {
@@ -252,7 +253,6 @@ void draw_gui(struct nk_context* ctx)
 			SDL_PushEvent(&event);
 		}
 
-		/*
 		nk_label(ctx, "mode:", NK_TEXT_RIGHT);
 		if (nk_button_label(ctx, "1")) {
 			event.user.code = MODE_CHANGE;
@@ -276,40 +276,52 @@ void draw_gui(struct nk_context* ctx)
 		}
 		*/
 
-		// still don't know if this has to be inside the if or just
-		// before the nk_end()
-		if (g->show_about)
-		{
-			int w = 400, h = 400;
-			struct nk_rect s;
-			s.x = scr_w/2-w/2;
-			s.y = scr_h/2-h/2;
-			s.w = w;
-			s.h = h;
-			if (nk_popup_begin(ctx, NK_POPUP_STATIC, "About sdl_img", NK_WINDOW_CLOSABLE, s))
-			{
-				nk_layout_row_dynamic(ctx, 20/scale_y, 1);
-				nk_label(ctx, "sdl_img 1.0", NK_TEXT_CENTERED);
-				nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
-				nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
-				nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
-
-				// TODO add credits
-				// Sean T Barret (sp?) single header libraries
-				// stb_image, stb_image_write
-				//
-				// nuklear (which also uses stb libs)
-				//
-				// SDL2, SDL2_gfx, curl
-				//
-				// My own cvector lib
-
-				nk_popup_end(ctx);
-			} else g->show_about = nk_false;
-		}
 	}
 	nk_end(ctx);
 
+	if (g->show_about) {
+		int w = 500, h = 400; ///scale_x, h = 400/scale_y;
+		struct nk_rect s;
+		s.x = scr_w/2-w/2;
+		s.y = scr_h/2-h/2;
+		s.w = w;
+		s.h = h;
+
+		// as long as a "popup" is open don't let gui disappear
+		g->mouse_timer = SDL_GetTicks();
+		if (nk_begin(ctx, "About sdl_img", s, prefs_flags))
+		{
+			nk_layout_row_dynamic(ctx, 0, 1);
+			nk_label(ctx, "sdl_img 1.0", NK_TEXT_CENTERED);
+			nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
+			nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
+			nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
+
+			nk_label(ctx, "Credits:", NK_TEXT_CENTERED);
+			nk_layout_row_dynamic(ctx, 0, 2);
+			nk_label(ctx, "stb_image, stb_image_write", NK_TEXT_LEFT);
+			nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
+			nk_label(ctx, "SDL2", NK_TEXT_LEFT);
+			nk_label(ctx, "libsdl.org", NK_TEXT_RIGHT);
+			nk_label(ctx, "SDL2_gfx", NK_TEXT_LEFT);
+			nk_label(ctx, "ferzkopp.net", NK_TEXT_RIGHT);
+			nk_label(ctx, "nuklear GUI", NK_TEXT_LEFT);
+			nk_label(ctx, "github.com/vurtun/nuklear", NK_TEXT_RIGHT);
+
+			// Sean T Barret (sp?) single header libraries
+			// stb_image, stb_image_write
+			//
+			// nuklear (which also uses stb libs)
+			//
+			// My own cvector lib
+
+			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_button_label(ctx, "Ok")) {
+				g->show_about = 0;;
+			}
+		}
+		nk_end(ctx);
+	}
 
 	if (g->show_prefs) {
 		int w = 400, h = 400; ///scale_x, h = 400/scale_y;
@@ -318,6 +330,9 @@ void draw_gui(struct nk_context* ctx)
 		s.y = scr_h/2-h/2;
 		s.w = w;
 		s.h = h;
+
+		// as long as a "popup" is open don't let gui disappear
+		g->mouse_timer = SDL_GetTicks();
 
 		if (nk_begin(ctx, "Preferences", s, prefs_flags)) {
 			nk_layout_row_dynamic(ctx, 0, 2);
