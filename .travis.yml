@@ -26,6 +26,10 @@ addons:
     # build_command_prepend: "<Your build preprocessing command here>"
     build_command: "./build.sh"
     branch_pattern: master
+  apt:
+    sources:
+    packages:
+      - libsdl2-gfx-dev
 
 
 
