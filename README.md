@@ -132,7 +132,7 @@ TODO/IDEAS
 - [x] Change sorting to use strcmp for humans
 - [ ] shuffle/sort by last modified, size etc.
 - [ ] remove non-images (or unsupported images) from list without affecting startup time
-- [ ] Nuklear GUI
+- [x] Nuklear GUI
 - [ ] save to favorites or more general "collection" saving
 - [ ] Clean up code a bit (ongoing)
 - [ ] Save memory by aliasing when viewing the same image more than once in multimode

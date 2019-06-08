@@ -292,7 +292,7 @@ void draw_gui(struct nk_context* ctx)
 		if (nk_begin(ctx, "About sdl_img", s, prefs_flags))
 		{
 			nk_layout_row_dynamic(ctx, 0, 1);
-			nk_label(ctx, "sdl_img 1.0", NK_TEXT_CENTERED);
+			nk_label(ctx, VERSION_STR, NK_TEXT_CENTERED);
 			nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
 			nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
 			nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);

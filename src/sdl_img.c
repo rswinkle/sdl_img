@@ -1,6 +1,6 @@
 // The MIT License (MIT)
 // 
-// Copyright (c) 2017-2018 Robert Winkler
+// Copyright (c) 2017-2019 Robert Winkler
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation
@@ -74,8 +74,8 @@ typedef int64_t i64;
 #endif
 
 // TODO hmm
-#define VERSION 0.95
-#define VERSION_STR "sdl_img 0.95"
+#define VERSION 0.96
+#define VERSION_STR "sdl_img 0.96"
 
 #define PATH_SEPARATOR '/'
 #define PAN_RATE 0.05
@@ -1429,7 +1429,7 @@ int handle_events()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
-				if (!g->fullscreen && !g->slideshow && !g->show_about) {
+				if (!g->fullscreen && !g->slideshow && !g->show_about && !g->show_prefs) {
 					//nk_input_end(g->ctx);
 					return 1;
 				} else {
