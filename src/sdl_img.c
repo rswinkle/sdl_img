@@ -399,49 +399,58 @@ size_t write_data(void* buf, size_t size, size_t num, void* userp)
 }
 
 //need to think about best way to organize following 4 functions' functionality
-void adjust_rect(img_state* img, int w, int h)
+void adjust_rect(img_state* img, int w, int h, int use_mouse)
 {
-	int x, y;
-	// TODO not use mouse when doing zoom with GUI or Actual Size
-	// just keep image centered in those cases
-	SDL_GetMouseState(&x, &y);
-	
-	int l = img->scr_rect.x;
-	int r = l + img->scr_rect.w;
-	int t = img->scr_rect.y;
-	int b = t + img->scr_rect.h;
-	
-	x = MAX(x, l);
-	x = MIN(x, r);
-	y = MAX(y, t);
-	y = MIN(y, b);
+	// default is just zoom in/out with the image centered in it screen space
+	int final_x = img->scr_rect.x + (img->scr_rect.w-w)/2;
+	int final_y = img->scr_rect.y + (img->scr_rect.h-h)/2;
 
-	float px = (x-img->disp_rect.x)/(float)img->disp_rect.w;
-	float py = (y-img->disp_rect.y)/(float)img->disp_rect.h;
+	// if the mouse scrollwheel was used and there's a single image focused *and* the image is bigger
+	// than its space in at least one dimension, zoom in on where the mouse is hovering
+	if (use_mouse && (g->n_imgs == 1 || g->img_focus) && (w > img->scr_rect.w || h > img->scr_rect.h)) {
+		int x, y;
 
-	// There might be a slightly better way to organize/calculate this but this works
-	int final_x, final_y;
-	if ((g->n_imgs == 1 || g->img_focus == img) && w > img->scr_rect.w) {
-		final_x = x-px*w;
-		
-		if (final_x + w < r)
-			final_x += r-(final_x+w);
-		if (final_x > l)
-			final_x -= final_x-l;
-	} else {
-		final_x = img->scr_rect.x + (img->scr_rect.w-w)/2;
+		// I know r and b aren't actually valid pixels since it's [x, x+w) etc.
+		// but I'm just using it as an intermediate step and I want the full 0-100%
+		int l = img->scr_rect.x;
+		int r = l + img->scr_rect.w;
+		int t = img->scr_rect.y;
+		int b = t + img->scr_rect.h;
+
+		SDL_GetMouseState(&x, &y);
+
+		// clip mouse position to image available screen space
+		x = MAX(x, l);
+		x = MIN(x, r);
+		y = MAX(y, t);
+		y = MIN(y, b);
+
+		float px = (x-img->disp_rect.x)/(float)img->disp_rect.w;
+		float py = (y-img->disp_rect.y)/(float)img->disp_rect.h;
+
+		// There might be a slightly better way to organize/calculate this but this works
+		if (w > img->scr_rect.w) {
+			// adjust based on mouse position % relative to current display width * new width
+			final_x = x-px*w;
+
+			// don't allow blank space on a side if the dimension is greater
+			// than the screen space, that would be a waste
+			if (final_x + w < r)
+				final_x += r-(final_x+w);
+			if (final_x > l)
+				final_x = l;
+		}
+		if (h > img->scr_rect.h) {
+			final_y = y-py*h;
+
+			if (final_y + h < b)
+				final_y += b-(final_y+h);
+			if (final_y > t)
+				final_y = t;
+		}
 	}
 
-	if ((g->n_imgs == 1 || g->img_focus == img) && h > img->scr_rect.h) {
-		final_y = y-py*h;
-
-		if (final_y + h < b)
-			final_y += b-(final_y+h);
-		if (final_y > t)
-			final_y -= final_y-t;
-	} else {
-		final_y = img->scr_rect.y + (img->scr_rect.h-h)/2;
-	}
+	// in either case update the display rect
 	img->disp_rect.x = final_x;
 	img->disp_rect.y = final_y;
 	img->disp_rect.w = w;
@@ -462,10 +471,10 @@ void set_rect_bestfit(img_state* img, int fill_screen)
 
 	w = h * aspect;
 
-	adjust_rect(img, w, h);
+	adjust_rect(img, w, h, SDL_FALSE);
 }
 
-void set_rect_zoom(img_state* img, int zoom)
+void set_rect_zoom(img_state* img, int zoom, int use_mouse)
 {
 	float aspect = img->w/(float)img->h;
 	int h, w;
@@ -483,7 +492,7 @@ void set_rect_zoom(img_state* img, int zoom)
 
 	w = h * aspect;
 
-	adjust_rect(img, w, h);
+	adjust_rect(img, w, h, use_mouse);
 }
 
 // don't waste space even when drag/panning
@@ -1159,7 +1168,7 @@ int try_move(int direction)
 	return 0;
 }
 
-void do_zoom(int dir)
+void do_zoom(int dir, int use_mouse)
 {
 	if (!g->img_focus) {
 		for (int i=0; i<g->n_imgs; ++i) {
@@ -1169,11 +1178,11 @@ void do_zoom(int dir)
 			}
 		}
 		for (int i=0; i<g->n_imgs; ++i)
-			set_rect_zoom(&g->img[i], dir);
+			set_rect_zoom(&g->img[i], dir, use_mouse);
 	} else {
 		if (g->img_focus->frames > 1)
 			dir /= GIF_ZOOM_DIV;
-		set_rect_zoom(g->img_focus, dir);
+		set_rect_zoom(g->img_focus, dir, use_mouse);
 	}
 }
 
@@ -1294,10 +1303,10 @@ void do_actual_size()
 	g->status = REDRAW;
 	if (!g->img_focus) {
 		for (int i=0; i<g->n_imgs; ++i) {
-			adjust_rect(&g->img[i], g->img[i].w, g->img[i].h);
+			adjust_rect(&g->img[i], g->img[i].w, g->img[i].h, SDL_FALSE);
 		}
 	} else {
-		adjust_rect(g->img_focus, g->img_focus->w, g->img_focus->h);
+		adjust_rect(g->img_focus, g->img_focus->w, g->img_focus->h, SDL_FALSE);
 	}
 }
 
@@ -1389,7 +1398,7 @@ int handle_events()
 				break;
 			case ZOOM_PLUS:
 			case ZOOM_MINUS:
-				do_zoom(code == ZOOM_PLUS ? GUI_ZOOM : -GUI_ZOOM);
+				do_zoom(code == ZOOM_PLUS ? GUI_ZOOM : -GUI_ZOOM, SDL_FALSE);
 				break;
 			case ROT_LEFT:
 			case ROT_RIGHT:
@@ -1684,7 +1693,7 @@ int handle_events()
 			case SDL_SCANCODE_MINUS:
 				g->status = REDRAW;
 				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
-					do_zoom(-KEY_ZOOM);
+					do_zoom(-KEY_ZOOM, SDL_FALSE);
 				} else {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
@@ -1700,7 +1709,7 @@ int handle_events()
 			case SDL_SCANCODE_EQUALS:
 				g->status = REDRAW;
 				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
-					do_zoom(KEY_ZOOM);
+					do_zoom(KEY_ZOOM, SDL_FALSE);
 				} else {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
@@ -1766,9 +1775,9 @@ int handle_events()
 		case SDL_MOUSEWHEEL:
 			g->status = REDRAW;
 			if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
-				do_zoom(e.wheel.y*SCROLL_ZOOM);
+				do_zoom(e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
 			} else {
-				do_zoom(-e.wheel.y*SCROLL_ZOOM);
+				do_zoom(-e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
 			}
 			break;
 
