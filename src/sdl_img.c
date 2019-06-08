@@ -208,8 +208,14 @@ typedef struct global_state
 	int fill_mode;
 	int mouse_timer;
 	int mouse_state;
-	int show_about;
 
+	int show_about;
+	int show_prefs;
+	int menu_state;
+
+	struct nk_color bg;
+
+	int slide_delay;
 	int slideshow;
 	int slide_timer;
 
@@ -931,6 +937,8 @@ int setup(char* dirpath)
 
 	g->n_imgs = 1;
 	g->img = g->img1;
+	g->slide_delay = 3;
+	g->bg = nk_rgb(0,0,0);
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
 		perror("Couldn't allocate tex array");
@@ -1075,16 +1083,11 @@ int setup(char* dirpath)
 	return what;
 }
 
-void toggle_fullscreen()
+// probably now worth even worth having a 2 line function used 3 places?
+void set_fullscreen()
 {
 	g->status = REDRAW;
-	if (g->fullscreen) {
-		SDL_SetWindowFullscreen(g->win, 0);
-		g->fullscreen = 0;
-	} else {
-		SDL_SetWindowFullscreen(g->win, SDL_WINDOW_FULLSCREEN_DESKTOP);
-		g->fullscreen = 1;
-	}
+	SDL_SetWindowFullscreen(g->win, g->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 }
 
 void replace_img(img_state* i1, img_state* i2)
@@ -1259,6 +1262,14 @@ void do_delete(SDL_Event* next)
 	int buttonid;
 
 	char msgbox_prompt[STRBUF_SZ];
+
+	// only delete in single image mode to avoid confusion and complication
+	// and not while loading of course
+	if (g->loading || g->n_imgs != 1) {
+		// TODO messagebox here saying only support deletion in single mode?
+		return;
+	}
+
 	if (g->dirpath)
 		sprintf(full_img_path, "%s/%s", g->dirpath, g->files.a[g->img[0].index]);
 	else
@@ -1429,10 +1440,7 @@ int handle_events()
 				break;
 
 			case SDL_SCANCODE_DELETE:
-				// only delete in single image mode to avoid confusion and complication
-				if (!g->loading && g->n_imgs == 1) {
-					do_delete(&space);
-				}
+				do_delete(&space);
 				break;
 
 			case SDL_SCANCODE_L:
@@ -1457,7 +1465,8 @@ int handle_events()
 				break;
 
 			case SDL_SCANCODE_F11:
-				toggle_fullscreen();
+				g->fullscreen = !g->fullscreen;
+				set_fullscreen();
 				break;
 
 			case SDL_SCANCODE_0:
@@ -1532,7 +1541,8 @@ int handle_events()
 			case SDL_SCANCODE_F: {
 				g->status = REDRAW;
 				if (mod_state & (KMOD_LALT | KMOD_RALT)) {
-					toggle_fullscreen();
+					g->fullscreen = !g->fullscreen;
+					set_fullscreen();
 				} else {
 					g->fill_mode = !g->fill_mode;
 					if (!g->img_focus) {
@@ -2026,7 +2036,7 @@ int main(int argc, char** argv)
 
 		if (g->mouse_state || g->status == REDRAW) {
 			// gui drawing changes draw color so have to reset to black every time
-			SDL_SetRenderDrawColor(g->ren, 0, 0, 0, 255);
+			SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
 			SDL_RenderSetClipRect(g->ren, NULL);
 			SDL_RenderClear(g->ren);
 			for (int i=0; i<g->n_imgs; ++i) {

@@ -1,15 +1,28 @@
 
 void cleanup(int ret, int called_setup);
 void set_rect_bestfit(img_state* img, int fill_screen);
+void set_fullscreen();
+
+enum { MENU_NONE, MENU_EDIT, MENU_VIEW };
 
 void draw_gui(struct nk_context* ctx)
 {
 	char info_buf[STRBUF_SZ];
 	int len;
+
 	int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
+
+	// closable gives the x, if you use it it won't come back (probably have to call show() or
+	// something...
+	int prefs_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
+
 	SDL_Event event = { .type = g->userevent };
 	img_state* img;
 	char* sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
+
+	static struct nk_colorf bgf = { 0, 0, 0, 1 };
+
+	//bgf = nk_color_cf(g->bg);
 
 	// Can't use actual screen size g->scr_w/h have to
 	// calculate logical screen size since GUI is scaled
@@ -54,7 +67,14 @@ void draw_gui(struct nk_context* ctx)
 		*/
 		nk_layout_row_template_end(ctx);
 
-		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(200, 400))) {
+		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(400, 400))) {
+
+			enum nk_collapse_states state;
+			float ratios[] = { 0.7f, 0.3f, 0.8f, 0.2f };
+
+			// as long as menu is open don't let gui disappear
+			g->mouse_timer = SDL_GetTicks();
+
 			nk_layout_row_dynamic(ctx, 0, 3);
 			nk_label(ctx, "GUI:", NK_TEXT_LEFT);
 			if (nk_menu_item_label(ctx, "-", NK_TEXT_CENTERED)) {
@@ -73,53 +93,108 @@ void draw_gui(struct nk_context* ctx)
 			}
 
 			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_menu_item_label(ctx, "Preferences", NK_TEXT_LEFT)) {
+				g->show_prefs = nk_true;
+			}
 			if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
 				g->show_about = nk_true;
 			}
-
-			// TODO maybe make dynamic menus, ie since Nuklear doesn't support popups of popups
-			// make Image Actions/Viewing mode change state of entire menu to only
-			// show sub buttons
-			nk_label(ctx, "Image Actions", NK_TEXT_LEFT);
-				if (nk_menu_item_label(ctx, "Delete", NK_TEXT_RIGHT)) {
-					event.user.code = DELETE;
-					SDL_PushEvent(&event);
-				}
-				if (nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_RIGHT)) {
-					event.user.code = ROT_LEFT;
-					SDL_PushEvent(&event);
-				}
-				if (nk_menu_item_label(ctx, "Rotate Right", NK_TEXT_RIGHT)) {
-					event.user.code = ROT_RIGHT;
-					SDL_PushEvent(&event);
-				}
-
-			nk_label(ctx, "Viewing Mode", NK_TEXT_LEFT);
-				if (nk_menu_item_label(ctx, "1 image", NK_TEXT_RIGHT)) {
-					event.user.code = MODE_CHANGE;
-					event.user.data1 = (void*)MODE1;
-					SDL_PushEvent(&event);
-				}
-				if (nk_menu_item_label(ctx, "2 images", NK_TEXT_RIGHT)) {
-					event.user.code = MODE_CHANGE;
-					event.user.data1 = (void*)MODE2;
-					SDL_PushEvent(&event);
-				}
-				if (nk_menu_item_label(ctx, "4 images", NK_TEXT_RIGHT)) {
-					event.user.code = MODE_CHANGE;
-					event.user.data1 = (void*)MODE4;
-					SDL_PushEvent(&event);
-				}
-				if (nk_menu_item_label(ctx, "8 images", NK_TEXT_RIGHT)) {
-					event.user.code = MODE_CHANGE;
-					event.user.data1 = (void*)MODE8;
-					SDL_PushEvent(&event);
-				}
-
 			if (nk_menu_item_label(ctx, "Exit", NK_TEXT_LEFT)) {
 				event.type = SDL_QUIT;
 				SDL_PushEvent(&event);
 			}
+
+			state = (g->menu_state == MENU_EDIT) ? NK_MAXIMIZED: NK_MINIMIZED;
+			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Image Actions", &state)) {
+				g->menu_state = MENU_EDIT;
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+
+				if (nk_selectable_label(ctx, "Slideshow", NK_TEXT_LEFT, &g->slideshow)) {
+					if (g->slideshow)
+						g->slideshow = g->slide_delay*1000;
+				}
+				nk_label(ctx, "F1 - F10/ESC", NK_TEXT_RIGHT);
+
+				// TODO figure out why menu_item_labels are slightly wider (on both sides)
+				// than selectables
+				if (nk_selectable_label(ctx, "Fullscreen", NK_TEXT_LEFT, &g->fullscreen)) {
+					set_fullscreen();
+				}
+				nk_label(ctx, "ALT+F or F11", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "Actual Size", NK_TEXT_LEFT)) {
+					event.user.code = ACTUAL_SIZE;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "A", NK_TEXT_RIGHT);
+
+				if (nk_selectable_label(ctx, "Best fit", NK_TEXT_LEFT, &g->fill_mode)) {
+					if (!g->img_focus) {
+						for (int i=0; i<g->n_imgs; ++i)
+							set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);
+					} else {
+						set_rect_bestfit(g->img_focus, g->fullscreen | g->slideshow | g->fill_mode);
+					}
+				}
+				nk_label(ctx, "F", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_LEFT)) {
+					event.user.code = ROT_LEFT;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "L", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "Rotate Right", NK_TEXT_LEFT)) {
+					event.user.code = ROT_RIGHT;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "R", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "Delete", NK_TEXT_LEFT)) {
+					event.user.code = DELETE;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "DEL", NK_TEXT_RIGHT);
+
+				nk_tree_pop(ctx);
+			} else g->menu_state = (g->menu_state == MENU_EDIT) ? MENU_NONE: g->menu_state;
+
+
+			state = (g->menu_state == MENU_VIEW) ? NK_MAXIMIZED: NK_MINIMIZED;
+			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Viewing Mode", &state)) {
+				g->menu_state = MENU_VIEW;
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
+
+				if (nk_menu_item_label(ctx, "1 image", NK_TEXT_LEFT)) {
+					event.user.code = MODE_CHANGE;
+					event.user.data1 = (void*)MODE1;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "CTRL+1", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "2 images", NK_TEXT_LEFT)) {
+					event.user.code = MODE_CHANGE;
+					event.user.data1 = (void*)MODE2;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "CTRL+2", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "4 images", NK_TEXT_LEFT)) {
+					event.user.code = MODE_CHANGE;
+					event.user.data1 = (void*)MODE4;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "CTRL+4", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "8 images", NK_TEXT_LEFT)) {
+					event.user.code = MODE_CHANGE;
+					event.user.data1 = (void*)MODE8;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "CTRL+8", NK_TEXT_RIGHT);
+
+				nk_tree_pop(ctx);
+			} else g->menu_state = (g->menu_state == MENU_VIEW) ? MENU_NONE: g->menu_state;
 
 			nk_menu_end(ctx);
 		}
@@ -160,7 +235,7 @@ void draw_gui(struct nk_context* ctx)
 		// TODO
 		if (nk_selectable_label(ctx, "Slideshow", NK_TEXT_RIGHT, &g->slideshow)) {
 			if (g->slideshow)
-				g->slideshow = 3000; // default to 3 seconds
+				g->slideshow = g->slide_delay*1000;
 		}
 
 		if (nk_button_label(ctx, "Actual")) {
@@ -219,11 +294,13 @@ void draw_gui(struct nk_context* ctx)
 				nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
 				nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
 
-				// credits
+				// TODO add credits
 				// Sean T Barret (sp?) single header libraries
 				// stb_image, stb_image_write
 				//
 				// nuklear (which also uses stb libs)
+				//
+				// SDL2, SDL2_gfx, curl
 				//
 				// My own cvector lib
 
@@ -234,6 +311,46 @@ void draw_gui(struct nk_context* ctx)
 	nk_end(ctx);
 
 
+	if (g->show_prefs) {
+		int w = 400, h = 400; ///scale_x, h = 400/scale_y;
+		struct nk_rect s;
+		s.x = scr_w/2-w/2;
+		s.y = scr_h/2-h/2;
+		s.w = w;
+		s.h = h;
+
+		if (nk_begin(ctx, "Preferences", s, prefs_flags)) {
+			nk_layout_row_dynamic(ctx, 0, 2);
+			nk_label(ctx, "background:", NK_TEXT_LEFT);
+			if (nk_combo_begin_color(ctx, nk_rgb_cf(bgf), nk_vec2(nk_widget_width(ctx), 400))) {
+				nk_layout_row_dynamic(ctx, 120, 1);
+				bgf = nk_color_picker(ctx, bgf, NK_RGBA);
+				nk_layout_row_dynamic(ctx, 25, 1);
+				bgf.r = nk_propertyf(ctx, "#R:", 0, bgf.r, 1.0f, 0.01f,0.005f);
+				bgf.g = nk_propertyf(ctx, "#G:", 0, bgf.g, 1.0f, 0.01f,0.005f);
+				bgf.b = nk_propertyf(ctx, "#B:", 0, bgf.b, 1.0f, 0.01f,0.005f);
+				bgf.a = nk_propertyf(ctx, "#A:", 0, bgf.a, 1.0f, 0.01f,0.005f);
+				g->bg = nk_rgb_cf(bgf);
+				nk_combo_end(ctx);
+			}
+
+			nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
+			nk_property_int(ctx, "", 1, &g->slide_delay, 10, 1, 0.05);
+
+
+			nk_layout_row_dynamic(ctx, 0, 1);
+			nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
+			nk_label(ctx, g->cachedir, NK_TEXT_RIGHT);
+
+
+			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_button_label(ctx, "Ok")) {
+				g->show_prefs = 0;;
+			}
+		}
+		nk_end(ctx);
+
+	}
 
 	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-30, scr_w, 30), gui_flags))
 	{
