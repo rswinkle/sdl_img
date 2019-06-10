@@ -61,7 +61,7 @@ enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
 enum { IMAGE, URL, DIRECTORY };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT,
-       MODE_CHANGE, DELETE, ACTUAL_SIZE, NUM_USEREVENTS };
+       MODE_CHANGE, DELETE_IMG, ACTUAL_SIZE, NUM_USEREVENTS };
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -979,7 +979,7 @@ int setup(char* dirpath)
 				g->dirpath = dirpath;
 				cvec_erase_str(&g->files, 0, 0);
 				myscandir(NULL);
-				printf("Scanned %lu files in %s\n", g->files.size, dirpath);
+				printf("Scanned %"PRIuMAX" files in %s\n", g->files.size, dirpath);
 				what = DIRECTORY;
 				for (int i=0; i<g->files.size; ++i) {   // find first valid image in dir
 					if ((ret = load_image(g->files.a[i], &g->img[0], SDL_FALSE))) {
@@ -1412,7 +1412,7 @@ int handle_events()
 			case ACTUAL_SIZE:
 				do_actual_size();
 				break;
-			case DELETE:
+			case DELETE_IMG:
 				do_delete(&space);
 				break;
 			default:
@@ -1996,7 +1996,7 @@ int main(int argc, char** argv)
 		puts("No images provided, exiting (empty list perhaps?)");
 		cleanup(1, 0);
 	}
-	printf("found %lu images in args\n", g->files.size);
+	printf("found %"PRIuMAX" images in args\n", g->files.size);
 
 	int what = setup(dirpath);
 
@@ -2010,7 +2010,7 @@ int main(int argc, char** argv)
 
 		g->dirpath = dirpath;
 		myscandir(img_name);
-		printf("Scanned %lu files in %s\n", g->files.size, dirpath);
+		printf("Scanned %"PRIuMAX" files in %s\n", g->files.size, dirpath);
 	}
 
 	int is_a_gif;

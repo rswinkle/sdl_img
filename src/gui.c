@@ -151,7 +151,7 @@ void draw_gui(struct nk_context* ctx)
 				nk_label(ctx, "R", NK_TEXT_RIGHT);
 
 				if (nk_menu_item_label(ctx, "Delete", NK_TEXT_LEFT)) {
-					event.user.code = DELETE;
+					event.user.code = DELETE_IMG;
 					SDL_PushEvent(&event);
 				}
 				nk_label(ctx, "DEL", NK_TEXT_RIGHT);

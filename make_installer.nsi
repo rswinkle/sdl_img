@@ -5,7 +5,7 @@
 ; --------------------------------
 
 ; Change these as needed
-!define VERSION "0.95"
+!define VERSION "0.96"
 !define INST_FOLDER "package"
 
 SetCompressor /SOLID /FINAL lzma
