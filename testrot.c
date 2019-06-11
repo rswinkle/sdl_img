@@ -1,10 +1,10 @@
 
 //#define STBI_FAILURE_USERMSG
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "src/stb_image.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
+#include "src/stb_image_write.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +21,7 @@
 #include <SDL.h>
 
 
+// gcc -O2 testrot.c -o test_rotation2 `sdl2-config --cflags --libs` -lm
 
 #define MAX(a, b)  ((a) > (b)) ? (a) : (b)
 #define MIN(a, b)  ((a) < (b)) ? (a) : (b)
@@ -212,7 +213,7 @@ int main(int argc, char** argv)
 
 	int dim = sqrt(w*w + h*h);
 
-	u8* rotimg = malloc(dim*dim*4);
+	u8* rotimg = malloc(dim*dim*4*frames);
 
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
@@ -246,9 +247,12 @@ int main(int argc, char** argv)
 	int w2old = w/2;
 	float rads;
 	int x, y, xout, yout;
+	int size = w*h*4;
 
 
-	SDL_Texture* tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, dim, dim);
+	SDL_Texture** tex = malloc(frames*sizeof(*tex));
+	for (int i=0; i<frames; ++i)
+		tex[i] = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, dim, dim);
 
 	changed = 1;
 
@@ -261,6 +265,8 @@ int main(int argc, char** argv)
 
 	u8* pixels;
 	int pitch;
+	int cur_frame = 0;
+	int present_time = 0;
 
 	while (1) {
 		if (handle_events())
@@ -277,38 +283,46 @@ int main(int argc, char** argv)
 			counter = 0;
 		}
 
-		// No apparent speed benefit to using lock/unlock vs UpdateTexture
-		SDL_LockTexture(tex, NULL, (void**)&outu32, &pitch);
 
 		if (changed) {
-			memset(outu32, 0, dim*dim*4);
 
 			rads = rotdegs * (3.14159265f/180.0f);
 
-			for (int i=0; i<dim; ++i) {
-				y = i - dim2;
-				for (int j=0; j<dim; ++j) {
-					x = j - dim2;
-					xout = x * cos(-rads) - y * sin(-rads) + w2old;
-					yout = x * sin(-rads) + y * cos(-rads) + h2old;
+			for (int k=0; k<frames; ++k) {
+				// No apparent speed benefit to using lock/unlock vs UpdateTexture
+				SDL_LockTexture(tex[k], NULL, (void**)&outu32, &pitch);
+				memset(outu32, 0, dim*dim*4);
+				inu32 = (u32*)&img[(size+2)*k];
+				for (int i=0; i<dim; ++i) {
+					y = i - dim2;
+					for (int j=0; j<dim; ++j) {
+						x = j - dim2;
+						xout = x * cos(-rads) - y * sin(-rads) + w2old;
+						yout = x * sin(-rads) + y * cos(-rads) + h2old;
 
-					if (xout >= 0 && xout < w && yout >= 0 && yout < h) {
-						//memcpy(&rotimg[(i*dim + j)*4], &img[(yout*w + xout)*4], 4);
-						//
+						if (xout >= 0 && xout < w && yout >= 0 && yout < h) {
+							//memcpy(&rotimg[(i*dim + j)*4], &img[(yout*w + xout)*4], 4);
+							//
 
-						outu32[i*dim + j] = inu32[yout*w + xout];
+							outu32[i*dim + j] = inu32[yout*w + xout];
+						}
+
+
 					}
-
-
 				}
+				SDL_UnlockTexture(tex[k]);
+				//SDL_UpdateTexture(tex[k], NULL, rotimg, dim*4);
 			}
 
-			SDL_UnlockTexture(tex);
-			//SDL_UpdateTexture(tex, NULL, rotimg, dim*4);
 		}
 
 		SDL_RenderClear(ren);
-		SDL_RenderCopy(ren, tex, NULL, NULL);
+		if (frames > 1 && new_time - present_time >= 50) {
+			cur_frame++;
+			cur_frame %= frames;
+			present_time = new_time;
+		}
+		SDL_RenderCopy(ren, tex[cur_frame], NULL, NULL);
 		SDL_RenderPresent(ren);
 
 		changed = 0;
