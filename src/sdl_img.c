@@ -646,6 +646,41 @@ void print_img_state(img_state* img)
 #define print_img_state(x)
 #endif
 
+int mkdir_p(const char* path, mode_t mode)
+{
+	char path_buf[STRBUF_SZ] = { 0 };
+
+	strncpy(path_buf, path, STRBUF_SZ);
+	if (path_buf[STRBUF_SZ-1]) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+
+	char* p = path_buf;
+	// skip / if it's the first character
+	if (*p == '/')
+		p++;
+
+	for (; *p; ++p) {
+		if (*p == '/') {
+			*p = 0;
+
+			// TODO macros for permissions?
+			if (mkdir(path_buf, 0700) && errno != EEXIST) {
+				return -1;
+			}
+
+			*p = '/';
+		}
+	}
+
+	if (mkdir(path_buf, 0700) && errno != EEXIST) {
+		return -1;
+	}
+
+	return 0;
+}
+
 int curl_image(int img_idx)
 {
 	CURL* curl = curl_easy_init();
@@ -1922,7 +1957,7 @@ int main(int argc, char** argv)
 		cleanup(1, 0);
 	}
 	// TODO fix bug when parent dir sdl_img doesn't exist
-	if (mkdir(cachedir, 0700) && errno != EEXIST) {
+	if (mkdir_p(cachedir, 0700) && errno != EEXIST) {
 		perror("Failed to make cache directory");
 		cleanup(1, 0);
 	}
@@ -1938,6 +1973,7 @@ int main(int argc, char** argv)
 			}
 			FILE* file = fopen(argv[++i], "r");
 			if (!file) {
+				// TODO print filename
 				perror("fopen");
 				cleanup(1, 0);
 			}
@@ -1972,7 +2008,7 @@ int main(int argc, char** argv)
 			if (i+1 == argc) {
 				puts("no cache directory provieded, using default cache location.");
 			} else {
-				if (mkdir(argv[++i], 0700) && errno != EEXIST) {
+				if (mkdir_p(argv[++i], 0700) && errno != EEXIST) {
 					perror("Failed to make cache directory");
 					cleanup(1, 0);
 				}
