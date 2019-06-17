@@ -657,16 +657,18 @@ int mkdir_p(const char* path, mode_t mode)
 	}
 
 	char* p = path_buf;
-	// skip / if it's the first character
+
+	// minor optimization, and lets us do p[-1] below
 	if (*p == '/')
 		p++;
 
 	for (; *p; ++p) {
-		if (*p == '/') {
+		// no need to handle two / in a row
+		if (*p == '/' && p[-1] != '/') {
 			*p = 0;
 
 			// TODO macros for permissions?
-			if (mkdir(path_buf, 0700) && errno != EEXIST) {
+			if (mkdir(path_buf, mode) && errno != EEXIST) {
 				return -1;
 			}
 
@@ -674,7 +676,7 @@ int mkdir_p(const char* path, mode_t mode)
 		}
 	}
 
-	if (mkdir(path_buf, 0700) && errno != EEXIST) {
+	if (mkdir(path_buf, mode) && errno != EEXIST) {
 		return -1;
 	}
 
@@ -1126,7 +1128,7 @@ int setup(char* dirpath)
 	return what;
 }
 
-// probably now worth even worth having a 2 line function used 3 places?
+// probably now worth having a 2 line function used 3 places?
 void set_fullscreen()
 {
 	g->status = REDRAW;
@@ -1956,8 +1958,7 @@ int main(int argc, char** argv)
 		puts("cache path too long");
 		cleanup(1, 0);
 	}
-	// TODO fix bug when parent dir sdl_img doesn't exist
-	if (mkdir_p(cachedir, 0700) && errno != EEXIST) {
+	if (mkdir_p(cachedir, S_IRWXU) && errno != EEXIST) {
 		perror("Failed to make cache directory");
 		cleanup(1, 0);
 	}
@@ -2008,7 +2009,7 @@ int main(int argc, char** argv)
 			if (i+1 == argc) {
 				puts("no cache directory provieded, using default cache location.");
 			} else {
-				if (mkdir_p(argv[++i], 0700) && errno != EEXIST) {
+				if (mkdir_p(argv[++i], S_IRWXU) && errno != EEXIST) {
 					perror("Failed to make cache directory");
 					cleanup(1, 0);
 				}
