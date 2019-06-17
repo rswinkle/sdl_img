@@ -154,6 +154,7 @@ typedef struct img_state
 	int w;
 	int h;
 	int file_size;
+	char* fullpath;  // allocated by realpath() needs to be freed
 
 	int index;
 	int is_dup;
@@ -197,6 +198,7 @@ typedef struct global_state
 
 	char* dirpath;
 	char* cachedir;
+	//char* config_dir;
 
 	cvector_str files;
 
@@ -599,6 +601,7 @@ void clear_img(img_state* img)
 	//ones logic is based on
 	//stbi_image_free(img->pixels);
 	free(img->pixels);
+	free(img->fullpath);
 	img->pixels = NULL;
 	img->frames = 0;
 	img->rotated = 0;
@@ -624,7 +627,7 @@ void cleanup(int ret, int called_setup)
 }
 
 // debug
-#ifndef NDEBUG
+#if 0
 void print_img_state(img_state* img)
 {
 	printf("{\nimg = %p\n", img);
@@ -754,6 +757,7 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 		return 0;
 	}
 
+	img->fullpath = realpath(fullpath, NULL);
 	printf("loading %s\n", fullpath);
 
 	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, 4, &frames);
@@ -1346,6 +1350,25 @@ void do_actual_size()
 	}
 }
 
+void do_save()
+{
+	char buf[STRBUF_SZ];
+	char* prefpath = SDL_GetPrefPath("", "sdl_img");
+	snprintf(buf, STRBUF_SZ, "%s/favorites.txt", prefpath);
+
+	printf("saving to %s\n", buf);
+	FILE* f = fopen(buf, "a");
+	if (g->img_focus) {
+		fprintf(f, "%s\n", g->img_focus->fullpath);
+	} else {
+		for (int i=0; i<g->n_imgs; ++i) {
+			fprintf(f, "%s\n", g->img[i].fullpath);
+		}
+	}
+
+	fclose(f);
+}
+
 int handle_events()
 {
 	SDL_Event e;
@@ -1581,6 +1604,10 @@ int handle_events()
 
 			case SDL_SCANCODE_A:
 				do_actual_size();
+				break;
+
+			case SDL_SCANCODE_V:
+				do_save();
 				break;
 
 			case SDL_SCANCODE_F: {

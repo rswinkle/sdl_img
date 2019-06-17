@@ -1,1 +1,1 @@
-${CC:=gcc} -std=c99 -O2 src/sdl_img.c -o sdl_img -DNDEBUG `sdl2-config --libs --cflags` `curl-config --libs --cflags` -lSDL2_gfx -lm
+${CC:=gcc} -std=gnu99 -O2 src/sdl_img.c -o sdl_img -DNDEBUG `sdl2-config --libs --cflags` `curl-config --libs --cflags` -lSDL2_gfx -lm
