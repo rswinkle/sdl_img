@@ -63,6 +63,8 @@ void draw_gui(struct nk_context* ctx)
 			nk_label(ctx, "ferzkopp.net", NK_TEXT_RIGHT);
 			nk_label(ctx, "nuklear GUI", NK_TEXT_LEFT);
 			nk_label(ctx, "github.com/vurtun/nuklear", NK_TEXT_RIGHT);
+			nk_label(ctx, "libcurl", NK_TEXT_LEFT);
+			nk_label(ctx, "curl.haxx.se/libcurl/", NK_TEXT_RIGHT);
 
 			// Sean T Barret (sp?) single header libraries
 			// stb_image, stb_image_write
