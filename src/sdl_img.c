@@ -79,9 +79,11 @@ typedef int64_t i64;
 #define PATH_SEPARATOR '/'
 #define PAN_RATE 0.05
 #define MIN_GIF_DELAY 10
-#define HIDE_CURSOR_TIMER 5000
+#define HIDE_CURSOR_TIMER 2000
 #define SLEEP_TIME 50
 #define STRBUF_SZ 1024
+#define START_WIDTH 1200
+#define START_HEIGHT 800
 
 // zoom is calculated
 // h = old_h * (1.0 + zoom*ZOOM_RATE)
@@ -1039,11 +1041,11 @@ int setup(char* dirpath)
 	SDL_Rect r;
 	if (SDL_GetDisplayUsableBounds(0, &r)) {
 		printf("Error getting usable bounds: %s\n", SDL_GetError());
-		r.w = 800;
-		r.h = 600;
+		r.w = START_WIDTH;
+		r.h = START_HEIGHT;
 	}
-	g->scr_w = MAX(g->img[0].w, 800);
-	g->scr_h = MAX(g->img[0].h, 600);
+	g->scr_w = MAX(g->img[0].w, START_WIDTH);
+	g->scr_h = MAX(g->img[0].h, START_HEIGHT);
 	g->scr_w = MIN(g->scr_w, r.w);
 	g->scr_h = MIN(g->scr_h, r.h-40); // UsableBounds doesn't account for bottom panel in Mate :-/
 
@@ -1092,6 +1094,14 @@ int setup(char* dirpath)
 		puts("nk_sdl_init() failed!");
 		cleanup(1, 1);
 	}
+
+	// Make GUI partially transparent
+	g->ctx->style.window.fixed_background.data.color.a *= 0.75;
+	//g->ctx->style.window.background.a *= 0.75;
+
+	// Trying to figure out/fix why menu_item_labels are wider than selectables
+	//g->ctx->style.selectable.padding = nk_vec2(4.0f,4.0f);
+	//g->ctx->style.selectable.touch_padding = nk_vec2(4.0f,4.0f);
 
 	// TODO
 	// next and prev events?
@@ -1486,19 +1496,23 @@ int handle_events()
 	}
 	SDL_UnlockMutex(g->mtx);
 
-	if (g->slideshow && !g->loading && ticks - g->slide_timer > g->slideshow) {
-		int i;
-		// make sure all current gifs have gotten to the end
-		// at least once
-		for (i=0; i<g->n_imgs; ++i) {
-			if (!g->img[i].looped)
-				break;
-		}
-		if (i == g->n_imgs) {
-			SDL_PushEvent(&space);
+	if (g->slideshow) {
+		// pause slideshow if popup is up
+		if (g->show_about || g->show_prefs) {
+			g->slide_timer = ticks;
+		} else if (!g->loading && ticks - g->slide_timer > g->slideshow) {
+			int i;
+			// make sure all current gifs have gotten to the end
+			// at least once
+			for (i=0; i<g->n_imgs; ++i) {
+				if (!g->img[i].looped)
+					break;
+			}
+			if (i == g->n_imgs) {
+				SDL_PushEvent(&space);
+			}
 		}
 	}
-
 
 	int mouse_x, mouse_y;
 	u32 mouse_button_mask = SDL_GetMouseState(&mouse_x, &mouse_y);
@@ -1666,6 +1680,9 @@ int handle_events()
 
 			case SDL_SCANCODE_V:
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					// TODO maybe just flush events here and return 0 so
+					// no input for the current frame after CTRL+V? can I do
+					// that without breaking the GUI?
 					copy_escape = do_copy();
 				} else {
 					do_save();

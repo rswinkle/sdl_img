@@ -21,6 +21,8 @@ void draw_gui(struct nk_context* ctx)
 	char* sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
 
 	static struct nk_colorf bgf = { 0, 0, 0, 1 };
+	//static struct nk_colorf win_color;
+	//win_color = nk_color_cf(ctx->style.window.fixed_background.data.color);
 
 	//bgf = nk_color_cf(g->bg);
 
@@ -31,6 +33,119 @@ void draw_gui(struct nk_context* ctx)
 
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
+
+	// Do popups first so I can return early if eather is up
+	if (g->show_about) {
+		int w = 550, h = 350; ///scale_x, h = 400/scale_y;
+		struct nk_rect s;
+		s.x = scr_w/2-w/2;
+		s.y = scr_h/2-h/2;
+		s.w = w;
+		s.h = h;
+
+		// as long as a "popup" is open don't let gui disappear
+		g->mouse_timer = SDL_GetTicks();
+		if (nk_begin(ctx, "About sdl_img", s, prefs_flags))
+		{
+			nk_layout_row_dynamic(ctx, 0, 1);
+			nk_label(ctx, VERSION_STR, NK_TEXT_CENTERED);
+			nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
+			nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
+			nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
+
+			nk_label(ctx, "Credits:", NK_TEXT_CENTERED);
+			nk_layout_row_dynamic(ctx, 0, 2);
+			nk_label(ctx, "stb_image, stb_image_write", NK_TEXT_LEFT);
+			nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
+			nk_label(ctx, "SDL2", NK_TEXT_LEFT);
+			nk_label(ctx, "libsdl.org", NK_TEXT_RIGHT);
+			nk_label(ctx, "SDL2_gfx", NK_TEXT_LEFT);
+			nk_label(ctx, "ferzkopp.net", NK_TEXT_RIGHT);
+			nk_label(ctx, "nuklear GUI", NK_TEXT_LEFT);
+			nk_label(ctx, "github.com/vurtun/nuklear", NK_TEXT_RIGHT);
+
+			// Sean T Barret (sp?) single header libraries
+			// stb_image, stb_image_write
+			//
+			// nuklear (which also uses stb libs)
+			//
+			// My own cvector lib
+
+			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_button_label(ctx, "Ok")) {
+				g->show_about = 0;;
+			}
+		}
+		nk_end(ctx);
+	}
+
+	if (g->show_prefs) {
+		int w = 550, h = 250; ///scale_x, h = 400/scale_y;
+		struct nk_rect s;
+		s.x = scr_w/2-w/2;
+		s.y = scr_h/2-h/2;
+		s.w = w;
+		s.h = h;
+
+		// as long as a "popup" is open don't let gui disappear
+		g->mouse_timer = SDL_GetTicks();
+
+		if (nk_begin(ctx, "Preferences", s, prefs_flags)) {
+			nk_layout_row_dynamic(ctx, 0, 2);
+			nk_label(ctx, "background:", NK_TEXT_LEFT);
+			if (nk_combo_begin_color(ctx, nk_rgb_cf(bgf), nk_vec2(nk_widget_width(ctx), 400))) {
+				nk_layout_row_dynamic(ctx, 120, 1);
+				bgf = nk_color_picker(ctx, bgf, NK_RGBA);
+				nk_layout_row_dynamic(ctx, 25, 1);
+				bgf.r = nk_propertyf(ctx, "#R:", 0, bgf.r, 1.0f, 0.01f,0.005f);
+				bgf.g = nk_propertyf(ctx, "#G:", 0, bgf.g, 1.0f, 0.01f,0.005f);
+				bgf.b = nk_propertyf(ctx, "#B:", 0, bgf.b, 1.0f, 0.01f,0.005f);
+
+				// doesn't make sense to have the background be transparent
+				//bgf.a = nk_propertyf(ctx, "#A:", 0, bgf.a, 1.0f, 0.01f,0.005f);
+				g->bg = nk_rgb_cf(bgf);
+				nk_combo_end(ctx);
+			}
+
+
+			/*
+			nk_label(ctx, "GUI Color:", NK_TEXT_LEFT);
+			if (nk_combo_begin_color(ctx, nk_rgb_cf(win_color), nk_vec2(nk_widget_width(ctx), 400))) {
+				nk_layout_row_dynamic(ctx, 120, 1);
+				win_color = nk_color_picker(ctx, win_color, NK_RGBA);
+				nk_layout_row_dynamic(ctx, 25, 1);
+				win_color.r = nk_propertyf(ctx, "#R:", 0, win_color.r, 1.0f, 0.01f,0.005f);
+				win_color.g = nk_propertyf(ctx, "#G:", 0, win_color.g, 1.0f, 0.01f,0.005f);
+				win_color.b = nk_propertyf(ctx, "#B:", 0, win_color.b, 1.0f, 0.01f,0.005f);
+				win_color.a = nk_propertyf(ctx, "#A:", 0, win_color.a, 1.0f, 0.01f,0.005f);
+				ctx->style.window.fixed_background.data.color = nk_rgba_cf(win_color);
+				nk_combo_end(ctx);
+			}
+			*/
+
+			nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
+			nk_property_int(ctx, "", 1, &g->slide_delay, 10, 1, 0.05);
+
+
+			nk_layout_row_dynamic(ctx, 0, 1);
+			nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
+			nk_label(ctx, g->cachedir, NK_TEXT_RIGHT);
+
+
+			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_button_label(ctx, "Ok")) {
+				g->show_prefs = 0;;
+			}
+		}
+		nk_end(ctx);
+
+	}
+
+	// don't show main GUI if a popup is up, don't want user to
+	// be able to interact with it.  Could look up how to make them inactive
+	// but meh, this is simpler
+	if (g->show_about || g->show_prefs)
+		return;
 
 	if (nk_begin(ctx, "Controls", nk_rect(0, 0, scr_w, 30), gui_flags))
 	{
@@ -48,14 +163,9 @@ void draw_gui(struct nk_context* ctx)
 		nk_layout_row_template_push_static(ctx, 40);
 		nk_layout_row_template_push_static(ctx, 40);
 
-		// best fit, slideshow, and actual size
-		nk_layout_row_template_push_static(ctx, 80);
-		nk_layout_row_template_push_static(ctx, 80);
-		nk_layout_row_template_push_static(ctx, 80);
-
 		// Rotate left and right
-		nk_layout_row_template_push_static(ctx, 90);
-		nk_layout_row_template_push_static(ctx, 90);
+		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, 40);
 
 		// Mode 1 2 4 8
 		/*
@@ -221,9 +331,22 @@ void draw_gui(struct nk_context* ctx)
 			SDL_PushEvent(&event);
 		}
 
+		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
+
+		// My brother insists that rotation be in buttons at the top
+		// I think they're not that important, will be too often cut off in
+		// small windows and using the keyboard is better anyway.  This
+		// is my compromise, using single character buttons.
+		if (nk_button_label(ctx, "L")) {
+			event.user.code = ROT_LEFT;
+			SDL_PushEvent(&event);
+		}
+		if (nk_button_label(ctx, "R")) {
+			event.user.code = ROT_RIGHT;
+			SDL_PushEvent(&event);
+		}
 
 		/*
-		nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
 		
 		if (nk_selectable_label(ctx, "Best fit", NK_TEXT_RIGHT, &g->fill_mode)) {
 			if (!g->img_focus) {
@@ -244,14 +367,6 @@ void draw_gui(struct nk_context* ctx)
 			SDL_PushEvent(&event);
 		}
 
-		if (nk_button_label(ctx, "Rot Left")) {
-			event.user.code = ROT_LEFT;
-			SDL_PushEvent(&event);
-		}
-		if (nk_button_label(ctx, "Rot Right")) {
-			event.user.code = ROT_RIGHT;
-			SDL_PushEvent(&event);
-		}
 
 		nk_label(ctx, "mode:", NK_TEXT_RIGHT);
 		if (nk_button_label(ctx, "1")) {
@@ -279,93 +394,6 @@ void draw_gui(struct nk_context* ctx)
 	}
 	nk_end(ctx);
 
-	if (g->show_about) {
-		int w = 500, h = 400; ///scale_x, h = 400/scale_y;
-		struct nk_rect s;
-		s.x = scr_w/2-w/2;
-		s.y = scr_h/2-h/2;
-		s.w = w;
-		s.h = h;
-
-		// as long as a "popup" is open don't let gui disappear
-		g->mouse_timer = SDL_GetTicks();
-		if (nk_begin(ctx, "About sdl_img", s, prefs_flags))
-		{
-			nk_layout_row_dynamic(ctx, 0, 1);
-			nk_label(ctx, VERSION_STR, NK_TEXT_CENTERED);
-			nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
-			nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
-			nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
-
-			nk_label(ctx, "Credits:", NK_TEXT_CENTERED);
-			nk_layout_row_dynamic(ctx, 0, 2);
-			nk_label(ctx, "stb_image, stb_image_write", NK_TEXT_LEFT);
-			nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
-			nk_label(ctx, "SDL2", NK_TEXT_LEFT);
-			nk_label(ctx, "libsdl.org", NK_TEXT_RIGHT);
-			nk_label(ctx, "SDL2_gfx", NK_TEXT_LEFT);
-			nk_label(ctx, "ferzkopp.net", NK_TEXT_RIGHT);
-			nk_label(ctx, "nuklear GUI", NK_TEXT_LEFT);
-			nk_label(ctx, "github.com/vurtun/nuklear", NK_TEXT_RIGHT);
-
-			// Sean T Barret (sp?) single header libraries
-			// stb_image, stb_image_write
-			//
-			// nuklear (which also uses stb libs)
-			//
-			// My own cvector lib
-
-			nk_layout_row_dynamic(ctx, 0, 1);
-			if (nk_button_label(ctx, "Ok")) {
-				g->show_about = 0;;
-			}
-		}
-		nk_end(ctx);
-	}
-
-	if (g->show_prefs) {
-		int w = 400, h = 400; ///scale_x, h = 400/scale_y;
-		struct nk_rect s;
-		s.x = scr_w/2-w/2;
-		s.y = scr_h/2-h/2;
-		s.w = w;
-		s.h = h;
-
-		// as long as a "popup" is open don't let gui disappear
-		g->mouse_timer = SDL_GetTicks();
-
-		if (nk_begin(ctx, "Preferences", s, prefs_flags)) {
-			nk_layout_row_dynamic(ctx, 0, 2);
-			nk_label(ctx, "background:", NK_TEXT_LEFT);
-			if (nk_combo_begin_color(ctx, nk_rgb_cf(bgf), nk_vec2(nk_widget_width(ctx), 400))) {
-				nk_layout_row_dynamic(ctx, 120, 1);
-				bgf = nk_color_picker(ctx, bgf, NK_RGBA);
-				nk_layout_row_dynamic(ctx, 25, 1);
-				bgf.r = nk_propertyf(ctx, "#R:", 0, bgf.r, 1.0f, 0.01f,0.005f);
-				bgf.g = nk_propertyf(ctx, "#G:", 0, bgf.g, 1.0f, 0.01f,0.005f);
-				bgf.b = nk_propertyf(ctx, "#B:", 0, bgf.b, 1.0f, 0.01f,0.005f);
-				bgf.a = nk_propertyf(ctx, "#A:", 0, bgf.a, 1.0f, 0.01f,0.005f);
-				g->bg = nk_rgb_cf(bgf);
-				nk_combo_end(ctx);
-			}
-
-			nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
-			nk_property_int(ctx, "", 1, &g->slide_delay, 10, 1, 0.05);
-
-
-			nk_layout_row_dynamic(ctx, 0, 1);
-			nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
-			nk_label(ctx, g->cachedir, NK_TEXT_RIGHT);
-
-
-			nk_layout_row_dynamic(ctx, 0, 1);
-			if (nk_button_label(ctx, "Ok")) {
-				g->show_prefs = 0;;
-			}
-		}
-		nk_end(ctx);
-
-	}
 
 	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-30, scr_w, 30), gui_flags))
 	{
