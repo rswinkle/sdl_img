@@ -1259,6 +1259,7 @@ void do_mode_change(int mode)
 			g->loading = mode;
 			SDL_CondSignal(g->cnd);
 			SDL_UnlockMutex(g->mtx);
+			//g->n_imgs gets updated in handle_events() once loading finishes
 		} else {
 			if (mode != MODE1 || !g->img_focus || g->img_focus == &g->img[0]) {
 				for (int i=g->n_imgs-1; i>mode-1; --i)
@@ -1352,6 +1353,9 @@ void do_actual_size()
 
 void do_save()
 {
+	if (g->loading)
+		return;
+
 	char buf[STRBUF_SZ];
 	char* prefpath = SDL_GetPrefPath("", "sdl_img");
 	snprintf(buf, STRBUF_SZ, "%s/favorites.txt", prefpath);
@@ -1369,6 +1373,54 @@ void do_save()
 	fclose(f);
 }
 
+// There is no easy way to do cross platform visual copy paste.
+// SDL lets you do text but to get visual, I'd have to be using something
+// like Qt, or start pulling in x11, winapi, etc. and write it myself
+// which defeats the purpose of using/preferring single header libraries
+// and trying to external minimize dependencies.
+int do_copy()
+{
+	static int show_warning = 1;
+
+	if (g->loading)
+		return 0;
+
+	img_state* img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
+	if (img) {
+		SDL_SetClipboardText(img->fullpath);
+	}
+
+	SDL_MessageBoxButtonData buttons[] = {
+		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "yes" },
+		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "no" }
+	};
+
+	SDL_MessageBoxData messageboxdata = {
+		SDL_MESSAGEBOX_WARNING, /* .flags */
+		g->win, /* .window */
+		"Warning: No Visual Copy Supported", /* .title */
+		NULL, /* .message to be set later */
+		SDL_arraysize(buttons), /* .numbuttons */
+		buttons, /* .buttons */
+		NULL /* .colorScheme, NULL = system default */
+	};
+	int buttonid;
+
+	char msgbox_prompt[] =
+	"No visual copy supported. The full path of the image has been copied to the clipboard.\n"
+	"Use ALT + Print Screen, or copy it from your file browser to get a visual copy.\n\n"
+	"Show this warning next time?";
+	messageboxdata.message = msgbox_prompt;
+
+	if (show_warning) {
+		SDL_ShowMessageBox(&messageboxdata, &buttonid);
+		show_warning = !!buttonid;
+		return !buttonid;  // just means escape could have been hit, not that it did
+	}
+
+	return 0;
+}
+
 int handle_events()
 {
 	SDL_Event e;
@@ -1376,6 +1428,9 @@ int handle_events()
 	int zoomed;
 	char title_buf[STRBUF_SZ];
 	img_state* img;
+
+	// eat all escapes this frame after copy dialog ended with "no"
+	int copy_escape = 0;
 
 	g->status = NOCHANGE;
 
@@ -1488,7 +1543,7 @@ int handle_events()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
-				if (!g->fullscreen && !g->slideshow && !g->show_about && !g->show_prefs) {
+				if (!copy_escape && !g->fullscreen && !g->slideshow && !g->show_about && !g->show_prefs) {
 					//nk_input_end(g->ctx);
 					return 1;
 				} else {
@@ -1607,7 +1662,11 @@ int handle_events()
 				break;
 
 			case SDL_SCANCODE_V:
-				do_save();
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					copy_escape = do_copy();
+				} else {
+					do_save();
+				}
 				break;
 
 			case SDL_SCANCODE_F: {
