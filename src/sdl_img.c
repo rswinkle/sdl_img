@@ -1390,7 +1390,7 @@ void do_save()
 // SDL lets you do text but to get visual, I'd have to be using something
 // like Qt, or start pulling in x11, winapi, etc. and write it myself
 // which defeats the purpose of using/preferring single header libraries
-// and trying to external minimize dependencies.
+// and trying to minimize external dependencies.
 int do_copy()
 {
 	static int show_warning = 1;
