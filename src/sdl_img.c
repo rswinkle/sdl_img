@@ -1039,21 +1039,24 @@ int setup(char* dirpath)
 	SDL_Rect r;
 	if (SDL_GetDisplayUsableBounds(0, &r)) {
 		printf("Error getting usable bounds: %s\n", SDL_GetError());
-		r.w = 640;
-		r.h = 480;
+		r.w = 800;
+		r.h = 600;
 	}
-	g->scr_w = MAX(g->img[0].w, 640);
-	g->scr_h = MAX(g->img[0].h, 480);
+	g->scr_w = MAX(g->img[0].w, 800);
+	g->scr_h = MAX(g->img[0].h, 600);
 	g->scr_w = MIN(g->scr_w, r.w);
 	g->scr_h = MIN(g->scr_h, r.h-40); // UsableBounds doesn't account for bottom panel in Mate :-/
 
 	u32 win_flags = (g->fullscreen) ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_RESIZABLE;
 
+	// just experimenting
+	//win_flags |= SDL_WINDOW_BORDERLESS;
+
 	// TODO do I need to update scr_w and src_h if it's fullscreen?  is there an initial window event?
 
 	mybasename(img_name, title_buf);
 	
-	g->win = SDL_CreateWindow(title_buf, SDL_WINDOWPOS_CENTERED, 0, g->scr_w, g->scr_h, win_flags);
+	g->win = SDL_CreateWindow(title_buf, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, g->scr_w, g->scr_h, win_flags);
 	if (!g->win) {
 		snprintf(error_str, STRBUF_SZ, "Couldn't create window: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
