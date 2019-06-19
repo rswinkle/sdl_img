@@ -671,12 +671,9 @@ int mkdir_p(const char* path, mode_t mode)
 		// no need to handle two / in a row
 		if (*p == '/' && p[-1] != '/') {
 			*p = 0;
-
-			// TODO macros for permissions?
 			if (mkdir(path_buf, mode) && errno != EEXIST) {
 				return -1;
 			}
-
 			*p = '/';
 		}
 	}
@@ -817,6 +814,25 @@ int myscandir(void* data)
 	int ret, i=0;;
 	DIR* dir;
 
+	const char* exts[] =
+	{
+		".jpg",
+		".jpeg",
+		".gif",
+		".png",
+		".bmp",
+
+		".ppm",
+		".pgm",
+
+		".tga",
+		".hdr",
+		".pic",
+		".psd"
+	};
+
+
+
 	char* initial_image = data;
 
 	dir = opendir(g->dirpath);
@@ -825,8 +841,23 @@ int myscandir(void* data)
 		cleanup(1, 1);
 	}
 
+	char* ext = NULL;
+	int num_exts = sizeof(exts)/sizeof(*exts);
+
 	printf("Scanning %s for images...\n", g->dirpath);
 	while ((entry = readdir(dir))) {
+
+		ext = strrchr(entry->d_name, '.');
+		if (!ext)
+			continue;
+
+		for (i=0; i<num_exts; ++i) {
+			if (!strcasecmp(ext, exts[i]))
+				break;
+		}
+		if (i == num_exts)
+			continue;
+
 		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", g->dirpath, entry->d_name);
 		if (ret >= STRBUF_SZ) {
 			printf("path too long\n");
@@ -841,9 +872,6 @@ int myscandir(void* data)
 		if (S_ISREG(file_stat.st_mode) && (!initial_image || strcmp(entry->d_name, initial_image))) { // && stbi_info(fullpath, NULL, NULL, NULL)) {
 			cvec_push_str(&g->files, entry->d_name);
 		}
-		i++;
-		if (i % 400 == 0)
-			printf("scanned %d\n", i);
 	}
 
 	printf("sorting images\n");
