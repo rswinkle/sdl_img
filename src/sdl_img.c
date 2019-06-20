@@ -57,8 +57,9 @@
 #include <SDL.h>
 
 enum { QUIT, REDRAW, NOCHANGE };
-enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT };
+enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, EXIT };
 enum { IMAGE, URL, DIRECTORY };
+enum { ROTATED90 = 1, ROTATED360 };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT,
        MODE_CHANGE, DELETE_IMG, ACTUAL_SIZE, NUM_USEREVENTS };
 
@@ -153,6 +154,8 @@ typedef int64_t i64;
 typedef struct img_state
 {
 	u8* pixels;
+	int w_orig;
+	int h_orig;
 	int w;
 	int h;
 	int file_size;
@@ -168,10 +171,12 @@ typedef struct img_state
 	int frame_timer;
 	int looped;
 	int rotated;
+	int rotdegs;
 	
 	SDL_Texture** tex;
+	SDL_Texture** rot_tex;
 
-	SDL_Rect scr_rect;  // rect describing available space
+	SDL_Rect scr_rect;  // rect describing available space (ie clip space)
 	SDL_Rect disp_rect; // rect image is actually rendered to
 } img_state;
 
@@ -548,9 +553,11 @@ void clear_img(img_state* img)
 {
 	for (int i=0; i<img->frames; ++i) {
 		SDL_DestroyTexture(img->tex[i]);
+		if (img->rotated == ROTATED360)
+			SDL_DestroyTexture(img->rot_tex[i]);
 	}
 
-	if (img->rotated && img->frames == 1) {
+	if (img->rotated == ROTATED90 && img->frames == 1) {
 		char msgbox_prompt[STRBUF_SZ];
 		char full_img_path[STRBUF_SZ];
 		int buttonid;
@@ -589,14 +596,28 @@ void clear_img(img_state* img)
 				// TODO should I delete the original? If so, I need
 				// to update g->files.a[img->index] with the new name
 			}
-			if (!strcasecmp(ext, ".png"))
-				stbi_write_png(full_img_path, img->w, img->h, 4, img->pixels, img->w*4);
-			else if (!strcasecmp(ext, ".bmp"))
-				stbi_write_bmp(full_img_path, img->w, img->h, 4, img->pixels);
-			else if (!strcasecmp(ext, ".tga"))
-				stbi_write_tga(full_img_path, img->w, img->h, 4, img->pixels);
-			else
-				stbi_write_jpg(full_img_path, img->w, img->h, 4, img->pixels, 100);
+
+			if (img->rotated == ROTATED90) {
+				if (!strcasecmp(ext, ".png"))
+					stbi_write_png(full_img_path, img->w, img->h, 4, img->pixels, img->w*4);
+				else if (!strcasecmp(ext, ".bmp"))
+					stbi_write_bmp(full_img_path, img->w, img->h, 4, img->pixels);
+				else if (!strcasecmp(ext, ".tga"))
+					stbi_write_tga(full_img_path, img->w, img->h, 4, img->pixels);
+				else
+					stbi_write_jpg(full_img_path, img->w, img->h, 4, img->pixels, 100);
+			} else {
+				/*
+				if (!strcasecmp(ext, ".png"))
+					stbi_write_png(full_img_path, img->w, img->h, 4, img->pixels, img->w*4);
+				else if (!strcasecmp(ext, ".bmp"))
+					stbi_write_bmp(full_img_path, img->w, img->h, 4, img->pixels);
+				else if (!strcasecmp(ext, ".tga"))
+					stbi_write_tga(full_img_path, img->w, img->h, 4, img->pixels);
+				else
+					stbi_write_jpg(full_img_path, img->w, img->h, 4, img->pixels, 100);
+				*/
+			}
 		}
 	}
 	//could clear everything else but these are the important
@@ -606,6 +627,7 @@ void clear_img(img_state* img)
 	free(img->fullpath);
 	img->pixels = NULL;
 	img->frames = 0;
+	img->rotdegs = 0;
 	img->rotated = 0;
 	img->file_size = 0;
 }
@@ -613,9 +635,18 @@ void clear_img(img_state* img)
 void cleanup(int ret, int called_setup)
 {
 	if (called_setup) {
+
+		// not really necessary to exit thread but
+		// valgrind reports it as possibly lost if not
+		SDL_LockMutex(g->mtx);
+		g->loading = EXIT;
+		SDL_CondSignal(g->cnd);
+		SDL_UnlockMutex(g->mtx);
+
 		for (int i=0; i<g->n_imgs; ++i) {
 			clear_img(&g->img[i]);
 			free(g->img[i].tex);
+			free(g->img[i].rot_tex);
 		}
 
 		SDL_DestroyRenderer(g->ren);
@@ -634,14 +665,17 @@ void print_img_state(img_state* img)
 {
 	printf("{\nimg = %p\n", img);
 	printf("pixels = %p\n", img->pixels);
+	printf("orig WxH = %dx%d\n", img->w_orig, img->h_orig);
 	printf("WxH = %dx%d\n", img->w, img->h);
 	printf("index = %d\n", img->index);
+	printf("rotdegs = %d\n", img->rotdegs);
 	printf("frame_i = %d\ndelay = %d\nframes = %d\nframe_cap = %d\n", img->frame_i, img->delay, img->frames, img->frame_capacity);
 	printf("frame_timer = %d\nlooped = %d\n", img->frame_timer, img->looped);
 
 	printf("tex = %p\n", img->tex);
 	for (int i=0; i<img->frames; ++i) {
 		printf("tex[%d] = %p\n", i, img->tex[i]);
+		printf("rot_tex[%d] = %p\n", i, img->rot_tex[i]);
 	}
 
 	printf("scr_rect = %d %d %d %d\n", img->scr_rect.x, img->scr_rect.y, img->scr_rect.w, img->scr_rect.h);
@@ -765,17 +799,29 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 		return 0;
 	}
 
+	img->w_orig = img->w;
+	img->h_orig = img->h;
+
 	struct stat file_stat;
 	if (!stat(fullpath, &file_stat)) {
 		img->file_size = file_stat.st_size;
 	}
 
+	SDL_Texture** tmp;
 	if (frames > img->frame_capacity) {
 		// img->tex is either NULL or previously alloced
-		if (!(img->tex = realloc(img->tex, frames*sizeof(SDL_Texture*)))) {
+		if (!(tmp = realloc(img->tex, frames*sizeof(SDL_Texture*)))) {
 			perror("Couldn't allocate tex array");
 			return 0;
 		}
+		img->tex = tmp;
+
+		// keep rot_tex in sync
+		if (!(tmp = realloc(img->rot_tex, frames*sizeof(SDL_Texture*)))) {
+			perror("Couldn't allocate tex array");
+			return 0;
+		}
+		img->rot_tex = tmp;
 		img->frame_capacity = frames;
 	}
 
@@ -847,6 +893,7 @@ int myscandir(void* data)
 	printf("Scanning %s for images...\n", g->dirpath);
 	while ((entry = readdir(dir))) {
 
+		// only add supported extensions
 		ext = strrchr(entry->d_name, '.');
 		if (!ext)
 			continue;
@@ -868,8 +915,10 @@ int myscandir(void* data)
 			continue;
 		}
 
-		// if it's a regular file and not the initial image (checking for valid image makes startup too slow)
-		if (S_ISREG(file_stat.st_mode) && (!initial_image || strcmp(entry->d_name, initial_image))) { // && stbi_info(fullpath, NULL, NULL, NULL)) {
+		// verify that it's regular file and not the initial image
+		// (checking that it's a valid/supported image with stbi_info() makes startup too slow) esp.
+		// on external devices for example
+		if (S_ISREG(file_stat.st_mode) && (!initial_image || strcmp(entry->d_name, initial_image))) {
 			cvec_push_str(&g->files, entry->d_name);
 		}
 	}
@@ -917,6 +966,9 @@ int load_new_images(void* data)
 		load_what = g->loading;
 		SDL_UnlockMutex(g->mtx);
 
+		if (load_what == EXIT)
+			break;
+
 		//printf("loading %p = %d\n", &g->loading, g->loading);
 		if (load_what >= LEFT) {
 			img_state* img;
@@ -928,6 +980,8 @@ int load_new_images(void* data)
 			for (int i=0; i<g->n_imgs; ++i)
 				img[i].scr_rect = g->img[i].scr_rect;
 			
+			// TODO possible (very unlikely) ifinite loop if there
+			// are allocation failures for every valid image in the list
 			if (!g->img_focus) {
 				if (load_what == RIGHT) {
 					last = g->img[g->n_imgs-1].index;
@@ -995,6 +1049,8 @@ int load_new_images(void* data)
 		g->loading = 0;
 		SDL_UnlockMutex(g->mtx);
 	}
+
+	return 0;
 }
 
 int setup(char* dirpath)
@@ -1020,6 +1076,10 @@ int setup(char* dirpath)
 	g->bg = nk_rgb(0,0,0);
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
+		perror("Couldn't allocate tex array");
+		cleanup(0, 1);
+	}
+	if (!(g->img[0].rot_tex = malloc(100*sizeof(SDL_Texture*)))) {
 		perror("Couldn't allocate tex array");
 		cleanup(0, 1);
 	}
@@ -1098,6 +1158,7 @@ int setup(char* dirpath)
 	// run into images larger than the max texture size which will then fail to load/display
 	//
 	// on the other hand, hardware rendering does decrease scaling artifacts...
+	//g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_ACCELERATED);
 	g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_SOFTWARE);
 	if (!g->ren) {
 		snprintf(error_str, STRBUF_SZ, "Software rendering failed: %s; exiting.", SDL_GetError());
@@ -1183,14 +1244,16 @@ void set_fullscreen()
 void replace_img(img_state* i1, img_state* i2)
 {
 	SDL_Texture** tmptex = i1->tex;
+	SDL_Texture** tmprottex = i1->rot_tex;
 	int tmp = i1->frame_capacity;
 	memcpy(i1, i2, sizeof(img_state));
 	i2->tex = tmptex;
+	i2->rot_tex = tmprottex;
 	i2->frame_capacity = tmp;
 	i2->frames = 0;
 }
 
-void rotate_img(img_state* img, int left)
+void rotate_img90(img_state* img, int left)
 {
 	int w = img->w, h = img->h;
 	int sz = w*h;
@@ -1234,7 +1297,87 @@ void rotate_img(img_state* img, int left)
 	img->h = w;
 	img->frames = frames;
 	img->pixels = rotated;
-	img->rotated = 1;
+	img->rotated |= ROTATED90;
+
+	// since rotate90 actually rotates the pixels (doesn't just update textures)
+	// the rotated image becomes the new base image so we can't/shouldn't update degs
+	// img->rotdegs += ((left) ? 90 : -90);
+}
+
+void rotate_img(img_state* img, int left)
+{
+	int w = img->w_orig;
+	int h = img->h_orig;
+	int frames = img->frames;
+
+	int dim = sqrt(w*w + h*h);
+	int sz = w*h*4;
+	int rot_sz = dim*dim*4;
+
+	SDL_Texture** rot_tex = img->rot_tex;
+
+	u8* pix = img->pixels;
+
+	// TODO hmmm
+	if (img->w != dim) {
+		for (int i=0; i<frames; ++i) {
+			rot_tex[i] = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, dim, dim);
+			if (!rot_tex[i]) {
+				printf("Error creating rotated texture: %s\n", SDL_GetError());
+				cleanup(0, 1);
+			}
+		}
+	}
+
+	int dim2 = dim/2;
+	int h2old = h/2;
+	int w2old = w/2;
+	int x, y, xout, yout;
+
+	// So normally we'd have to reverse this because we have a left handed
+	// coordinate system where y is down, so a positive rotation is rotating
+	// clockwise, however to avoid missing pixels due to aliasing, we are rotating
+	// the rotated image backward to find the closest pixel in the original image
+	// (ie one pixel could end up multiple places in the rotated image).  This
+	// flips the positive rotation direction back to normal.
+	img->rotdegs += (left) ? 1 : -1;
+	img->rotated |= ROTATED360;
+
+	float rads = img->rotdegs * (3.14159265f/180.0f);
+	u32* outu32;
+	u32* inu32;
+
+	int pitch;
+	// TODO update rotimg pixels at the same time as textures?
+	// or only when/if they elect to save changes before moving
+
+	for (int k=0; k<frames; ++k) {
+		// No apparent speed benefit to using lock/unlock vs UpdateTexture
+		SDL_LockTexture(rot_tex[k], NULL, (void**)&outu32, &pitch);
+
+		memset(outu32, 0, rot_sz);
+		inu32 = (u32*)&pix[(sz+2)*k];
+		for (int i=0; i<dim; ++i) {
+			y = i - dim2;
+			for (int j=0; j<dim; ++j) {
+				x = j - dim2;
+				xout = x * cos(rads) - y * sin(rads) + w2old;
+				yout = x * sin(rads) + y * cos(rads) + h2old;
+
+				if (xout >= 0 && xout < w && yout >= 0 && yout < h) {
+					//memcpy(&rotimg[(i*dim + j)*4], &pix[(yout*w + xout)*4], 4);
+					outu32[i*dim + j] = inu32[yout*w + xout];
+				}
+
+
+			}
+		}
+		SDL_UnlockTexture(rot_tex[k]);
+		//SDL_UpdateTexture(rot_tex[k], NULL, rotimg, dim*4);
+	}
+
+	img->w = dim;
+	img->h = dim;
 }
 
 int try_move(int direction)
@@ -1267,14 +1410,19 @@ void do_zoom(int dir, int use_mouse)
 	}
 }
 
-void do_rotate(int left)
+void do_rotate(int left, int is_90)
 {
 	img_state* img;
 	if (!g->loading) {
 		img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
 		if (img) {
-			rotate_img(img, left);
-			create_textures(img);
+			if (is_90) {
+				rotate_img90(img, left);
+				create_textures(img);
+			} else {
+				rotate_img(img, left);
+			}
+
 			if (g->n_imgs == 1)
 				SET_MODE1_SCR_RECT();
 			else if (g->n_imgs == 2)
@@ -1400,6 +1548,7 @@ void do_save()
 	char buf[STRBUF_SZ];
 	char* prefpath = SDL_GetPrefPath("", "sdl_img");
 	snprintf(buf, STRBUF_SZ, "%s/favorites.txt", prefpath);
+	SDL_free(prefpath);
 
 	printf("saving to %s\n", buf);
 	FILE* f = fopen(buf, "a");
@@ -1545,6 +1694,8 @@ int handle_events()
 	int mouse_x, mouse_y;
 	u32 mouse_button_mask = SDL_GetMouseState(&mouse_x, &mouse_y);
 	
+	int per_frame = 0;
+	int done_rotate = 0;
 	int code;
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
@@ -1561,7 +1712,7 @@ int handle_events()
 				break;
 			case ROT_LEFT:
 			case ROT_RIGHT:
-				do_rotate(code == ROT_LEFT);
+				do_rotate(code == ROT_LEFT, SDL_TRUE);
 				break;
 			case MODE_CHANGE:
 				g->status = REDRAW;
@@ -1609,11 +1760,6 @@ int handle_events()
 
 			case SDL_SCANCODE_DELETE:
 				do_delete(&space);
-				break;
-
-			case SDL_SCANCODE_L:
-			case SDL_SCANCODE_R:
-				do_rotate(sc == SDL_SCANCODE_L);
 				break;
 
 			// CAPSLOCK comes right before F1 and F1-F12 are contiguous
@@ -1744,6 +1890,20 @@ int handle_events()
 			case SDL_SCANCODE_SPACE:
 				try_move(RIGHT);
 				break;
+
+			case SDL_SCANCODE_L:
+			case SDL_SCANCODE_R:
+				if (!done_rotate) {
+					if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+						do_rotate(sc == SDL_SCANCODE_L, SDL_FALSE);
+						per_frame++;
+					} else {
+						do_rotate(sc == SDL_SCANCODE_L, SDL_TRUE);
+					}
+					done_rotate = 1;
+				}
+				break;
+
 
 			// TODO merge RIGHT/DOWN and LEFT/UP?
 			case SDL_SCANCODE_RIGHT:
@@ -1999,6 +2159,11 @@ int handle_events()
 	}
 	nk_input_end(g->ctx);
 
+	/*
+	if (per_frame)
+		printf("per_frame = %d\n", per_frame);
+	*/
+
 	return 0;
 }
 
@@ -2079,6 +2244,7 @@ int main(int argc, char** argv)
 	// TODO think of a company/org name
 	char* prefpath = SDL_GetPrefPath("", "sdl_img");
 	//printf("%s\n%s\n\n", exepath, prefpath);
+	// SDL_free(exepath);
 
 	time_t t;
 	struct tm *tmp;
@@ -2092,6 +2258,8 @@ int main(int argc, char** argv)
 		puts("cache path too long");
 		cleanup(1, 0);
 	}
+	SDL_free(prefpath);
+
 	if (mkdir_p(cachedir, S_IRWXU) && errno != EEXIST) {
 		perror("Failed to make cache directory");
 		cleanup(1, 0);
@@ -2220,7 +2388,10 @@ int main(int argc, char** argv)
 			SDL_RenderClear(g->ren);
 			for (int i=0; i<g->n_imgs; ++i) {
 				SDL_RenderSetClipRect(g->ren, &g->img[i].scr_rect);
-				SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
+				if (g->img[i].rotated != ROTATED360)
+					SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
+				else
+					SDL_RenderCopy(g->ren, g->img[i].rot_tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
 				print_img_state(&g->img[i]);
 			}
 			SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing

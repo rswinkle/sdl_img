@@ -176,11 +176,11 @@ int handle_events()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_RIGHT:
-				rotdegs++;
+				rotdegs--;
 				changed = 1;
 				break;
 			case SDL_SCANCODE_LEFT:
-				rotdegs--;
+				rotdegs++;
 				changed = 1;
 				break;
 			}
@@ -297,8 +297,8 @@ int main(int argc, char** argv)
 					y = i - dim2;
 					for (int j=0; j<dim; ++j) {
 						x = j - dim2;
-						xout = x * cos(-rads) - y * sin(-rads) + w2old;
-						yout = x * sin(-rads) + y * cos(-rads) + h2old;
+						xout = x * cos(rads) - y * sin(rads) + w2old;
+						yout = x * sin(rads) + y * cos(rads) + h2old;
 
 						if (xout >= 0 && xout < w && yout >= 0 && yout < h) {
 							//memcpy(&rotimg[(i*dim + j)*4], &img[(yout*w + xout)*4], 4);
