@@ -210,7 +210,7 @@ typedef struct global_state
 	cvector_str files;
 
 	FILE* fav_file;
-	cvector_str fav_list;
+	cvector_str fav_list; // TODO not used...
 
 	int fullscreen;
 	int fill_mode;

@@ -414,7 +414,7 @@ void draw_gui(struct nk_context* ctx)
 				i = 0;
 			}
 
-			len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels  %.1f %s  %d %%", img->w, img->h, sz, sizes[i], (int)(img->disp_rect.h*100.0/img->h));
+			len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels  %.1f %s  %d %%    %d / %"PRIuMAX, img->w, img->h, sz, sizes[i], (int)(img->disp_rect.h*100.0/img->h), img->index+1, g->files.size);
 			if (len >= STRBUF_SZ) {
 				puts("info path too long");
 				cleanup(1, 1);
