@@ -36,6 +36,7 @@ int slideshow = nk_false;
 int slide_delay = 3;
 int show_about = nk_false;
 int show_prefs = nk_false;
+int show_rotate = nk_false;
 int menu_state = MENU_NONE;
 
 struct nk_colorf bg;
@@ -63,6 +64,7 @@ char license[STRBUF_SZ*4] =
 "IN THE SOFTWARE.";
 
 
+int handle_events(struct nk_context* ctx);
 void draw_gui(struct nk_context* ctx);
 void draw_simple_gui(struct nk_context* ctx);
 
@@ -106,8 +108,8 @@ int main(void)
 	SDL_GetDisplayBounds(0, &r);
 	printf("display bounds: %d %d %d %d\n", r.x, r.y, r.w, r.h);
 
-	x_scale = 1; //hdpi/72;  // adjust for dpi, then go from 8pt font to 12pt
-	y_scale = 1; //vdpi/72;
+	x_scale = 2; //hdpi/72;  // adjust for dpi, then go from 8pt font to 12pt
+	y_scale = 2; //vdpi/72;
 
 	SDL_RenderSetScale(ren, x_scale, y_scale);
 
@@ -130,33 +132,9 @@ int main(void)
 	{
 		SDL_RenderSetScale(ren, x_scale, y_scale);
 		nk_sdl_scale(x_scale, y_scale);
-		/* Input */
-		SDL_Event evt;
-		nk_input_begin(ctx);
-		while (SDL_PollEvent(&evt)) {
-			if (evt.type == SDL_QUIT)
-				goto cleanup;
 
-			if (evt.type == SDL_KEYUP && evt.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
-				if (show_about) {
-					show_about = nk_false;
-					//nk_popup_close(ctx);
-					//nk_popup_end(ctx);
-				} else if (show_prefs) {
-					show_prefs = nk_false;
-				} else if (slideshow) {
-					slideshow = 0;
-				} else {
-					goto cleanup;
-				}
-			} else if (evt.type == SDL_WINDOWEVENT) {
-				if (evt.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-					//SDL_RenderSetLogicalSize(ren, evt.window.data1*x_scale, evt.window.data2*y_scale);
-				}
-			}
-			nk_sdl_handle_event(&evt);
-		}
-		nk_input_end(ctx);
+		if (handle_events(ctx))
+			break;
 
 		/* GUI */
 		draw_gui(ctx);
@@ -274,6 +252,144 @@ void draw_gui(struct nk_context* ctx)
 	int total_width = 0;
 	int do_zoom = 0, do_toggles = 0, do_rotates = 0;
 	what_hover = 0;
+
+
+
+
+	if (show_rotate) {
+		int w = 400, h = 300; ///scale_x, h = 400/scale_y;
+		struct nk_rect s;
+		s.x = scr_w/2-w/2;
+		s.y = scr_h/2-h/2;
+		s.w = w;
+		s.h = h;
+		static int slider_degs = 0;
+
+		if (nk_begin(ctx, "Rotation", s, prefs_flags)) {
+
+			//nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
+			//nk_layout_row_dynamic(ctx, 0, 2);
+			nk_layout_row_dynamic(ctx, 0, 1);
+
+			nk_label_wrap(ctx, "Click and drag, type, or use the arrows to select the desired degree of rotation");
+
+			//nk_label(ctx, "Degrees:", NK_TEXT_LEFT);
+			slider_degs = nk_propertyi(ctx, "Degrees:", -180, slider_degs, 180, 1, 0.5);
+			//nk_slider_int(ctx, -180, &slider_degs, 180, 1);
+
+			//nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
+			nk_layout_row_dynamic(ctx, 0, 2);
+			if (nk_button_label(ctx, "Preview")) {
+				;
+			}
+			if (nk_button_label(ctx, "Ok")) {
+				show_rotate = 0;;
+			}
+		}
+		nk_end(ctx);
+	}
+
+
+	if (show_about) {
+		static int license_len;;
+		license_len = strlen(license);
+		int w = 500, h = 400; ///scale_x, h = 400/scale_y;
+		struct nk_rect s;
+		s.x = scr_w/2-w/2;
+		s.y = scr_h/2-h/2;
+		s.w = w;
+		s.h = h;
+		if (nk_begin(ctx, "About sdl_img", s, prefs_flags))
+		{
+			nk_layout_row_dynamic(ctx, 0, 1);
+			nk_label(ctx, "sdl_img 1.0", NK_TEXT_CENTERED);
+			nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
+			nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
+			nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
+
+			nk_label(ctx, "Credits:", NK_TEXT_CENTERED);
+			nk_layout_row_dynamic(ctx, 0, 2);
+			nk_label(ctx, "stb_image, stb_image_write", NK_TEXT_LEFT);
+			nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
+			nk_label(ctx, "SDL2", NK_TEXT_LEFT);
+			nk_label(ctx, "libsdl.org", NK_TEXT_RIGHT);
+			nk_label(ctx, "SDL2_gfx", NK_TEXT_LEFT);
+			nk_label(ctx, "ferzkopp.net", NK_TEXT_RIGHT);
+			nk_label(ctx, "nuklear GUI", NK_TEXT_LEFT);
+			nk_label(ctx, "github.com/vurtun/nuklear", NK_TEXT_RIGHT);
+
+			// Sean T Barret (sp?) single header libraries
+			// stb_image, stb_image_write
+			//
+			// nuklear (which also uses stb libs)
+			//
+			// My own cvector lib
+
+			//nk_layout_row_dynamic(ctx, 200, 1);
+			//nk_label_wrap(ctx, license);
+			//nk_edit_string(ctx, NK_EDIT_BOX, license, &license_len, 1024, nk_filter_default);
+			//
+			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_button_label(ctx, "Ok")) {
+				show_about = 0;;
+			}
+		}
+		nk_end(ctx);
+	}
+
+	if (show_prefs) {
+		int w = 400, h = 400; ///scale_x, h = 400/scale_y;
+		struct nk_rect s;
+		s.x = scr_w/2-w/2;
+		s.y = scr_h/2-h/2;
+		s.w = w;
+		s.h = h;
+		char cache[] = "/home/someone/.local/share/sdl_img";
+
+		if (nk_begin(ctx, "Preferences", s, prefs_flags)) {
+			nk_layout_row_dynamic(ctx, 0, 2);
+			nk_label(ctx, "background:", NK_TEXT_LEFT);
+			if (nk_combo_begin_color(ctx, nk_rgb_cf(bg), nk_vec2(nk_widget_width(ctx), 400))) {
+				nk_layout_row_dynamic(ctx, 120, 1);
+				bg = nk_color_picker(ctx, bg, NK_RGBA);
+				nk_layout_row_dynamic(ctx, 25, 1);
+				bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f,0.005f);
+				bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f,0.005f);
+				bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f,0.005f);
+				bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f,0.005f);
+				bg2 = nk_rgb_cf(bg);
+				nk_combo_end(ctx);
+			}
+
+			nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
+			nk_property_int(ctx, "", 1, &slide_delay, 10, 1, 0.05);
+
+
+			nk_layout_row_dynamic(ctx, 0, 1);
+			nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
+			nk_label(ctx, cache, NK_TEXT_RIGHT);
+
+			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_button_label(ctx, "Ok")) {
+				show_prefs = 0;;
+			}
+		}
+		nk_end(ctx);
+
+	}
+
+
+	// don't show main GUI if a popup is up, don't want user to
+	// be able to interact with it.  Could look up how to make them inactive
+	// but meh, this is simpler
+	if (show_about || show_prefs || show_rotate)
+		return;
+
+
+
+
+
+
 	if (nk_begin(ctx, "Controls", nk_rect(0, 0, scr_w, 30), gui_flags)) {
 
 		//g->gui_rect = nk_window_get_bounds(ctx);
@@ -497,93 +613,6 @@ void draw_gui(struct nk_context* ctx)
 
 	nk_end(ctx);
 
-	if (show_about) {
-		static int license_len;;
-		license_len = strlen(license);
-		int w = 500, h = 400; ///scale_x, h = 400/scale_y;
-		struct nk_rect s;
-		s.x = scr_w/2-w/2;
-		s.y = scr_h/2-h/2;
-		s.w = w;
-		s.h = h;
-		if (nk_begin(ctx, "About sdl_img", s, prefs_flags))
-		{
-			nk_layout_row_dynamic(ctx, 0, 1);
-			nk_label(ctx, "sdl_img 1.0", NK_TEXT_CENTERED);
-			nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
-			nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
-			nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
-
-			nk_label(ctx, "Credits:", NK_TEXT_CENTERED);
-			nk_layout_row_dynamic(ctx, 0, 2);
-			nk_label(ctx, "stb_image, stb_image_write", NK_TEXT_LEFT);
-			nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
-			nk_label(ctx, "SDL2", NK_TEXT_LEFT);
-			nk_label(ctx, "libsdl.org", NK_TEXT_RIGHT);
-			nk_label(ctx, "SDL2_gfx", NK_TEXT_LEFT);
-			nk_label(ctx, "ferzkopp.net", NK_TEXT_RIGHT);
-			nk_label(ctx, "nuklear GUI", NK_TEXT_LEFT);
-			nk_label(ctx, "github.com/vurtun/nuklear", NK_TEXT_RIGHT);
-
-			// Sean T Barret (sp?) single header libraries
-			// stb_image, stb_image_write
-			//
-			// nuklear (which also uses stb libs)
-			//
-			// My own cvector lib
-
-			//nk_layout_row_dynamic(ctx, 200, 1);
-			//nk_label_wrap(ctx, license);
-			//nk_edit_string(ctx, NK_EDIT_BOX, license, &license_len, 1024, nk_filter_default);
-			//
-			nk_layout_row_dynamic(ctx, 0, 1);
-			if (nk_button_label(ctx, "Ok")) {
-				show_about = 0;;
-			}
-		}
-		nk_end(ctx);
-	}
-
-	if (show_prefs) {
-		int w = 400, h = 400; ///scale_x, h = 400/scale_y;
-		struct nk_rect s;
-		s.x = scr_w/2-w/2;
-		s.y = scr_h/2-h/2;
-		s.w = w;
-		s.h = h;
-		char cache[] = "/home/someone/.local/share/sdl_img";
-
-		if (nk_begin(ctx, "Preferences", s, prefs_flags)) {
-			nk_layout_row_dynamic(ctx, 0, 2);
-			nk_label(ctx, "background:", NK_TEXT_LEFT);
-			if (nk_combo_begin_color(ctx, nk_rgb_cf(bg), nk_vec2(nk_widget_width(ctx), 400))) {
-				nk_layout_row_dynamic(ctx, 120, 1);
-				bg = nk_color_picker(ctx, bg, NK_RGBA);
-				nk_layout_row_dynamic(ctx, 25, 1);
-				bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f,0.005f);
-				bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f,0.005f);
-				bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f,0.005f);
-				bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f,0.005f);
-				bg2 = nk_rgb_cf(bg);
-				nk_combo_end(ctx);
-			}
-
-			nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
-			nk_property_int(ctx, "", 1, &slide_delay, 10, 1, 0.05);
-
-
-			nk_layout_row_dynamic(ctx, 0, 1);
-			nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
-			nk_label(ctx, cache, NK_TEXT_RIGHT);
-
-			nk_layout_row_dynamic(ctx, 0, 1);
-			if (nk_button_label(ctx, "Ok")) {
-				show_prefs = 0;;
-			}
-		}
-		nk_end(ctx);
-
-	}
 
 
 
@@ -605,6 +634,48 @@ void draw_gui(struct nk_context* ctx)
 		hovering = 0;
 }
 
+
+int handle_events(struct nk_context* ctx)
+{
+	SDL_Event evt;
+	int sc;
+	nk_input_begin(ctx);
+
+
+	while (SDL_PollEvent(&evt)) {
+		sc = evt.key.keysym.scancode;
+		if (evt.type == SDL_QUIT)
+			return 1;
+
+		if (evt.type == SDL_KEYUP) {
+			if (sc == SDL_SCANCODE_ESCAPE) {
+				if (show_rotate) {
+					show_rotate = nk_false;
+				} else if (show_about) {
+					show_about = nk_false;
+					//nk_popup_close(ctx);
+					//nk_popup_end(ctx);
+				} else if (show_prefs) {
+					show_prefs = nk_false;
+				} else if (slideshow) {
+					slideshow = 0;
+				} else {
+					return 1;
+				}
+			} else if (sc == SDL_SCANCODE_R) {
+				show_rotate = nk_true;
+			}
+		} else if (evt.type == SDL_WINDOWEVENT) {
+			if (evt.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+				//SDL_RenderSetLogicalSize(ren, evt.window.data1*x_scale, evt.window.data2*y_scale);
+			}
+		}
+		nk_sdl_handle_event(&evt);
+	}
+	nk_input_end(ctx);
+
+	return 0;
+}
 
 
 
