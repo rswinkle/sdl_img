@@ -43,8 +43,6 @@ void draw_gui(struct nk_context* ctx)
 		s.w = w;
 		s.h = h;
 
-		// as long as a "popup" is open don't let gui disappear
-		g->mouse_timer = SDL_GetTicks();
 		if (nk_begin(ctx, "About sdl_img", s, prefs_flags))
 		{
 			nk_layout_row_dynamic(ctx, 0, 1);
@@ -88,9 +86,6 @@ void draw_gui(struct nk_context* ctx)
 		s.y = scr_h/2-h/2;
 		s.w = w;
 		s.h = h;
-
-		// as long as a "popup" is open don't let gui disappear
-		g->mouse_timer = SDL_GetTicks();
 
 		if (nk_begin(ctx, "Preferences", s, prefs_flags)) {
 			nk_layout_row_dynamic(ctx, 0, 2);
@@ -146,8 +141,10 @@ void draw_gui(struct nk_context* ctx)
 	// don't show main GUI if a popup is up, don't want user to
 	// be able to interact with it.  Could look up how to make them inactive
 	// but meh, this is simpler
-	if (g->show_about || g->show_prefs)
+	if (g->show_about || g->show_prefs) {
+		g->mouse_timer = SDL_GetTicks();
 		return;
+	}
 
 	if (nk_begin(ctx, "Controls", nk_rect(0, 0, scr_w, 30), gui_flags))
 	{
@@ -183,9 +180,6 @@ void draw_gui(struct nk_context* ctx)
 
 			enum nk_collapse_states state;
 			float ratios[] = { 0.7f, 0.3f, 0.8f, 0.2f };
-
-			// as long as menu is open don't let gui disappear
-			g->mouse_timer = SDL_GetTicks();
 
 			nk_layout_row_dynamic(ctx, 0, 3);
 			nk_label(ctx, "GUI:", NK_TEXT_LEFT);

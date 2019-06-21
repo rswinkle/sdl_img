@@ -1700,6 +1700,11 @@ int handle_events()
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
 		if (e.type == g->userevent) {
+			// reset this everytime they interact with GUI
+			// so it doesn't disappear even if they're holding
+			// the mouse down but still (on zoom controls for example)
+			g->mouse_timer = SDL_GetTicks();
+
 			code = e.user.code;
 			switch (code) {
 			case NEXT:
@@ -2405,7 +2410,7 @@ int main(int argc, char** argv)
 
 
 		//"sleep" save CPU cycles/battery especially when not viewing animated gifs
-		if (!is_a_gif && !g->loading)
+		if (!is_a_gif) // && !g->loading)
 			SDL_Delay(SLEEP_TIME);
 		else
 			SDL_Delay(MIN_GIF_DELAY/2);
