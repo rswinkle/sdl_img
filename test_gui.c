@@ -344,7 +344,7 @@ void draw_gui(struct nk_context* ctx)
 		s.y = scr_h/2-h/2;
 		s.w = w;
 		s.h = h;
-		char cache[] = "/home/someone/.local/share/sdl_img";
+		char cache[] = "/home/someone/really/long/path_that_goes_forever/blahblahblah/.local/share/sdl_img";
 
 		if (nk_begin(ctx, "Preferences", s, prefs_flags)) {
 			nk_layout_row_dynamic(ctx, 0, 2);
@@ -367,7 +367,7 @@ void draw_gui(struct nk_context* ctx)
 
 			nk_layout_row_dynamic(ctx, 0, 1);
 			nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
-			nk_label(ctx, cache, NK_TEXT_RIGHT);
+			nk_label_wrap(ctx, cache);
 
 			nk_layout_row_dynamic(ctx, 0, 1);
 			if (nk_button_label(ctx, "Ok")) {

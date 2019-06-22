@@ -42,6 +42,9 @@
 #include "nuklear.h"
 #include "nuklear_sdl.h"
 
+
+#include <SDL2_rotozoom.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,10 +61,10 @@
 
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, EXIT };
+enum { ROTATED = 1, TO_ROTATE = 2 };
 enum { IMAGE, URL, DIRECTORY };
-enum { ROTATED90 = 1, ROTATED360 };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT,
-       MODE_CHANGE, DELETE_IMG, ACTUAL_SIZE, NUM_USEREVENTS };
+       MODE_CHANGE, DELETE_IMG, ACTUAL_SIZE, ROT360, NUM_USEREVENTS };
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -105,6 +108,21 @@ typedef int64_t i64;
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
 #endif
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+
+// TODO not used currently, would be useful if
+// I used SDL_Surfaces
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+#define RMASK 0xFF000000
+#define GMASK 0x00FF0000
+#define BMASK 0x0000FF00
+#define AMASK 0x000000FF
+#else
+#define RMASK 0x000000FF;
+#define GMASK 0x0000FF00;
+#define BMASK 0x00FF0000;
+#define AMASK 0xFF000000;
+#endif
+
 
 #define SET_MODE1_SCR_RECT()                                                   \
 	do {                                                                       \
@@ -174,7 +192,6 @@ typedef struct img_state
 	int rotdegs;
 	
 	SDL_Texture** tex;
-	SDL_Texture** rot_tex;
 
 	SDL_Rect scr_rect;  // rect describing available space (ie clip space)
 	SDL_Rect disp_rect; // rect image is actually rendered to
@@ -209,9 +226,6 @@ typedef struct global_state
 
 	cvector_str files;
 
-	FILE* fav_file;
-	cvector_str fav_list; // TODO not used...
-
 	int fullscreen;
 	int fill_mode;
 	int mouse_timer;
@@ -219,6 +233,7 @@ typedef struct global_state
 
 	int show_about;
 	int show_prefs;
+	int show_rotate;
 	int menu_state;
 
 	struct nk_color bg;
@@ -553,11 +568,9 @@ void clear_img(img_state* img)
 {
 	for (int i=0; i<img->frames; ++i) {
 		SDL_DestroyTexture(img->tex[i]);
-		if (img->rotated == ROTATED360)
-			SDL_DestroyTexture(img->rot_tex[i]);
 	}
 
-	if (img->rotated == ROTATED90 && img->frames == 1) {
+	if (img->rotated && img->frames == 1) {
 		char msgbox_prompt[STRBUF_SZ];
 		char full_img_path[STRBUF_SZ];
 		int buttonid;
@@ -597,27 +610,14 @@ void clear_img(img_state* img)
 				// to update g->files.a[img->index] with the new name
 			}
 
-			if (img->rotated == ROTATED90) {
-				if (!strcasecmp(ext, ".png"))
-					stbi_write_png(full_img_path, img->w, img->h, 4, img->pixels, img->w*4);
-				else if (!strcasecmp(ext, ".bmp"))
-					stbi_write_bmp(full_img_path, img->w, img->h, 4, img->pixels);
-				else if (!strcasecmp(ext, ".tga"))
-					stbi_write_tga(full_img_path, img->w, img->h, 4, img->pixels);
-				else
-					stbi_write_jpg(full_img_path, img->w, img->h, 4, img->pixels, 100);
-			} else {
-				/*
-				if (!strcasecmp(ext, ".png"))
-					stbi_write_png(full_img_path, img->w, img->h, 4, img->pixels, img->w*4);
-				else if (!strcasecmp(ext, ".bmp"))
-					stbi_write_bmp(full_img_path, img->w, img->h, 4, img->pixels);
-				else if (!strcasecmp(ext, ".tga"))
-					stbi_write_tga(full_img_path, img->w, img->h, 4, img->pixels);
-				else
-					stbi_write_jpg(full_img_path, img->w, img->h, 4, img->pixels, 100);
-				*/
-			}
+			if (!strcasecmp(ext, ".png"))
+				stbi_write_png(full_img_path, img->w, img->h, 4, img->pixels, img->w*4);
+			else if (!strcasecmp(ext, ".bmp"))
+				stbi_write_bmp(full_img_path, img->w, img->h, 4, img->pixels);
+			else if (!strcasecmp(ext, ".tga"))
+				stbi_write_tga(full_img_path, img->w, img->h, 4, img->pixels);
+			else
+				stbi_write_jpg(full_img_path, img->w, img->h, 4, img->pixels, 100);
 		}
 	}
 	//could clear everything else but these are the important
@@ -646,7 +646,6 @@ void cleanup(int ret, int called_setup)
 		for (int i=0; i<g->n_imgs; ++i) {
 			clear_img(&g->img[i]);
 			free(g->img[i].tex);
-			free(g->img[i].rot_tex);
 		}
 
 		SDL_DestroyRenderer(g->ren);
@@ -675,7 +674,6 @@ void print_img_state(img_state* img)
 	printf("tex = %p\n", img->tex);
 	for (int i=0; i<img->frames; ++i) {
 		printf("tex[%d] = %p\n", i, img->tex[i]);
-		printf("rot_tex[%d] = %p\n", i, img->rot_tex[i]);
 	}
 
 	printf("scr_rect = %d %d %d %d\n", img->scr_rect.x, img->scr_rect.y, img->scr_rect.w, img->scr_rect.h);
@@ -793,7 +791,7 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 	img->fullpath = realpath(fullpath, NULL);
 	printf("loading %s\n", fullpath);
 
-	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, 4, &frames);
+	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, STBI_rgb_alpha, &frames);
 	if (!img->pixels) {
 		printf("failed to load %s: %s\n", fullpath, stbi_failure_reason());
 		return 0;
@@ -816,12 +814,6 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 		}
 		img->tex = tmp;
 
-		// keep rot_tex in sync
-		if (!(tmp = realloc(img->rot_tex, frames*sizeof(SDL_Texture*)))) {
-			perror("Couldn't allocate tex array");
-			return 0;
-		}
-		img->rot_tex = tmp;
 		img->frame_capacity = frames;
 	}
 
@@ -1079,10 +1071,6 @@ int setup(char* dirpath)
 		perror("Couldn't allocate tex array");
 		cleanup(0, 1);
 	}
-	if (!(g->img[0].rot_tex = malloc(100*sizeof(SDL_Texture*)))) {
-		perror("Couldn't allocate tex array");
-		cleanup(0, 1);
-	}
 	g->img[0].frame_capacity = 100;
 	g->fill_mode = 0;
 
@@ -1244,11 +1232,9 @@ void set_fullscreen()
 void replace_img(img_state* i1, img_state* i2)
 {
 	SDL_Texture** tmptex = i1->tex;
-	SDL_Texture** tmprottex = i1->rot_tex;
 	int tmp = i1->frame_capacity;
 	memcpy(i1, i2, sizeof(img_state));
 	i2->tex = tmptex;
-	i2->rot_tex = tmprottex;
 	i2->frame_capacity = tmp;
 	i2->frames = 0;
 }
@@ -1297,87 +1283,89 @@ void rotate_img90(img_state* img, int left)
 	img->h = w;
 	img->frames = frames;
 	img->pixels = rotated;
-	img->rotated |= ROTATED90;
+	img->rotated = ROTATED;
 
 	// since rotate90 actually rotates the pixels (doesn't just update textures)
 	// the rotated image becomes the new base image so we can't/shouldn't update degs
 	// img->rotdegs += ((left) ? 90 : -90);
 }
 
-void rotate_img(img_state* img, int left)
+void rotate_img(img_state* img)
 {
-	int w = img->w_orig;
-	int h = img->h_orig;
+	int w = img->w;
+	int h = img->h;
 	int frames = img->frames;
 
-	int dim = sqrt(w*w + h*h);
-	int sz = w*h*4;
-	int rot_sz = dim*dim*4;
-
-	SDL_Texture** rot_tex = img->rot_tex;
-
-	u8* pix = img->pixels;
-
-	// TODO hmmm
-	if (img->w != dim) {
-		for (int i=0; i<frames; ++i) {
-			rot_tex[i] = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, dim, dim);
-			if (!rot_tex[i]) {
-				printf("Error creating rotated texture: %s\n", SDL_GetError());
-				cleanup(0, 1);
-			}
-		}
-	}
-
-	int dim2 = dim/2;
-	int h2old = h/2;
-	int w2old = w/2;
-	int x, y, xout, yout;
-
-	// So normally we'd have to reverse this because we have a left handed
+	// So normally we'd have to negate rads because we have a left handed
 	// coordinate system where y is down, so a positive rotation is rotating
 	// clockwise, however to avoid missing pixels due to aliasing, we are rotating
 	// the rotated image backward to find the closest pixel in the original image
 	// (ie one pixel could end up multiple places in the rotated image).  This
 	// flips the positive rotation direction back to normal.
-	img->rotdegs += (left) ? 1 : -1;
-	img->rotated |= ROTATED360;
+	float rads = -img->rotdegs * (3.14159265f/180.0f);
 
-	float rads = img->rotdegs * (3.14159265f/180.0f);
+	// As long as I need SDL2_gfx for nuklear I might as well use it for other stuff
+	// I can always go back to my own code later
+	int wrot, hrot;
+	rotozoomSurfaceSize(w, h, -img->rotdegs, 1, &wrot, &hrot);
+
+	int hrot2 = hrot / 2;
+	int wrot2 = wrot / 2;
+	int sz = w*h*4;
+	int sz_rot = wrot*hrot*4;
+
+	u8* rot_pixels = calloc(frames, sz_rot + ((frames>1)?2:0));
+	u8* pix = img->pixels;
+	
 	u32* outu32;
 	u32* inu32;
 
-	int pitch;
-	// TODO update rotimg pixels at the same time as textures?
-	// or only when/if they elect to save changes before moving
+	int w2old = w / 2;
+	int h2old = h / 2;
+	int x, y, xout, yout;
 
+	// TODO anti-aliasing, GL_LINEAR style interpolation?
 	for (int k=0; k<frames; ++k) {
-		// No apparent speed benefit to using lock/unlock vs UpdateTexture
-		SDL_LockTexture(rot_tex[k], NULL, (void**)&outu32, &pitch);
-
-		memset(outu32, 0, rot_sz);
 		inu32 = (u32*)&pix[(sz+2)*k];
-		for (int i=0; i<dim; ++i) {
-			y = i - dim2;
-			for (int j=0; j<dim; ++j) {
-				x = j - dim2;
+		outu32 = (u32*)&rot_pixels[(sz_rot+2)*k];
+		for (int i=0; i<hrot; ++i) {
+			y = i - hrot2;
+			for (int j=0; j<wrot; ++j) {
+				x = j - wrot2;
 				xout = x * cos(rads) - y * sin(rads) + w2old;
 				yout = x * sin(rads) + y * cos(rads) + h2old;
 
 				if (xout >= 0 && xout < w && yout >= 0 && yout < h) {
 					//memcpy(&rotimg[(i*dim + j)*4], &pix[(yout*w + xout)*4], 4);
-					outu32[i*dim + j] = inu32[yout*w + xout];
+					outu32[i*wrot + j] = inu32[yout*w + xout];
 				}
-
-
 			}
 		}
-		SDL_UnlockTexture(rot_tex[k]);
-		//SDL_UpdateTexture(rot_tex[k], NULL, rotimg, dim*4);
 	}
 
-	img->w = dim;
-	img->h = dim;
+	img->w = wrot;
+	img->h = hrot;
+	free(img->pixels);
+	img->pixels = rot_pixels;
+	img->rotated = ROTATED;
+
+	for (int i=0; i<img->frames; ++i) {
+		SDL_DestroyTexture(img->tex[i]);
+	}
+	if (!create_textures(img)) {
+		cleanup(0, 1);
+	}
+
+	// TODO refactor this, rotate_img90 and do_rotate
+	if (g->n_imgs == 1)
+		SET_MODE1_SCR_RECT();
+	else if (g->n_imgs == 2)
+		SET_MODE2_SCR_RECTS();
+	else if (g->n_imgs == 4)
+		SET_MODE4_SCR_RECTS();
+	else
+		SET_MODE8_SCR_RECTS();
+	g->status = REDRAW;
 }
 
 int try_move(int direction)
@@ -1420,7 +1408,8 @@ void do_rotate(int left, int is_90)
 				rotate_img90(img, left);
 				create_textures(img);
 			} else {
-				rotate_img(img, left);
+				g->show_rotate = nk_true;
+				return;
 			}
 
 			if (g->n_imgs == 1)
@@ -1694,7 +1683,6 @@ int handle_events()
 	int mouse_x, mouse_y;
 	u32 mouse_button_mask = SDL_GetMouseState(&mouse_x, &mouse_y);
 	
-	int per_frame = 0;
 	int done_rotate = 0;
 	int code;
 	nk_input_begin(g->ctx);
@@ -1718,6 +1706,10 @@ int handle_events()
 			case ROT_LEFT:
 			case ROT_RIGHT:
 				do_rotate(code == ROT_LEFT, SDL_TRUE);
+				break;
+			case ROT360:
+				// TODO
+				rotate_img((g->n_imgs == 1) ? &g->img[0] : g->img_focus);
 				break;
 			case MODE_CHANGE:
 				g->status = REDRAW;
@@ -1744,11 +1736,13 @@ int handle_events()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
-				if (!copy_escape && !g->fullscreen && !g->slideshow && !g->show_about && !g->show_prefs) {
+				if (!copy_escape && !g->fullscreen && !g->slideshow && !g->show_about && !g->show_prefs && !g->show_rotate) {
 					//nk_input_end(g->ctx);
 					return 1;
 				} else {
-					if (g->show_about) {
+					if (g->show_rotate) {
+						g->show_rotate = nk_false;
+					} else if (g->show_about) {
 						g->show_about = nk_false;
 					} else if (g->show_prefs) {
 						g->show_prefs = nk_false;
@@ -1868,6 +1862,21 @@ int handle_events()
 				}
 				break;
 
+			case SDL_SCANCODE_L:
+			case SDL_SCANCODE_R:
+				if (!done_rotate) {
+					if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+						do_rotate(sc == SDL_SCANCODE_L, SDL_FALSE);
+						g->mouse_state = 1;
+						g->mouse_timer = SDL_GetTicks();
+					} else {
+						do_rotate(sc == SDL_SCANCODE_L, SDL_TRUE);
+					}
+					done_rotate = 1;
+				}
+				break;
+
+
 			case SDL_SCANCODE_F: {
 				g->status = REDRAW;
 				if (mod_state & (KMOD_LALT | KMOD_RALT)) {
@@ -1895,20 +1904,6 @@ int handle_events()
 			case SDL_SCANCODE_SPACE:
 				try_move(RIGHT);
 				break;
-
-			case SDL_SCANCODE_L:
-			case SDL_SCANCODE_R:
-				if (!done_rotate) {
-					if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-						do_rotate(sc == SDL_SCANCODE_L, SDL_FALSE);
-						per_frame++;
-					} else {
-						do_rotate(sc == SDL_SCANCODE_L, SDL_TRUE);
-					}
-					done_rotate = 1;
-				}
-				break;
-
 
 			// TODO merge RIGHT/DOWN and LEFT/UP?
 			case SDL_SCANCODE_RIGHT:
@@ -2164,11 +2159,6 @@ int handle_events()
 	}
 	nk_input_end(g->ctx);
 
-	/*
-	if (per_frame)
-		printf("per_frame = %d\n", per_frame);
-	*/
-
 	return 0;
 }
 
@@ -2393,10 +2383,7 @@ int main(int argc, char** argv)
 			SDL_RenderClear(g->ren);
 			for (int i=0; i<g->n_imgs; ++i) {
 				SDL_RenderSetClipRect(g->ren, &g->img[i].scr_rect);
-				if (g->img[i].rotated != ROTATED360)
-					SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
-				else
-					SDL_RenderCopy(g->ren, g->img[i].rot_tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
+				SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
 				print_img_state(&g->img[i]);
 			}
 			SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing

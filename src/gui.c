@@ -34,7 +34,53 @@ void draw_gui(struct nk_context* ctx)
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
 
+
+
+
 	// Do popups first so I can return early if eather is up
+	if (g->show_rotate) {
+		int w = 400, h = 300, tmp;
+		struct nk_rect s;
+		s.x = scr_w/2-w/2;
+		s.y = scr_h/2-h/2;
+		s.w = w;
+		s.h = h;
+		img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
+
+		if (nk_begin(ctx, "Arbitrary Rotation", s, prefs_flags)) {
+
+			nk_layout_row_dynamic(ctx, 0, 1);
+
+			nk_label_wrap(ctx, "Click and drag, type, or use the arrows to select the desired degree of rotation");
+
+			tmp = nk_propertyi(ctx, "Degrees:", -180, img->rotdegs, 180, 1, 0.5);
+			if (tmp != img->rotdegs) {
+				img->rotated = TO_ROTATE;
+				img->rotdegs = tmp;
+			}
+			//nk_label(ctx, "Degrees:", NK_TEXT_LEFT);
+			//nk_slider_int(ctx, -180, &slider_degs, 180, 1);
+
+			//nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
+			nk_layout_row_dynamic(ctx, 0, 2);
+			if (nk_button_label(ctx, "Preview")) {
+				if (img->rotated == TO_ROTATE) {
+					event.user.code = ROT360;
+					SDL_PushEvent(&event);
+				}
+			}
+			if (nk_button_label(ctx, "Ok")) {
+				if (img->rotated == TO_ROTATE) {
+					event.user.code = ROT360;
+					SDL_PushEvent(&event);
+				}
+				g->show_rotate = 0;;
+			}
+		}
+		nk_end(ctx);
+	}
+
+
 	if (g->show_about) {
 		int w = 550, h = 350; ///scale_x, h = 400/scale_y;
 		struct nk_rect s;
@@ -126,7 +172,7 @@ void draw_gui(struct nk_context* ctx)
 
 			nk_layout_row_dynamic(ctx, 0, 1);
 			nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
-			nk_label(ctx, g->cachedir, NK_TEXT_RIGHT);
+			nk_label_wrap(ctx, g->cachedir);
 
 
 			nk_layout_row_dynamic(ctx, 0, 1);
@@ -141,7 +187,7 @@ void draw_gui(struct nk_context* ctx)
 	// don't show main GUI if a popup is up, don't want user to
 	// be able to interact with it.  Could look up how to make them inactive
 	// but meh, this is simpler
-	if (g->show_about || g->show_prefs) {
+	if (g->show_about || g->show_prefs || g->show_rotate) {
 		g->mouse_timer = SDL_GetTicks();
 		return;
 	}
