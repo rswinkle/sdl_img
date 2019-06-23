@@ -1851,7 +1851,7 @@ int handle_events()
 				do_actual_size();
 				break;
 
-			case SDL_SCANCODE_V:
+			case SDL_SCANCODE_C:
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					// TODO maybe just flush events here and return 0 so
 					// no input for the current frame after CTRL+V? can I do
