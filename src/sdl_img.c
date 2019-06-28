@@ -220,7 +220,6 @@ typedef struct global_state
 
 	int status;
 
-	char* dirpath;
 	char* cachedir;
 	//char* config_dir;
 
@@ -572,7 +571,6 @@ void clear_img(img_state* img)
 
 	if (img->rotated && img->frames == 1) {
 		char msgbox_prompt[STRBUF_SZ];
-		char full_img_path[STRBUF_SZ];
 		int buttonid;
 
 		SDL_MessageBoxButtonData buttons[] = {
@@ -591,11 +589,7 @@ void clear_img(img_state* img)
 			NULL /* .colorScheme, NULL = system default */
 		};
 
-		if (g->dirpath)
-			sprintf(full_img_path, "%s/%s", g->dirpath, g->files.a[img->index]);
-		else
-			strncpy(full_img_path, g->files.a[img->index], STRBUF_SZ-1);
-
+		char* full_img_path = g->files.a[img->index];
 
 		snprintf(msgbox_prompt, STRBUF_SZ, "Do you want to save changes to '%s'?", full_img_path);
 		messageboxdata.message = msgbox_prompt;
@@ -775,18 +769,8 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 	// img->frames should always be 0 and there should be no allocated textures
 	// in tex because clear_img(img) should always have been called before
 
-	char fullpath[STRBUF_SZ];
+	char* fullpath = img_name;
 	int ret;
-
-	if (g->dirpath)
-		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", g->dirpath, img_name);
-	else
-		ret = snprintf(fullpath, STRBUF_SZ, "%s", img_name); // TODO strncpy?
-	if (ret >= STRBUF_SZ) {
-		// TODO add messagebox here?
-		puts("path too long");
-		return 0;
-	}
 
 	img->fullpath = realpath(fullpath, NULL);
 	printf("loading %s\n", fullpath);
@@ -1424,7 +1408,6 @@ void do_mode_change(int mode)
 
 void do_delete(SDL_Event* next)
 {
-	char full_img_path[STRBUF_SZ];
 
 	SDL_MessageBoxButtonData buttons[] = {
 		//{ /* .flags, .buttonid, .text */        0, 0, "no" },
@@ -1452,10 +1435,8 @@ void do_delete(SDL_Event* next)
 		return;
 	}
 
-	if (g->dirpath)
-		sprintf(full_img_path, "%s/%s", g->dirpath, g->files.a[g->img[0].index]);
-	else
-		strncpy(full_img_path, g->files.a[g->img[0].index], STRBUF_SZ-1);
+	char* full_img_path = g->files.a[g->img[0].index];
+
 	snprintf(msgbox_prompt, STRBUF_SZ, "Are you sure you want to delete '%s'?", full_img_path);
 	messageboxdata.message = msgbox_prompt;
 	SDL_ShowMessageBox(&messageboxdata, &buttonid);
@@ -2239,7 +2220,6 @@ int main(int argc, char** argv)
 	int given_list = 0;
 	int given_dir = 0;
 	int recurse = 0;
-	g->dirpath = NULL;
 	for (int i=1; i<argc; ++i) {
 		if (!strcmp(argv[i], "-l")) {
 			if (i+1 == argc) {
