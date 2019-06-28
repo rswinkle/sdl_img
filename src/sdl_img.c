@@ -762,15 +762,12 @@ exit_cleanup:
 	return 0;
 }
 
-int load_image(const char* img_name, img_state* img, int make_textures)
+int load_image(const char* fullpath, img_state* img, int make_textures)
 {
 	int frames, n;
 
 	// img->frames should always be 0 and there should be no allocated textures
 	// in tex because clear_img(img) should always have been called before
-
-	char* fullpath = img_name;
-	int ret;
 
 	img->fullpath = realpath(fullpath, NULL);
 	printf("loading %s\n", fullpath);
@@ -1006,7 +1003,7 @@ int load_new_images(void* data)
 	return 0;
 }
 
-int setup(int start_idx)
+void setup(int start_idx)
 {
 	g->win = NULL;
 	g->ren = NULL;
@@ -1037,14 +1034,12 @@ int setup(int start_idx)
 
 	g->img[0].index = start_idx;
 	char* img_name = g->files.a[start_idx];
-	int what = IMAGE;
 	// TODO best way to structure this and use in main()?
 	int ret = load_image(img_name, &g->img[0], SDL_FALSE);
 	if (!ret) {
 		if (curl_image(0)) {
 			ret = load_image(g->files.a[0], &g->img[0], SDL_FALSE);
 			img_name = g->files.a[0];
-			what = URL;
 		}
 	}
 
@@ -1156,8 +1151,6 @@ int setup(int start_idx)
 
 	g->mouse_timer = SDL_GetTicks();
 	g->mouse_state = 1;
-
-	return what;
 }
 
 // probably now worth having a 2 line function used 3 places?
@@ -1316,6 +1309,48 @@ int try_move(int direction)
 		return 1;
 	}
 	return 0;
+}
+
+void do_shuffle()
+{
+	if (g->n_imgs != 1) {
+		return;
+	}
+	char* save = g->files.a[g->img[0].index];
+	char* tmp;
+	int j;
+	// Fisher-Yates, aka Knuth Shuffle
+	for (int i=g->files.size-1; i>0; --i) {
+		j = rand() % (i+1);
+		tmp = g->files.a[i];
+		g->files.a[i] = g->files.a[j];
+		g->files.a[j] = tmp;
+
+	}
+
+	for (int i=0; i<g->files.size; ++i) {
+		if (!strcmp(save, g->files.a[i])) {
+			g->img[0].index = i;
+			break;
+		}
+	}
+}
+
+void do_sort()
+{
+	if (g->n_imgs != 1) {
+		return;
+	}
+	char* save = g->files.a[g->img[0].index];
+
+	qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
+
+	for (int i=0; i<g->files.size; ++i) {
+		if (!strcmp(save, g->files.a[i])) {
+			g->img[0].index = i;
+			break;
+		}
+	}
 }
 
 void do_zoom(int dir, int use_mouse)
@@ -1786,6 +1821,14 @@ int handle_events()
 				do_actual_size();
 				break;
 
+			case SDL_SCANCODE_M:
+				do_shuffle();
+				break;
+
+			case SDL_SCANCODE_O:
+				do_sort();
+				break;
+
 			case SDL_SCANCODE_C:
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					// TODO maybe just flush events here and return 0 so
@@ -2188,6 +2231,7 @@ int main(int argc, char** argv)
 	}
 	cvec_str(&g->files, 0, 100);
 
+
 	// Not currently used
 	// char* exepath = SDL_GetBasePath();
 
@@ -2199,6 +2243,9 @@ int main(int argc, char** argv)
 	time_t t;
 	struct tm *tmp;
 	t = time(NULL);
+
+	srand(t);
+
 	tmp = localtime(&t);
 	strftime(datebuf, sizeof(datebuf), "%F", tmp);
 	//strftime(datebuf, sizeof(datebuf), "%Y%m%d", tmp);
@@ -2355,7 +2402,7 @@ int main(int argc, char** argv)
 	printf("Loaded %"PRIuMAX" filenames\n", g->files.size);
 
 	printf("start_index = %d\n", start_index);
-	int what = setup(start_index);
+	setup(start_index);
 
 
 	int is_a_gif;
