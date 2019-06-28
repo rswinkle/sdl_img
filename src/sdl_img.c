@@ -860,7 +860,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 
 	char* ext = NULL;
 
-	printf("Scanning %s for images...\n", dirpath);
+	//printf("Scanning %s for images...\n", dirpath);
 	while ((entry = readdir(dir))) {
 
 		// faster than 2 strcmp calls? ignore "." and ".."
@@ -877,7 +877,10 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 			perror("stat");
 			continue;
 		}
-		if (recurse && S_ISDIR(file_stat.st_mode)) {
+
+		// S_ISLNK() doesn't seem to work but d_type works, though the man page
+		// says it's not supported on all filesystems... TODO?
+		if (recurse && S_ISDIR(file_stat.st_mode) && entry->d_type != DT_LNK) {
 			myscandir(fullpath, exts, num_exts, recurse);
 			continue;
 		}
@@ -902,7 +905,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		cvec_push_str(&g->files, fullpath);
 	}
 
-	printf("Loaded %"PRIuMAX" filenames\n", g->files.size);
+	//printf("Loaded %"PRIuMAX" filenames\n", g->files.size);
 	closedir(dir);
 	g->loading = 0;
 	return 1;
@@ -2294,13 +2297,25 @@ int main(int argc, char** argv)
 		} else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
 			print_help(argv[0], SDL_TRUE);
 			cleanup(1, 0);
+		} else if (!strcmp(argv[i], "-R")) {
+			recurse = 1;
 		} else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--recursive")) {
 			; // TODO
 			if (i+1 == argc) {
 				puts("Error missing directory following -r");
 				break;
 			}
-			recurse = 1;
+			i++;
+			if (stat(argv[i], &file_stat) || !S_ISDIR(file_stat.st_mode)) {
+				printf("Bad argument, expected directory following -r: \"%s\", skipping\n", argv[i]);
+				continue;
+			}
+			given_dir = 1;
+			len = strlen(argv[i]);
+			if (argv[i][len-1] == '/')
+				argv[i][len-1] = 0;
+
+			myscandir(argv[i], exts, num_exts, SDL_TRUE);
 
 		} else {
 			normalize_path(argv[i]);
@@ -2313,7 +2328,7 @@ int main(int argc, char** argv)
 				len = strlen(argv[i]);
 				if (argv[i][len-1] == '/')
 					argv[i][len-1] = 0;
-				myscandir(argv[i], exts, num_exts, SDL_FALSE);
+				myscandir(argv[i], exts, num_exts, recurse);
 			} else if(S_ISREG(file_stat.st_mode)) {
 				img_args++;
 				cvec_push_str(&g->files, argv[i]);
@@ -2328,9 +2343,6 @@ int main(int argc, char** argv)
 	}
 
 	int start_index = 0;
-	printf("sorting images\n");
-	qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
-
 
 	// if given a single local image, scan all the files in the same directory
 	// don't do this if a list and/or directory was given even if they were empty
@@ -2340,11 +2352,14 @@ int main(int argc, char** argv)
 
 		cvec_pop_str(&g->files, NULL);
 
-		myscandir(dirpath, exts, num_exts, SDL_FALSE); // allow recurse for base case?
+		myscandir(dirpath, exts, num_exts, recurse); // allow recurse for base case?
 
 		snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, img_name);
 
+		qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
+
 		printf("finding current image to update index\n");
+		printf("'%s'\n", fullpath);
 		char** res;
 		char* tmp_ptr = fullpath;
 		res = bsearch(&tmp_ptr, g->files.a, g->files.size, sizeof(char*), StringCompareSort);
@@ -2352,8 +2367,14 @@ int main(int argc, char** argv)
 			cleanup(0, 1);
 		}
 		start_index = res - g->files.a;
+	} else {
+		qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
 	}
 
+
+	printf("Loaded %"PRIuMAX" filenames\n", g->files.size);
+
+	printf("start_index = %d\n", start_index);
 	int what = setup(start_index);
 
 
