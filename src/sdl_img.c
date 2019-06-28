@@ -844,7 +844,7 @@ int load_image(const char* img_name, img_state* img, int make_textures)
 
 // renamed to not conflict with <dirent.h>'s scandir
 // which I could probably use to accomplish the most of this...
-int myscandir(void* data)
+int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 {
 	char fullpath[STRBUF_SZ] = { 0 };
 	struct stat file_stat;
@@ -852,38 +852,39 @@ int myscandir(void* data)
 	int ret, i=0;;
 	DIR* dir;
 
-	const char* exts[] =
-	{
-		".jpg",
-		".jpeg",
-		".gif",
-		".png",
-		".bmp",
-
-		".ppm",
-		".pgm",
-
-		".tga",
-		".hdr",
-		".pic",
-		".psd"
-	};
-
-
-
-	char* initial_image = data;
-
-	dir = opendir(g->dirpath);
+	dir = opendir(dirpath);
 	if (!dir) {
 		perror("opendir");
 		cleanup(1, 1);
 	}
 
 	char* ext = NULL;
-	int num_exts = sizeof(exts)/sizeof(*exts);
 
-	printf("Scanning %s for images...\n", g->dirpath);
+	printf("Scanning %s for images...\n", dirpath);
 	while ((entry = readdir(dir))) {
+
+		// faster than 2 strcmp calls? ignore "." and ".."
+		if (entry->d_name[0] == '.' && (!entry->d_name[1] || (entry->d_name[1] == '.' && !entry->d_name[2]))) {
+			continue;
+		}
+
+		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, entry->d_name);
+		if (ret >= STRBUF_SZ) {
+			printf("path too long\n");
+			cleanup(0, 1);
+		}
+		if (stat(fullpath, &file_stat)) {
+			perror("stat");
+			continue;
+		}
+		if (recurse && S_ISDIR(file_stat.st_mode)) {
+			myscandir(fullpath, exts, num_exts, recurse);
+			continue;
+		}
+
+		if (!S_ISREG(file_stat.st_mode)) {
+			continue;
+		}
 
 		// only add supported extensions
 		ext = strrchr(entry->d_name, '.');
@@ -897,38 +898,11 @@ int myscandir(void* data)
 		if (i == num_exts)
 			continue;
 
-		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", g->dirpath, entry->d_name);
-		if (ret >= STRBUF_SZ) {
-			printf("path too long\n");
-			cleanup(0, 1);
-		}
-		if (stat(fullpath, &file_stat)) {
-			perror("stat");
-			continue;
-		}
-
-		// verify that it's regular file and not the initial image
-		// (checking that it's a valid/supported image with stbi_info() makes startup too slow) esp.
-		// on external devices for example
-		if (S_ISREG(file_stat.st_mode) && (!initial_image || strcmp(entry->d_name, initial_image))) {
-			cvec_push_str(&g->files, entry->d_name);
-		}
+		// have to use fullpath not d_name in case we're in a recursive call
+		cvec_push_str(&g->files, fullpath);
 	}
 
-	printf("sorting images\n");
-	qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
-
-	if (initial_image) {
-		printf("finding current image to update index\n");
-		char** res;
-		res = bsearch(&initial_image, g->files.a, g->files.size, sizeof(char*), StringCompareSort);
-		if (!res) {
-			cleanup(0, 1);
-		}
-		g->img[0].index = res - g->files.a;
-	}
-
-	printf("Loaded all %"PRIuMAX" filenames\n", g->files.size);
+	printf("Loaded %"PRIuMAX" filenames\n", g->files.size);
 	closedir(dir);
 	g->loading = 0;
 	return 1;
@@ -1045,7 +1019,7 @@ int load_new_images(void* data)
 	return 0;
 }
 
-int setup(char* dirpath)
+int setup(int start_idx)
 {
 	g->win = NULL;
 	g->ren = NULL;
@@ -1066,15 +1040,16 @@ int setup(char* dirpath)
 	g->img = g->img1;
 	g->slide_delay = 3;
 	g->bg = nk_rgb(0,0,0);
+	g->fill_mode = 0;
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
 		perror("Couldn't allocate tex array");
 		cleanup(0, 1);
 	}
 	g->img[0].frame_capacity = 100;
-	g->fill_mode = 0;
 
-	char* img_name = g->files.a[0];
+	g->img[0].index = start_idx;
+	char* img_name = g->files.a[start_idx];
 	int what = IMAGE;
 	// TODO best way to structure this and use in main()?
 	int ret = load_image(img_name, &g->img[0], SDL_FALSE);
@@ -1083,30 +1058,6 @@ int setup(char* dirpath)
 			ret = load_image(g->files.a[0], &g->img[0], SDL_FALSE);
 			img_name = g->files.a[0];
 			what = URL;
-		} else if (g->files.size == 1) {
-			struct stat file_stat;
-			if (!stat(g->files.a[0], &file_stat) && S_ISDIR(file_stat.st_mode)) {
-				strncpy(dirpath, g->files.a[0], STRBUF_SZ);
-
-				// because seeing // in a path bothers me (I do %s/%s, dirpath, name
-				// to get a full path before loading)
-				int len = strlen(dirpath);
-				if (dirpath[len-1] == '/')
-					dirpath[len-1] = 0;
-
-				g->dirpath = dirpath;
-				cvec_erase_str(&g->files, 0, 0);
-				myscandir(NULL);
-				printf("Scanned %"PRIuMAX" files in %s\n", g->files.size, dirpath);
-				what = DIRECTORY;
-				for (int i=0; i<g->files.size; ++i) {   // find first valid image in dir
-					if ((ret = load_image(g->files.a[i], &g->img[0], SDL_FALSE))) {
-						img_name = g->files.a[i];
-						g->img[0].index = i;
-						break;
-					}
-				}
-			}
 		}
 	}
 
@@ -2216,16 +2167,36 @@ void read_list(cvector_str* images, FILE* file)
 
 int main(int argc, char** argv)
 {
+	char dirpath[STRBUF_SZ] = { 0 };
+	char img_name[STRBUF_SZ] = { 0 };
+	char fullpath[STRBUF_SZ] = { 0 };
+	char cachedir[STRBUF_SZ] = { 0 };
+	char datebuf[200] = { 0 };
+	int ticks;
+	struct stat file_stat;
+
+	const char* exts[] =
+	{
+		".jpg",
+		".jpeg",
+		".gif",
+		".png",
+		".bmp",
+
+		".ppm",
+		".pgm",
+
+		".tga",
+		".hdr",
+		".pic",
+		".psd"
+	};
+	int num_exts = sizeof(exts)/sizeof(*exts);
+
 	if (argc < 2) {
 		print_help(argv[0], SDL_FALSE);
 		exit(0);
 	}
-
-	char dirpath[STRBUF_SZ] = { 0 };
-	char img_name[STRBUF_SZ] = { 0 };
-	char cachedir[STRBUF_SZ] = { 0 };
-	char datebuf[200] = { 0 };
-	int ticks;
 
 	if (curl_global_init(CURL_GLOBAL_ALL)) {
 		puts("Failed to initialize libcurl");
@@ -2261,7 +2232,10 @@ int main(int argc, char** argv)
 	}
 	g->cachedir = cachedir;
 
+	int img_args = 0;
 	int given_list = 0;
+	int given_dir = 0;
+	int recurse = 0;
 	g->dirpath = NULL;
 	for (int i=1; i<argc; ++i) {
 		if (!strcmp(argv[i], "-l")) {
@@ -2320,31 +2294,68 @@ int main(int argc, char** argv)
 		} else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
 			print_help(argv[0], SDL_TRUE);
 			cleanup(1, 0);
+		} else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--recursive")) {
+			; // TODO
+			if (i+1 == argc) {
+				puts("Error missing directory following -r");
+				break;
+			}
+			recurse = 1;
+
 		} else {
 			normalize_path(argv[i]);
-			cvec_push_str(&g->files, argv[i]);
+			if (stat(argv[i], &file_stat)) {
+				printf("Bad argument: \"%s\", skipping\n", argv[i]);
+				continue;
+			}
+			if (S_ISDIR(file_stat.st_mode)) {
+				given_dir = 1;
+				len = strlen(argv[i]);
+				if (argv[i][len-1] == '/')
+					argv[i][len-1] = 0;
+				myscandir(argv[i], exts, num_exts, SDL_FALSE);
+			} else if(S_ISREG(file_stat.st_mode)) {
+				img_args++;
+				cvec_push_str(&g->files, argv[i]);
+			} else {
+				cvec_push_str(&g->files, argv[i]);
+			}
 		}
 	}
 	if (!g->files.size) {
 		puts("No images provided, exiting (empty list perhaps?)");
 		cleanup(1, 0);
 	}
-	printf("found %"PRIuMAX" images in args\n", g->files.size);
 
-	int what = setup(dirpath);
+	int start_index = 0;
+	printf("sorting images\n");
+	qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
+
 
 	// if given a single local image, scan all the files in the same directory
-	if (!given_list && g->files.size == 1 && what != URL && what != DIRECTORY) {
+	// don't do this if a list and/or directory was given even if they were empty
+	if (g->files.size == 1 && img_args == 1 && !given_list && !given_dir) {
 		mydirname(g->files.a[0], dirpath);
 		mybasename(g->files.a[0], img_name);
 
-		printf("Old to new\n%s\n%s\n", g->files.a[0], img_name);
-		cvec_replace_str(&g->files, 0, img_name, NULL);
+		cvec_pop_str(&g->files, NULL);
 
-		g->dirpath = dirpath;
-		myscandir(img_name);
-		printf("Scanned %"PRIuMAX" files in %s\n", g->files.size, dirpath);
+		myscandir(dirpath, exts, num_exts, SDL_FALSE); // allow recurse for base case?
+
+		snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, img_name);
+
+		printf("finding current image to update index\n");
+		char** res;
+		char* tmp_ptr = fullpath;
+		res = bsearch(&tmp_ptr, g->files.a, g->files.size, sizeof(char*), StringCompareSort);
+		if (!res) {
+			cleanup(0, 1);
+		}
+		start_index = res - g->files.a;
 	}
+
+	int what = setup(start_index);
+
 
 	int is_a_gif;
 	while (1) {

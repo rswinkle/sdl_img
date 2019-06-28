@@ -129,9 +129,10 @@ TODO/IDEAS
 - [x] Add argument -s [1-10] to start in slideshow mode
 - [ ] Add window icon (either static or based on current image(s))
 - [x] Speed up initial startup when a directory has a large number of images
-- [x] Change sorting to use strcmp for humans
+- [x] Change sorting to use strcmp for humans (could use gnu strverscmp)
+- [ ] Recursive directory scanning with -r
 - [ ] shuffle/sort by last modified, size etc.
-- [ ] remove non-images (or unsupported images) from list without affecting startup time
+- [x] Use image extensions as a filter most common use cases
 - [x] Nuklear GUI
 - [ ] save to favorites or more general "collection" saving
 - [ ] Clean up code a bit (ongoing)
