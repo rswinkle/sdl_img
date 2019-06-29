@@ -1835,10 +1835,12 @@ int handle_events()
 					// no input for the current frame after CTRL+V? can I do
 					// that without breaking the GUI?
 					copy_escape = do_copy();
-				} else {
-					do_save();
 				}
-				break;
+			break;
+
+			case SDL_SCANCODE_V:
+				do_save();
+			break;
 
 			case SDL_SCANCODE_L:
 			case SDL_SCANCODE_R:
