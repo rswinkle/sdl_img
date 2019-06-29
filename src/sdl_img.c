@@ -2386,7 +2386,6 @@ int main(int argc, char** argv)
 		qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
 
 		printf("finding current image to update index\n");
-		printf("'%s'\n", fullpath);
 		char** res;
 		char* tmp_ptr = fullpath;
 		res = bsearch(&tmp_ptr, g->files.a, g->files.size, sizeof(char*), StringCompareSort);
