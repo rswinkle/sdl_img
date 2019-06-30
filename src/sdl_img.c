@@ -886,7 +886,6 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		cvec_push_str(&g->files, fullpath);
 	}
 
-	//printf("Loaded %"PRIuMAX" filenames\n", g->files.size);
 	closedir(dir);
 	g->loading = 0;
 	return 1;
@@ -1431,7 +1430,7 @@ void do_rotate(int left, int is_90)
 	}
 }
 
-void do_mode_change(int mode)
+void do_mode_change(intptr_t mode)
 {
 	// mode is an enum that also == the number of images
 	if (g->n_imgs != mode && g->files.size >= mode) {
@@ -1717,7 +1716,7 @@ int handle_events()
 			case MODE_CHANGE:
 				g->status = REDRAW;
 				g->slide_timer =  SDL_GetTicks();
-				do_mode_change((i64)e.user.data1);
+				do_mode_change((intptr_t)e.user.data1);
 				break;
 			case ACTUAL_SIZE:
 				do_actual_size();
@@ -2431,7 +2430,7 @@ int main(int argc, char** argv)
 	}
 
 
-	printf("Loaded %"PRIuMAX" filenames\n", g->files.size);
+	printf("Loaded %zu filenames\n", g->files.size);
 
 	printf("start_index = %d\n", start_index);
 	setup(start_index);
