@@ -1,21 +1,25 @@
 .\" Man page for SDL_IMG
-.TH SDL_IMG 1 "31 June 2019" "0.96" "The SDL2 and stb_image based image viewer"
+.TH SDL_IMG 1 "30 June 2019" "0.97" "The SDL2 and stb_image based image viewer"
 .\" Please adjust this date when revising the manpage.
 .\"
 .SH "NAME"
 sdl_img \- A simple but unique image viewer based on stb_image and SDL2
 .SH "SYNOPSIS"
-.B ./sdl_img [-f] [-s [delay]] [files] [-l text_list]
+.B ./sdl_img [-f] [-R] [-s [delay]] [-r dir] [files/dirs] [-l text_list]
 
-.B ./sdl_img -l list_of_images (urls or local paths or mixed, doesn't matter)
+.B ./sdl_img image1.jpg (will open all images in same dir)
 
-.B ./sdl_img image1.jpg image2.png
+.B ./sdl_img -l list_of_imgs (urls or local paths or both)
 
-.B ./sdl_img image.jpg -l list1 example.com/image.jpg -l list3 image4.gif
+.B ./sdl_img . (will open all images in .)
+
+.B ./sdl_img image1.jpg somedir/* otherdir/image2.png
+
+.B ./sdl_img -l list1 example.com/image.jpg -l list3 -r ~/somedir
 
 .SH "DESCRIPTION"
 \fBsdl_img\fR is designed to be simple, easy to use image viewer that implements
-some unique features while still having a short (~1500 SLOC not including
+some unique features while still having a short (~2200 SLOC not including
 libraries) simple codebase.  It handles all the normal functions of an image
 viewer (browsing through directories, zoom, pan, rotate, delete, slideshow).
 .TS
@@ -31,6 +35,8 @@ Mouse Wheel       	Zoom in/out
 Left click + drag 	Pan around a zoomed in image
 A                 	Actual size
 F                 	Toggle fill screen mode
+M                 	Shuffle (Mix) the images (only in single mode)
+O                 	Sort (Order) the images (only in single mode)
 ALT + F or F11    	Toggle Fullscreen
 ESC               	Exit (or exit Slideshow mode then fullscreen)
 L/R               	Rotate the current image left/right, prompts for saving appropriately
@@ -71,14 +77,23 @@ the entire set of images or an individual selected from the group.
 .PP
 .SH "OPTIONS"
 .TP
-\fBfilename(s)...\fR
-Specifies the image to open when \fBsdl_img\fR starts. \fBsdl_img\fR also supports handling of remote files.
+\fBfilename/directory(s)...\fR
+Specifies the image to open when \fBsdl_img\fR starts.  If a directory is given
+it is scanned for images.  \fBsdl_img\fR also supports handling of remote files.
 .TP
 \fB\-f, \-\-fullscreen\fR
 Start \fBsdl_img\fR in fullscreen mode.
 .TP
 \fB\-s, \-\-slide-show [delay=3]\fR
 Open in slideshow mode.
+.TP
+\fB\-r, \-\-recursive dir\fR
+Scan dir recursively for images to add to the list
+.TP
+\fB\-R\fR
+Scan all directories that come after recursively (-r after -R is redundant).
+You can mix them, with -r and non -r dirs before -R but you might as well
+move the -r dirs after -R to make your life easier.
 .TP
 \fB\-c, \-\-cache ./your_cache\fR
 Use specified directory as cache.
