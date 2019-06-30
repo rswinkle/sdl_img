@@ -73,6 +73,13 @@ void draw_gui(struct nk_context* ctx)
 				if (img->rotated == TO_ROTATE) {
 					event.user.code = ROT360;
 					SDL_PushEvent(&event);
+				} else {
+					// clear state here since we don't need it
+					// anymore and rotate_img won't be called
+					free(g->orig_pix);
+					g->orig_pix = NULL;
+					g->orig_w = 0;
+					g->orig_h = 0;
 				}
 				g->show_rotate = 0;;
 			}
@@ -188,6 +195,7 @@ void draw_gui(struct nk_context* ctx)
 	// be able to interact with it.  Could look up how to make them inactive
 	// but meh, this is simpler
 	if (g->show_about || g->show_prefs || g->show_rotate) {
+		g->mouse_state = 1;
 		g->mouse_timer = SDL_GetTicks();
 		return;
 	}

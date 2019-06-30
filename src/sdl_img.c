@@ -172,8 +172,6 @@ typedef int64_t i64;
 typedef struct img_state
 {
 	u8* pixels;
-	int w_orig;
-	int h_orig;
 	int w;
 	int h;
 	int file_size;
@@ -210,6 +208,11 @@ typedef struct global_state
 
 	int scr_w;
 	int scr_h;
+
+	// stupid hack for arbitrary rotation
+	u8* orig_pix;
+	int orig_w;
+	int orig_h;
 
 	img_state* img_focus;
 	int n_imgs;
@@ -614,6 +617,7 @@ void clear_img(img_state* img)
 				stbi_write_jpg(full_img_path, img->w, img->h, 4, img->pixels, 100);
 		}
 	}
+
 	//could clear everything else but these are the important
 	//ones logic is based on
 	//stbi_image_free(img->pixels);
@@ -658,7 +662,6 @@ void print_img_state(img_state* img)
 {
 	printf("{\nimg = %p\n", img);
 	printf("pixels = %p\n", img->pixels);
-	printf("orig WxH = %dx%d\n", img->w_orig, img->h_orig);
 	printf("WxH = %dx%d\n", img->w, img->h);
 	printf("index = %d\n", img->index);
 	printf("rotdegs = %d\n", img->rotdegs);
@@ -777,9 +780,6 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 		printf("failed to load %s: %s\n", fullpath, stbi_failure_reason());
 		return 0;
 	}
-
-	img->w_orig = img->w;
-	img->h_orig = img->h;
 
 	struct stat file_stat;
 	if (!stat(fullpath, &file_stat)) {
@@ -1223,9 +1223,16 @@ void rotate_img90(img_state* img, int left)
 
 void rotate_img(img_state* img)
 {
-	int w = img->w;
-	int h = img->h;
-	int frames = img->frames;
+	int w, h, frames;
+	frames = img->frames;
+
+	if (g->orig_pix) {
+		w = g->orig_w;
+		h = g->orig_h;
+	} else {
+		w = img->w;
+		h = img->h;
+	}
 
 	// So normally we'd have to negate rads because we have a left handed
 	// coordinate system where y is down, so a positive rotation is rotating
@@ -1245,8 +1252,23 @@ void rotate_img(img_state* img)
 	int sz = w*h*4;
 	int sz_rot = wrot*hrot*4;
 
-	u8* rot_pixels = calloc(frames, sz_rot + ((frames>1)?2:0));
-	u8* pix = img->pixels;
+	size_t alloc_size = frames * (sz_rot + ((frames>1)?2:0));
+
+	u8* rot_pixels = NULL;
+	if (g->orig_pix) {
+		rot_pixels = realloc(img->pixels, alloc_size);
+		memset(rot_pixels, 0, alloc_size);
+	} else {
+		g->orig_pix = img->pixels;
+		g->orig_w = w;
+		g->orig_h = h;
+		rot_pixels = calloc(1, alloc_size);
+	}
+	if (!rot_pixels) {
+		cleanup(0, 1);
+	}
+
+	u8* pix = g->orig_pix;
 	
 	u32* outu32;
 	u32* inu32;
@@ -1276,7 +1298,6 @@ void rotate_img(img_state* img)
 
 	img->w = wrot;
 	img->h = hrot;
-	free(img->pixels);
 	img->pixels = rot_pixels;
 	img->rotated = ROTATED;
 
@@ -1297,6 +1318,16 @@ void rotate_img(img_state* img)
 	else
 		SET_MODE8_SCR_RECTS();
 	g->status = REDRAW;
+
+	// Ok was pressed when a change hadn't been done
+	// so we couldn't clear in draw_gui because we still
+	// needed it
+	if (!g->show_rotate) {
+		free(g->orig_pix);
+		g->orig_pix = NULL;
+		g->orig_w = 0;
+		g->orig_h = 0;
+	}
 }
 
 int try_move(int direction)
@@ -1382,6 +1413,8 @@ void do_rotate(int left, int is_90)
 				create_textures(img);
 			} else {
 				g->show_rotate = nk_true;
+				g->mouse_state = 1;
+				g->mouse_timer = SDL_GetTicks();
 				return;
 			}
 
@@ -1847,8 +1880,6 @@ int handle_events()
 				if (!done_rotate) {
 					if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 						do_rotate(sc == SDL_SCANCODE_L, SDL_FALSE);
-						g->mouse_state = 1;
-						g->mouse_timer = SDL_GetTicks();
 					} else {
 						do_rotate(sc == SDL_SCANCODE_L, SDL_TRUE);
 					}
