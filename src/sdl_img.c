@@ -1338,6 +1338,10 @@ void rotate_img(img_state* img)
 
 int try_move(int direction)
 {
+	// TODO prevent moves and some other
+	// actions while g->show_rotate.  Since we already
+	// hide the GUI while the popups up, we really just have
+	// to worry about keyboard actions.
 	if (!g->loading) {
 		SDL_LockMutex(g->mtx);
 		g->loading = direction;
