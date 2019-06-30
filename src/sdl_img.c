@@ -15,6 +15,7 @@
 // CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+
 #define CVECTOR_IMPLEMENTATION
 #define CVEC_ONLY_STR
 #include "cvector.h"
@@ -49,9 +50,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <inttypes.h>
+#include <stdint.h>
 
-//POSIX works with MinGW64
+//POSIX (mostly) works with MinGW64
 #include <sys/stat.h>
 #include <dirent.h>
 #include <curl/curl.h>
@@ -77,8 +78,8 @@ typedef int64_t i64;
 #endif
 
 // TODO hmm
-#define VERSION 0.96
-#define VERSION_STR "sdl_img 0.96"
+#define VERSION 0.97
+#define VERSION_STR "sdl_img 0.97"
 
 #define PATH_SEPARATOR '/'
 #define PAN_RATE 0.05
@@ -772,8 +773,10 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 	// img->frames should always be 0 and there should be no allocated textures
 	// in tex because clear_img(img) should always have been called before
 
+#ifndef _WIN32
 	img->fullpath = realpath(fullpath, NULL);
 	printf("loading %s\n", fullpath);
+#endif
 
 	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, STBI_rgb_alpha, &frames);
 	if (!img->pixels) {
@@ -860,8 +863,12 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		}
 
 		// S_ISLNK() doesn't seem to work but d_type works, though the man page
-		// says it's not supported on all filesystems... TODO?
+		// says it's not supported on all filesystems... or windows TODO?
+#ifndef _WIN32
 		if (recurse && S_ISDIR(file_stat.st_mode) && entry->d_type != DT_LNK) {
+#else
+		if (recurse && S_ISDIR(file_stat.st_mode)) {
+#endif
 			myscandir(fullpath, exts, num_exts, recurse);
 			continue;
 		}
@@ -1531,6 +1538,8 @@ void do_actual_size()
 	}
 }
 
+#ifndef _WIN32
+// TODO simple cross platform realpath
 void do_save()
 {
 	if (g->loading)
@@ -1553,6 +1562,7 @@ void do_save()
 
 	fclose(f);
 }
+#endif
 
 // There is no easy way to do cross platform visual copy paste.
 // SDL lets you do text but to get visual, I'd have to be using something
@@ -1567,9 +1577,14 @@ int do_copy()
 		return 0;
 
 	img_state* img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
-	if (img) {
-		SDL_SetClipboardText(img->fullpath);
-	}
+	if (!img)
+		return 0;
+
+#ifndef _WIN32
+	SDL_SetClipboardText(img->fullpath);
+#else
+	SDL_SetClipboardText(g->files.a[img->index]);
+#endif
 
 	SDL_MessageBoxButtonData buttons[] = {
 		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "yes" },
@@ -1588,7 +1603,7 @@ int do_copy()
 	int buttonid;
 
 	char msgbox_prompt[] =
-	"No visual copy supported. The full path of the image has been copied to the clipboard.\n"
+	"No visual copy supported. The path of the image has been copied to the clipboard.\n"
 	"Use ALT + Print Screen, or copy it from your file browser to get a visual copy.\n\n"
 	"Show this warning next time?";
 	messageboxdata.message = msgbox_prompt;
@@ -1870,9 +1885,11 @@ int handle_events()
 				}
 			break;
 
+#ifndef _WIN32
 			case SDL_SCANCODE_V:
 				do_save();
 			break;
+#endif
 
 			case SDL_SCANCODE_L:
 			case SDL_SCANCODE_R:
@@ -2430,7 +2447,7 @@ int main(int argc, char** argv)
 	}
 
 
-	printf("Loaded %zu filenames\n", g->files.size);
+	printf("Loaded %lu filenames\n", (unsigned long)g->files.size);
 
 	printf("start_index = %d\n", start_index);
 	setup(start_index);

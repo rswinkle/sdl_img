@@ -130,8 +130,8 @@ TODO/IDEAS
 - [ ] Add window icon (either static or based on current image(s))
 - [x] Speed up initial startup when a directory has a large number of images
 - [x] Change sorting to use strcmp for humans (could use gnu strverscmp)
-- [ ] Recursive directory scanning with -r
-- [ ] shuffle/sort by last modified, size etc.
+- [x] Recursive directory scanning with -r/-R
+- [x] shuffle/sort (m / o for mix/order)
 - [x] Use image extensions as a filter most common use cases
 - [x] Nuklear GUI
 - [ ] save to favorites or more general "collection" saving
