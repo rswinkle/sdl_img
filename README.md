@@ -37,6 +37,8 @@ alphabetical order.
 | Left click + drag | Pan around a zoomed in image |
 | A                 | Actual size |
 | F                 | Toggle fill screen mode |
+| S                 | Shuffle the images (only in single mode) |
+| O                 | Sort (Order) the images by name (only in single mode) |
 | ALT + F or F11    | Toggle Fullscreen |
 | ESC               | Exit (or exit Slideshow mode then fullscreen) |
 | L/R               | Rotate the current image left/right, prompts for saving appropriately |

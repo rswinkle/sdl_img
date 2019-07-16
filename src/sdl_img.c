@@ -863,6 +863,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 
 		// S_ISLNK() doesn't seem to work but d_type works, though the man page
 		// says it's not supported on all filesystems... or windows TODO?
+		// and having this breaks my code folding ... aggh I hate windows
 #ifndef _WIN32
 		if (recurse && S_ISDIR(file_stat.st_mode) && entry->d_type != DT_LNK) {
 #else
@@ -1871,7 +1872,7 @@ int handle_events()
 				do_actual_size();
 				break;
 
-			case SDL_SCANCODE_M:
+			case SDL_SCANCODE_S:
 				do_shuffle();
 				break;
 
