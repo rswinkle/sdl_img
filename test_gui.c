@@ -487,16 +487,21 @@ void draw_gui(struct nk_context* ctx)
 				nk_selectable_label(ctx, "Fullscreen", NK_TEXT_LEFT, &fullscreen);
 				nk_label(ctx, "ALT+F or F11", NK_TEXT_RIGHT);
 
+				nk_menu_item_label(ctx, "Best Fit", NK_TEXT_LEFT);
+				nk_label(ctx, "F", NK_TEXT_RIGHT);
+
+				nk_menu_item_label(ctx, "Actual Size", NK_TEXT_LEFT);
+				nk_label(ctx, "A", NK_TEXT_RIGHT);
+
 				if (n_imgs == 1) {
 					nk_menu_item_label(ctx, "Mix images", NK_TEXT_LEFT);
 					nk_label(ctx, "M", NK_TEXT_RIGHT);
 
-					nk_menu_item_label(ctx, "Sort by name", NK_TEXT_LEFT);
+
+					// TODO sort submenu with sort by name, size, modified etc.
+					nk_menu_item_label(ctx, "Sort by name (default)", NK_TEXT_LEFT);
 					nk_label(ctx, "O", NK_TEXT_RIGHT);
 				}
-
-				nk_menu_item_label(ctx, "Actual Size", NK_TEXT_LEFT);
-				nk_label(ctx, "A", NK_TEXT_RIGHT);
 
 				nk_tree_pop(ctx);
 			} else menu_state = (menu_state == MENU_MISC) ? MENU_NONE : menu_state;

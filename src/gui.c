@@ -3,7 +3,7 @@ void cleanup(int ret, int called_setup);
 void set_rect_bestfit(img_state* img, int fill_screen);
 void set_fullscreen();
 
-enum { MENU_NONE, MENU_EDIT, MENU_VIEW };
+enum { MENU_NONE, MENU_MISC, MENU_EDIT, MENU_VIEW };
 
 void draw_gui(struct nk_context* ctx)
 {
@@ -264,9 +264,9 @@ void draw_gui(struct nk_context* ctx)
 				SDL_PushEvent(&event);
 			}
 
-			state = (g->menu_state == MENU_EDIT) ? NK_MAXIMIZED: NK_MINIMIZED;
-			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Image Actions", &state)) {
-				g->menu_state = MENU_EDIT;
+			state = (g->menu_state == MENU_MISC) ? NK_MAXIMIZED : NK_MINIMIZED;
+			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Misc. Actions", &state)) {
+				g->menu_state = MENU_MISC;
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
 
 				if (nk_selectable_label(ctx, "Slideshow", NK_TEXT_LEFT, &g->slideshow)) {
@@ -282,12 +282,6 @@ void draw_gui(struct nk_context* ctx)
 				}
 				nk_label(ctx, "ALT+F or F11", NK_TEXT_RIGHT);
 
-				if (nk_menu_item_label(ctx, "Actual Size", NK_TEXT_LEFT)) {
-					event.user.code = ACTUAL_SIZE;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "A", NK_TEXT_RIGHT);
-
 				if (nk_selectable_label(ctx, "Best fit", NK_TEXT_LEFT, &g->fill_mode)) {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i)
@@ -297,6 +291,29 @@ void draw_gui(struct nk_context* ctx)
 					}
 				}
 				nk_label(ctx, "F", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "Actual Size", NK_TEXT_LEFT)) {
+					event.user.code = ACTUAL_SIZE;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "A", NK_TEXT_RIGHT);
+
+				if (g->n_imgs == 1) {
+					nk_menu_item_label(ctx, "Mix images", NK_TEXT_LEFT);
+					nk_label(ctx, "M", NK_TEXT_RIGHT);
+
+					nk_menu_item_label(ctx, "Sort by name (default)", NK_TEXT_LEFT);
+					nk_label(ctx, "O", NK_TEXT_RIGHT)
+				}
+
+				nk_tree_pop(ctx);
+			} else g->menu_state = (g->menu_state == MENU_MISC) ? MENU_NONE : g->menu_state;
+
+
+			state = (g->menu_state == MENU_EDIT) ? NK_MAXIMIZED: NK_MINIMIZED;
+			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Image Actions", &state)) {
+				g->menu_state = MENU_EDIT;
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
 
 				if (nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_LEFT)) {
 					event.user.code = ROT_LEFT;
