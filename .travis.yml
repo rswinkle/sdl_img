@@ -1,4 +1,4 @@
-dist: trusty
+dist: bionic
 sudo: true
 language: c
 compiler:
@@ -29,17 +29,18 @@ addons:
   apt:
     sources:
     packages:
+      - libsdl2-dev
       - libsdl2-gfx-dev
 
 
 
-before_install:
-  - travis_retry curl -L https://www.libsdl.org/release/SDL2-2.0.5.tar.gz | tar xz
-  - cd SDL2-2.0.5
-  - ./configure
-  - make
-  - sudo make install
-  - cd ..
+# before_install:
+#   - travis_retry curl -L https://www.libsdl.org/release/SDL2-2.0.5.tar.gz | tar xz
+#   - cd SDL2-2.0.5
+#   - ./configure
+#   - make
+#   - sudo make install
+#   - cd ..
 
 script:
   - ./build.sh

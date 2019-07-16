@@ -41,9 +41,11 @@
 #define NK_IMPLEMENTATION
 #define NK_SDL_IMPLEMENTATION
 #include "nuklear.h"
+
+#define SDL_MAIN_HANDLED
 #include "nuklear_sdl.h"
 
-
+// for rotozoomSurfaceSize()
 #include <SDL2_rotozoom.h>
 
 #include <stdio.h>
@@ -56,9 +58,6 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <curl/curl.h>
-
-#define SDL_MAIN_HANDLED
-#include <SDL.h>
 
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, EXIT };

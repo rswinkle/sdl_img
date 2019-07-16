@@ -13,7 +13,7 @@
 #ifndef NK_SDL_H
 #define NK_SDL_H
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 typedef struct nk_sdl_Font nk_sdl_Font;
 
@@ -35,8 +35,8 @@ NK_API void nk_sdl_shutdown(void);
 #ifdef NK_SDL_IMPLEMENTATION
 
 #include <string.h>
-#include <SDL2/SDL.h>
-#include <SDL2/SDL2_gfxPrimitives.h>
+#include <SDL.h>
+#include <SDL2_gfxPrimitives.h>
 
 #ifndef MAX
 #define MAX(a,b) ((a) < (b) ? (b) : (a))

@@ -5,7 +5,8 @@ TryExec=sdl_img
 Exec=sdl_img %U
 # TRANSLATORS: Do NOT translate or transliterate this text!
 # This is an icon file name
-# Icon=
+# Icon=sdl_img.svg # put in /usr/share/icons/hicolor/scalable/apps
+# Icon=sdl_img.png/bmp # put in /usr/share/icons/hicolor/48x48/apps
 # StartupNotify=true
 # Terminal=false
 Type=Application
