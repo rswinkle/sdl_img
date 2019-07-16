@@ -1872,7 +1872,7 @@ int handle_events()
 				do_actual_size();
 				break;
 
-			case SDL_SCANCODE_S:
+			case SDL_SCANCODE_M:
 				do_shuffle();
 				break;
 
@@ -1890,10 +1890,15 @@ int handle_events()
 			break;
 
 #ifndef _WIN32
-			case SDL_SCANCODE_V:
+			case SDL_SCANCODE_S:
 				do_save();
 			break;
 #endif
+
+			case SDL_SCANCODE_H:
+			case SDL_SCANCODE_V:
+				//do_flip(sc == SDL_SCANCODE_H);
+			break;
 
 			case SDL_SCANCODE_L:
 			case SDL_SCANCODE_R:
