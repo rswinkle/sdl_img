@@ -55,7 +55,7 @@ void draw_gui(struct nk_context* ctx)
 
 			tmp = nk_propertyi(ctx, "Degrees:", -180, img->rotdegs, 180, 1, 0.5);
 			if (tmp != img->rotdegs) {
-				img->rotated = TO_ROTATE;
+				img->edited = TO_ROTATE;
 				img->rotdegs = tmp;
 			}
 			//nk_label(ctx, "Degrees:", NK_TEXT_LEFT);
@@ -64,13 +64,13 @@ void draw_gui(struct nk_context* ctx)
 			//nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
 			nk_layout_row_dynamic(ctx, 0, 2);
 			if (nk_button_label(ctx, "Preview")) {
-				if (img->rotated == TO_ROTATE) {
+				if (img->edited == TO_ROTATE) {
 					event.user.code = ROT360;
 					SDL_PushEvent(&event);
 				}
 			}
 			if (nk_button_label(ctx, "Ok")) {
-				if (img->rotated == TO_ROTATE) {
+				if (img->edited == TO_ROTATE) {
 					event.user.code = ROT360;
 					SDL_PushEvent(&event);
 				} else {
@@ -303,7 +303,7 @@ void draw_gui(struct nk_context* ctx)
 					nk_label(ctx, "M", NK_TEXT_RIGHT);
 
 					nk_menu_item_label(ctx, "Sort by name (default)", NK_TEXT_LEFT);
-					nk_label(ctx, "O", NK_TEXT_RIGHT)
+					nk_label(ctx, "O", NK_TEXT_RIGHT);
 				}
 
 				nk_tree_pop(ctx);

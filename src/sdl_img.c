@@ -61,7 +61,7 @@
 
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, EXIT };
-enum { ROTATED = 1, TO_ROTATE = 2 };
+enum { ROTATED = 1, TO_ROTATE = 2, FLIPPED = 3 };
 enum { IMAGE, URL, DIRECTORY };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT,
        MODE_CHANGE, DELETE_IMG, ACTUAL_SIZE, ROT360, NUM_USEREVENTS };
@@ -186,7 +186,7 @@ typedef struct img_state
 	int frame_capacity;
 	int frame_timer;
 	int looped;
-	int rotated;
+	int edited;
 	int rotdegs;
 	
 	SDL_Texture** tex;
@@ -572,7 +572,7 @@ void clear_img(img_state* img)
 		SDL_DestroyTexture(img->tex[i]);
 	}
 
-	if (img->rotated && img->frames == 1) {
+	if (img->edited && img->frames == 1) {
 		char msgbox_prompt[STRBUF_SZ];
 		int buttonid;
 
@@ -626,7 +626,7 @@ void clear_img(img_state* img)
 	img->pixels = NULL;
 	img->frames = 0;
 	img->rotdegs = 0;
-	img->rotated = 0;
+	img->edited = 0;
 	img->file_size = 0;
 }
 
@@ -1220,7 +1220,7 @@ void rotate_img90(img_state* img, int left)
 	img->h = w;
 	img->frames = frames;
 	img->pixels = rotated;
-	img->rotated = ROTATED;
+	img->edited = ROTATED;
 
 	// since rotate90 actually rotates the pixels (doesn't just update textures)
 	// the rotated image becomes the new base image so we can't/shouldn't update degs
@@ -1305,7 +1305,7 @@ void rotate_img(img_state* img)
 	img->w = wrot;
 	img->h = hrot;
 	img->pixels = rot_pixels;
-	img->rotated = ROTATED;
+	img->edited = ROTATED;
 
 	for (int i=0; i<img->frames; ++i) {
 		SDL_DestroyTexture(img->tex[i]);
@@ -1438,6 +1438,86 @@ void do_rotate(int left, int is_90)
 				SET_MODE8_SCR_RECTS();
 			g->status = REDRAW;
 		}
+	}
+}
+
+void do_flip(int is_vertical)
+{
+	int w, h;
+	int sz;
+	int frames;
+
+	img_state* img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
+	if (!g->loading && img) {
+		w = img->w;
+		h = img->h;
+		frames = img->frames;
+
+		sz = w * h;
+		u8* pix = img->pixels;
+		u8* flip_pix = NULL;
+
+		if (frames > 1) {
+			if (!(flip_pix = malloc(frames * (sz*4+2)))) {
+				perror("Couldn't allocate flipped");
+				cleanup(0, 1);
+			}
+			*(i16*)(&flip_pix[sz*4]) = img->delay;
+		} else {
+			if (!(flip_pix = malloc(sz*4))) {
+				perror("Couldn't allocate flipped");
+				cleanup(0, 1);
+			}
+		}
+
+		i32* p;
+		i32* flip;
+		if (is_vertical) {
+			for (int i=0; i<frames; ++i) {
+				p = (i32*)&pix[i*(sz*4+2)];
+				flip = (i32*)&flip_pix[i*(sz*4+2)];
+				for (int j=0; j<h; ++j) {
+
+					// TODO replace with memcpy
+					for (int k=0; k<w; ++k) {
+						flip[(h-1-j)*w + k] = p[j*w + k];
+					}
+				}
+			}
+
+		} else {
+			for (int i=0; i<frames; ++i) {
+				p = (i32*)&pix[i*(sz*4+2)];
+				flip = (i32*)&flip_pix[i*(sz*4+2)];
+				for (int j=0; j<h; ++j) {
+					for (int k=0; k<w; ++k) {
+						flip[j*w + w-1-k] = p[j*w+k];
+					}
+				}
+			}
+
+		}
+		// don't call clear_img here because could do multiple
+		// edits (flips/rotations etc.) and don't want to prompt to save every time
+		for (int i=0; i<img->frames; ++i) {
+			SDL_DestroyTexture(img->tex[i]);
+		}
+		free(pix);
+
+		img->pixels = flip_pix;
+		img->edited = FLIPPED;
+
+		create_textures(img);
+
+		if (g->n_imgs == 1)
+			SET_MODE1_SCR_RECT();
+		else if (g->n_imgs == 2)
+			SET_MODE2_SCR_RECTS();
+		else if (g->n_imgs == 4)
+			SET_MODE4_SCR_RECTS();
+		else
+			SET_MODE8_SCR_RECTS();
+		g->status = REDRAW;
 	}
 }
 
@@ -1897,7 +1977,7 @@ int handle_events()
 
 			case SDL_SCANCODE_H:
 			case SDL_SCANCODE_V:
-				//do_flip(sc == SDL_SCANCODE_H);
+				do_flip(sc == SDL_SCANCODE_V);
 			break;
 
 			case SDL_SCANCODE_L:
