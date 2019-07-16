@@ -1,4 +1,4 @@
-dist: bionic
+dist: xenial
 sudo: true
 language: c
 compiler:
@@ -26,15 +26,11 @@ addons:
     # build_command_prepend: "<Your build preprocessing command here>"
     build_command: "./build.sh"
     branch_pattern: master
-  apt:
-    sources:
-    packages:
-      - libsdl2-dev
-      - libsdl2-gfx-dev
 
 
-
-# before_install:
+before_install:
+    - sudo apt update
+    - sudo apt install -y libsdl2-dev libsdl2-gfx-dev
 #   - travis_retry curl -L https://www.libsdl.org/release/SDL2-2.0.5.tar.gz | tar xz
 #   - cd SDL2-2.0.5
 #   - ./configure
