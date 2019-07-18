@@ -327,6 +327,18 @@ void draw_gui(struct nk_context* ctx)
 				}
 				nk_label(ctx, "R", NK_TEXT_RIGHT);
 
+				if (nk_menu_item_label(ctx, "Flip Horizontal", NK_TEXT_LEFT)) {
+					event.user.code = FLIP_H;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "H", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "Flip Vertical", NK_TEXT_LEFT)) {
+					event.user.code = FLIP_V;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "V", NK_TEXT_RIGHT);
+
 				if (nk_menu_item_label(ctx, "Delete", NK_TEXT_LEFT)) {
 					event.user.code = DELETE_IMG;
 					SDL_PushEvent(&event);

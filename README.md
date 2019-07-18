@@ -41,7 +41,8 @@ alphabetical order.
 | O                 | Sort (Order) the images by name (only in single mode) |
 | ALT + F or F11    | Toggle Fullscreen |
 | ESC               | Exit (or exit Slideshow mode then fullscreen) |
-| L/R               | Rotate the current image left/right, prompts for saving appropriately |
+| L/R               | Rotate the current image left/right |
+| H/V               | Flip the current image horizontally/vertically |
 | Delete            | Delete the current image and move to the next (only in single mode) |
 | CTRL + 1          | Single image mode |
 | CTRL + 2          | Double image mode |
@@ -114,7 +115,7 @@ I'll expand this section later, once I get to 1.0 and have packages and
 more finalized packaging processes but I'm using
 [NSIS](http://nsis.sourceforge.net/Main_Page) to create my windows installer and
 [fpm](https://github.com/jordansissel/fpm) on linux to create linux packages.  Maybe
-I'll even try something like AppImage or flatpak long term just for fun.
+I'll even try something like AppImage or Flatpak long term just for fun.
 
 
 TODO/IDEAS

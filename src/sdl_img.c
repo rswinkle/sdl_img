@@ -63,7 +63,7 @@ enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, EXIT };
 enum { ROTATED = 1, TO_ROTATE = 2, FLIPPED = 3 };
 enum { IMAGE, URL, DIRECTORY };
-enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT,
+enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
        MODE_CHANGE, DELETE_IMG, ACTUAL_SIZE, ROT360, NUM_USEREVENTS };
 
 typedef uint8_t u8;
@@ -1807,6 +1807,10 @@ int handle_events()
 			case ROT_LEFT:
 			case ROT_RIGHT:
 				do_rotate(code == ROT_LEFT, SDL_TRUE);
+				break;
+			case FLIP_H:
+			case FLIP_V:
+				do_flip(code == FLIP_V);
 				break;
 			case ROT360:
 				// TODO
