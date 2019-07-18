@@ -83,7 +83,7 @@ typedef int64_t i64;
 #define PATH_SEPARATOR '/'
 #define PAN_RATE 0.05
 #define MIN_GIF_DELAY 10
-#define HIDE_CURSOR_TIMER 2000
+#define HIDE_GUI_DELAY 2000
 #define SLEEP_TIME 50
 #define STRBUF_SZ 1024
 #define START_WIDTH 1200
@@ -230,8 +230,8 @@ typedef struct global_state
 
 	int fullscreen;
 	int fill_mode;
-	int mouse_timer;
-	int mouse_state;
+	int gui_timer;
+	int show_gui;
 
 	int show_about;
 	int show_prefs;
@@ -1155,8 +1155,8 @@ void setup(int start_idx)
 
 	printf("Done with setup\nStarting with %s\n", img_name);
 
-	g->mouse_timer = SDL_GetTicks();
-	g->mouse_state = 1;
+	g->gui_timer = SDL_GetTicks();
+	g->show_gui = 1;
 }
 
 // probably now worth having a 2 line function used 3 places?
@@ -1423,8 +1423,8 @@ void do_rotate(int left, int is_90)
 				create_textures(img);
 			} else {
 				g->show_rotate = nk_true;
-				g->mouse_state = 1;
-				g->mouse_timer = SDL_GetTicks();
+				g->show_gui = 1;
+				g->gui_timer = SDL_GetTicks();
 				return;
 			}
 
@@ -1792,7 +1792,7 @@ int handle_events()
 			// reset this everytime they interact with GUI
 			// so it doesn't disappear even if they're holding
 			// the mouse down but still (on zoom controls for example)
-			g->mouse_timer = SDL_GetTicks();
+			g->gui_timer = SDL_GetTicks();
 
 			code = e.user.code;
 			switch (code) {
@@ -2210,16 +2210,16 @@ int handle_events()
 			g->status = REDRAW;
 
 			SDL_ShowCursor(SDL_ENABLE);
-			g->mouse_timer = SDL_GetTicks();
-			g->mouse_state = 1;
+			g->gui_timer = SDL_GetTicks();
+			g->show_gui = 1;
 			break;
 
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
 			g->status = REDRAW;
 			SDL_ShowCursor(SDL_ENABLE);
-			g->mouse_timer = SDL_GetTicks();
-			g->mouse_state = 1;
+			g->gui_timer = SDL_GetTicks();
+			g->show_gui = 1;
 			break;
 
 		case SDL_MOUSEWHEEL:
@@ -2553,12 +2553,12 @@ int main(int argc, char** argv)
 
 		ticks = SDL_GetTicks();
 
-		if (g->mouse_state && ticks - g->mouse_timer > HIDE_CURSOR_TIMER) {
+		if (g->show_gui && ticks - g->gui_timer > HIDE_GUI_DELAY) {
 			SDL_ShowCursor(SDL_DISABLE);
-			g->mouse_state = 0;
+			g->show_gui = 0;
 			g->status = REDRAW;
 		}
-		if (g->mouse_state) {
+		if (g->show_gui) {
 			draw_gui(g->ctx);
 		}
 
@@ -2576,7 +2576,7 @@ int main(int argc, char** argv)
 			}
 		}
 
-		if (g->mouse_state || g->status == REDRAW) {
+		if (g->show_gui || g->status == REDRAW) {
 			// gui drawing changes draw color so have to reset to black every time
 			SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
 			SDL_RenderSetClipRect(g->ren, NULL);
@@ -2588,7 +2588,7 @@ int main(int argc, char** argv)
 			}
 			SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
 		}
-		if (g->mouse_state) {
+		if (g->show_gui) {
 			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
 			nk_sdl_render(NULL, nk_false);
 			SDL_RenderSetScale(g->ren, 1, 1);

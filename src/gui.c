@@ -195,8 +195,8 @@ void draw_gui(struct nk_context* ctx)
 	// be able to interact with it.  Could look up how to make them inactive
 	// but meh, this is simpler
 	if (g->show_about || g->show_prefs || g->show_rotate) {
-		g->mouse_state = 1;
-		g->mouse_timer = SDL_GetTicks();
+		g->show_gui = 1;
+		g->gui_timer = SDL_GetTicks();
 		return;
 	}
 
@@ -232,8 +232,8 @@ void draw_gui(struct nk_context* ctx)
 
 		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(400, 400))) {
 			// also don't let GUI disappear when the menu is active
-			g->mouse_state = 1;
-			g->mouse_timer = SDL_GetTicks();
+			g->show_gui = 1;
+			g->gui_timer = SDL_GetTicks();
 
 			enum nk_collapse_states state;
 			float ratios[] = { 0.7f, 0.3f, 0.8f, 0.2f };
