@@ -173,8 +173,11 @@ void draw_gui(struct nk_context* ctx)
 			}
 			*/
 
-			nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
-			nk_property_int(ctx, "", 1, &g->slide_delay, 10, 1, 0.05);
+			//nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
+			nk_property_int(ctx, "Slideshow delay:", 1, &g->slide_delay, 10, 1, 0.05);
+
+			//nk_label(ctx, "Hide GUI delay:", NK_TEXT_LEFT);
+			nk_property_int(ctx, "Hide GUI delay:", 1, &g->gui_delay, 60, 1, 0.3);
 
 
 			nk_layout_row_dynamic(ctx, 0, 1);
@@ -182,7 +185,6 @@ void draw_gui(struct nk_context* ctx)
 			nk_label_wrap(ctx, g->cachedir);
 
 
-			nk_layout_row_dynamic(ctx, 0, 1);
 			if (nk_button_label(ctx, "Ok")) {
 				g->show_prefs = 0;;
 			}

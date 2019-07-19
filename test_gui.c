@@ -34,6 +34,7 @@ SDL_Renderer* ren;
 int running;
 int slideshow = nk_false;
 int slide_delay = 3;
+int gui_delay = 2;
 int show_about = nk_false;
 int show_prefs = nk_false;
 int show_rotate = nk_false;
@@ -363,6 +364,9 @@ void draw_gui(struct nk_context* ctx)
 
 			nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
 			nk_property_int(ctx, "", 1, &slide_delay, 10, 1, 0.05);
+
+			nk_label(ctx, "Hide GUI delay:", NK_TEXT_LEFT);
+			nk_property_int(ctx, "", 1, &gui_delay, 60, 1, 0.05);
 
 
 			nk_layout_row_dynamic(ctx, 0, 1);

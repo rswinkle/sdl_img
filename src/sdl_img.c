@@ -83,7 +83,7 @@ typedef int64_t i64;
 #define PATH_SEPARATOR '/'
 #define PAN_RATE 0.05
 #define MIN_GIF_DELAY 10
-#define HIDE_GUI_DELAY 2000
+#define HIDE_GUI_DELAY 2
 #define SLEEP_TIME 50
 #define STRBUF_SZ 1024
 #define START_WIDTH 1200
@@ -230,6 +230,7 @@ typedef struct global_state
 
 	int fullscreen;
 	int fill_mode;
+	int gui_delay;
 	int gui_timer;
 	int show_gui;
 
@@ -1029,6 +1030,7 @@ void setup(int start_idx)
 	g->n_imgs = 1;
 	g->img = g->img1;
 	g->slide_delay = 3;
+	g->gui_delay = HIDE_GUI_DELAY;
 	g->bg = nk_rgb(0,0,0);
 	g->fill_mode = 0;
 
@@ -1846,6 +1848,9 @@ int handle_events()
 					return 1;
 				} else {
 					if (g->show_rotate) {
+						// TODO handle case where user hits ESC with image as
+						// TO_ROTATE (could still be pristine or they rotated with preview, changed the angle
+						// again and then hit ESC, only want to prompt to save in the latter case)
 						g->show_rotate = nk_false;
 					} else if (g->show_about) {
 						g->show_about = nk_false;
@@ -2553,7 +2558,7 @@ int main(int argc, char** argv)
 
 		ticks = SDL_GetTicks();
 
-		if (g->show_gui && ticks - g->gui_timer > HIDE_GUI_DELAY) {
+		if (g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
 			SDL_ShowCursor(SDL_DISABLE);
 			g->show_gui = 0;
 			g->status = REDRAW;
