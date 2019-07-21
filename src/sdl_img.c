@@ -61,9 +61,8 @@
 
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, EXIT };
-enum { ROTATED = 1, TO_ROTATE = 2, FLIPPED = 3 };
+enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
-enum { IMAGE, URL, DIRECTORY };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
        MODE_CHANGE, DELETE_IMG, ACTUAL_SIZE, ROT360, NUM_USEREVENTS };
 
@@ -629,7 +628,7 @@ void clear_img(img_state* img)
 	img->pixels = NULL;
 	img->frames = 0;
 	img->rotdegs = 0;
-	img->edited = 0;
+	img->edited = NOT_EDITED;
 	img->file_size = 0;
 }
 
