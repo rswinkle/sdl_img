@@ -27,6 +27,7 @@
 #define STRBUF_SZ 1024
 
 enum { MENU_NONE, MENU_MISC, MENU_EDIT, MENU_VIEW };
+enum { DELAY, ALWAYS, NEVER };
 
 int n_imgs = 1;
 SDL_Window* win;
@@ -67,6 +68,7 @@ char license[STRBUF_SZ*4] =
 
 int handle_events(struct nk_context* ctx);
 void draw_gui(struct nk_context* ctx);
+void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_simple_gui(struct nk_context* ctx);
 
 int main(void)
@@ -126,6 +128,10 @@ int main(void)
 		return 1;
 	}
 
+	struct nk_style_toggle* tog = &ctx->style.option;
+	printf("padding = %f %f border = %f\n", tog->padding.x, tog->padding.y, tog->border);
+	tog->padding.x = 2;
+	tog->padding.y = 2;
 
 	bg2 = nk_rgb(28,48,62);
 	bg = nk_color_cf(bg2);
@@ -222,7 +228,7 @@ void draw_gui(struct nk_context* ctx)
 
 	// closable gives the x, if you use it it won't come back (probably have to call show() or
 	// something...
-	int prefs_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
+	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
 	SDL_Event event = { 0 };
 
 	int win_w, win_h;
@@ -266,7 +272,7 @@ void draw_gui(struct nk_context* ctx)
 		s.h = h;
 		static int slider_degs = 0;
 
-		if (nk_begin(ctx, "Rotation", s, prefs_flags)) {
+		if (nk_begin(ctx, "Rotation", s, popup_flags)) {
 
 			//nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
 			//nk_layout_row_dynamic(ctx, 0, 2);
@@ -300,7 +306,7 @@ void draw_gui(struct nk_context* ctx)
 		s.y = scr_h/2-h/2;
 		s.w = w;
 		s.h = h;
-		if (nk_begin(ctx, "About sdl_img", s, prefs_flags))
+		if (nk_begin(ctx, "About sdl_img", s, popup_flags))
 		{
 			nk_layout_row_dynamic(ctx, 0, 1);
 			nk_label(ctx, "sdl_img 1.0", NK_TEXT_CENTERED);
@@ -339,46 +345,7 @@ void draw_gui(struct nk_context* ctx)
 	}
 
 	if (show_prefs) {
-		int w = 400, h = 400; ///scale_x, h = 400/scale_y;
-		struct nk_rect s;
-		s.x = scr_w/2-w/2;
-		s.y = scr_h/2-h/2;
-		s.w = w;
-		s.h = h;
-		char cache[] = "/home/someone/really/long/path_that_goes_forever/blahblahblah/.local/share/sdl_img";
-
-		if (nk_begin(ctx, "Preferences", s, prefs_flags)) {
-			nk_layout_row_dynamic(ctx, 0, 2);
-			nk_label(ctx, "background:", NK_TEXT_LEFT);
-			if (nk_combo_begin_color(ctx, nk_rgb_cf(bg), nk_vec2(nk_widget_width(ctx), 400))) {
-				nk_layout_row_dynamic(ctx, 120, 1);
-				bg = nk_color_picker(ctx, bg, NK_RGBA);
-				nk_layout_row_dynamic(ctx, 25, 1);
-				bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f,0.005f);
-				bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f,0.005f);
-				bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f,0.005f);
-				bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f,0.005f);
-				bg2 = nk_rgb_cf(bg);
-				nk_combo_end(ctx);
-			}
-
-			nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
-			nk_property_int(ctx, "", 1, &slide_delay, 10, 1, 0.05);
-
-			nk_label(ctx, "Hide GUI delay:", NK_TEXT_LEFT);
-			nk_property_int(ctx, "", 1, &gui_delay, 60, 1, 0.05);
-
-
-			nk_layout_row_dynamic(ctx, 0, 1);
-			nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
-			nk_label_wrap(ctx, cache);
-
-			nk_layout_row_dynamic(ctx, 0, 1);
-			if (nk_button_label(ctx, "Ok")) {
-				show_prefs = 0;;
-			}
-		}
-		nk_end(ctx);
+		draw_prefs(ctx, scr_w, scr_h);
 
 	}
 
@@ -667,6 +634,66 @@ void draw_gui(struct nk_context* ctx)
 
 	if (!what_hover)
 		hovering = 0;
+}
+
+void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
+{
+	int w = 400, h = 400; ///scale_x, h = 400/scale_y;
+	struct nk_rect bounds;
+	struct nk_rect s;
+	s.x = scr_w/2-w/2;
+	s.y = scr_h/2-h/2;
+	s.w = w;
+	s.h = h;
+	char cache[] = "/home/someone/really/long/path_that_goes_forever/blahblahblah/.local/share/sdl_img";
+
+	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
+
+	if (nk_begin(ctx, "Preferences", s, popup_flags)) {
+		nk_layout_row_dynamic(ctx, 0, 2);
+		nk_label(ctx, "background:", NK_TEXT_LEFT);
+		if (nk_combo_begin_color(ctx, nk_rgb_cf(bg), nk_vec2(nk_widget_width(ctx), 400))) {
+			nk_layout_row_dynamic(ctx, 120, 1);
+			bg = nk_color_picker(ctx, bg, NK_RGBA);
+			nk_layout_row_dynamic(ctx, 25, 1);
+			bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f,0.005f);
+			bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f,0.005f);
+			bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f,0.005f);
+			bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f,0.005f);
+			bg2 = nk_rgb_cf(bg);
+			nk_combo_end(ctx);
+		}
+
+		nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
+		nk_property_int(ctx, "#", 1, &slide_delay, 10, 1, 0.05);
+
+		nk_label(ctx, "Hide GUI delay:", NK_TEXT_LEFT);
+		nk_property_int(ctx, "#", 1, &gui_delay, 60, 1, 0.3);
+
+
+		nk_label(ctx, "GUI in Fullscreen mode:", NK_TEXT_LEFT);
+		static int fullscreen_gui = DELAY;
+		static const char* gui_options[] = { "Delay", "Always", "Never" };
+		bounds = nk_widget_bounds(ctx);
+		//printf("bounds %f %f %f %f\n", bounds.x, bounds.y, bounds.w, bounds.h);
+		fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), fullscreen_gui, 12, nk_vec2(bounds.w, 300));
+		// if (nk_option_label(ctx, "Delay", (fullscreen_gui == DELAY))) fullscreen_gui = DELAY;
+		// if (nk_option_label(ctx, "Always", (fullscreen_gui == ALWAYS))) fullscreen_gui = ALWAYS;
+		// if (nk_option_label(ctx, "Never", (fullscreen_gui == NEVER))) fullscreen_gui = NEVER;
+
+
+
+
+		nk_layout_row_dynamic(ctx, 0, 1);
+		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
+		nk_label_wrap(ctx, cache);
+
+		nk_layout_row_dynamic(ctx, 0, 1);
+		if (nk_button_label(ctx, "Ok")) {
+			show_prefs = 0;;
+		}
+	}
+	nk_end(ctx);
 }
 
 

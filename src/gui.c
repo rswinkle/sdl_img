@@ -5,6 +5,8 @@ void set_fullscreen();
 
 enum { MENU_NONE, MENU_MISC, MENU_EDIT, MENU_VIEW };
 
+void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h);
+
 void draw_gui(struct nk_context* ctx)
 {
 	char info_buf[STRBUF_SZ];
@@ -14,17 +16,11 @@ void draw_gui(struct nk_context* ctx)
 
 	// closable gives the x, if you use it it won't come back (probably have to call show() or
 	// something...
-	int prefs_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
+	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
 
 	SDL_Event event = { .type = g->userevent };
 	img_state* img;
 	char* sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
-
-	static struct nk_colorf bgf = { 0, 0, 0, 1 };
-	//static struct nk_colorf win_color;
-	//win_color = nk_color_cf(ctx->style.window.fixed_background.data.color);
-
-	//bgf = nk_color_cf(g->bg);
 
 	// Can't use actual screen size g->scr_w/h have to
 	// calculate logical screen size since GUI is scaled
@@ -47,7 +43,7 @@ void draw_gui(struct nk_context* ctx)
 		s.h = h;
 		img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
 
-		if (nk_begin(ctx, "Arbitrary Rotation", s, prefs_flags)) {
+		if (nk_begin(ctx, "Arbitrary Rotation", s, popup_flags)) {
 
 			nk_layout_row_dynamic(ctx, 0, 1);
 
@@ -96,7 +92,7 @@ void draw_gui(struct nk_context* ctx)
 		s.w = w;
 		s.h = h;
 
-		if (nk_begin(ctx, "About sdl_img", s, prefs_flags))
+		if (nk_begin(ctx, "About sdl_img", s, popup_flags))
 		{
 			nk_layout_row_dynamic(ctx, 0, 1);
 			nk_label(ctx, VERSION_STR, NK_TEXT_CENTERED);
@@ -133,64 +129,11 @@ void draw_gui(struct nk_context* ctx)
 	}
 
 	if (g->show_prefs) {
-		int w = 550, h = 250; ///scale_x, h = 400/scale_y;
-		struct nk_rect s;
-		s.x = scr_w/2-w/2;
-		s.y = scr_h/2-h/2;
-		s.w = w;
-		s.h = h;
+		draw_prefs(ctx, scr_w, scr_h);
+	}
 
-		if (nk_begin(ctx, "Preferences", s, prefs_flags)) {
-			nk_layout_row_dynamic(ctx, 0, 2);
-			nk_label(ctx, "background:", NK_TEXT_LEFT);
-			if (nk_combo_begin_color(ctx, nk_rgb_cf(bgf), nk_vec2(nk_widget_width(ctx), 400))) {
-				nk_layout_row_dynamic(ctx, 120, 1);
-				bgf = nk_color_picker(ctx, bgf, NK_RGBA);
-				nk_layout_row_dynamic(ctx, 25, 1);
-				bgf.r = nk_propertyf(ctx, "#R:", 0, bgf.r, 1.0f, 0.01f,0.005f);
-				bgf.g = nk_propertyf(ctx, "#G:", 0, bgf.g, 1.0f, 0.01f,0.005f);
-				bgf.b = nk_propertyf(ctx, "#B:", 0, bgf.b, 1.0f, 0.01f,0.005f);
-
-				// doesn't make sense to have the background be transparent
-				//bgf.a = nk_propertyf(ctx, "#A:", 0, bgf.a, 1.0f, 0.01f,0.005f);
-				g->bg = nk_rgb_cf(bgf);
-				nk_combo_end(ctx);
-			}
-
-
-			/*
-			nk_label(ctx, "GUI Color:", NK_TEXT_LEFT);
-			if (nk_combo_begin_color(ctx, nk_rgb_cf(win_color), nk_vec2(nk_widget_width(ctx), 400))) {
-				nk_layout_row_dynamic(ctx, 120, 1);
-				win_color = nk_color_picker(ctx, win_color, NK_RGBA);
-				nk_layout_row_dynamic(ctx, 25, 1);
-				win_color.r = nk_propertyf(ctx, "#R:", 0, win_color.r, 1.0f, 0.01f,0.005f);
-				win_color.g = nk_propertyf(ctx, "#G:", 0, win_color.g, 1.0f, 0.01f,0.005f);
-				win_color.b = nk_propertyf(ctx, "#B:", 0, win_color.b, 1.0f, 0.01f,0.005f);
-				win_color.a = nk_propertyf(ctx, "#A:", 0, win_color.a, 1.0f, 0.01f,0.005f);
-				ctx->style.window.fixed_background.data.color = nk_rgba_cf(win_color);
-				nk_combo_end(ctx);
-			}
-			*/
-
-			//nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
-			nk_property_int(ctx, "Slideshow delay:", 1, &g->slide_delay, 10, 1, 0.05);
-
-			//nk_label(ctx, "Hide GUI delay:", NK_TEXT_LEFT);
-			nk_property_int(ctx, "Hide GUI delay:", 1, &g->gui_delay, 60, 1, 0.3);
-
-
-			nk_layout_row_dynamic(ctx, 0, 1);
-			nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
-			nk_label_wrap(ctx, g->cachedir);
-
-
-			if (nk_button_label(ctx, "Ok")) {
-				g->show_prefs = 0;;
-			}
-		}
-		nk_end(ctx);
-
+	if (g->fullscreen && g->fullscreen_gui == NEVER) {
+		return;
 	}
 
 	// don't show main GUI if a popup is up, don't want user to
@@ -508,3 +451,77 @@ void draw_gui(struct nk_context* ctx)
 	nk_end(ctx);
 }
 
+void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
+{
+	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
+
+	int w = 550, h = 250; ///scale_x, h = 400/scale_y;
+	struct nk_rect bounds;
+	struct nk_rect s;
+	s.x = scr_w/2-w/2;
+	s.y = scr_h/2-h/2;
+	s.w = w;
+	s.h = h;
+
+	static struct nk_colorf bgf = { 0, 0, 0, 1 };
+	//static struct nk_colorf win_color;
+	//win_color = nk_color_cf(ctx->style.window.fixed_background.data.color);
+
+	//bgf = nk_color_cf(g->bg);
+
+	if (nk_begin(ctx, "Preferences", s, popup_flags)) {
+		nk_layout_row_dynamic(ctx, 0, 2);
+		nk_label(ctx, "background:", NK_TEXT_LEFT);
+		if (nk_combo_begin_color(ctx, nk_rgb_cf(bgf), nk_vec2(nk_widget_width(ctx), 400))) {
+			nk_layout_row_dynamic(ctx, 120, 1);
+			bgf = nk_color_picker(ctx, bgf, NK_RGBA);
+			nk_layout_row_dynamic(ctx, 25, 1);
+			bgf.r = nk_propertyf(ctx, "#R:", 0, bgf.r, 1.0f, 0.01f,0.005f);
+			bgf.g = nk_propertyf(ctx, "#G:", 0, bgf.g, 1.0f, 0.01f,0.005f);
+			bgf.b = nk_propertyf(ctx, "#B:", 0, bgf.b, 1.0f, 0.01f,0.005f);
+
+			// doesn't make sense to have the background be transparent
+			//bgf.a = nk_propertyf(ctx, "#A:", 0, bgf.a, 1.0f, 0.01f,0.005f);
+			g->bg = nk_rgb_cf(bgf);
+			nk_combo_end(ctx);
+		}
+
+
+		/*
+		nk_label(ctx, "GUI Color:", NK_TEXT_LEFT);
+		if (nk_combo_begin_color(ctx, nk_rgb_cf(win_color), nk_vec2(nk_widget_width(ctx), 400))) {
+			nk_layout_row_dynamic(ctx, 120, 1);
+			win_color = nk_color_picker(ctx, win_color, NK_RGBA);
+			nk_layout_row_dynamic(ctx, 25, 1);
+			win_color.r = nk_propertyf(ctx, "#R:", 0, win_color.r, 1.0f, 0.01f,0.005f);
+			win_color.g = nk_propertyf(ctx, "#G:", 0, win_color.g, 1.0f, 0.01f,0.005f);
+			win_color.b = nk_propertyf(ctx, "#B:", 0, win_color.b, 1.0f, 0.01f,0.005f);
+			win_color.a = nk_propertyf(ctx, "#A:", 0, win_color.a, 1.0f, 0.01f,0.005f);
+			ctx->style.window.fixed_background.data.color = nk_rgba_cf(win_color);
+			nk_combo_end(ctx);
+		}
+		*/
+
+		nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
+		nk_property_int(ctx, "#", 1, &g->slide_delay, 10, 1, 0.05);
+
+		nk_label(ctx, "Hide GUI delay:", NK_TEXT_LEFT);
+		nk_property_int(ctx, "#", 1, &g->gui_delay, 60, 1, 0.3);
+
+		nk_label(ctx, "GUI in Fullscreen mode:", NK_TEXT_LEFT);
+		static const char* gui_options[] = { "Delay", "Always", "Never" };
+		bounds = nk_widget_bounds(ctx);
+		g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, 12, nk_vec2(bounds.w, 300));
+
+
+		nk_layout_row_dynamic(ctx, 0, 1);
+		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
+		nk_label_wrap(ctx, g->cachedir);
+
+
+		if (nk_button_label(ctx, "Ok")) {
+			g->show_prefs = 0;;
+		}
+	}
+	nk_end(ctx);
+}

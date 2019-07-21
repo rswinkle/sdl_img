@@ -62,6 +62,7 @@
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, EXIT };
 enum { ROTATED = 1, TO_ROTATE = 2, FLIPPED = 3 };
+enum { DELAY, ALWAYS, NEVER };
 enum { IMAGE, URL, DIRECTORY };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
        MODE_CHANGE, DELETE_IMG, ACTUAL_SIZE, ROT360, NUM_USEREVENTS };
@@ -233,6 +234,7 @@ typedef struct global_state
 	int gui_delay;
 	int gui_timer;
 	int show_gui;
+	int fullscreen_gui;
 
 	int show_about;
 	int show_prefs;
@@ -2563,8 +2565,11 @@ int main(int argc, char** argv)
 			g->show_gui = 0;
 			g->status = REDRAW;
 		}
-		if (g->show_gui) {
+
+		// TODO testing, naming/organization of showing/hiding GUI vs mouse
+		if (g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			draw_gui(g->ctx);
+			g->status = REDRAW;
 		}
 
 		is_a_gif = 0;
@@ -2593,7 +2598,7 @@ int main(int argc, char** argv)
 			}
 			SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
 		}
-		if (g->show_gui) {
+		if (g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
 			nk_sdl_render(NULL, nk_false);
 			SDL_RenderSetScale(g->ren, 1, 1);
