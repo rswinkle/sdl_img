@@ -234,6 +234,7 @@ typedef struct global_state
 	int gui_timer;
 	int show_gui;
 	int fullscreen_gui;
+	int show_infobar;
 
 	int show_about;
 	int show_prefs;
@@ -1032,6 +1033,7 @@ void setup(int start_idx)
 	g->img = g->img1;
 	g->slide_delay = 3;
 	g->gui_delay = HIDE_GUI_DELAY;
+	g->show_infobar = nk_true;
 	g->bg = nk_rgb(0,0,0);
 	g->fill_mode = 0;
 

@@ -416,16 +416,16 @@ void draw_gui(struct nk_context* ctx)
 	}
 	nk_end(ctx);
 
-	if (1) {
+	if (g->show_infobar) {
 		draw_infobar(ctx, scr_w, scr_h);
 	}
 }
 
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 {
-	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
+	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 
-	int w = 550, h = 250; ///scale_x, h = 400/scale_y;
+	int w = 550, h = 250;
 	struct nk_rect bounds;
 	struct nk_rect s;
 	s.x = scr_w/2-w/2;
@@ -434,10 +434,6 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 	s.h = h;
 
 	static struct nk_colorf bgf = { 0, 0, 0, 1 };
-	//static struct nk_colorf win_color;
-	//win_color = nk_color_cf(ctx->style.window.fixed_background.data.color);
-
-	//bgf = nk_color_cf(g->bg);
 
 	if (nk_begin(ctx, "Preferences", s, popup_flags)) {
 		nk_layout_row_dynamic(ctx, 0, 2);
@@ -482,6 +478,8 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		static const char* gui_options[] = { "Delay", "Always", "Never" };
 		bounds = nk_widget_bounds(ctx);
 		g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, 12, nk_vec2(bounds.w, 300));
+
+		nk_checkbox_label(ctx, "Show info bar", &g->show_infobar);
 
 
 		nk_layout_row_dynamic(ctx, 0, 1);

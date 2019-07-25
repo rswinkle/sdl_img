@@ -39,6 +39,7 @@ int gui_delay = 2;
 int show_about = nk_false;
 int show_prefs = nk_false;
 int show_rotate = nk_false;
+int show_infobar = nk_true;
 int menu_state = MENU_NONE;
 
 struct nk_colorf bg;
@@ -618,19 +619,21 @@ void draw_gui(struct nk_context* ctx)
 
 
 
-	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-30, scr_w, 30), gui_flags))
-	{
-		if (n_imgs == 1) {
-			len = snprintf(info_buf, STRBUF_SZ, "1000 x 600 pixels   55 %%");
-			if (len >= STRBUF_SZ) {
-				puts("info path too long");
-				exit(1);
+	if (show_infobar) {
+		if (nk_begin(ctx, "Info", nk_rect(0, scr_h-30, scr_w, 30), gui_flags))
+		{
+			if (n_imgs == 1) {
+				len = snprintf(info_buf, STRBUF_SZ, "1000 x 600 pixels   55 %%");
+				if (len >= STRBUF_SZ) {
+					puts("info path too long");
+					exit(1);
+				}
+				nk_layout_row_static(ctx, 0, scr_w, 1);
+				nk_label(ctx, info_buf, NK_TEXT_LEFT);
 			}
-			nk_layout_row_static(ctx, 0, scr_w, 1);
-			nk_label(ctx, info_buf, NK_TEXT_LEFT);
 		}
+		nk_end(ctx);
 	}
-	nk_end(ctx);
 
 	if (!what_hover)
 		hovering = 0;
@@ -681,6 +684,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		// if (nk_option_label(ctx, "Always", (fullscreen_gui == ALWAYS))) fullscreen_gui = ALWAYS;
 		// if (nk_option_label(ctx, "Never", (fullscreen_gui == NEVER))) fullscreen_gui = NEVER;
 
+		nk_checkbox_label(ctx, "Show info bar", &show_infobar);
 
 
 
