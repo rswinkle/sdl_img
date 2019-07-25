@@ -6,21 +6,16 @@ void set_fullscreen();
 enum { MENU_NONE, MENU_MISC, MENU_EDIT, MENU_VIEW };
 
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h);
+void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 
 void draw_gui(struct nk_context* ctx)
 {
-	char info_buf[STRBUF_SZ];
-	int len;
-
-	int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
-
 	// closable gives the x, if you use it it won't come back (probably have to call show() or
 	// something...
 	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
 
 	SDL_Event event = { .type = g->userevent };
 	img_state* img;
-	char* sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
 
 	// Can't use actual screen size g->scr_w/h have to
 	// calculate logical screen size since GUI is scaled
@@ -145,7 +140,7 @@ void draw_gui(struct nk_context* ctx)
 		return;
 	}
 
-	if (nk_begin(ctx, "Controls", nk_rect(0, 0, scr_w, 30), gui_flags))
+	if (nk_begin(ctx, "Controls", nk_rect(0, 0, scr_w, 30), NK_WINDOW_NO_SCROLLBAR))
 	{
 		nk_layout_row_template_begin(ctx, 0);
 
@@ -421,34 +416,9 @@ void draw_gui(struct nk_context* ctx)
 	}
 	nk_end(ctx);
 
-
-	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-30, scr_w, 30), gui_flags))
-	{
-		if (g->n_imgs == 1) {
-			img = &g->img[0];
-
-			int i = 0;
-			double sz = img->file_size;
-			if (sz >= 1000000) {
-				sz /= 1000000;
-				i = 2;
-			} else if (sz >= 1000) {
-				sz /= 1000;
-				i = 1;
-			} else {
-				i = 0;
-			}
-
-			len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels  %.1f %s  %d %%    %d / %lu", img->w, img->h, sz, sizes[i], (int)(img->disp_rect.h*100.0/img->h), img->index+1, (unsigned long)g->files.size);
-			if (len >= STRBUF_SZ) {
-				puts("info path too long");
-				cleanup(1, 1);
-			}
-			nk_layout_row_static(ctx, 0, scr_w, 1);
-			nk_label(ctx, info_buf, NK_TEXT_LEFT);
-		}
+	if (1) {
+		draw_infobar(ctx, scr_w, scr_h);
 	}
-	nk_end(ctx);
 }
 
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
@@ -525,3 +495,40 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 	}
 	nk_end(ctx);
 }
+
+
+void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
+{
+	char info_buf[STRBUF_SZ];
+	char* sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
+
+	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-30, scr_w, 30), NK_WINDOW_NO_SCROLLBAR))
+	{
+		if (g->n_imgs == 1) {
+			img_state* img = &g->img[0];
+
+			int i = 0;
+			double sz = img->file_size;
+			if (sz >= 1000000) {
+				sz /= 1000000;
+				i = 2;
+			} else if (sz >= 1000) {
+				sz /= 1000;
+				i = 1;
+			} else {
+				i = 0;
+			}
+
+			int len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels  %.1f %s  %d %%    %d / %lu", img->w, img->h, sz, sizes[i], (int)(img->disp_rect.h*100.0/img->h), img->index+1, (unsigned long)g->files.size);
+			if (len >= STRBUF_SZ) {
+				puts("info path too long");
+				cleanup(1, 1);
+			}
+			nk_layout_row_static(ctx, 0, scr_w, 1);
+			nk_label(ctx, info_buf, NK_TEXT_LEFT);
+		}
+	}
+	nk_end(ctx);
+}
+
+
