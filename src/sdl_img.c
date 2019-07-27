@@ -20,6 +20,11 @@
 #define CVEC_ONLY_STR
 #include "cvector.h"
 
+#include "WjCryptLib_Md5.c"
+
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+#include "stb_image_resize.h"
+
 // was messing with tcc
 //#define STBI_NO_SIMD
 //#define SDL_DISABLE_IMMINTRIN_H
@@ -57,6 +62,7 @@
 //POSIX (mostly) works with MinGW64
 #include <sys/stat.h>
 #include <dirent.h>
+#include <unistd.h> // for access()
 #include <curl/curl.h>
 
 enum { QUIT, REDRAW, NOCHANGE };
@@ -169,6 +175,27 @@ typedef int64_t i64;
 	}                                                                               \
 	} while (0)
 
+#define SET_THUMB_SCR_RECTS()                                                       \
+	do {                                                                            \
+	for (int i=0; i<120; ++i) {                                                     \
+		g->img[i].scr_rect.x = (i%15)*g->scr_w/15;                                  \
+		g->img[i].scr_rect.y = (i/15)*g->scr_h/8;                                   \
+		g->img[i].scr_rect.w = g->scr_w/15;                                         \
+		g->img[i].scr_rect.h = g->scr_h/8;                                          \
+		set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);  \
+	}                                                                               \
+	} while (0)
+
+
+typedef struct thumb_state
+{
+	int w;
+	int h;
+	SDL_Texture* tex;
+	SDL_Rect scr_rect;
+	SDL_Rect disp_rect;
+} thumb_state;
+
 typedef struct img_state
 {
 	u8* pixels;
@@ -224,6 +251,7 @@ typedef struct global_state
 	int status;
 
 	char* cachedir;
+	char* thumbdir;
 	//char* config_dir;
 
 	cvector_str files;
@@ -248,6 +276,7 @@ typedef struct global_state
 	int slide_timer;
 
 	// threading
+	int generating_thumbs;
 	int loading;
 	int done_loading;
 	SDL_cond* cnd;
@@ -657,6 +686,99 @@ void cleanup(int ret, int called_setup)
 	cvec_free_str(&g->files);
 	curl_global_cleanup();
 	exit(ret);
+}
+
+void hash2str(char* str, MD5_HASH* h)
+{
+	char buf[3];
+
+	for (int i=0; i<MD5_HASH_SIZE; ++i) {
+		sprintf(buf, "%02x", h->bytes[i]);
+		strcat(str, buf);
+	}
+}
+
+int thumb_thread(void* data)
+{
+	int w, h, channels;
+	int out_w, out_h;
+	int ret;
+	char thumbpath[STRBUF_SZ] = { 0 };
+	char hash_str[MD5_HASH_SIZE*2+1] = { 0 };
+
+	struct stat thumb_stat, orig_stat;
+
+	u8* pix;
+	u8* outpix;
+	MD5_HASH hash;
+	for (int i=0; i<g->files.size; ++i) {
+		// TODO better to stat orig here and error out early for a url?
+
+		Md5Calculate(g->files.a[i], strlen(g->files.a[i]), &hash);
+		hash_str[0] = 0;
+		hash2str(hash_str, &hash);
+		// could just do the %02x%02x etc. here but that'd be a long format string and 16 extra parameters
+		ret = snprintf(thumbpath, STRBUF_SZ, "%s/%s.png", g->thumbdir, hash_str);
+		if (ret >= STRBUF_SZ) {
+			printf("path too long\n");
+			cleanup(0, 1);
+		}
+
+		// thumb already exists (TODO could also use stat, maybe should to compare modified times?)
+		if (!stat(thumbpath, &thumb_stat)) {
+			// someone has deleted the original since we made the thumb or it's a url
+			if (stat(g->files.a[i], &orig_stat))
+				continue;
+
+			// make sure original hasn't been modified since thumb was made
+			// don't think it's necessary to check nanoseconds
+			if (orig_stat.st_mtim.tv_sec < thumb_stat.st_mtim.tv_sec)
+				continue;
+		}
+
+		pix = stbi_load(g->files.a[i], &w, &h, &channels, 4);
+		if (!pix)
+			continue;
+
+		if (w > h) {
+			out_w = 128;
+			out_h = 128.0 * h/w;
+		} else {
+			out_h = 128;
+			out_w = 128.0 * w/h;
+		}
+
+		if (!(outpix = malloc(out_h*out_w*4))) {
+			cleanup(0, 1);
+		}
+
+		if (!stbir_resize_uint8(pix, w, h, 0, outpix, out_w, out_h, 0, 4)) {
+			free(pix);
+			free(outpix);
+			continue;
+		}
+
+		stbi_write_png(thumbpath, out_w, out_h, 4, outpix, out_w*4);
+
+		free(pix);
+		free(outpix);
+		printf("generated thumb %d for %s\n", i, g->files.a[i]);
+	}
+
+	g->generating_thumbs = SDL_FALSE;
+	puts("Done generating thumbs, exiting thread.");
+	return 0;
+}
+
+void generate_thumbs()
+{
+	g->generating_thumbs = SDL_TRUE;
+	puts("Starting thread to generate thumbs...");
+	SDL_Thread* thumb_thrd;
+	if (!(thumb_thrd = SDL_CreateThread(thumb_thread, "thumb_thrd", NULL))) {
+		puts("couldn't create thumb thread");
+	}
+	SDL_DetachThread(thumb_thrd);
 }
 
 // debug
@@ -1154,7 +1276,8 @@ void setup(int start_idx)
 
 	SDL_Thread* loading_thrd;
 	if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", NULL))) {
-		puts("couldn't create thread");
+		puts("couldn't create image loader thread");
+		cleanup(0, 1);
 	}
 	SDL_DetachThread(loading_thrd);
 
@@ -1359,7 +1482,7 @@ int try_move(int direction)
 
 void do_shuffle()
 {
-	if (g->n_imgs != 1) {
+	if (g->n_imgs != 1 || g->generating_thumbs) {
 		return;
 	}
 	char* save = g->files.a[g->img[0].index];
@@ -1384,7 +1507,7 @@ void do_shuffle()
 
 void do_sort()
 {
-	if (g->n_imgs != 1) {
+	if (g->n_imgs != 1 || g->generating_thumbs) {
 		return;
 	}
 	char* save = g->files.a[g->img[0].index];
@@ -1972,6 +2095,10 @@ int handle_events()
 				do_sort();
 				break;
 
+			case SDL_SCANCODE_T:
+				generate_thumbs();
+				break;
+
 			case SDL_SCANCODE_C:
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					// TODO maybe just flush events here and return 0 so
@@ -2348,6 +2475,7 @@ int main(int argc, char** argv)
 	char img_name[STRBUF_SZ] = { 0 };
 	char fullpath[STRBUF_SZ] = { 0 };
 	char cachedir[STRBUF_SZ] = { 0 };
+	char thumbdir[STRBUF_SZ] = { 0 };
 	char datebuf[200] = { 0 };
 	int ticks;
 	struct stat file_stat;
@@ -2405,13 +2533,25 @@ int main(int argc, char** argv)
 		puts("cache path too long");
 		cleanup(1, 0);
 	}
-	SDL_free(prefpath);
-
 	if (mkdir_p(cachedir, S_IRWXU) && errno != EEXIST) {
 		perror("Failed to make cache directory");
 		cleanup(1, 0);
 	}
 	g->cachedir = cachedir;
+
+	len = snprintf(thumbdir, STRBUF_SZ, "%sthumbnails", prefpath);
+	if (len >= STRBUF_SZ) {
+		puts("thumbnail path too long");
+		cleanup(1, 0);
+	}
+	if (mkdir_p(thumbdir, S_IRWXU) && errno != EEXIST) {
+		perror("Failed to make cache directory");
+		cleanup(1, 0);
+	}
+	g->thumbdir = thumbdir;
+
+	SDL_free(prefpath);
+
 
 	int img_args = 0;
 	int given_list = 0;

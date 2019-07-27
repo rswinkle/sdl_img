@@ -1,6 +1,8 @@
 
+#include "WjCryptLib_Md5.h"
+
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
-#include <stb_image_resize.h>
+#include "stb_image_resize.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -56,6 +58,17 @@ int filter_imgs(const struct dirent* entry)
 	return 0;
 }
 
+void hash2str(char* str, MD5_HASH* h)
+{
+	char buf[3];
+
+	for (int i=0; i<MD5_HASH_SIZE; ++i) {
+		sprintf(buf, "%02x", h->bytes[i]);
+		strcat(str, buf);
+	}
+}
+
+
 int main(int argc, char** argv)
 {
 
@@ -71,6 +84,7 @@ int main(int argc, char** argv)
 	char fullpath[STRBUF_SZ] = { 0 };
 	char cachepath[STRBUF_SZ] = { 0 };
 	char thumbpath[STRBUF_SZ] = { 0 };
+	char hash_str[MD5_HASH_SIZE*2+1] = { 0 };
 	int ret;
 
 	int len = strlen(argv[1]);
@@ -89,6 +103,9 @@ int main(int argc, char** argv)
 
 	u8* pix;
 	u8* outpix;
+	MD5_HASH hash;
+
+
 
 	for (int i=0; i<n_imgs; ++i) {
 		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", argv[1], img_list[i]->d_name);
@@ -96,9 +113,14 @@ int main(int argc, char** argv)
 			printf("path too long\n");
 			cleanup(0, 1);
 		}
+
 		pix = stbi_load(fullpath, &w, &h, &channels, 4);
 		if (!pix)
 			continue;
+
+		Md5Calculate(fullpath, ret, &hash);
+		hash_str[0] = 0;
+		hash2str(hash_str, &hash);
 
 		if (w > h) {
 			out_w = 128;
@@ -118,7 +140,8 @@ int main(int argc, char** argv)
 			continue;
 		}
 
-		ret = snprintf(thumbpath, STRBUF_SZ, "%s/%03d.png", cachepath, i);
+		// could just do the %02x%02x etc. here but that'd be a long format string and 16 extra parameters
+		ret = snprintf(thumbpath, STRBUF_SZ, "%s/%s.png", cachepath, hash_str);
 
 		stbi_write_png(thumbpath, out_w, out_h, 4, outpix, out_w*4);
 
