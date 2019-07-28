@@ -62,7 +62,6 @@
 //POSIX (mostly) works with MinGW64
 #include <sys/stat.h>
 #include <dirent.h>
-#include <unistd.h> // for access()
 #include <curl/curl.h>
 
 enum { QUIT, REDRAW, NOCHANGE };
