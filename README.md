@@ -131,7 +131,10 @@ TODO/IDEAS
 - [x] Handle being given a directory as an argument(s)
 - [x] Add argument -s [1-10] to start in slideshow mode
 - [ ] Add window icon (either static or based on current image(s))
+- [ ] Thumbnail generating and browsing
 - [ ] Install icon in deb package
+- [ ] WebM support with mbew?
+- [ ] MP4 support?
 - [x] Speed up initial startup when a directory has a large number of images
 - [x] Change sorting to use strcmp for humans (could use gnu strverscmp)
 - [x] Recursive directory scanning with -r/-R
