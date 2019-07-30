@@ -2171,6 +2171,7 @@ int handle_events()
 					if (g->thumbs_done) {
 						load_thumbs();
 						g->thumb_mode = !g->thumb_mode;
+						g->status = REDRAW;
 					} else {
 						puts("Error, must ensure thumbnails are generated first, press T");
 					}
@@ -2847,6 +2848,7 @@ int main(int argc, char** argv)
 			int h = g->scr_h/(float)THUMB_ROWS;
 			SDL_Rect r = { 0, 0, w, h };
 			for (int i = start; i < end && i<g->files.size; ++i) {
+				// to fill screen use these rather than following 4 lines
 				//r.x = ((i-start) % THUMB_COLS) * w;
 				//r.y = ((i-start) / THUMB_COLS) * h;
 
@@ -2854,6 +2856,7 @@ int main(int argc, char** argv)
 				r.h = g->thumbs[i].h/(float)THUMBSIZE * h;
 				r.x = (((i-start) % THUMB_COLS) * w) + (w-r.w)/2;
 				r.y = (((i-start) / THUMB_COLS) * h) + (h-r.h)/2;
+
 				SDL_RenderCopy(g->ren, g->thumbs[i].tex, NULL, &r);
 			}
 		}
