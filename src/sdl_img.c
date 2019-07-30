@@ -93,6 +93,9 @@ typedef int64_t i64;
 #define STRBUF_SZ 1024
 #define START_WIDTH 1200
 #define START_HEIGHT 800
+#define THUMBSIZE 128
+#define THUMB_ROWS 4
+#define THUMB_COLS 8
 
 // zoom is calculated
 // h = old_h * (1.0 + zoom*ZOOM_RATE)
@@ -247,6 +250,8 @@ typedef struct global_state
 	img_state img1[8];
 	img_state img2[8];
 
+	thumb_state* thumbs;
+
 	int status;
 
 	char* cachedir;
@@ -262,6 +267,10 @@ typedef struct global_state
 	int show_gui;
 	int fullscreen_gui;
 	int show_infobar;
+
+	int thumb_mode;
+	int thumbs_done;
+	int thumb_offset;
 
 	int show_about;
 	int show_prefs;
@@ -740,11 +749,11 @@ int thumb_thread(void* data)
 			continue;
 
 		if (w > h) {
-			out_w = 128;
-			out_h = 128.0 * h/w;
+			out_w = THUMBSIZE;
+			out_h = THUMBSIZE * h/(float)w;
 		} else {
-			out_h = 128;
-			out_w = 128.0 * w/h;
+			out_h = THUMBSIZE;
+			out_w = THUMBSIZE * w/(float)h;
 		}
 
 		if (!(outpix = malloc(out_h*out_w*4))) {
@@ -765,6 +774,7 @@ int thumb_thread(void* data)
 	}
 
 	g->generating_thumbs = SDL_FALSE;
+	g->thumbs_done = SDL_TRUE;
 	puts("Done generating thumbs, exiting thread.");
 	return 0;
 }
@@ -778,6 +788,65 @@ void generate_thumbs()
 		puts("couldn't create thumb thread");
 	}
 	SDL_DetachThread(thumb_thrd);
+}
+
+int load_thumbs()
+{
+	int w, h, channels;
+	int ret;
+	char thumbpath[STRBUF_SZ] = { 0 };
+	char hash_str[MD5_HASH_SIZE*2+1] = { 0 };
+
+	if (g->thumbs) {
+		puts("Thumbs already loaded");
+		return 1;
+	}
+
+	u8* pix;
+	MD5_HASH hash;
+	if (!(g->thumbs = malloc(g->files.size * sizeof(thumb_state)))) {
+		cleanup(0, 1);
+	}
+
+	for (int i=0; i<g->files.size; ++i) {
+		Md5Calculate(g->files.a[i], strlen(g->files.a[i]), &hash);
+		hash_str[0] = 0;
+		hash2str(hash_str, &hash);
+
+		ret = snprintf(thumbpath, STRBUF_SZ, "%s/%s.png", g->thumbdir, hash_str);
+		if (ret >= STRBUF_SZ) {
+			printf("path too long\n");
+			cleanup(0, 1);
+		}
+		pix = stbi_load(thumbpath, &w, &h, &channels, 4);
+		if (!pix)
+			continue;
+
+		g->thumbs[i].tex = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, w, h);
+		if (!g->thumbs[i].tex) {
+			printf("Error creating texture: %s\n", SDL_GetError());
+			return 0;
+		}
+		if (SDL_UpdateTexture(g->thumbs[i].tex, NULL, pix, w*4)) {
+			printf("Error updating texture: %s\n", SDL_GetError());
+			return 0;
+		}
+
+		g->thumbs[i].w = w;
+		g->thumbs[i].h = h;
+
+		g->thumbs[i].scr_rect.w = THUMBSIZE;
+		g->thumbs[i].scr_rect.h = THUMBSIZE;
+
+		g->thumbs[i].disp_rect.w = w;
+		g->thumbs[i].disp_rect.h = h;
+		
+		free(pix);
+	}
+
+	puts("Done loading thumbnails");
+
+	return 1;
 }
 
 // debug
@@ -2095,7 +2164,16 @@ int handle_events()
 				break;
 
 			case SDL_SCANCODE_T:
-				generate_thumbs();
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					if (g->thumbs_done) {
+						load_thumbs();
+						g->thumb_mode = !g->thumb_mode;
+					} else {
+						puts("Error, must ensure thumbnails are generated first, press T");
+					}
+				} else {
+					generate_thumbs();
+				}
 				break;
 
 			case SDL_SCANCODE_C:
@@ -2358,10 +2436,34 @@ int handle_events()
 
 		case SDL_MOUSEWHEEL:
 			g->status = REDRAW;
-			if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
-				do_zoom(e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
+			if (!g->thumb_mode) {
+				if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
+					do_zoom(e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
+				} else {
+					do_zoom(-e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
+				}
 			} else {
-				do_zoom(-e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
+				if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
+					g->thumb_offset -= e.wheel.y * (g->scr_h / THUMB_ROWS);
+
+					int start = (g->thumb_offset / (g->scr_h/THUMB_ROWS)) * THUMB_COLS;
+					int end = start + THUMB_COLS*THUMB_ROWS;
+					// want to have no blank rows, end == size would fill the screen exactly
+					// end >= size + COLS would be at least an entire blank row at the bottom
+					if (end >= g->files.size+THUMB_COLS)
+						g->thumb_offset = (g->files.size / THUMB_COLS - THUMB_ROWS+1) * (g->scr_h/THUMB_ROWS);
+					if (g->thumb_offset < 0)
+						g->thumb_offset = 0;
+				} else {
+					g->thumb_offset += e.wheel.y * (g->scr_h / THUMB_ROWS);
+
+					int start = (g->thumb_offset / (g->scr_h/THUMB_ROWS)) * THUMB_COLS;
+					int end = start + THUMB_COLS*THUMB_ROWS;
+					if (end >= g->files.size+THUMB_COLS)
+						g->thumb_offset = (g->files.size / THUMB_COLS - THUMB_ROWS+1) * (g->scr_h/THUMB_ROWS);
+					if (g->thumb_offset < 0)
+						g->thumb_offset = 0;
+				}
 			}
 			break;
 
@@ -2712,31 +2814,52 @@ int main(int argc, char** argv)
 			g->status = REDRAW;
 		}
 
-		is_a_gif = 0;
-		for (int i=0; i<g->n_imgs; ++i) {
-			if (g->img[i].frames > 1) {
-				if (ticks - g->img[i].frame_timer >= g->img[i].delay) {
-					g->img[i].frame_i = (g->img[i].frame_i + 1) % g->img[i].frames;
-					if (g->img[i].frame_i == 0)
-						g->img[i].looped = 1;
-					g->img[i].frame_timer = ticks; // should be set after present ...
-					g->status = REDRAW;
+		if (!g->thumb_mode) {
+			is_a_gif = 0;
+			for (int i=0; i<g->n_imgs; ++i) {
+				if (g->img[i].frames > 1) {
+					if (ticks - g->img[i].frame_timer >= g->img[i].delay) {
+						g->img[i].frame_i = (g->img[i].frame_i + 1) % g->img[i].frames;
+						if (g->img[i].frame_i == 0)
+							g->img[i].looped = 1;
+						g->img[i].frame_timer = ticks; // should be set after present ...
+						g->status = REDRAW;
+					}
+					is_a_gif = 1;
 				}
-				is_a_gif = 1;
 			}
-		}
 
-		if (g->show_gui || g->status == REDRAW) {
-			// gui drawing changes draw color so have to reset to black every time
+			if (g->show_gui || g->status == REDRAW) {
+				// gui drawing changes draw color so have to reset to black every time
+				SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
+				SDL_RenderSetClipRect(g->ren, NULL);
+				SDL_RenderClear(g->ren);
+				for (int i=0; i<g->n_imgs; ++i) {
+					SDL_RenderSetClipRect(g->ren, &g->img[i].scr_rect);
+					SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
+					print_img_state(&g->img[i]);
+				}
+				SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
+			}
+		} else {
 			SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
 			SDL_RenderSetClipRect(g->ren, NULL);
 			SDL_RenderClear(g->ren);
-			for (int i=0; i<g->n_imgs; ++i) {
-				SDL_RenderSetClipRect(g->ren, &g->img[i].scr_rect);
-				SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
-				print_img_state(&g->img[i]);
+			int start = (g->thumb_offset / (g->scr_h/THUMB_ROWS)) * THUMB_COLS;
+			int end = start + THUMB_COLS*THUMB_ROWS;
+			int w = g->scr_w/(float)THUMB_COLS;
+			int h = g->scr_h/(float)THUMB_ROWS;
+			SDL_Rect r = { 0, 0, w, h };
+			for (int i = start; i < end && i<g->files.size; ++i) {
+				//r.x = ((i-start) % THUMB_COLS) * w;
+				//r.y = ((i-start) / THUMB_COLS) * h;
+
+				r.w = g->thumbs[i].w/(float)THUMBSIZE * w;
+				r.h = g->thumbs[i].h/(float)THUMBSIZE * h;
+				r.x = (((i-start) % THUMB_COLS) * w) + (w-r.w)/2;
+				r.y = (((i-start) / THUMB_COLS) * h) + (h-r.h)/2;
+				SDL_RenderCopy(g->ren, g->thumbs[i].tex, NULL, &r);
 			}
-			SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
 		}
 		if (g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
