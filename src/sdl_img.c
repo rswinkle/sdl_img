@@ -94,8 +94,8 @@ typedef int64_t i64;
 #define START_WIDTH 1200
 #define START_HEIGHT 800
 #define THUMBSIZE 128
-#define THUMB_ROWS 4
-#define THUMB_COLS 8
+#define THUMB_ROWS 8
+#define THUMB_COLS 15
 
 // zoom is calculated
 // h = old_h * (1.0 + zoom*ZOOM_RATE)
@@ -194,6 +194,8 @@ typedef struct thumb_state
 	int w;
 	int h;
 	SDL_Texture* tex;
+
+	// TODO not used...yet?
 	SDL_Rect scr_rect;
 	SDL_Rect disp_rect;
 } thumb_state;
@@ -835,6 +837,7 @@ int load_thumbs()
 		g->thumbs[i].w = w;
 		g->thumbs[i].h = h;
 
+		// TODO neither src nor disp_rect used
 		g->thumbs[i].scr_rect.w = THUMBSIZE;
 		g->thumbs[i].scr_rect.h = THUMBSIZE;
 
