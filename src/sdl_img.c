@@ -272,7 +272,7 @@ typedef struct global_state
 
 	int thumb_mode;
 	int thumbs_done;
-	int thumb_offset;
+	int thumb_start_row;
 
 	int show_about;
 	int show_prefs;
@@ -2447,25 +2447,18 @@ int handle_events()
 				}
 			} else {
 				if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
-					g->thumb_offset -= e.wheel.y * (g->scr_h / THUMB_ROWS);
+					g->thumb_start_row -= e.wheel.y;
 
-					int start = (g->thumb_offset / (g->scr_h/THUMB_ROWS)) * THUMB_COLS;
-					int end = start + THUMB_COLS*THUMB_ROWS;
-					// want to have no blank rows, end == size would fill the screen exactly
-					// end >= size + COLS would be at least an entire blank row at the bottom
-					if (end >= g->files.size+THUMB_COLS)
-						g->thumb_offset = (g->files.size / THUMB_COLS - THUMB_ROWS+1) * (g->scr_h/THUMB_ROWS);
-					if (g->thumb_offset < 0)
-						g->thumb_offset = 0;
+					if (g->thumb_start_row*THUMB_COLS + THUMB_ROWS*THUMB_COLS >= g->files.size+THUMB_COLS)
+						g->thumb_start_row = (g->files.size / THUMB_COLS - THUMB_ROWS+1);
+					if (g->thumb_start_row < 0)
+						g->thumb_start_row = 0;
 				} else {
-					g->thumb_offset += e.wheel.y * (g->scr_h / THUMB_ROWS);
-
-					int start = (g->thumb_offset / (g->scr_h/THUMB_ROWS)) * THUMB_COLS;
-					int end = start + THUMB_COLS*THUMB_ROWS;
-					if (end >= g->files.size+THUMB_COLS)
-						g->thumb_offset = (g->files.size / THUMB_COLS - THUMB_ROWS+1) * (g->scr_h/THUMB_ROWS);
-					if (g->thumb_offset < 0)
-						g->thumb_offset = 0;
+					g->thumb_start_row += e.wheel.y;
+					if (g->thumb_start_row*THUMB_COLS + THUMB_ROWS*THUMB_COLS >= g->files.size+THUMB_COLS)
+						g->thumb_start_row = (g->files.size / THUMB_COLS - THUMB_ROWS+1);
+					if (g->thumb_start_row < 0)
+						g->thumb_start_row = 0;
 				}
 			}
 			break;
@@ -2848,7 +2841,7 @@ int main(int argc, char** argv)
 			SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
 			SDL_RenderSetClipRect(g->ren, NULL);
 			SDL_RenderClear(g->ren);
-			int start = (g->thumb_offset / (g->scr_h/THUMB_ROWS)) * THUMB_COLS;
+			int start = g->thumb_start_row * THUMB_COLS;
 			int end = start + THUMB_COLS*THUMB_ROWS;
 			int w = g->scr_w/(float)THUMB_COLS;
 			int h = g->scr_h/(float)THUMB_ROWS;
