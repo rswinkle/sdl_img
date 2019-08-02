@@ -65,7 +65,7 @@
 #include <curl/curl.h>
 
 enum { QUIT, REDRAW, NOCHANGE };
-enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, EXIT };
+enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, SELECTION, EXIT };
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
@@ -273,6 +273,7 @@ typedef struct global_state
 	int thumb_mode;
 	int thumbs_done;
 	int thumb_start_row;
+	int selection;
 
 	int show_about;
 	int show_prefs;
@@ -1132,11 +1133,11 @@ int load_new_images(void* data)
 			for (int i=0; i<g->n_imgs; ++i)
 				img[i].scr_rect = g->img[i].scr_rect;
 			
-			// TODO possible (very unlikely) ifinite loop if there
+			// TODO possible (very unlikely) infinite loop if there
 			// are allocation failures for every valid image in the list
 			if (!g->img_focus) {
-				if (load_what == RIGHT) {
-					last = g->img[g->n_imgs-1].index;
+				if (load_what >= RIGHT) {
+					last = (load_what == RIGHT) ? g->img[g->n_imgs-1].index : g->selection;
 					for (int i=0; i<g->n_imgs; ++i) {
 						do {
 							last = wrap(last + 1);
@@ -1148,13 +1149,12 @@ int load_new_images(void* data)
 						set_rect_bestfit(&img[i], g->fullscreen | g->slideshow | g->fill_mode);
 						img[i].index = last;
 					}
-				} else {
+				} else if (load_what == LEFT) {
 					last = g->img[0].index;
 					for (int i=g->n_imgs-1; i>=0; --i) {
 						do {
 							last = wrap(last - 1);
 							ret = load_image(g->files.a[last], &img[i], SDL_FALSE);
-							if (!ret)
 							if (!ret)
 								if (curl_image(last))
 									ret = load_image(g->files.a[last], &img[i], SDL_FALSE);
@@ -1900,7 +1900,129 @@ int do_copy()
 	return 0;
 }
 
-int handle_events()
+int handle_thumb_events()
+{
+	SDL_Event e;
+	int sc;
+	SDL_Keymod mod_state = SDL_GetModState();
+	int mouse_x, mouse_y;
+	u32 mouse_button_mask = SDL_GetMouseState(&mouse_x, &mouse_y);
+
+	// TODO add vim controls hjkl for navigating thumbs
+	// and page or half page jumps (CTRL+U/D), maybe with
+	// an optional visual selection box drawnn to indicate current
+	// image for actions (ie to switch to view, delete etc.)
+
+	g->status = NOCHANGE;
+	nk_input_begin(g->ctx);
+	while (SDL_PollEvent(&e)) {
+		switch (e.type) {
+		case SDL_QUIT:
+			//nk_input_end(g->ctx); // TODO need these?
+			return 1;
+		case SDL_KEYUP:
+			sc = e.key.keysym.scancode;
+			switch (sc) {
+			case SDL_SCANCODE_ESCAPE:
+				// TODO merge with T, remove T?
+				// Also need to regenerate DISP_RECT(s) for normal mode
+				// if window has changed size since switching to THUMB ...
+				// or keep it updated in SIZE_CHANGED below
+				g->thumb_mode = SDL_FALSE;
+				g->thumb_start_row = 0;
+				g->status = REDRAW;
+				break;
+			case SDL_SCANCODE_T:
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					g->thumb_mode = SDL_FALSE;
+					g->thumb_start_row = 0;
+					g->status = REDRAW;
+				}
+			}
+			break;
+		case SDL_KEYDOWN:
+			sc = e.key.keysym.scancode;
+			switch (sc) {
+			case SDL_SCANCODE_UP:
+			case SDL_SCANCODE_DOWN:
+				g->status = REDRAW;
+				g->thumb_start_row += (sc == SDL_SCANCODE_DOWN) ? 1 : -1;
+				break;
+			}
+			break;
+		case SDL_MOUSEBUTTONUP:
+			if (e.button.button == SDL_BUTTON_LEFT && e.button.clicks == 2) {
+				g->selection = g->thumb_start_row * THUMB_COLS +
+				               (mouse_y / (g->scr_h/THUMB_ROWS)) * THUMB_COLS +
+				               (mouse_x / (g->scr_w/THUMB_COLS));
+
+				// since we reuse the RIGHT loading code, have to subtract 1 so we
+				// "move right" to the selection
+				g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
+				g->thumb_mode = SDL_FALSE;
+				g->thumb_start_row = 0;
+				g->status = REDRAW;
+				try_move(SELECTION);
+			}
+			break;
+		case SDL_MOUSEWHEEL:
+			g->status = REDRAW;
+			if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
+				g->thumb_start_row -= e.wheel.y;
+			} else {
+				g->thumb_start_row += e.wheel.y;
+			}
+			break;
+
+		case SDL_WINDOWEVENT: {
+			g->status = REDRAW;
+			int x, y;
+			SDL_GetWindowSize(g->win, &x, &y);
+			//printf("windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
+			switch (e.window.event) {
+			case SDL_WINDOWEVENT_RESIZED:
+				g->scr_w = e.window.data1;
+				g->scr_h = e.window.data2;
+				break;
+			case SDL_WINDOWEVENT_SIZE_CHANGED:
+				g->scr_w = e.window.data1;
+				g->scr_h = e.window.data2;
+
+				// TODO how/where to reset all the "subscreens" rects
+				if (g->n_imgs == 1) {
+					SET_MODE1_SCR_RECT();
+				} else if (g->n_imgs == 2) {
+					SET_MODE2_SCR_RECTS();
+				} else if (g->n_imgs == 4) {
+					SET_MODE4_SCR_RECTS();
+				} else if (g->n_imgs == 8) {
+					SET_MODE8_SCR_RECTS();
+				}
+				break;
+			}
+		} break;
+
+		default: // all other event types
+			break;
+		}
+
+		// TODO leave it here where it calls for every event
+		// or put it back in mouse and key events?
+		nk_sdl_handle_event(&e);
+	}
+	nk_input_end(g->ctx);
+
+	if (g->thumb_start_row*THUMB_COLS + THUMB_ROWS*THUMB_COLS >= g->files.size+THUMB_COLS)
+		g->thumb_start_row = (g->files.size / THUMB_COLS - THUMB_ROWS+1);
+	if (g->thumb_start_row < 0)
+		g->thumb_start_row = 0;
+
+
+	return 0;
+
+}
+
+int handle_events_normally()
 {
 	SDL_Event e;
 	int sc;
@@ -2170,8 +2292,13 @@ int handle_events()
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					if (g->thumbs_done) {
 						load_thumbs();
-						g->thumb_mode = !g->thumb_mode;
+						g->thumb_mode = SDL_TRUE;
 						g->status = REDRAW;
+						// TODO what a mess, need to think about the best way
+						// to handle GUI vs mouse in thumb vs normal mode
+						SDL_ShowCursor(SDL_ENABLE);
+						g->gui_timer = SDL_GetTicks();
+						g->show_gui = SDL_TRUE;
 					} else {
 						puts("Error, must ensure thumbnails are generated first, press T");
 					}
@@ -2440,33 +2567,15 @@ int handle_events()
 
 		case SDL_MOUSEWHEEL:
 			g->status = REDRAW;
-			if (!g->thumb_mode) {
-				if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
-					do_zoom(e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
-				} else {
-					do_zoom(-e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
-				}
+			if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
+				do_zoom(e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
 			} else {
-				if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
-					g->thumb_start_row -= e.wheel.y;
-
-					if (g->thumb_start_row*THUMB_COLS + THUMB_ROWS*THUMB_COLS >= g->files.size+THUMB_COLS)
-						g->thumb_start_row = (g->files.size / THUMB_COLS - THUMB_ROWS+1);
-					if (g->thumb_start_row < 0)
-						g->thumb_start_row = 0;
-				} else {
-					g->thumb_start_row += e.wheel.y;
-					if (g->thumb_start_row*THUMB_COLS + THUMB_ROWS*THUMB_COLS >= g->files.size+THUMB_COLS)
-						g->thumb_start_row = (g->files.size / THUMB_COLS - THUMB_ROWS+1);
-					if (g->thumb_start_row < 0)
-						g->thumb_start_row = 0;
-				}
+				do_zoom(-e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
 			}
 			break;
 
 		case SDL_WINDOWEVENT: {
 			g->status = REDRAW;
-			//puts("window event");
 			int x, y;
 			SDL_GetWindowSize(g->win, &x, &y);
 			//printf("windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
@@ -2474,12 +2583,10 @@ int handle_events()
 			case SDL_WINDOWEVENT_RESIZED:
 				g->scr_w = e.window.data1;
 				g->scr_h = e.window.data2;
-				//printf("resized %d %d\n", g->scr_w, g->scr_h);
 				break;
 			case SDL_WINDOWEVENT_SIZE_CHANGED:
 				g->scr_w = e.window.data1;
 				g->scr_h = e.window.data2;
-				//printf("size changed %d %d\n", g->scr_w, g->scr_h);
 
 				// TODO how/where to reset all the "subscreens" rects
 				if (g->n_imgs == 1) {
@@ -2492,17 +2599,15 @@ int handle_events()
 					SET_MODE8_SCR_RECTS();
 				}
 				break;
-			case SDL_WINDOWEVENT_EXPOSED: {
+			case SDL_WINDOWEVENT_EXPOSED:
 				//puts("exposed");
-				int x, y;
-				SDL_GetWindowSize(g->win, &x, &y);
 				//printf("windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 				//puts("exposed event");
+				break;
 			}
-		} break;
-			default:
-				;
-			}
+		} break; // end WINDOWEVENTS
+
+		default: // all other event types
 			break;
 		}
 
@@ -2514,6 +2619,15 @@ int handle_events()
 
 	return 0;
 }
+
+int handle_events()
+{
+	if (!g->thumb_mode)
+		return handle_events_normally();
+	else
+		return handle_thumb_events();
+}
+
 
 //stupid windows
 void normalize_path(char* path)
@@ -2800,7 +2914,8 @@ int main(int argc, char** argv)
 		ticks = SDL_GetTicks();
 
 		if (g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
-			SDL_ShowCursor(SDL_DISABLE);
+			if (!g->thumb_mode)
+				SDL_ShowCursor(SDL_DISABLE);
 			g->show_gui = 0;
 			g->status = REDRAW;
 		}
