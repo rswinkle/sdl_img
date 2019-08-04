@@ -66,6 +66,7 @@
 
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, SELECTION, EXIT };
+enum { OFF, ON, VISUAL }; // better names?
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
@@ -187,7 +188,6 @@ typedef int64_t i64;
 		set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);  \
 	}                                                                               \
 	} while (0)
-
 
 typedef struct thumb_state
 {
@@ -1904,7 +1904,7 @@ int do_copy()
 int handle_thumb_events()
 {
 	SDL_Event e;
-	int sc;
+	int sc, sym;
 	SDL_Keymod mod_state = SDL_GetModState();
 	int mouse_x, mouse_y;
 	u32 mouse_button_mask = SDL_GetMouseState(&mouse_x, &mouse_y);
@@ -1922,32 +1922,38 @@ int handle_thumb_events()
 			//nk_input_end(g->ctx); // TODO need these?
 			return 1;
 		case SDL_KEYUP:
-			sc = e.key.keysym.scancode;
-			switch (sc) {
-			case SDL_SCANCODE_ESCAPE:
+			sym = e.key.keysym.sym;
+			switch (sym) {
+			case SDLK_ESCAPE:
 				// TODO merge with T, remove T?
 				// Also need to regenerate DISP_RECT(s) for normal mode
 				// if window has changed size since switching to THUMB ...
 				// or keep it updated in SIZE_CHANGED below
-				g->thumb_mode = SDL_FALSE;
-				g->thumb_start_row = 0;
+				if (g->thumb_mode == VISUAL) {
+					g->thumb_mode = ON;
+				} else {
+					g->thumb_mode = OFF;
+					g->thumb_start_row = 0;
+				}
 				g->status = REDRAW;
 				break;
-			case SDL_SCANCODE_T:
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-					g->thumb_mode = SDL_FALSE;
-					g->thumb_start_row = 0;
-					g->status = REDRAW;
-				}
+			case SDLK_v:
+				g->thumb_mode = (g->thumb_mode == VISUAL) ? ON : VISUAL;
+				g->status = REDRAW;
+				break;
 			}
 			break;
 		case SDL_KEYDOWN:
-			sc = e.key.keysym.scancode;
-			switch (sc) {
-			case SDL_SCANCODE_UP:
-			case SDL_SCANCODE_DOWN:
-				g->status = REDRAW;
-				g->thumb_start_row += (sc == SDL_SCANCODE_DOWN) ? 1 : -1;
+			sym = e.key.keysym.sym;
+			switch (sym) {
+			case SDLK_UP:
+			case SDLK_DOWN:
+			case SDLK_k:
+			case SDLK_j:
+				g->thumb_start_row += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
+				break;
+			case SDLK_h:
+			case SDLK_l:
 				break;
 			}
 			break;
@@ -1960,7 +1966,7 @@ int handle_thumb_events()
 				// since we reuse the RIGHT loading code, have to subtract 1 so we
 				// "move right" to the selection
 				g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
-				g->thumb_mode = SDL_FALSE;
+				g->thumb_mode = OFF;
 				g->thumb_start_row = 0;
 				g->status = REDRAW;
 				try_move(SELECTION);
@@ -2293,7 +2299,7 @@ int handle_events_normally()
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					if (g->thumbs_done) {
 						load_thumbs();
-						g->thumb_mode = SDL_TRUE;
+						g->thumb_mode = ON;
 						g->status = REDRAW;
 						// TODO what a mess, need to think about the best way
 						// to handle GUI vs mouse in thumb vs normal mode
@@ -2912,6 +2918,7 @@ int main(int argc, char** argv)
 		if (handle_events())
 			break;
 
+		is_a_gif = 0;
 		ticks = SDL_GetTicks();
 
 		if (g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
@@ -2928,7 +2935,6 @@ int main(int argc, char** argv)
 		}
 
 		if (!g->thumb_mode) {
-			is_a_gif = 0;
 			for (int i=0; i<g->n_imgs; ++i) {
 				if (g->img[i].frames > 1) {
 					if (ticks - g->img[i].frame_timer >= g->img[i].delay) {
@@ -2974,6 +2980,14 @@ int main(int argc, char** argv)
 				r.y = (((i-start) / THUMB_COLS) * h) + (h-r.h)/2;
 
 				SDL_RenderCopy(g->ren, g->thumbs[i].tex, NULL, &r);
+			}
+
+			if (g->thumb_mode == VISUAL) {
+				SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
+				r.x = r.y = 0;
+				r.w = w;
+				r.h = h;
+				SDL_RenderDrawRect(g->ren, &r);
 			}
 		}
 		if (g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
