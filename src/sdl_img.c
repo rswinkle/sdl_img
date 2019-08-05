@@ -273,7 +273,8 @@ typedef struct global_state
 	int thumb_mode;
 	int thumbs_done;
 	int thumb_start_row;
-	int selection;
+	int thumb_sel;  // current visual selection
+	int selection;  // actual selection made (switching to normal mode)
 
 	int show_about;
 	int show_prefs;
@@ -1937,9 +1938,36 @@ int handle_thumb_events()
 				}
 				g->status = REDRAW;
 				break;
+			case SDLK_c:
+				// turn of VISUAL (or any other mode I add later)
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					g->thumb_mode = ON;
+				}
+				break;
 			case SDLK_v:
 				g->thumb_mode = (g->thumb_mode == VISUAL) ? ON : VISUAL;
 				g->status = REDRAW;
+				break;
+			case SDLK_g:
+				if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
+					g->thumb_start_row = g->files.size-1; // will get fixed at the bottom
+					if (g->thumb_mode == VISUAL)
+						g->thumb_sel = g->files.size-1;
+				} else {
+					g->thumb_start_row = 0;;
+					if (g->thumb_mode == VISUAL)
+						g->thumb_sel = 0;
+				}
+				break;
+			case SDLK_RETURN:
+				if (g->thumb_mode == VISUAL) {
+					// subtract 1 since we reuse RIGHT loading code
+					g->selection = (g->thumb_sel) ? g->thumb_sel - 1 : g->files.size-1;
+					g->thumb_mode = OFF;
+					g->thumb_start_row = 0;
+					g->status = REDRAW;
+					try_move(SELECTION);
+				}
 				break;
 			}
 			break;
@@ -1950,14 +1978,25 @@ int handle_thumb_events()
 			case SDLK_DOWN:
 			case SDLK_k:
 			case SDLK_j:
-				g->thumb_start_row += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
+				if (g->thumb_mode == ON) {
+					g->thumb_start_row += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
+				} else if (g->thumb_mode == VISUAL) {
+					g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? THUMB_COLS : -THUMB_COLS;
+				}
 				break;
+			case SDLK_LEFT:
+			case SDLK_RIGHT:
 			case SDLK_h:
 			case SDLK_l:
+				if (g->thumb_mode == VISUAL) {
+					g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
+				}
 				break;
 			}
 			break;
 		case SDL_MOUSEBUTTONUP:
+			// TODO have this behavior in VISUAL MODE too?  Single click changes
+			// g->thumb_sel?
 			if (e.button.button == SDL_BUTTON_LEFT && e.button.clicks == 2) {
 				g->selection = g->thumb_start_row * THUMB_COLS +
 				               (mouse_y / (g->scr_h/THUMB_ROWS)) * THUMB_COLS +
@@ -2023,6 +2062,19 @@ int handle_thumb_events()
 		g->thumb_start_row = (g->files.size / THUMB_COLS - THUMB_ROWS+1);
 	if (g->thumb_start_row < 0)
 		g->thumb_start_row = 0;
+
+	if (g->thumb_mode == VISUAL) {
+		if (g->thumb_sel < 0)
+			g->thumb_sel = 0;
+
+		if (g->thumb_sel >= g->files.size)
+			g->thumb_sel = g->files.size-1;
+
+		if (g->thumb_sel < g->thumb_start_row*THUMB_COLS)
+			g->thumb_start_row--;
+		else if (g->thumb_sel >= g->thumb_start_row*THUMB_COLS + THUMB_ROWS*THUMB_COLS)
+			g->thumb_start_row++;
+	}
 
 
 	return 0;
@@ -2980,15 +3032,25 @@ int main(int argc, char** argv)
 				r.y = (((i-start) / THUMB_COLS) * h) + (h-r.h)/2;
 
 				SDL_RenderCopy(g->ren, g->thumbs[i].tex, NULL, &r);
+				if (g->thumb_mode == VISUAL && i == g->thumb_sel) {
+					SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
+					// have selection box take up whole screen space, easier to see
+					r.x = ((i-start) % THUMB_COLS) * w;
+					r.y = ((i-start) / THUMB_COLS) * h;
+					r.w = w;
+					r.h = h;
+					SDL_RenderDrawRect(g->ren, &r);
+				}
 			}
 
+			/*
 			if (g->thumb_mode == VISUAL) {
-				SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
 				r.x = r.y = 0;
 				r.w = w;
 				r.h = h;
 				SDL_RenderDrawRect(g->ren, &r);
 			}
+			*/
 		}
 		if (g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
