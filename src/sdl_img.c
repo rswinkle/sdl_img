@@ -749,8 +749,10 @@ int thumb_thread(void* data)
 		}
 
 		pix = stbi_load(g->files.a[i], &w, &h, &channels, 4);
-		if (!pix)
+		if (!pix) {
+			printf("Couldn't load %s for thumbnail generation\n", g->files.a[i]);
 			continue;
+		}
 
 		if (w > h) {
 			out_w = THUMBSIZE;
@@ -808,7 +810,7 @@ int load_thumbs()
 
 	u8* pix;
 	MD5_HASH hash;
-	if (!(g->thumbs = malloc(g->files.size * sizeof(thumb_state)))) {
+	if (!(g->thumbs = calloc(g->files.size, sizeof(thumb_state)))) {
 		cleanup(0, 1);
 	}
 
@@ -1982,6 +1984,13 @@ int handle_thumb_events()
 					g->thumb_start_row += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
 				} else if (g->thumb_mode == VISUAL) {
 					g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? THUMB_COLS : -THUMB_COLS;
+					if (g->thumb_sel < 0)
+						g->thumb_sel = 0;
+					if (g->thumb_sel >= g->files.size)
+						g->thumb_sel = g->files.size-1;
+					while (!g->thumbs[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
+						g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
+					}
 				}
 				break;
 			case SDLK_LEFT:
@@ -1990,6 +1999,13 @@ int handle_thumb_events()
 			case SDLK_l:
 				if (g->thumb_mode == VISUAL) {
 					g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
+					if (g->thumb_sel < 0)
+						g->thumb_sel = 0;
+					if (g->thumb_sel >= g->files.size)
+						g->thumb_sel = g->files.size-1;
+					while (!g->thumbs[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
+						g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
+					}
 				}
 				break;
 			}
@@ -2064,11 +2080,18 @@ int handle_thumb_events()
 		g->thumb_start_row = 0;
 
 	if (g->thumb_mode == VISUAL) {
-		if (g->thumb_sel < 0)
-			g->thumb_sel = 0;
-
-		if (g->thumb_sel >= g->files.size)
-			g->thumb_sel = g->files.size-1;
+		if (!g->thumbs[g->thumb_sel].tex) {
+			if (!g->thumb_sel) {
+				for (; !g->thumbs[g->thumb_sel].tex && g->thumb_sel<g->files.size-1; ++g->thumb_sel);
+			} else {
+				for (; !g->thumbs[g->thumb_sel].tex && g->thumb_sel>0; --g->thumb_sel);
+			}
+			// No valid thumbs found, turn off visual
+			// TODO also prevent thumbmode in the first place if there are no valid thumbs?
+			if (!g->thumbs[g->thumb_sel].tex) {
+				g->thumb_mode = ON;
+			}
+		}
 
 		if (g->thumb_sel < g->thumb_start_row*THUMB_COLS)
 			g->thumb_start_row--;
@@ -3022,6 +3045,9 @@ int main(int argc, char** argv)
 			int h = g->scr_h/(float)THUMB_ROWS;
 			SDL_Rect r = { 0, 0, w, h };
 			for (int i = start; i < end && i<g->files.size; ++i) {
+				if (!g->thumbs[i].tex)
+					continue;
+
 				// to fill screen use these rather than following 4 lines
 				//r.x = ((i-start) % THUMB_COLS) * w;
 				//r.y = ((i-start) / THUMB_COLS) * h;
