@@ -700,7 +700,7 @@ void cleanup(int ret, int called_setup)
 	exit(ret);
 }
 
-void hash2str(char* str, MD5_HASH* h)
+extern inline void hash2str(char* str, MD5_HASH* h)
 {
 	char buf[3];
 
@@ -710,42 +710,51 @@ void hash2str(char* str, MD5_HASH* h)
 	}
 }
 
+void get_thumbpath(const char* path, char* thumbpath, size_t thumbpath_len)
+{
+	MD5_HASH hash;
+	char hash_str[MD5_HASH_SIZE*2+1] = { 0 };
+
+	Md5Calculate(path, strlen(path), &hash);
+	hash_str[0] = 0;
+	hash2str(hash_str, &hash);
+	// could just do the %02x%02x etc. here but that'd be a long format string and 16 extra parameters
+	int ret = snprintf(thumbpath, thumbpath_len, "%s/%s.png", g->thumbdir, hash_str);
+	if (ret >= thumbpath_len) {
+		printf("path too long\n");
+		cleanup(0, 1);
+	}
+}
+
 int thumb_thread(void* data)
 {
 	int w, h, channels;
 	int out_w, out_h;
-	int ret;
 	char thumbpath[STRBUF_SZ] = { 0 };
-	char hash_str[MD5_HASH_SIZE*2+1] = { 0 };
 
 	struct stat thumb_stat, orig_stat;
 
+	intptr_t do_load = (intptr_t)data;
+
 	u8* pix;
 	u8* outpix;
-	MD5_HASH hash;
 	for (int i=0; i<g->files.size; ++i) {
 		// TODO better to stat orig here and error out early for a url?
 
-		Md5Calculate(g->files.a[i], strlen(g->files.a[i]), &hash);
-		hash_str[0] = 0;
-		hash2str(hash_str, &hash);
-		// could just do the %02x%02x etc. here but that'd be a long format string and 16 extra parameters
-		ret = snprintf(thumbpath, STRBUF_SZ, "%s/%s.png", g->thumbdir, hash_str);
-		if (ret >= STRBUF_SZ) {
-			printf("path too long\n");
-			cleanup(0, 1);
-		}
+		get_thumbpath(g->files.a[i], thumbpath, sizeof(thumbpath));
 
 		// thumb already exists (TODO could also use stat, maybe should to compare modified times?)
 		if (!stat(thumbpath, &thumb_stat)) {
 			// someone has deleted the original since we made the thumb or it's a url
-			if (stat(g->files.a[i], &orig_stat))
+			if (stat(g->files.a[i], &orig_stat)) {
 				continue;
+			}
 
 			// make sure original hasn't been modified since thumb was made
 			// don't think it's necessary to check nanoseconds
-			if (orig_stat.st_mtim.tv_sec < thumb_stat.st_mtim.tv_sec)
+			if (orig_stat.st_mtim.tv_sec < thumb_stat.st_mtim.tv_sec) {
 				continue;
+			}
 		}
 
 		pix = stbi_load(g->files.a[i], &w, &h, &channels, 4);
@@ -799,9 +808,7 @@ void generate_thumbs()
 int load_thumbs()
 {
 	int w, h, channels;
-	int ret;
 	char thumbpath[STRBUF_SZ] = { 0 };
-	char hash_str[MD5_HASH_SIZE*2+1] = { 0 };
 
 	if (g->thumbs) {
 		puts("Thumbs already loaded");
@@ -809,21 +816,12 @@ int load_thumbs()
 	}
 
 	u8* pix;
-	MD5_HASH hash;
 	if (!(g->thumbs = calloc(g->files.size, sizeof(thumb_state)))) {
 		cleanup(0, 1);
 	}
 
 	for (int i=0; i<g->files.size; ++i) {
-		Md5Calculate(g->files.a[i], strlen(g->files.a[i]), &hash);
-		hash_str[0] = 0;
-		hash2str(hash_str, &hash);
-
-		ret = snprintf(thumbpath, STRBUF_SZ, "%s/%s.png", g->thumbdir, hash_str);
-		if (ret >= STRBUF_SZ) {
-			printf("path too long\n");
-			cleanup(0, 1);
-		}
+		get_thumbpath(g->files.a[i], thumbpath, sizeof(thumbpath));
 		pix = stbi_load(thumbpath, &w, &h, &channels, 4);
 		if (!pix)
 			continue;
@@ -831,11 +829,11 @@ int load_thumbs()
 		g->thumbs[i].tex = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, w, h);
 		if (!g->thumbs[i].tex) {
 			printf("Error creating texture: %s\n", SDL_GetError());
-			return 0;
+			cleanup(0, 1);
 		}
 		if (SDL_UpdateTexture(g->thumbs[i].tex, NULL, pix, w*4)) {
 			printf("Error updating texture: %s\n", SDL_GetError());
-			return 0;
+			cleanup(0, 1);
 		}
 
 		g->thumbs[i].w = w;
