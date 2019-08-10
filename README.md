@@ -4,7 +4,7 @@ sdl_img
 [![Build Status](https://travis-ci.org/rswinkle/sdl_img.svg?branch=master)](https://travis-ci.org/rswinkle/sdl_img)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/15740/badge.svg)](https://scan.coverity.com/projects/rswinkle-sdl_img)
 
-A simple image viewer based on stb_image.h (with the suggested animated GIF API extension).
+A simple image viewer based on [stb_image.h](https://github.com/nothings/stb/blob/master/stb_image.h) (with the suggested animated GIF API extension).
 
 Goals / Focus
 =============
@@ -116,6 +116,26 @@ more finalized packaging processes but I'm using
 [NSIS](http://nsis.sourceforge.net/Main_Page) to create my windows installer and
 [fpm](https://github.com/jordansissel/fpm) on linux to create linux packages.  Maybe
 I'll even try something like AppImage or Flatpak long term just for fun.
+
+Naming Issues
+=============
+So I know there are some issues with name.
+
+Originally sdl_img only used SDL2 and stb_image; [stb_image](https://github.com/nothings/stb)
+and [stb_imv](https://github.com/nothings/stb-imv) already exist,
+so I chose sdl_img rather than stb_img.  Unfortunately, SDL_image and SDL2_image
+(libsdl-image1.2 and libsdl2-image in repos) also exist so there's a minor clash there too.
+
+Now I'm using the following libraries:
+[SDL2](https://www.libsdl.org), [SDL2_gfx](http://www.ferzkopp.net/wordpress/2016/01/02/sdl_gfx-sdl2_gfx/)
+stb_image, stb_image_write, stb_image_resize
+[libcurl](https://curl.haxx.se/libcurl/)
+[nuklear](https://github.com/vurtun/nuklear) (immediate mode GUI library)
+[WjCryptLibMd5](https://github.com/WaterJuice/WjCryptLib)
+
+So potential names are stb_img, sdl_img, sdl2_img, sdl_imv, nuklear_img, or
+some cool original name that I'm not creative enough to think of.  I'm open to
+suggestions.
 
 
 TODO/IDEAS
