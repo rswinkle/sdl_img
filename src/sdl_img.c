@@ -652,6 +652,12 @@ int thumb_thread(void* data)
 	int out_w, out_h;
 	char thumbpath[STRBUF_SZ] = { 0 };
 
+	// seems so much more efficient but PATH_MAX isn't really accurate
+	// or portable... I'm tempted to just pick an arbitrary number like 4*STRBUF_SZ
+	// or something
+	// char fullpath[PATH_MAX] = { 0 };
+	char* fullpath;
+
 	struct stat thumb_stat, orig_stat;
 
 	intptr_t do_load = (intptr_t)data;
@@ -661,7 +667,17 @@ int thumb_thread(void* data)
 	for (int i=0; i<g->files.size; ++i) {
 		// TODO better to stat orig here and error out early for a url?
 
-		get_thumbpath(g->files.a[i], thumbpath, sizeof(thumbpath));
+		// Windows will just generate duplicate thumbnails most of the time
+#ifndef _WIN32
+		fullpath = realpath(g->files.a[i], NULL);
+#else
+		fullpath = g->files.a[i];
+#endif
+		get_thumbpath(fullpath, thumbpath, sizeof(thumbpath));
+#ifndef _WIN32
+		free(fullpath); // keep for use below? not worth it imo
+#endif
+
 
 		if (!stat(thumbpath, &thumb_stat)) {
 			// someone has deleted the original since we made the thumb or it's a url
