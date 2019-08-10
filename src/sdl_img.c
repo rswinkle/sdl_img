@@ -354,113 +354,7 @@ char* mybasename(const char* path, char* base)
 	return base;
 }
 
-// NOTE(rswinkle): string sorting taken from
-// https://github.com/nothings/stb-imv/blob/master/imv.c
-//
-// derived from michael herf's code: http://www.stereopsis.com/strcmp4humans.html
-//
-// Also see GNU strverscmp for similar functionality
-
-// sorts like this:
-//     foo.jpg
-//     foo1.jpg
-//     foo2.jpg
-//     foo10.jpg
-//     foo_1.jpg
-//     food.jpg
-
-// use upper, not lower, to get better sorting versus '_'
-// no, use lower not upper, to get sorting that matches explorer
-extern inline char tupper(char b)
-{
-	if (b >= 'A' && b <= 'Z') return b - 'A' + 'a';
-	//if (b >= 'a' && b <= 'z') return b - 'a' + 'A';
-	return b;
-}
-
-extern inline char isnum(char b)
-{
-	if (b >= '0' && b <= '9') return 1;
-	return 0;
-}
-
-extern inline int parsenum(char **a_p)
-{
-	char *a = *a_p;
-	int result = *a - '0';
-	++a;
-
-	while (isnum(*a)) {
-		result *= 10;
-		result += *a - '0';
-		++a;
-	}
-
-	*a_p = a-1;
-	return result;
-}
-
-int StringCompare(char *a, char *b)
-{
-   char *orig_a = a, *orig_b = b;
-
-	if (a == b) return 0;
-
-	if (a == NULL) return -1;
-	if (b == NULL) return 1;
-
-	while (*a && *b) {
-
-		int a0, b0;	// will contain either a number or a letter
-
-		if (isnum(*a) && isnum(*b)) {
-			a0 = parsenum(&a);
-			b0 = parsenum(&b);
-		} else {
-		// if they are mixed number and character, use ASCII comparison
-		// order between them (number before character), not herf's
-		// approach (numbers after everything else). this produces the order:
-		//     foo.jpg
-		//     foo1.jpg
-		//     food.jpg
-		//     foo_.jpg
-		// which I think looks better than having foo_ before food (but
-		// I could be wrong, given how a blank space sorts)
-
-			a0 = tupper(*a);
-			b0 = tupper(*b);
-		}
-
-		if (a0 < b0) return -1;
-		if (a0 > b0) return 1;
-
-		++a;
-		++b;
-	}
-
-	if (*a) return 1;
-	if (*b) return -1;
-
-	{
-		// if strings differ only by leading 0s, use case-insensitive ASCII sort
-		// (note, we should work this out more efficiently by noticing which one changes length first)
-		int z = strcasecmp(orig_a, orig_b);
-		if (z) return z;
-		// if identical case-insensitive, return ASCII sort
-		return strcmp(orig_a, orig_b);
-	}
-}
-
-int StringCompareSort(const void *p, const void *q)
-{
-   return StringCompare(*(char **) p, *(char **) q);
-}
-
-// plain sort
-int cmp_string_lt(const void* a, const void* b)
-{
-	return strcmp(*(const char**)a, *(const char**)b);
-}
+#include "sorting.c"
 
 size_t write_data(void* buf, size_t size, size_t num, void* userp)
 {
@@ -726,6 +620,32 @@ void get_thumbpath(const char* path, char* thumbpath, size_t thumbpath_len)
 	}
 }
 
+void make_thumb_tex(int i, int w, int h, u8* pix)
+{
+	if (!pix)
+		return;
+
+	g->thumbs[i].tex = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, w, h);
+	if (!g->thumbs[i].tex) {
+		printf("Error creating texture: %s\n", SDL_GetError());
+		cleanup(0, 1);
+	}
+	if (SDL_UpdateTexture(g->thumbs[i].tex, NULL, pix, w*4)) {
+		printf("Error updating texture: %s\n", SDL_GetError());
+		cleanup(0, 1);
+	}
+
+	g->thumbs[i].w = w;
+	g->thumbs[i].h = h;
+
+	// TODO neither src nor disp_rect used
+	g->thumbs[i].scr_rect.w = THUMBSIZE;
+	g->thumbs[i].scr_rect.h = THUMBSIZE;
+
+	g->thumbs[i].disp_rect.w = w;
+	g->thumbs[i].disp_rect.h = h;
+}
+
 int thumb_thread(void* data)
 {
 	int w, h, channels;
@@ -743,7 +663,6 @@ int thumb_thread(void* data)
 
 		get_thumbpath(g->files.a[i], thumbpath, sizeof(thumbpath));
 
-		// thumb already exists (TODO could also use stat, maybe should to compare modified times?)
 		if (!stat(thumbpath, &thumb_stat)) {
 			// someone has deleted the original since we made the thumb or it's a url
 			if (stat(g->files.a[i], &orig_stat)) {
@@ -753,6 +672,10 @@ int thumb_thread(void* data)
 			// make sure original hasn't been modified since thumb was made
 			// don't think it's necessary to check nanoseconds
 			if (orig_stat.st_mtim.tv_sec < thumb_stat.st_mtim.tv_sec) {
+				if (do_load) {
+					outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
+					make_thumb_tex(i, w, h, outpix);
+				}
 				continue;
 			}
 		}
@@ -783,6 +706,9 @@ int thumb_thread(void* data)
 
 		stbi_write_png(thumbpath, out_w, out_h, 4, outpix, out_w*4);
 
+		if (do_load) {
+			make_thumb_tex(i, out_w, out_h, outpix);
+		}
 		free(pix);
 		free(outpix);
 		printf("generated thumb %d for %s\n", i, g->files.a[i]);
@@ -794,12 +720,19 @@ int thumb_thread(void* data)
 	return 0;
 }
 
-void generate_thumbs()
+void generate_thumbs(intptr_t do_load)
 {
+	if (g->thumbs || (g->thumbs_done && !do_load))
+		return;
+
+	if (!(g->thumbs = calloc(g->files.size, sizeof(thumb_state)))) {
+		cleanup(0, 1);
+	}
+
 	g->generating_thumbs = SDL_TRUE;
 	puts("Starting thread to generate thumbs...");
 	SDL_Thread* thumb_thrd;
-	if (!(thumb_thrd = SDL_CreateThread(thumb_thread, "thumb_thrd", NULL))) {
+	if (!(thumb_thrd = SDL_CreateThread(thumb_thread, "thumb_thrd", (void*)do_load))) {
 		puts("couldn't create thumb thread");
 	}
 	SDL_DetachThread(thumb_thrd);
@@ -1560,6 +1493,8 @@ void do_shuffle()
 	}
 	char* save = g->files.a[g->img[0].index];
 	char* tmp;
+
+	thumb_state tmp_thumb;
 	int j;
 	// Fisher-Yates, aka Knuth Shuffle
 	for (int i=g->files.size-1; i>0; --i) {
@@ -1567,12 +1502,17 @@ void do_shuffle()
 		tmp = g->files.a[i];
 		g->files.a[i] = g->files.a[j];
 		g->files.a[j] = tmp;
-
+		if (g->thumbs) {
+			tmp_thumb = g->thumbs[i];
+			g->thumbs[i] = g->thumbs[j];
+			g->thumbs[j] = tmp_thumb;
+		}
 	}
 
 	for (int i=0; i<g->files.size; ++i) {
 		if (!strcmp(save, g->files.a[i])) {
 			g->img[0].index = i;
+			g->thumb_sel = i;
 			break;
 		}
 	}
@@ -1585,11 +1525,16 @@ void do_sort()
 	}
 	char* save = g->files.a[g->img[0].index];
 
-	qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
+	if (!g->thumbs) {
+		qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
+	} else {
+		sort(g->files.a, g->thumbs, g->files.size);
+	}
 
 	for (int i=0; i<g->files.size; ++i) {
 		if (!strcmp(save, g->files.a[i])) {
 			g->img[0].index = i;
+			g->thumb_sel = i;
 			break;
 		}
 	}
@@ -1905,7 +1850,7 @@ int do_copy()
 int handle_thumb_events()
 {
 	SDL_Event e;
-	int sc, sym;
+	int sym;
 	SDL_Keymod mod_state = SDL_GetModState();
 	int mouse_x, mouse_y;
 	u32 mouse_button_mask = SDL_GetMouseState(&mouse_x, &mouse_y);
@@ -1945,7 +1890,13 @@ int handle_thumb_events()
 				}
 				break;
 			case SDLK_v:
-				g->thumb_mode = (g->thumb_mode == VISUAL) ? ON : VISUAL;
+				if (g->thumb_mode == ON) {
+					g->thumb_mode = VISUAL;
+					g->thumb_sel = g->img[0].index;
+					printf("set thumb_sel to %d\n", g->thumb_sel);
+				} else {
+					g->thumb_mode = ON;
+				}
 				g->status = REDRAW;
 				break;
 			case SDLK_g:
@@ -2091,10 +2042,11 @@ int handle_thumb_events()
 			}
 		}
 
-		if (g->thumb_sel < g->thumb_start_row*THUMB_COLS)
-			g->thumb_start_row--;
-		else if (g->thumb_sel >= g->thumb_start_row*THUMB_COLS + THUMB_ROWS*THUMB_COLS)
-			g->thumb_start_row++;
+		if (g->thumb_sel < g->thumb_start_row*THUMB_COLS) {
+			g->thumb_start_row = g->thumb_sel / THUMB_COLS;
+		} else if (g->thumb_sel >= g->thumb_start_row*THUMB_COLS + THUMB_ROWS*THUMB_COLS) {
+			g->thumb_start_row = g->thumb_sel / THUMB_COLS - THUMB_ROWS + 1;
+		}
 	}
 
 
@@ -2370,20 +2322,16 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_T:
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-					if (g->thumbs_done) {
-						load_thumbs();
-						g->thumb_mode = ON;
-						g->status = REDRAW;
-						// TODO what a mess, need to think about the best way
-						// to handle GUI vs mouse in thumb vs normal mode
-						SDL_ShowCursor(SDL_ENABLE);
-						g->gui_timer = SDL_GetTicks();
-						g->show_gui = SDL_TRUE;
-					} else {
-						puts("Error, must ensure thumbnails are generated first, press T");
-					}
+					generate_thumbs(SDL_TRUE);
+					g->thumb_mode = ON;
+					g->status = REDRAW;
+					// TODO what a mess, need to think about the best way
+					// to handle GUI vs mouse in thumb vs normal mode
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = SDL_TRUE;
 				} else {
-					generate_thumbs();
+					generate_thumbs(SDL_FALSE);
 				}
 				break;
 
