@@ -2277,6 +2277,9 @@ int handle_events_normally()
 					g->status = REDRAW;
 					// TODO what a mess, need to think about the best way
 					// to handle GUI vs mouse in thumb vs normal mode
+					// and I definitely want the infobar or a variant of it
+					// in visual mode, like with vim show row and image number
+					// total rows etc.
 					SDL_ShowCursor(SDL_ENABLE);
 					g->gui_timer = SDL_GetTicks();
 					g->show_gui = SDL_TRUE;
