@@ -738,55 +738,6 @@ void generate_thumbs(intptr_t do_load)
 	SDL_DetachThread(thumb_thrd);
 }
 
-int load_thumbs()
-{
-	int w, h, channels;
-	char thumbpath[STRBUF_SZ] = { 0 };
-
-	if (g->thumbs) {
-		puts("Thumbs already loaded");
-		return 1;
-	}
-
-	u8* pix;
-	if (!(g->thumbs = calloc(g->files.size, sizeof(thumb_state)))) {
-		cleanup(0, 1);
-	}
-
-	for (int i=0; i<g->files.size; ++i) {
-		get_thumbpath(g->files.a[i], thumbpath, sizeof(thumbpath));
-		pix = stbi_load(thumbpath, &w, &h, &channels, 4);
-		if (!pix)
-			continue;
-
-		g->thumbs[i].tex = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, w, h);
-		if (!g->thumbs[i].tex) {
-			printf("Error creating texture: %s\n", SDL_GetError());
-			cleanup(0, 1);
-		}
-		if (SDL_UpdateTexture(g->thumbs[i].tex, NULL, pix, w*4)) {
-			printf("Error updating texture: %s\n", SDL_GetError());
-			cleanup(0, 1);
-		}
-
-		g->thumbs[i].w = w;
-		g->thumbs[i].h = h;
-
-		// TODO neither src nor disp_rect used
-		g->thumbs[i].scr_rect.w = THUMBSIZE;
-		g->thumbs[i].scr_rect.h = THUMBSIZE;
-
-		g->thumbs[i].disp_rect.w = w;
-		g->thumbs[i].disp_rect.h = h;
-		
-		free(pix);
-	}
-
-	puts("Done loading thumbnails");
-
-	return 1;
-}
-
 // debug
 #if 0
 void print_img_state(img_state* img)
@@ -1893,7 +1844,6 @@ int handle_thumb_events()
 				if (g->thumb_mode == ON) {
 					g->thumb_mode = VISUAL;
 					g->thumb_sel = g->img[0].index;
-					printf("set thumb_sel to %d\n", g->thumb_sel);
 				} else {
 					g->thumb_mode = ON;
 				}
@@ -3014,15 +2964,6 @@ int main(int argc, char** argv)
 					SDL_RenderDrawRect(g->ren, &r);
 				}
 			}
-
-			/*
-			if (g->thumb_mode == VISUAL) {
-				r.x = r.y = 0;
-				r.w = w;
-				r.h = h;
-				SDL_RenderDrawRect(g->ren, &r);
-			}
-			*/
 		}
 		if (g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
