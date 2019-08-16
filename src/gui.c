@@ -425,7 +425,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 
-	int w = 550, h = 250;
+	int w = 550, h = 300;
 	struct nk_rect bounds;
 	struct nk_rect s;
 	s.x = scr_w/2-w/2;
@@ -478,6 +478,10 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		static const char* gui_options[] = { "Delay", "Always", "Never" };
 		bounds = nk_widget_bounds(ctx);
 		g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, 12, nk_vec2(bounds.w, 300));
+
+		nk_property_int(ctx, "Thumb rows", 2, &g->thumb_rows, 8, 1, 0.05);
+		nk_property_int(ctx, "Thumb cols", 4, &g->thumb_cols, 15, 1, 0.05);
+
 
 		nk_checkbox_label(ctx, "Show info bar", &g->show_infobar);
 

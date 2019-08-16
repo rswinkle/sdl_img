@@ -273,6 +273,8 @@ typedef struct global_state
 	int thumb_mode;
 	int thumbs_done;
 	int thumb_start_row;
+	int thumb_rows;
+	int thumb_cols;
 	int thumb_sel;  // current visual selection
 	int selection;  // actual selection made (switching to normal mode)
 
@@ -1131,6 +1133,8 @@ void setup(int start_idx)
 	g->show_infobar = nk_true;
 	g->bg = nk_rgb(0,0,0);
 	g->fill_mode = 0;
+	g->thumb_rows = THUMB_ROWS;
+	g->thumb_cols = THUMB_COLS;
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
 		perror("Couldn't allocate tex array");
@@ -1847,6 +1851,7 @@ int handle_thumb_events()
 				} else {
 					g->thumb_mode = OFF;
 					g->thumb_start_row = 0;
+					g->show_gui = SDL_TRUE;
 				}
 				g->status = REDRAW;
 				break;
@@ -1882,6 +1887,7 @@ int handle_thumb_events()
 					g->selection = (g->thumb_sel) ? g->thumb_sel - 1 : g->files.size-1;
 					g->thumb_mode = OFF;
 					g->thumb_start_row = 0;
+					g->show_gui = SDL_TRUE;
 					g->status = REDRAW;
 					try_move(SELECTION);
 				}
@@ -1898,7 +1904,7 @@ int handle_thumb_events()
 				if (g->thumb_mode == ON) {
 					g->thumb_start_row += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
 				} else if (g->thumb_mode == VISUAL) {
-					g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? THUMB_COLS : -THUMB_COLS;
+					g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? g->thumb_cols : -g->thumb_cols;
 					if (g->thumb_sel < 0)
 						g->thumb_sel = 0;
 					if (g->thumb_sel >= g->files.size)
@@ -1929,14 +1935,15 @@ int handle_thumb_events()
 			// TODO have this behavior in VISUAL MODE too?  Single click changes
 			// g->thumb_sel?
 			if (e.button.button == SDL_BUTTON_LEFT && e.button.clicks == 2) {
-				g->selection = g->thumb_start_row * THUMB_COLS +
-				               (mouse_y / (g->scr_h/THUMB_ROWS)) * THUMB_COLS +
-				               (mouse_x / (g->scr_w/THUMB_COLS));
+				g->selection = g->thumb_start_row * g->thumb_cols +
+				               (mouse_y / (g->scr_h/g->thumb_rows)) * g->thumb_cols +
+				               (mouse_x / (g->scr_w/g->thumb_cols));
 
 				// since we reuse the RIGHT loading code, have to subtract 1 so we
 				// "move right" to the selection
 				g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
 				g->thumb_mode = OFF;
+				g->show_gui = SDL_TRUE;
 				g->thumb_start_row = 0;
 				g->status = REDRAW;
 				try_move(SELECTION);
@@ -1989,8 +1996,8 @@ int handle_thumb_events()
 	}
 	nk_input_end(g->ctx);
 
-	if (g->thumb_start_row*THUMB_COLS + THUMB_ROWS*THUMB_COLS >= g->files.size+THUMB_COLS)
-		g->thumb_start_row = (g->files.size / THUMB_COLS - THUMB_ROWS+1);
+	if (g->thumb_start_row*g->thumb_cols + g->thumb_rows*g->thumb_cols >= g->files.size+g->thumb_cols)
+		g->thumb_start_row = (g->files.size / g->thumb_cols - g->thumb_rows+1);
 	if (g->thumb_start_row < 0)
 		g->thumb_start_row = 0;
 
@@ -2008,10 +2015,10 @@ int handle_thumb_events()
 			}
 		}
 
-		if (g->thumb_sel < g->thumb_start_row*THUMB_COLS) {
-			g->thumb_start_row = g->thumb_sel / THUMB_COLS;
-		} else if (g->thumb_sel >= g->thumb_start_row*THUMB_COLS + THUMB_ROWS*THUMB_COLS) {
-			g->thumb_start_row = g->thumb_sel / THUMB_COLS - THUMB_ROWS + 1;
+		if (g->thumb_sel < g->thumb_start_row*g->thumb_cols) {
+			g->thumb_start_row = g->thumb_sel / g->thumb_cols;
+		} else if (g->thumb_sel >= g->thumb_start_row*g->thumb_cols + g->thumb_rows*g->thumb_cols) {
+			g->thumb_start_row = g->thumb_sel / g->thumb_cols - g->thumb_rows + 1;
 		}
 	}
 
@@ -2954,30 +2961,30 @@ int main(int argc, char** argv)
 			SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
 			SDL_RenderSetClipRect(g->ren, NULL);
 			SDL_RenderClear(g->ren);
-			int start = g->thumb_start_row * THUMB_COLS;
-			int end = start + THUMB_COLS*THUMB_ROWS;
-			int w = g->scr_w/(float)THUMB_COLS;
-			int h = g->scr_h/(float)THUMB_ROWS;
+			int start = g->thumb_start_row * g->thumb_cols;
+			int end = start + g->thumb_cols*g->thumb_rows;
+			int w = g->scr_w/(float)g->thumb_cols;
+			int h = g->scr_h/(float)g->thumb_rows;
 			SDL_Rect r = { 0, 0, w, h };
 			for (int i = start; i < end && i<g->files.size; ++i) {
 				if (!g->thumbs[i].tex)
 					continue;
 
 				// to fill screen use these rather than following 4 lines
-				//r.x = ((i-start) % THUMB_COLS) * w;
-				//r.y = ((i-start) / THUMB_COLS) * h;
+				//r.x = ((i-start) % g->thumb_cols) * w;
+				//r.y = ((i-start) / g->thumb_cols) * h;
 
 				r.w = g->thumbs[i].w/(float)THUMBSIZE * w;
 				r.h = g->thumbs[i].h/(float)THUMBSIZE * h;
-				r.x = (((i-start) % THUMB_COLS) * w) + (w-r.w)/2;
-				r.y = (((i-start) / THUMB_COLS) * h) + (h-r.h)/2;
+				r.x = (((i-start) % g->thumb_cols) * w) + (w-r.w)/2;
+				r.y = (((i-start) / g->thumb_cols) * h) + (h-r.h)/2;
 
 				SDL_RenderCopy(g->ren, g->thumbs[i].tex, NULL, &r);
 				if (g->thumb_mode == VISUAL && i == g->thumb_sel) {
 					SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
 					// have selection box take up whole screen space, easier to see
-					r.x = ((i-start) % THUMB_COLS) * w;
-					r.y = ((i-start) / THUMB_COLS) * h;
+					r.x = ((i-start) % g->thumb_cols) * w;
+					r.y = ((i-start) / g->thumb_cols) * h;
 					r.w = w;
 					r.h = h;
 					SDL_RenderDrawRect(g->ren, &r);
