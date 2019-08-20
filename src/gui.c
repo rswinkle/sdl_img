@@ -26,9 +26,6 @@ void draw_gui(struct nk_context* ctx)
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
 
-
-
-
 	// Do popups first so I can return early if eather is up
 	if (g->show_rotate) {
 		int w = 400, h = 300, tmp;
@@ -81,7 +78,7 @@ void draw_gui(struct nk_context* ctx)
 
 
 	if (g->show_about) {
-		int w = 550, h = 350; ///scale_x, h = 400/scale_y;
+		int w = 550, h = 285; ///scale_x, h = 400/scale_y;
 		struct nk_rect s;
 		s.x = scr_w/2-w/2;
 		s.y = scr_h/2-h/2;
@@ -97,8 +94,12 @@ void draw_gui(struct nk_context* ctx)
 			nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
 
 			nk_label(ctx, "Credits:", NK_TEXT_CENTERED);
-			nk_layout_row_dynamic(ctx, 0, 2);
-			nk_label(ctx, "stb_image, stb_image_write", NK_TEXT_LEFT);
+
+			//nk_layout_row_dynamic(ctx, 10, 2);
+			float ratios[] = { 0.3f, 0.7f, 0.2f, 0.8f };
+			nk_layout_row(ctx, NK_DYNAMIC, 10, 2, ratios);
+
+			nk_label(ctx, "stb_image*", NK_TEXT_LEFT);
 			nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
 			nk_label(ctx, "SDL2", NK_TEXT_LEFT);
 			nk_label(ctx, "libsdl.org", NK_TEXT_RIGHT);
@@ -108,12 +109,9 @@ void draw_gui(struct nk_context* ctx)
 			nk_label(ctx, "github.com/vurtun/nuklear", NK_TEXT_RIGHT);
 			nk_label(ctx, "libcurl", NK_TEXT_LEFT);
 			nk_label(ctx, "curl.haxx.se/libcurl/", NK_TEXT_RIGHT);
+			nk_label(ctx, "WjCryptLib_Md5", NK_TEXT_LEFT);
+			nk_label(ctx, "github.com/WaterJuice/WjCryptLib", NK_TEXT_RIGHT);
 
-			// Sean T Barret (sp?) single header libraries
-			// stb_image, stb_image_write
-			//
-			// nuklear (which also uses stb libs)
-			//
 			// My own cvector lib
 
 			nk_layout_row_dynamic(ctx, 0, 1);
@@ -377,52 +375,6 @@ void draw_gui(struct nk_context* ctx)
 			event.user.code = ROT_RIGHT;
 			SDL_PushEvent(&event);
 		}
-
-		/*
-		
-		if (nk_selectable_label(ctx, "Best fit", NK_TEXT_RIGHT, &g->fill_mode)) {
-			if (!g->img_focus) {
-				for (int i=0; i<g->n_imgs; ++i)
-					set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);
-			} else {
-				set_rect_bestfit(g->img_focus, g->fullscreen | g->slideshow | g->fill_mode);
-			}
-		}
-		// TODO
-		if (nk_selectable_label(ctx, "Slideshow", NK_TEXT_RIGHT, &g->slideshow)) {
-			if (g->slideshow)
-				g->slideshow = g->slide_delay*1000;
-		}
-
-		if (nk_button_label(ctx, "Actual")) {
-			event.user.code = ACTUAL_SIZE;
-			SDL_PushEvent(&event);
-		}
-
-
-		nk_label(ctx, "mode:", NK_TEXT_RIGHT);
-		if (nk_button_label(ctx, "1")) {
-			event.user.code = MODE_CHANGE;
-			event.user.data1 = MODE1;
-			SDL_PushEvent(&event);
-		}
-		if (nk_button_label(ctx, "2")) {
-			event.user.code = MODE_CHANGE;
-			event.user.data1 = MODE2;
-			SDL_PushEvent(&event);
-		}
-		if (nk_button_label(ctx, "4")) {
-			event.user.code = MODE_CHANGE;
-			event.user.data1 = MODE4;
-			SDL_PushEvent(&event);
-		}
-		if (nk_button_label(ctx, "8")) {
-			event.user.code = MODE_CHANGE;
-			event.user.data1 = MODE8;
-			SDL_PushEvent(&event);
-		}
-		*/
-
 	}
 	nk_end(ctx);
 
@@ -461,22 +413,6 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 			g->bg = nk_rgb_cf(bgf);
 			nk_combo_end(ctx);
 		}
-
-
-		/*
-		nk_label(ctx, "GUI Color:", NK_TEXT_LEFT);
-		if (nk_combo_begin_color(ctx, nk_rgb_cf(win_color), nk_vec2(nk_widget_width(ctx), 400))) {
-			nk_layout_row_dynamic(ctx, 120, 1);
-			win_color = nk_color_picker(ctx, win_color, NK_RGBA);
-			nk_layout_row_dynamic(ctx, 25, 1);
-			win_color.r = nk_propertyf(ctx, "#R:", 0, win_color.r, 1.0f, 0.01f,0.005f);
-			win_color.g = nk_propertyf(ctx, "#G:", 0, win_color.g, 1.0f, 0.01f,0.005f);
-			win_color.b = nk_propertyf(ctx, "#B:", 0, win_color.b, 1.0f, 0.01f,0.005f);
-			win_color.a = nk_propertyf(ctx, "#A:", 0, win_color.a, 1.0f, 0.01f,0.005f);
-			ctx->style.window.fixed_background.data.color = nk_rgba_cf(win_color);
-			nk_combo_end(ctx);
-		}
-		*/
 
 		nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
 		nk_property_int(ctx, "#", 1, &g->slide_delay, 10, 1, 0.05);

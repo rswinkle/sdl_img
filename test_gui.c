@@ -301,7 +301,7 @@ void draw_gui(struct nk_context* ctx)
 	if (show_about) {
 		static int license_len;;
 		license_len = strlen(license);
-		int w = 500, h = 400; ///scale_x, h = 400/scale_y;
+		int w = 500, h = 285; ///scale_x, h = 400/scale_y;
 		struct nk_rect s;
 		s.x = scr_w/2-w/2;
 		s.y = scr_h/2-h/2;
@@ -316,8 +316,11 @@ void draw_gui(struct nk_context* ctx)
 			nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
 
 			nk_label(ctx, "Credits:", NK_TEXT_CENTERED);
-			nk_layout_row_dynamic(ctx, 0, 2);
-			nk_label(ctx, "stb_image, stb_image_write", NK_TEXT_LEFT);
+			//nk_layout_row_dynamic(ctx, 10, 2);
+			float ratios[] = { 0.3f, 0.7f, 0.2f, 0.8f };
+			nk_layout_row(ctx, NK_DYNAMIC, 10, 2, ratios);
+
+			nk_label(ctx, "stb_image*", NK_TEXT_LEFT);
 			nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
 			nk_label(ctx, "SDL2", NK_TEXT_LEFT);
 			nk_label(ctx, "libsdl.org", NK_TEXT_RIGHT);
@@ -325,6 +328,10 @@ void draw_gui(struct nk_context* ctx)
 			nk_label(ctx, "ferzkopp.net", NK_TEXT_RIGHT);
 			nk_label(ctx, "nuklear GUI", NK_TEXT_LEFT);
 			nk_label(ctx, "github.com/vurtun/nuklear", NK_TEXT_RIGHT);
+			nk_label(ctx, "libcurl", NK_TEXT_LEFT);
+			nk_label(ctx, "curl.haxx.se/libcurl/", NK_TEXT_RIGHT);
+			nk_label(ctx, "WjCryptLib_Md5", NK_TEXT_LEFT);
+			nk_label(ctx, "github.com/WaterJuice/WjCryptLib", NK_TEXT_RIGHT);
 
 			// Sean T Barret (sp?) single header libraries
 			// stb_image, stb_image_write
