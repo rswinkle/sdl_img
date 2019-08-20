@@ -1901,38 +1901,55 @@ int handle_thumb_events()
 			case SDLK_DOWN:
 			case SDLK_k:
 			case SDLK_j:
-				if (g->thumb_mode == ON) {
-					g->thumb_start_row += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
-				} else if (g->thumb_mode == VISUAL) {
-					g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? g->thumb_cols : -g->thumb_cols;
-					if (g->thumb_sel < 0)
-						g->thumb_sel = 0;
-					if (g->thumb_sel >= g->files.size)
-						g->thumb_sel = g->files.size-1;
-					while (!g->thumbs[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
-						g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					// should down increase or decrease?  I say increase to match right = increase
+					g->thumb_rows += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
+					if (g->thumb_rows < 2)
+						g->thumb_rows = 2;
+					if (g->thumb_rows > 8)
+						g->thumb_rows = 8;
+				} else {
+					if (g->thumb_mode == ON) {
+						g->thumb_start_row += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
+					} else if (g->thumb_mode == VISUAL) {
+						g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? g->thumb_cols : -g->thumb_cols;
+						if (g->thumb_sel < 0)
+							g->thumb_sel = 0;
+						if (g->thumb_sel >= g->files.size)
+							g->thumb_sel = g->files.size-1;
+						while (!g->thumbs[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
+							g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
+						}
+						SDL_ShowCursor(SDL_ENABLE);
+						g->gui_timer = SDL_GetTicks();
+						g->show_gui = 1;
 					}
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
-					g->show_gui = 1;
 				}
 				break;
 			case SDLK_LEFT:
 			case SDLK_RIGHT:
 			case SDLK_h:
 			case SDLK_l:
-				if (g->thumb_mode == VISUAL) {
-					g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
-					if (g->thumb_sel < 0)
-						g->thumb_sel = 0;
-					if (g->thumb_sel >= g->files.size)
-						g->thumb_sel = g->files.size-1;
-					while (!g->thumbs[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					g->thumb_cols += (sym == SDLK_LEFT || sym == SDLK_h) ? -1 : 1;
+					if (g->thumb_cols < 4)
+						g->thumb_cols = 4;
+					if (g->thumb_cols > 15)
+						g->thumb_cols = 15;
+				} else {
+					if (g->thumb_mode == VISUAL) {
 						g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
+						if (g->thumb_sel < 0)
+							g->thumb_sel = 0;
+						if (g->thumb_sel >= g->files.size)
+							g->thumb_sel = g->files.size-1;
+						while (!g->thumbs[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
+							g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
+						}
+						SDL_ShowCursor(SDL_ENABLE);
+						g->gui_timer = SDL_GetTicks();
+						g->show_gui = 1;
 					}
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
-					g->show_gui = 1;
 				}
 				break;
 			}
