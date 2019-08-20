@@ -1912,6 +1912,9 @@ int handle_thumb_events()
 					while (!g->thumbs[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
 						g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
 					}
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = 1;
 				}
 				break;
 			case SDLK_LEFT:
@@ -1927,9 +1930,17 @@ int handle_thumb_events()
 					while (!g->thumbs[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
 						g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
 					}
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = 1;
 				}
 				break;
 			}
+			break;
+		case SDL_MOUSEMOTION:
+			SDL_ShowCursor(SDL_ENABLE);
+			g->gui_timer = SDL_GetTicks();
+			g->show_gui = 1;
 			break;
 		case SDL_MOUSEBUTTONUP:
 			// TODO have this behavior in VISUAL MODE too?  Single click changes
@@ -2919,8 +2930,7 @@ int main(int argc, char** argv)
 		ticks = SDL_GetTicks();
 
 		if (g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
-			if (!g->thumb_mode)
-				SDL_ShowCursor(SDL_DISABLE);
+			SDL_ShowCursor(SDL_DISABLE);
 			g->show_gui = 0;
 			g->status = REDRAW;
 		}
