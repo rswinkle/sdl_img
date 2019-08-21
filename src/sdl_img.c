@@ -2397,7 +2397,11 @@ int handle_events_normally()
 			switch (sc) {
 
 			case SDL_SCANCODE_SPACE:
-				try_move(RIGHT);
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					try_move(LEFT);
+				} else {
+					try_move(RIGHT);
+				}
 				break;
 
 			// TODO merge RIGHT/DOWN and LEFT/UP?
