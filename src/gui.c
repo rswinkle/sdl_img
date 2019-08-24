@@ -23,8 +23,8 @@ void draw_gui(struct nk_context* ctx)
 	int scr_w = g->scr_w/g->x_scale;
 	int scr_h = g->scr_h/g->y_scale;
 
-	struct nk_rect bounds;
-	const struct nk_input* in = &ctx->input;
+	//struct nk_rect bounds;
+	//const struct nk_input* in = &ctx->input;
 
 	// Do popups first so I can return early if eather is up
 	if (g->show_rotate) {
@@ -332,6 +332,16 @@ void draw_gui(struct nk_context* ctx)
 					SDL_PushEvent(&event);
 				}
 				nk_label(ctx, "CTRL+8", NK_TEXT_RIGHT);
+
+#ifndef _WIN32
+				if (nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT)) {
+					event.user.code = THUMB_MODE;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "CTRL+T", NK_TEXT_RIGHT);
+
+#endif
+
 
 				nk_tree_pop(ctx);
 			} else g->menu_state = (g->menu_state == MENU_VIEW) ? MENU_NONE: g->menu_state;

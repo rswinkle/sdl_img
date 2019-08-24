@@ -70,7 +70,7 @@ enum { OFF, ON, VISUAL }; // better names?
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
-       MODE_CHANGE, DELETE_IMG, ACTUAL_SIZE, ROT360, NUM_USEREVENTS };
+       MODE_CHANGE, THUMB_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, NUM_USEREVENTS };
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -1818,6 +1818,21 @@ int do_copy()
 	return 0;
 }
 
+void do_thumbmode()
+{
+	generate_thumbs(SDL_TRUE);
+	g->thumb_mode = ON;
+	g->status = REDRAW;
+	// TODO what a mess, need to think about the best way
+	// to handle GUI vs mouse in thumb vs normal mode
+	// and I definitely want the infobar or a variant of it
+	// in visual mode, like with vim show row and image number
+	// total rows etc.
+	SDL_ShowCursor(SDL_ENABLE);
+	g->gui_timer = SDL_GetTicks();
+	g->show_gui = SDL_TRUE;
+}
+
 int handle_thumb_events()
 {
 	SDL_Event e;
@@ -2170,6 +2185,9 @@ int handle_events_normally()
 				// TODO
 				rotate_img((g->n_imgs == 1) ? &g->img[0] : g->img_focus);
 				break;
+			case THUMB_MODE:
+				do_thumbmode();
+				break;
 			case MODE_CHANGE:
 				g->status = REDRAW;
 				g->slide_timer =  SDL_GetTicks();
@@ -2323,18 +2341,9 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_T:
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-					generate_thumbs(SDL_TRUE);
-					g->thumb_mode = ON;
-					g->status = REDRAW;
-					// TODO what a mess, need to think about the best way
-					// to handle GUI vs mouse in thumb vs normal mode
-					// and I definitely want the infobar or a variant of it
-					// in visual mode, like with vim show row and image number
-					// total rows etc.
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
-					g->show_gui = SDL_TRUE;
+					do_thumbmode();
 				} else {
+					// TODO GUI for this?
 					generate_thumbs(SDL_FALSE);
 				}
 				break;
