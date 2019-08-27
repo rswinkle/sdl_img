@@ -217,6 +217,7 @@ typedef struct img_state
 	int frame_capacity;
 	int frame_timer;
 	int looped;
+	int paused;
 	int edited;
 	int rotdegs;
 	
@@ -905,6 +906,7 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 	//assume that the delay is the same for all frames (never seen anything else anyway)
 	//and if delay is 0, default to 10 fps
 	img->looped = 1;
+	img->paused = 0;
 	if (frames > 1) {
 		img->looped = 0;
 		img->delay = *(short*)(&img->pixels[size]); // * 10;
@@ -2339,6 +2341,17 @@ int handle_events_normally()
 				do_sort();
 				break;
 
+			case SDL_SCANCODE_P:
+				// doesn't matter if we "pause" static images
+				if (!g->img_focus) {
+					for (int i=0; i<g->n_imgs; ++i) {
+						g->img[i].paused = !g->img[i].paused;
+					}
+				} else {
+					g->img_focus->paused = !g->img_focus->paused;
+				}
+				break;
+
 			case SDL_SCANCODE_T:
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					do_thumbmode();
@@ -2673,7 +2686,6 @@ int handle_events()
 		return handle_thumb_events();
 }
 
-
 //stupid windows
 void normalize_path(char* path)
 {
@@ -2973,7 +2985,7 @@ int main(int argc, char** argv)
 
 		if (!g->thumb_mode) {
 			for (int i=0; i<g->n_imgs; ++i) {
-				if (g->img[i].frames > 1) {
+				if (g->img[i].frames > 1 && !g->img[i].paused) {
 					if (ticks - g->img[i].frame_timer >= g->img[i].delay) {
 						g->img[i].frame_i = (g->img[i].frame_i + 1) % g->img[i].frames;
 						if (g->img[i].frame_i == 0)

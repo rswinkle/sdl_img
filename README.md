@@ -39,6 +39,7 @@ alphabetical order.
 | F                 | Toggle fill screen mode |
 | M                 | Shuffle (Mix) the images (only in single mode) |
 | O                 | Sort (Order) the images by name (only in single mode) |
+| P                 | Pause/Unpause gif |
 | ALT + F or F11    | Toggle Fullscreen |
 | ESC               | Exit (or exit Slideshow mode then fullscreen) |
 | L/R               | Rotate the current image left/right |
