@@ -35,6 +35,8 @@ SDL_Renderer* ren;
 int running;
 int slideshow = nk_false;
 int slide_delay = 3;
+int thumb_rows = 8;
+int thumb_cols = 15;
 int gui_delay = 2;
 int show_about = nk_false;
 int show_prefs = nk_false;
@@ -648,7 +650,7 @@ void draw_gui(struct nk_context* ctx)
 
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 {
-	int w = 400, h = 400; ///scale_x, h = 400/scale_y;
+	int w = 550, h = 300; ///scale_x, h = 400/scale_y;
 	struct nk_rect bounds;
 	struct nk_rect s;
 	s.x = scr_w/2-w/2;
@@ -691,9 +693,14 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		// if (nk_option_label(ctx, "Always", (fullscreen_gui == ALWAYS))) fullscreen_gui = ALWAYS;
 		// if (nk_option_label(ctx, "Never", (fullscreen_gui == NEVER))) fullscreen_gui = NEVER;
 
+		nk_property_int(ctx, "Thumb rows", 2, &thumb_rows, 8, 1, 0.05);
+		nk_property_int(ctx, "Thumb cols", 4, &thumb_cols, 15, 1, 0.05);
+
 		nk_checkbox_label(ctx, "Show info bar", &show_infobar);
 
-
+		if (nk_button_label(ctx, "Clear thumbnail cache")) {
+			puts("Clearing thumbnails");
+		}
 
 		nk_layout_row_dynamic(ctx, 0, 1);
 		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);

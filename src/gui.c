@@ -3,6 +3,9 @@ void cleanup(int ret, int called_setup);
 void set_rect_bestfit(img_state* img, int fill_screen);
 void set_fullscreen();
 
+// TODO better name? cleardir?
+int empty_dir(const char* dirpath);
+
 enum { MENU_NONE, MENU_MISC, MENU_EDIT, MENU_VIEW };
 
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h);
@@ -441,6 +444,11 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 
 		nk_checkbox_label(ctx, "Show info bar", &g->show_infobar);
 
+		if (nk_button_label(ctx, "Clear thumbnail cache")) {
+			puts("Clearing thumbnails");
+			empty_dir(g->thumbdir);
+		}
+
 
 		nk_layout_row_dynamic(ctx, 0, 1);
 		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
@@ -519,4 +527,28 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 }
 
 
+// removes all top level normal files from dirpath
+int empty_dir(const char* dirpath)
+{
+	char fullpath[STRBUF_SZ] = { 0 };
+	struct dirent* entry;
+	DIR* dir;
+	int ret;
+
+	dir = opendir(dirpath);
+	if (!dir) {
+		perror("opendir");
+		cleanup(1, 1);
+	}
+
+	while ((entry = readdir(dir))) {
+		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, entry->d_name);
+		if (ret >= STRBUF_SZ) {
+			printf("path too long\n");
+		}
+		if (remove(fullpath))
+			perror(fullpath);
+	}
+	closedir(dir);
+}
 
