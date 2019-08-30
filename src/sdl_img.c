@@ -993,8 +993,8 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 int wrap(int z)
 {
    int n = g->files.size;
-   if (z < 0) return z + n;
-   while (z >= n) z = z - n;
+   while (z < 0) z += n;
+   while (z >= n) z -= n;
    return z;
 }
 
@@ -1973,14 +1973,16 @@ int handle_thumb_events()
 				               (mouse_y / (g->scr_h/g->thumb_rows)) * g->thumb_cols +
 				               (mouse_x / (g->scr_w/g->thumb_cols));
 
-				// since we reuse the RIGHT loading code, have to subtract 1 so we
-				// "move right" to the selection
-				g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
-				g->thumb_mode = OFF;
-				g->show_gui = SDL_TRUE;
-				g->thumb_start_row = 0;
-				g->status = REDRAW;
-				try_move(SELECTION);
+				if (g->selection < g->files.size) {
+					// since we reuse the RIGHT loading code, have to subtract 1 so we
+					// "move right" to the selection
+					g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
+					g->thumb_mode = OFF;
+					g->show_gui = SDL_TRUE;
+					g->thumb_start_row = 0;
+					g->status = REDRAW;
+					try_move(SELECTION);
+				}
 			}
 			break;
 		case SDL_MOUSEWHEEL:
