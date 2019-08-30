@@ -194,10 +194,6 @@ typedef struct thumb_state
 	int w;
 	int h;
 	SDL_Texture* tex;
-
-	// TODO not used...yet?
-	SDL_Rect scr_rect;
-	SDL_Rect disp_rect;
 } thumb_state;
 
 typedef struct img_state
@@ -640,13 +636,6 @@ void make_thumb_tex(int i, int w, int h, u8* pix)
 
 	g->thumbs[i].w = w;
 	g->thumbs[i].h = h;
-
-	// TODO neither src nor disp_rect used
-	g->thumbs[i].scr_rect.w = THUMBSIZE;
-	g->thumbs[i].scr_rect.h = THUMBSIZE;
-
-	g->thumbs[i].disp_rect.w = w;
-	g->thumbs[i].disp_rect.h = h;
 }
 
 int thumb_thread(void* data)
@@ -3019,13 +3008,17 @@ int main(int argc, char** argv)
 			int h = g->scr_h/(float)g->thumb_rows;
 			SDL_Rect r = { 0, 0, w, h };
 			for (int i = start; i < end && i<g->files.size; ++i) {
-				if (!g->thumbs[i].tex)
-					continue;
+				// We create tex's in sequence and exit if any fail so
+				// we can break rather than continue here
+				if (!g->thumbs[i].tex) {
+					break;
+				}
 
 				// to fill screen use these rather than following 4 lines
 				//r.x = ((i-start) % g->thumb_cols) * w;
 				//r.y = ((i-start) / g->thumb_cols) * h;
 
+				// scales and centers thumbs appropriately
 				r.w = g->thumbs[i].w/(float)THUMBSIZE * w;
 				r.h = g->thumbs[i].h/(float)THUMBSIZE * h;
 				r.x = (((i-start) % g->thumb_cols) * w) + (w-r.w)/2;

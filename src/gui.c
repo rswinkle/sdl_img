@@ -537,8 +537,10 @@ int empty_dir(const char* dirpath)
 
 	dir = opendir(dirpath);
 	if (!dir) {
+		// I feel like this func could be moved to a utilities library
+		// so exiting here would be wrong
 		perror("opendir");
-		cleanup(1, 1);
+		return 0;
 	}
 
 	while ((entry = readdir(dir))) {
@@ -546,9 +548,12 @@ int empty_dir(const char* dirpath)
 		if (ret >= STRBUF_SZ) {
 			printf("path too long\n");
 		}
-		if (remove(fullpath))
-			perror(fullpath);
+		// don't care about failures, won't remove
+		// non-empty subdirs etc.
+		remove(fullpath);
 	}
 	closedir(dir);
+
+	return 1;
 }
 
