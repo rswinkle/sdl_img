@@ -49,6 +49,7 @@ alphabetical order.
 | CTRL + 2          | Double image mode |
 | CTRL + 4          | Quad image mode   |
 | CTRL + 8          | 8 image mode      |
+| CTRL + T          | 8 image mode      |
 | F1 - F10          | Start a slideshow with 1 - 10 second delay |
 
 The unique features are being able to view more than a single image at once
@@ -152,7 +153,7 @@ TODO/IDEAS
 - [x] Handle being given a directory as an argument(s)
 - [x] Add argument -s [1-10] to start in slideshow mode
 - [ ] Add window icon (either static or based on current image(s))
-- [ ] Thumbnail generating and browsing
+- [x] Thumbnail generating and browsing
 - [ ] Install icon in deb package
 - [ ] WebM support with mbew?
 - [ ] MP4 support?
