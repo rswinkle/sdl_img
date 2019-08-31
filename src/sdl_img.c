@@ -196,6 +196,12 @@ typedef struct thumb_state
 	SDL_Texture* tex;
 } thumb_state;
 
+#define RESIZE(x) ((x+1)*2)
+
+CVEC_NEW_DECLS2(thumb_state)
+
+CVEC_NEW_DEFS2(thumb_state, RESIZE)
+
 typedef struct img_state
 {
 	u8* pixels;
@@ -249,7 +255,7 @@ typedef struct global_state
 	img_state img1[8];
 	img_state img2[8];
 
-	thumb_state* thumbs;
+	cvector_thumb_state thumbs;
 
 	int status;
 
@@ -588,6 +594,7 @@ void cleanup(int ret, int called_setup)
 		SDL_Quit();
 	}
 
+	cvec_free_thumb_state(&g->thumbs);
 	cvec_free_str(&g->files);
 	curl_global_cleanup();
 	exit(ret);
@@ -624,18 +631,18 @@ void make_thumb_tex(int i, int w, int h, u8* pix)
 	if (!pix)
 		return;
 
-	g->thumbs[i].tex = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, w, h);
-	if (!g->thumbs[i].tex) {
+	g->thumbs.a[i].tex = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, w, h);
+	if (!g->thumbs.a[i].tex) {
 		printf("Error creating texture: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
-	if (SDL_UpdateTexture(g->thumbs[i].tex, NULL, pix, w*4)) {
+	if (SDL_UpdateTexture(g->thumbs.a[i].tex, NULL, pix, w*4)) {
 		printf("Error updating texture: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
 
-	g->thumbs[i].w = w;
-	g->thumbs[i].h = h;
+	g->thumbs.a[i].w = w;
+	g->thumbs.a[i].h = h;
 }
 
 int thumb_thread(void* data)
@@ -728,14 +735,27 @@ int thumb_thread(void* data)
 	return 0;
 }
 
+void free_thumb(void* t)
+{
+	SDL_DestroyTexture(t);
+}
+
 void generate_thumbs(intptr_t do_load)
 {
-	if (g->thumbs || (g->thumbs_done && !do_load))
+	if (g->thumbs.a || (g->thumbs_done && !do_load))
 		return;
 
-	if (!(g->thumbs = calloc(g->files.size, sizeof(thumb_state)))) {
+	// still using separate calloc because calling vec constructor uses
+	// malloc and I want them 0'd
+	thumb_state* tmp;
+	if (!(tmp = calloc(g->files.size, sizeof(thumb_state)))) {
 		cleanup(0, 1);
 	}
+	g->thumbs.a = tmp;
+	g->thumbs.size = g->files.size;
+	g->thumbs.capacity = g->files.size;
+	g->thumbs.elem_free = free_thumb;
+	// elem_init already NULL
 
 	g->generating_thumbs = SDL_TRUE;
 	puts("Starting thread to generate thumbs...");
@@ -1464,10 +1484,10 @@ void do_shuffle()
 		tmp = g->files.a[i];
 		g->files.a[i] = g->files.a[j];
 		g->files.a[j] = tmp;
-		if (g->thumbs) {
-			tmp_thumb = g->thumbs[i];
-			g->thumbs[i] = g->thumbs[j];
-			g->thumbs[j] = tmp_thumb;
+		if (g->thumbs.a) {
+			tmp_thumb = g->thumbs.a[i];
+			g->thumbs.a[i] = g->thumbs.a[j];
+			g->thumbs.a[j] = tmp_thumb;
 		}
 	}
 
@@ -1487,10 +1507,10 @@ void do_sort()
 	}
 	char* save = g->files.a[g->img[0].index];
 
-	if (!g->thumbs) {
+	if (!g->thumbs.a) {
 		qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
 	} else {
-		sort(g->files.a, g->thumbs, g->files.size);
+		sort(g->files.a, g->thumbs.a, g->files.size);
 	}
 
 	for (int i=0; i<g->files.size; ++i) {
@@ -1674,6 +1694,10 @@ void do_mode_change(intptr_t mode)
 
 void do_delete(SDL_Event* next)
 {
+	if (g->generating_thumbs) {
+		puts("Can't delete images while generating thumbnails!");
+		return;
+	}
 
 	SDL_MessageBoxButtonData buttons[] = {
 		//{ /* .flags, .buttonid, .text */        0, 0, "no" },
@@ -1712,6 +1736,10 @@ void do_delete(SDL_Event* next)
 		} else {
 			printf("Deleted %s\n", full_img_path);
 			cvec_erase_str(&g->files, g->img[0].index, g->img[0].index);
+
+			if (g->thumbs.a) {
+				cvec_erase_thumb_state(&g->thumbs, g->img[0].index, g->img[0].index);
+			}
 			g->img[0].index--; // since everything shifted left, we need to pre-decrement to not skip an image
 			SDL_PushEvent(next);
 		}
@@ -1923,7 +1951,9 @@ int handle_thumb_events()
 							g->thumb_sel = 0;
 						if (g->thumb_sel >= g->files.size)
 							g->thumb_sel = g->files.size-1;
-						while (!g->thumbs[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
+
+						// This can happen while thumbs are still being generated
+						while (!g->thumbs.a[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
 							g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
 						}
 						SDL_ShowCursor(SDL_ENABLE);
@@ -1949,7 +1979,7 @@ int handle_thumb_events()
 							g->thumb_sel = 0;
 						if (g->thumb_sel >= g->files.size)
 							g->thumb_sel = g->files.size-1;
-						while (!g->thumbs[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
+						while (!g->thumbs.a[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
 							g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
 						}
 						SDL_ShowCursor(SDL_ENABLE);
@@ -2038,15 +2068,16 @@ int handle_thumb_events()
 		g->thumb_start_row = 0;
 
 	if (g->thumb_mode == VISUAL) {
-		if (!g->thumbs[g->thumb_sel].tex) {
+		// can happen while thumbs are being generated/loaded
+		if (!g->thumbs.a[g->thumb_sel].tex) {
 			if (!g->thumb_sel) {
-				for (; !g->thumbs[g->thumb_sel].tex && g->thumb_sel<g->files.size-1; ++g->thumb_sel);
+				for (; !g->thumbs.a[g->thumb_sel].tex && g->thumb_sel<g->files.size-1; ++g->thumb_sel);
 			} else {
-				for (; !g->thumbs[g->thumb_sel].tex && g->thumb_sel>0; --g->thumb_sel);
+				for (; !g->thumbs.a[g->thumb_sel].tex && g->thumb_sel>0; --g->thumb_sel);
 			}
 			// No valid thumbs found, turn off visual
 			// TODO also prevent thumbmode in the first place if there are no valid thumbs?
-			if (!g->thumbs[g->thumb_sel].tex) {
+			if (!g->thumbs.a[g->thumb_sel].tex) {
 				g->thumb_mode = ON;
 			}
 		}
@@ -3010,9 +3041,10 @@ int main(int argc, char** argv)
 			int h = g->scr_h/(float)g->thumb_rows;
 			SDL_Rect r = { 0, 0, w, h };
 			for (int i = start; i < end && i<g->files.size; ++i) {
-				// We create tex's in sequence and exit if any fail so
+				// We create tex's in sequence and exit if any fail and
+				// erase them when it's source image is deleted so
 				// we can break rather than continue here
-				if (!g->thumbs[i].tex) {
+				if (!g->thumbs.a[i].tex) {
 					break;
 				}
 
@@ -3021,12 +3053,12 @@ int main(int argc, char** argv)
 				//r.y = ((i-start) / g->thumb_cols) * h;
 
 				// scales and centers thumbs appropriately
-				r.w = g->thumbs[i].w/(float)THUMBSIZE * w;
-				r.h = g->thumbs[i].h/(float)THUMBSIZE * h;
+				r.w = g->thumbs.a[i].w/(float)THUMBSIZE * w;
+				r.h = g->thumbs.a[i].h/(float)THUMBSIZE * h;
 				r.x = (((i-start) % g->thumb_cols) * w) + (w-r.w)/2;
 				r.y = (((i-start) / g->thumb_cols) * h) + (h-r.h)/2;
 
-				SDL_RenderCopy(g->ren, g->thumbs[i].tex, NULL, &r);
+				SDL_RenderCopy(g->ren, g->thumbs.a[i].tex, NULL, &r);
 				if (g->thumb_mode == VISUAL && i == g->thumb_sel) {
 					SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
 					// have selection box take up whole screen space, easier to see
