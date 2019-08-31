@@ -679,7 +679,7 @@ int thumb_thread(void* data)
 
 			// make sure original hasn't been modified since thumb was made
 			// don't think it's necessary to check nanoseconds
-			if (orig_stat.st_mtim.tv_sec < thumb_stat.st_mtim.tv_sec) {
+			if (orig_stat.st_mtime < thumb_stat.st_mtime) {
 				if (do_load) {
 					outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
 					make_thumb_tex(i, w, h, outpix);
