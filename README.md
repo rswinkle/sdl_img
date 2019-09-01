@@ -30,6 +30,7 @@ alphabetical order.
 | Left (or Up)      | Previous image(s) or pan if appropriate |
 | Right (or Down)   | Next image(s) or pan if appropriate |
 | Space             | Next image(s) |
+| CTRL+Space        | Previous image(s) |
 | +/-               | Zoom in/out |
 | ALT + +/-         | Speed up or slow down an animated gif |
 | ALT + Direction   | Next or previous image(s) even when zoomed in |
@@ -49,10 +50,11 @@ alphabetical order.
 | CTRL + 2          | Double image mode |
 | CTRL + 4          | Quad image mode   |
 | CTRL + 8          | 8 image mode      |
-| CTRL + T          | 8 image mode      |
+| CTRL + T          | Thumbnail mode    |
 | F1 - F10          | Start a slideshow with 1 - 10 second delay |
 
-The unique features are being able to view more than a single image at once
+The most obvious unique features are the multi-image modes but others include
+slowing/speeding/pausing gifs, vim inspired thumbnail mode, shuffle/sort etc.
 
 Within each image mode the basic controls work on all images simultaneously
 unless a specific image is selected by hitting 1-n and then they operate only
