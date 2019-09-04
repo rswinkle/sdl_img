@@ -2017,10 +2017,30 @@ int handle_thumb_events()
 			break;
 		case SDL_MOUSEWHEEL:
 			g->status = REDRAW;
-			if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
-				g->thumb_start_row -= e.wheel.y;
-			} else {
-				g->thumb_start_row += e.wheel.y;
+			if (g->thumb_mode == ON) {
+				if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
+					g->thumb_start_row -= e.wheel.y;
+				} else {
+					g->thumb_start_row += e.wheel.y;
+				}
+			} else if (g->thumb_mode == VISUAL) {
+				if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
+					g->thumb_sel -= e.wheel.y * g->thumb_cols;
+				} else {
+					g->thumb_sel += e.wheel.y * g->thumb_cols;
+				}
+				if (g->thumb_sel < 0)
+					g->thumb_sel = 0;
+				if (g->thumb_sel >= g->files.size)
+					g->thumb_sel = g->files.size-1;
+
+				// This can happen while thumbs are still being generated
+				while (!g->thumbs.a[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
+					g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
+				}
+				SDL_ShowCursor(SDL_ENABLE);
+				g->gui_timer = SDL_GetTicks();
+				g->show_gui = 1;
 			}
 			break;
 
