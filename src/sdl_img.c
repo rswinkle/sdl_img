@@ -1928,6 +1928,31 @@ int handle_thumb_events()
 						g->thumb_sel = 0;
 				}
 				break;
+			case SDLK_x:
+				if (g->thumb_mode == VISUAL) {
+					// TODO warning? message prompt?  Maybe one time with a preference
+					// to not show again?
+					// TODO handle if image is one of currently displayed images.  As it is
+					// I don't think it's a preblem except that when you go back to normal mode
+					// it'd still be displayed and when you moved right you'd skip images because
+					// everything shifted left.
+					char* full_img_path = g->files.a[g->thumb_sel];
+					if (remove(full_img_path)) {
+						perror("Failed to delete image");
+					} else {
+						printf("Deleted %s\n", full_img_path);
+						cvec_erase_str(&g->files, g->thumb_sel, g->thumb_sel);
+						cvec_erase_thumb_state(&g->thumbs, g->thumb_sel, g->thumb_sel);
+						for (int i=0; i<g->n_imgs; ++i) {
+							if (g->img[i].index == g->thumb_sel) {
+								g->img[i].index--;
+								break;
+							}
+						}
+						fix_thumb_sel(1);
+					}
+				}
+				break;
 			case SDLK_RETURN:
 				if (g->thumb_mode == VISUAL) {
 					// subtract 1 since we reuse RIGHT loading code
