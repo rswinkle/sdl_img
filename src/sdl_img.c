@@ -1852,6 +1852,19 @@ void do_thumbmode()
 	g->show_gui = SDL_TRUE;
 }
 
+void fix_thumb_sel(int dir)
+{
+	if (g->thumb_sel < 0)
+		g->thumb_sel = 0;
+	if (g->thumb_sel >= g->files.size)
+		g->thumb_sel = g->files.size-1;
+	dir = (dir < 0) ? -1 : 1; // don't want to skip
+	// This can happen while thumbs are still being generated
+	while (!g->thumbs.a[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
+		g->thumb_sel += dir;
+	}
+}
+
 int handle_thumb_events()
 {
 	SDL_Event e;
@@ -1947,15 +1960,7 @@ int handle_thumb_events()
 						g->thumb_start_row += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
 					} else if (g->thumb_mode == VISUAL) {
 						g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? g->thumb_cols : -g->thumb_cols;
-						if (g->thumb_sel < 0)
-							g->thumb_sel = 0;
-						if (g->thumb_sel >= g->files.size)
-							g->thumb_sel = g->files.size-1;
-
-						// This can happen while thumbs are still being generated
-						while (!g->thumbs.a[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
-							g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
-						}
+						fix_thumb_sel((sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1);
 						SDL_ShowCursor(SDL_ENABLE);
 						g->gui_timer = SDL_GetTicks();
 						g->show_gui = 1;
@@ -1975,13 +1980,7 @@ int handle_thumb_events()
 				} else {
 					if (g->thumb_mode == VISUAL) {
 						g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
-						if (g->thumb_sel < 0)
-							g->thumb_sel = 0;
-						if (g->thumb_sel >= g->files.size)
-							g->thumb_sel = g->files.size-1;
-						while (!g->thumbs.a[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
-							g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
-						}
+						fix_thumb_sel((sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1);
 						SDL_ShowCursor(SDL_ENABLE);
 						g->gui_timer = SDL_GetTicks();
 						g->show_gui = 1;
@@ -2026,17 +2025,10 @@ int handle_thumb_events()
 			} else if (g->thumb_mode == VISUAL) {
 				if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
 					g->thumb_sel -= e.wheel.y * g->thumb_cols;
+					fix_thumb_sel(-e.wheel.y);
 				} else {
 					g->thumb_sel += e.wheel.y * g->thumb_cols;
-				}
-				if (g->thumb_sel < 0)
-					g->thumb_sel = 0;
-				if (g->thumb_sel >= g->files.size)
-					g->thumb_sel = g->files.size-1;
-
-				// This can happen while thumbs are still being generated
-				while (!g->thumbs.a[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
-					g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
+					fix_thumb_sel(e.wheel.y);
 				}
 				SDL_ShowCursor(SDL_ENABLE);
 				g->gui_timer = SDL_GetTicks();
