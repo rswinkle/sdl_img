@@ -2019,12 +2019,15 @@ int handle_thumb_events()
 		case SDL_MOUSEBUTTONUP:
 			// TODO have this behavior in VISUAL MODE too?  Single click changes
 			// g->thumb_sel?
-			if (e.button.button == SDL_BUTTON_LEFT && e.button.clicks == 2) {
+			if (e.button.button == SDL_BUTTON_LEFT) {
 				g->selection = g->thumb_start_row * g->thumb_cols +
 				               (mouse_y / (g->scr_h/g->thumb_rows)) * g->thumb_cols +
 				               (mouse_x / (g->scr_w/g->thumb_cols));
 
-				if (g->selection < g->files.size) {
+				// TODO better way to avoid duplication?
+				if (g->selection >= g->files.size)
+					break;
+				if (e.button.clicks == 2) {
 					// since we reuse the RIGHT loading code, have to subtract 1 so we
 					// "move right" to the selection
 					g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
@@ -2033,6 +2036,9 @@ int handle_thumb_events()
 					g->thumb_start_row = 0;
 					g->status = REDRAW;
 					try_move(SELECTION);
+				} else {
+					// TODO is there anything besides clicks == 1 or 2?
+					g->thumb_sel = g->selection;
 				}
 			}
 			break;
