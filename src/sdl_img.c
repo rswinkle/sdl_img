@@ -1841,6 +1841,7 @@ void do_thumbmode()
 {
 	generate_thumbs(SDL_TRUE);
 	g->thumb_mode = ON;
+	g->thumb_sel = g->img[0].index;
 	g->status = REDRAW;
 	// TODO what a mess, need to think about the best way
 	// to handle GUI vs mouse in thumb vs normal mode
@@ -1897,7 +1898,7 @@ int handle_thumb_events()
 					g->thumb_mode = ON;
 				} else {
 					g->thumb_mode = OFF;
-					g->thumb_start_row = 0;
+					g->thumb_start_row = 0; // TODO?
 					g->show_gui = SDL_TRUE;
 				}
 				g->status = REDRAW;
@@ -1920,16 +1921,14 @@ int handle_thumb_events()
 			case SDLK_g:
 				if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
 					g->thumb_start_row = g->files.size-1; // will get fixed at the bottom
-					if (g->thumb_mode == VISUAL)
-						g->thumb_sel = g->files.size-1;
+					g->thumb_sel = g->files.size-1;
 				} else {
 					g->thumb_start_row = 0;;
-					if (g->thumb_mode == VISUAL)
-						g->thumb_sel = 0;
+					g->thumb_sel = 0;
 				}
 				break;
 			case SDLK_x:
-				if (g->thumb_mode == VISUAL) {
+				if (g->thumb_mode == ON) {
 					// TODO warning? message prompt?  Maybe one time with a preference
 					// to not show again?
 					// TODO handle if image is one of currently displayed images.  As it is
@@ -1954,7 +1953,7 @@ int handle_thumb_events()
 				}
 				break;
 			case SDLK_RETURN:
-				if (g->thumb_mode == VISUAL) {
+				if (g->thumb_mode == ON) {
 					// subtract 1 since we reuse RIGHT loading code
 					g->selection = (g->thumb_sel) ? g->thumb_sel - 1 : g->files.size-1;
 					g->thumb_mode = OFF;
@@ -1982,8 +1981,6 @@ int handle_thumb_events()
 						g->thumb_rows = 8;
 				} else {
 					if (g->thumb_mode == ON) {
-						g->thumb_start_row += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
-					} else if (g->thumb_mode == VISUAL) {
 						g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? g->thumb_cols : -g->thumb_cols;
 						fix_thumb_sel((sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1);
 						SDL_ShowCursor(SDL_ENABLE);
@@ -2003,7 +2000,7 @@ int handle_thumb_events()
 					if (g->thumb_cols > 15)
 						g->thumb_cols = 15;
 				} else {
-					if (g->thumb_mode == VISUAL) {
+					if (g->thumb_mode == ON) {
 						g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
 						fix_thumb_sel((sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1);
 						SDL_ShowCursor(SDL_ENABLE);
@@ -2042,12 +2039,6 @@ int handle_thumb_events()
 		case SDL_MOUSEWHEEL:
 			g->status = REDRAW;
 			if (g->thumb_mode == ON) {
-				if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
-					g->thumb_start_row -= e.wheel.y;
-				} else {
-					g->thumb_start_row += e.wheel.y;
-				}
-			} else if (g->thumb_mode == VISUAL) {
 				if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
 					g->thumb_sel -= e.wheel.y * g->thumb_cols;
 					fix_thumb_sel(-e.wheel.y);
@@ -2104,28 +2095,25 @@ int handle_thumb_events()
 	if (g->thumb_start_row < 0)
 		g->thumb_start_row = 0;
 
-	if (g->thumb_mode == VISUAL) {
-		// can happen while thumbs are being generated/loaded
-		if (!g->thumbs.a[g->thumb_sel].tex) {
-			if (!g->thumb_sel) {
-				for (; !g->thumbs.a[g->thumb_sel].tex && g->thumb_sel<g->files.size-1; ++g->thumb_sel);
-			} else {
-				for (; !g->thumbs.a[g->thumb_sel].tex && g->thumb_sel>0; --g->thumb_sel);
-			}
-			// No valid thumbs found, turn off visual
-			// TODO also prevent thumbmode in the first place if there are no valid thumbs?
-			if (!g->thumbs.a[g->thumb_sel].tex) {
-				g->thumb_mode = ON;
-			}
+	// can happen while thumbs are being generated/loaded
+	if (!g->thumbs.a[g->thumb_sel].tex) {
+		if (!g->thumb_sel) {
+			for (; !g->thumbs.a[g->thumb_sel].tex && g->thumb_sel<g->files.size-1; ++g->thumb_sel);
+		} else {
+			for (; !g->thumbs.a[g->thumb_sel].tex && g->thumb_sel>0; --g->thumb_sel);
 		}
-
-		if (g->thumb_sel < g->thumb_start_row*g->thumb_cols) {
-			g->thumb_start_row = g->thumb_sel / g->thumb_cols;
-		} else if (g->thumb_sel >= g->thumb_start_row*g->thumb_cols + g->thumb_rows*g->thumb_cols) {
-			g->thumb_start_row = g->thumb_sel / g->thumb_cols - g->thumb_rows + 1;
+		// No valid thumbs found, turn off visual
+		// TODO also prevent thumbmode in the first place if there are no valid thumbs?
+		if (!g->thumbs.a[g->thumb_sel].tex) {
+			g->thumb_mode = ON;
 		}
 	}
 
+	if (g->thumb_sel < g->thumb_start_row*g->thumb_cols) {
+		g->thumb_start_row = g->thumb_sel / g->thumb_cols;
+	} else if (g->thumb_sel >= g->thumb_start_row*g->thumb_cols + g->thumb_rows*g->thumb_cols) {
+		g->thumb_start_row = g->thumb_sel / g->thumb_cols - g->thumb_rows + 1;
+	}
 
 	return 0;
 
@@ -3096,7 +3084,7 @@ int main(int argc, char** argv)
 				r.y = (((i-start) / g->thumb_cols) * h) + (h-r.h)/2;
 
 				SDL_RenderCopy(g->ren, g->thumbs.a[i].tex, NULL, &r);
-				if (g->thumb_mode == VISUAL && i == g->thumb_sel) {
+				if (g->thumb_mode == ON && i == g->thumb_sel) {
 					SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
 					// have selection box take up whole screen space, easier to see
 					r.x = ((i-start) % g->thumb_cols) * w;

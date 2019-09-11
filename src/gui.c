@@ -498,18 +498,20 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	char info_buf[STRBUF_SZ];
 	int len;
 	int num_rows = (g->files.size+g->thumb_cols-1)/g->thumb_cols;
+	int row;
 
 	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-30, scr_w, 30), NK_WINDOW_NO_SCROLLBAR))
 	{
-		if (g->thumb_mode == VISUAL) {
-			int row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
+		if (g->thumb_mode == ON) {
+			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
 			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %lu", row, num_rows, g->thumb_sel+1, (unsigned long)g->files.size);
 			if (len >= STRBUF_SZ) {
 				puts("info path too long");
 				cleanup(1, 1);
 			}
-		} else if (g->thumb_mode == ON) {
-			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d", g->thumb_start_row+1, num_rows);
+		} else if (g->thumb_mode == VISUAL) {
+			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
+			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %lu", row, num_rows, g->thumb_sel+1, (unsigned long)g->files.size);
 			if (len >= STRBUF_SZ) {
 				puts("info path too long");
 				cleanup(1, 1);
