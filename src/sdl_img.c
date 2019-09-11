@@ -278,7 +278,9 @@ typedef struct global_state
 	int thumb_start_row;
 	int thumb_rows;
 	int thumb_cols;
-	int thumb_sel;  // current visual selection
+
+	int thumb_sel;  // current image
+	int thumb_sel_end; // start or end of visual selection (_sel is other side)
 	int selection;  // actual selection made (switching to normal mode)
 
 	int show_about;
@@ -1241,7 +1243,7 @@ void setup(int start_idx)
 		printf("Error: %s", SDL_GetError());
 		cleanup(0, 1);
 	}
-	
+
 	// can't create textures till after we have a renderer (otherwise we'd pass SDL_TRUE)
 	// to load_image above
 	if (!create_textures(&g->img[0]))
@@ -1842,6 +1844,7 @@ void do_thumbmode()
 	generate_thumbs(SDL_TRUE);
 	g->thumb_mode = ON;
 	g->thumb_sel = g->img[0].index;
+	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 	g->status = REDRAW;
 	// TODO what a mess, need to think about the best way
 	// to handle GUI vs mouse in thumb vs normal mode
@@ -1912,7 +1915,7 @@ int handle_thumb_events()
 			case SDLK_v:
 				if (g->thumb_mode == ON) {
 					g->thumb_mode = VISUAL;
-					g->thumb_sel = g->img[0].index;
+					g->thumb_sel_end = g->thumb_sel;
 				} else {
 					g->thumb_mode = ON;
 				}
@@ -1980,7 +1983,7 @@ int handle_thumb_events()
 					if (g->thumb_rows > 8)
 						g->thumb_rows = 8;
 				} else {
-					if (g->thumb_mode == ON) {
+					if (g->thumb_mode <= VISUAL) {
 						g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? g->thumb_cols : -g->thumb_cols;
 						fix_thumb_sel((sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1);
 						SDL_ShowCursor(SDL_ENABLE);
@@ -2000,7 +2003,7 @@ int handle_thumb_events()
 					if (g->thumb_cols > 15)
 						g->thumb_cols = 15;
 				} else {
-					if (g->thumb_mode == ON) {
+					if (g->thumb_mode <= VISUAL) {
 						g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
 						fix_thumb_sel((sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1);
 						SDL_ShowCursor(SDL_ENABLE);
@@ -3090,14 +3093,29 @@ int main(int argc, char** argv)
 				r.y = (((i-start) / g->thumb_cols) * h) + (h-r.h)/2;
 
 				SDL_RenderCopy(g->ren, g->thumbs.a[i].tex, NULL, &r);
-				if (g->thumb_mode == ON && i == g->thumb_sel) {
-					SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
-					// have selection box take up whole screen space, easier to see
-					r.x = ((i-start) % g->thumb_cols) * w;
-					r.y = ((i-start) / g->thumb_cols) * h;
-					r.w = w;
-					r.h = h;
-					SDL_RenderDrawRect(g->ren, &r);
+				if (g->thumb_mode == ON) {
+					if (i == g->thumb_sel) {
+						SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
+						// have selection box take up whole screen space, easier to see
+						r.x = ((i-start) % g->thumb_cols) * w;
+						r.y = ((i-start) / g->thumb_cols) * h;
+						r.w = w;
+						r.h = h;
+						SDL_RenderDrawRect(g->ren, &r);
+					}
+				} else {
+					if (i == g->thumb_sel) {
+						// TODO why doesn't setting this in setup work?  Where else is it changed?
+						SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
+
+						SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
+						// have selection box take up whole screen space, easier to see
+						r.x = ((i-start) % g->thumb_cols) * w;
+						r.y = ((i-start) / g->thumb_cols) * h;
+						r.w = w;
+						r.h = h;
+						SDL_RenderFillRect(g->ren, &r);
+					}
 				}
 			}
 		}
