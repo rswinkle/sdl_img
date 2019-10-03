@@ -670,7 +670,8 @@ int thumb_thread(void* data)
 
 		// Windows will just generate duplicate thumbnails most of the time
 #ifndef _WIN32
-		fullpath = realpath(g->files.a[i], NULL);
+		if (!(fullpath = realpath(g->files.a[i], NULL)))
+			continue;
 #else
 		fullpath = g->files.a[i];
 #endif
@@ -3078,8 +3079,13 @@ int main(int argc, char** argv)
 				// We create tex's in sequence and exit if any fail and
 				// erase them when it's source image is deleted so
 				// we can break rather than continue here
+				//
+				// EDIT: with bad paths in list we could fail to create
+				// a thumb but we also have never removed bad paths/non-images
+				// so we have to continue
 				if (!g->thumbs.a[i].tex) {
-					break;
+					//break;
+					continue;
 				}
 
 				// to fill screen use these rather than following 4 lines
