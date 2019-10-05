@@ -1877,6 +1877,7 @@ int handle_thumb_events()
 	SDL_Keymod mod_state = SDL_GetModState();
 	int mouse_x, mouse_y;
 	u32 mouse_button_mask = SDL_GetMouseState(&mouse_x, &mouse_y);
+	char title_buf[STRBUF_SZ];
 
 	// TODO add vim controls hjkl for navigating thumbs
 	// and page or half page jumps (CTRL+U/D), maybe with
@@ -2124,6 +2125,8 @@ int handle_thumb_events()
 	} else if (g->thumb_sel >= g->thumb_start_row*g->thumb_cols + g->thumb_rows*g->thumb_cols) {
 		g->thumb_start_row = g->thumb_sel / g->thumb_cols - g->thumb_rows + 1;
 	}
+		
+	SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->thumb_sel], title_buf));
 
 	return 0;
 
