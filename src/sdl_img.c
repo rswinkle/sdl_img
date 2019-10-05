@@ -66,7 +66,7 @@
 
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, SELECTION, EXIT };
-enum { OFF, ON, VISUAL }; // better names?
+enum { OFF, ON, VISUAL, SEARCH }; // better names?
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
@@ -307,6 +307,12 @@ typedef struct global_state
 // Also I know initializing a global to 0 is redundant but meh
 static global_state state = { 0 };
 global_state* g = &state;
+
+char text[STRBUF_SZ];
+int text_len;
+char* composition;
+Sint32 cursor;
+Sint32 selection_len;
 
 // has to come after all the enums/macros/struct defs etc. 
 #include "gui.c"
@@ -1880,7 +1886,8 @@ int handle_thumb_events()
 	u32 mouse_button_mask = SDL_GetMouseState(&mouse_x, &mouse_y);
 	char title_buf[STRBUF_SZ];
 
-	// TODO add page or half page jumps (CTRL+U/D), maybe with
+	// TODO add page or half page jumps (CTRL+U/D) and maybe / vim search
+	// mode?
 
 	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
@@ -1912,11 +1919,15 @@ int handle_thumb_events()
 					g->thumb_mode = ON;
 				}
 				break;
+			case SDLK_SLASH:
+				g->thumb_mode = SEARCH;
+				SDL_StartTextInput();
+				break;
 			case SDLK_v:
 				if (g->thumb_mode == ON) {
 					g->thumb_mode = VISUAL;
 					g->thumb_sel_end = g->thumb_sel;
-				} else {
+				} else if (g->thumb_mode == VISUAL) {
 					g->thumb_mode = ON;
 				}
 				g->status = REDRAW;
@@ -1954,7 +1965,7 @@ int handle_thumb_events()
 						}
 						fix_thumb_sel(1);
 					}
-				} else {
+				} else if (g->thumb_mode == VISUAL) {
 					int start = g->thumb_sel, end = g->thumb_sel_end;
 					if (g->thumb_sel > g->thumb_sel_end) {
 						end = g->thumb_sel;
@@ -1974,7 +1985,6 @@ int handle_thumb_events()
 						cleanup(0, 1);
 					}
 
-					int newloc = (start) ? start-1 : end+1;
 					for (int i=0; i<g->n_imgs; ++i) {
 						if (g->img[i].index >= start && g->img[i].index <= end) {
 							g->img[i].index = start-1;
@@ -1996,6 +2006,10 @@ int handle_thumb_events()
 					g->show_gui = SDL_TRUE;
 					g->status = REDRAW;
 					try_move(SELECTION);
+				} else if (g->thumb_mode == SEARCH) {
+					SDL_StopTextInput();
+					printf("Final text = \"%s\"\n", text);
+					text[0] = 0;
 				}
 				break;
 			}
@@ -2044,6 +2058,11 @@ int handle_thumb_events()
 					}
 				}
 				break;
+			case SDLK_BACKSPACE:
+				if (text_len)
+					text[--text_len] = 0;
+				printf("text is \"%s\"\n", text);
+				break;
 			}
 			break;
 		case SDL_MOUSEMOTION:
@@ -2091,6 +2110,21 @@ int handle_thumb_events()
 				g->gui_timer = SDL_GetTicks();
 				g->show_gui = 1;
 			}
+			break;
+
+		case SDL_TEXTINPUT:
+			// could probably just do text[text_len++] = e.text.text[0]
+			// since I only handle ascii
+			strcat(text, e.text.text);
+			text_len += strlen(e.text.text);
+			printf("text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
+			break;
+
+		case SDL_TEXTEDITING:
+			printf("recieved edit \"%s\"\n", e.edit.text);
+			composition = e.edit.text;
+			cursor = e.edit.start;
+			selection_len = e.edit.length;
 			break;
 
 		case SDL_WINDOWEVENT: {
@@ -3148,9 +3182,9 @@ int main(int argc, char** argv)
 						r.h = h;
 						SDL_RenderDrawRect(g->ren, &r);
 					}
-				} else {
-					if (i >= g->thumb_sel && i <= g->thumb_sel_end ||
-					    i <= g->thumb_sel && i >= g->thumb_sel_end) {
+				} else if (g->thumb_mode == VISUAL) {
+					if ((i >= g->thumb_sel && i <= g->thumb_sel_end) ||
+					    (i <= g->thumb_sel && i >= g->thumb_sel_end)) {
 						// TODO why doesn't setting this in setup work?  Where else is it changed?
 						SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
 
