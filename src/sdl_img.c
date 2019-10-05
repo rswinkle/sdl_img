@@ -1865,6 +1865,7 @@ void fix_thumb_sel(int dir)
 		g->thumb_sel = g->files.size-1;
 	dir = (dir < 0) ? -1 : 1; // don't want to skip
 	// This can happen while thumbs are still being generated
+	// TODO think about this logic
 	while (!g->thumbs.a[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
 		g->thumb_sel += dir;
 	}
@@ -1879,10 +1880,7 @@ int handle_thumb_events()
 	u32 mouse_button_mask = SDL_GetMouseState(&mouse_x, &mouse_y);
 	char title_buf[STRBUF_SZ];
 
-	// TODO add vim controls hjkl for navigating thumbs
-	// and page or half page jumps (CTRL+U/D), maybe with
-	// an optional visual selection box drawnn to indicate current
-	// image for actions (ie to switch to view, delete etc.)
+	// TODO add page or half page jumps (CTRL+U/D), maybe with
 
 	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
@@ -1936,17 +1934,18 @@ int handle_thumb_events()
 				if (g->thumb_mode == ON) {
 					// TODO warning? message prompt?  Maybe one time with a preference
 					// to not show again?
-					// TODO handle if image is one of currently displayed images.  As it is
-					// I don't think it's a preblem except that when you go back to normal mode
-					// it'd still be displayed and when you moved right you'd skip images because
-					// everything shifted left.
-					char* full_img_path = g->files.a[g->thumb_sel];
-					if (remove(full_img_path)) {
+					//
+					// TODO refactor to combine normal and visual mode x
+					if (remove(g->files.a[g->thumb_sel])) {
 						perror("Failed to delete image");
 					} else {
-						printf("Deleted %s\n", full_img_path);
+						printf("Deleted %s\n", g->files.a[g->thumb_sel]);
 						cvec_erase_str(&g->files, g->thumb_sel, g->thumb_sel);
 						cvec_erase_thumb_state(&g->thumbs, g->thumb_sel, g->thumb_sel);
+						if (!g->files.size) {
+							puts("You deleted all your currently viewed images, exiting");
+							cleanup(0, 1);
+						}
 						for (int i=0; i<g->n_imgs; ++i) {
 							if (g->img[i].index == g->thumb_sel) {
 								g->img[i].index--;
@@ -1955,6 +1954,37 @@ int handle_thumb_events()
 						}
 						fix_thumb_sel(1);
 					}
+				} else {
+					int start = g->thumb_sel, end = g->thumb_sel_end;
+					if (g->thumb_sel > g->thumb_sel_end) {
+						end = g->thumb_sel;
+						start = g->thumb_sel_end;
+					}
+					for (int i=start; i<=end; ++i) {
+						if (remove(g->files.a[i]))
+							perror("Failed to delete image");
+						else
+							printf("Deleted %s\n", g->files.a[i]);
+					}
+					cvec_erase_str(&g->files, start, end);
+					cvec_erase_thumb_state(&g->thumbs, start, end);
+
+					if (!g->files.size) {
+						puts("You deleted all your currently viewed images, exiting");
+						cleanup(0, 1);
+					}
+
+					int newloc = (start) ? start-1 : end+1;
+					for (int i=0; i<g->n_imgs; ++i) {
+						if (g->img[i].index >= start && g->img[i].index <= end) {
+							g->img[i].index = start-1;
+						}
+					}
+					g->thumb_sel = start;  // in case it was > _sel_end
+					fix_thumb_sel(1);
+
+					// exit Visual mode after x like vim
+					g->thumb_mode = ON;
 				}
 				break;
 			case SDLK_RETURN:
@@ -2126,7 +2156,13 @@ int handle_thumb_events()
 		g->thumb_start_row = g->thumb_sel / g->thumb_cols - g->thumb_rows + 1;
 	}
 		
-	SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->thumb_sel], title_buf));
+	if (g->thumb_mode) {
+		SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->thumb_sel], title_buf));
+	} else if (g->img_focus) {
+		SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index], title_buf));
+	} else {
+		SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img[0].index], title_buf));
+	}
 
 	return 0;
 
@@ -3113,7 +3149,8 @@ int main(int argc, char** argv)
 						SDL_RenderDrawRect(g->ren, &r);
 					}
 				} else {
-					if (i == g->thumb_sel) {
+					if (i >= g->thumb_sel && i <= g->thumb_sel_end ||
+					    i <= g->thumb_sel && i >= g->thumb_sel_end) {
 						// TODO why doesn't setting this in setup work?  Where else is it changed?
 						SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
 
