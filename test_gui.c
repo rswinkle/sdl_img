@@ -26,7 +26,7 @@
 
 #define STRBUF_SZ 1024
 
-enum { MENU_NONE, MENU_MISC, MENU_EDIT, MENU_VIEW };
+enum { MENU_NONE, MENU_MISC, MENU_SORT, MENU_EDIT, MENU_VIEW };
 enum { DELAY, ALWAYS, NEVER };
 
 int n_imgs = 1;
@@ -76,7 +76,6 @@ void draw_simple_gui(struct nk_context* ctx);
 
 int main(void)
 {
-	int win_width, win_height;
 	struct nk_context *ctx;
 	/* float bg[4]; */
 
@@ -474,18 +473,34 @@ void draw_gui(struct nk_context* ctx)
 				nk_menu_item_label(ctx, "Actual Size", NK_TEXT_LEFT);
 				nk_label(ctx, "A", NK_TEXT_RIGHT);
 
+				nk_tree_pop(ctx);
+			} else menu_state = (menu_state == MENU_MISC) ? MENU_NONE : menu_state;
+
+			state = (menu_state == MENU_SORT) ? NK_MAXIMIZED : NK_MINIMIZED;
+			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Sort Actions", &state)) {
+				menu_state = MENU_SORT;
+
 				if (n_imgs == 1) {
+					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
 					nk_menu_item_label(ctx, "Mix images", NK_TEXT_LEFT);
 					nk_label(ctx, "M", NK_TEXT_RIGHT);
 
-
 					// TODO sort submenu with sort by name, size, modified etc.
 					nk_menu_item_label(ctx, "Sort by name (default)", NK_TEXT_LEFT);
-					nk_label(ctx, "O", NK_TEXT_RIGHT);
+					nk_label(ctx, "N", NK_TEXT_RIGHT);
+					nk_menu_item_label(ctx, "Sort by size", NK_TEXT_LEFT);
+					nk_label(ctx, "Z", NK_TEXT_RIGHT);   // S is save...
+					nk_menu_item_label(ctx, "Sort by last modified", NK_TEXT_LEFT);
+					nk_label(ctx, "T", NK_TEXT_RIGHT);  // CTRL+T is thumb mode...
+				} else {
+					nk_layout_row_dynamic(ctx, 0, 1);
+					nk_label(ctx, "Only available in 1 image mode", NK_TEXT_LEFT);
 				}
 
 				nk_tree_pop(ctx);
-			} else menu_state = (menu_state == MENU_MISC) ? MENU_NONE : menu_state;
+			} else menu_state = (menu_state == MENU_SORT) ? MENU_NONE : menu_state;
+
+
 
 			state = (menu_state == MENU_EDIT) ? NK_MAXIMIZED : NK_MINIMIZED;
 			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Edit Actions", &state)) {
@@ -530,6 +545,10 @@ void draw_gui(struct nk_context* ctx)
 				if (nk_menu_item_label(ctx, "8 images", NK_TEXT_LEFT))
 					n_imgs = 8;
 				nk_label(ctx, "CTRL+8", NK_TEXT_RIGHT);
+
+				nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT);
+				nk_label(ctx, "CTRL+T", NK_TEXT_RIGHT);
+
 				nk_tree_pop(ctx);
 			} else menu_state = (menu_state == MENU_VIEW) ? MENU_NONE: menu_state;
 
