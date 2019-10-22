@@ -16,8 +16,15 @@
 // IN THE SOFTWARE.
 
 
+// for strcasestr
+#define _GNU_SOURCE
+
 #define CVECTOR_IMPLEMENTATION
+
+//TODO should rename those macros to CVEC_INC_*
+// since you can have more than one
 #define CVEC_ONLY_STR
+#define CVEC_ONLY_INT
 #include "cvector.h"
 
 #include "WjCryptLib_Md5.c"
@@ -66,7 +73,7 @@
 
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, SELECTION, EXIT };
-enum { OFF, ON, VISUAL, SEARCH }; // better names?
+enum { OFF, ON, VISUAL, SEARCH, RESULTS }; // better names?
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
@@ -256,6 +263,8 @@ typedef struct global_state
 	img_state img2[8];
 
 	cvector_thumb_state thumbs;
+	cvector_i search_results;
+	int cur_result;
 
 	int status;
 
@@ -767,7 +776,7 @@ void generate_thumbs(intptr_t do_load)
 	// elem_init already NULL
 
 	g->generating_thumbs = SDL_TRUE;
-	puts("Starting thread to generate thumbs...");
+	puts("Starting thread to generate thumbs and create thumb textures...");
 	SDL_Thread* thumb_thrd;
 	if (!(thumb_thrd = SDL_CreateThread(thumb_thread, "thumb_thrd", (void*)do_load))) {
 		puts("couldn't create thumb thread");
@@ -1904,7 +1913,7 @@ int handle_thumb_events()
 				// Also need to regenerate DISP_RECT(s) for normal mode
 				// if window has changed size since switching to THUMB ...
 				// or keep it updated in SIZE_CHANGED below
-				if (g->thumb_mode == VISUAL) {
+				if (g->thumb_mode >= VISUAL) {
 					g->thumb_mode = ON;
 				} else {
 					g->thumb_mode = OFF;
@@ -1921,6 +1930,9 @@ int handle_thumb_events()
 				break;
 			case SDLK_SLASH:
 				g->thumb_mode = SEARCH;
+				text[0] = 0;
+				text_len = 0;
+				g->search_results.size = 0;
 				SDL_StartTextInput();
 				break;
 			case SDLK_v:
@@ -1998,7 +2010,7 @@ int handle_thumb_events()
 				}
 				break;
 			case SDLK_RETURN:
-				if (g->thumb_mode == ON) {
+				if (g->thumb_mode == ON || g->thumb_mode == RESULTS) {
 					// subtract 1 since we reuse RIGHT loading code
 					g->selection = (g->thumb_sel) ? g->thumb_sel - 1 : g->files.size-1;
 					g->thumb_mode = OFF;
@@ -2009,7 +2021,21 @@ int handle_thumb_events()
 				} else if (g->thumb_mode == SEARCH) {
 					SDL_StopTextInput();
 					printf("Final text = \"%s\"\n", text);
-					text[0] = 0;
+					//text[0] = 0;
+					for (int i=0; i<g->files.size; ++i) {
+						// GNU function...
+						if (strcasestr(g->files.a[i], text)) {
+							printf("Adding %s\n", g->files.a[i]);
+							cvec_push_i(&g->search_results, i);
+						}
+					}
+					printf("found %d matches\n", (int)g->search_results.size);
+					if (g->search_results.size) {
+						g->thumb_sel = g->search_results.a[0];
+						g->thumb_mode = RESULTS;
+					} else {
+						g->thumb_mode = ON;
+					}
 				}
 				break;
 			}
@@ -2029,7 +2055,7 @@ int handle_thumb_events()
 					if (g->thumb_rows > 8)
 						g->thumb_rows = 8;
 				} else {
-					if (g->thumb_mode <= VISUAL) {
+					if (g->thumb_mode != SEARCH) {
 						g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? g->thumb_cols : -g->thumb_cols;
 						fix_thumb_sel((sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1);
 						SDL_ShowCursor(SDL_ENABLE);
@@ -2049,13 +2075,33 @@ int handle_thumb_events()
 					if (g->thumb_cols > 15)
 						g->thumb_cols = 15;
 				} else {
-					if (g->thumb_mode <= VISUAL) {
+					if (g->thumb_mode != SEARCH) {
 						g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
 						fix_thumb_sel((sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1);
 						SDL_ShowCursor(SDL_ENABLE);
 						g->gui_timer = SDL_GetTicks();
 						g->show_gui = 1;
 					}
+				}
+				break;
+			case SDLK_n:
+				if (g->thumb_mode == RESULTS) {
+					if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
+						if (g->thumb_sel == g->search_results.a[g->cur_result]) {
+							g->cur_result--;
+							if (g->cur_result < 0)
+								g->cur_result += g->search_results.size;
+						} else {
+							// TODO if move to closest result in negative direction
+						}
+					} else {
+						if (g->thumb_sel == g->search_results.a[g->cur_result]) {
+							g->cur_result = (g->cur_result + 1) % g->search_results.size;
+						} else {
+							// TODO if move to closest result in positive direction
+						}
+					}
+					g->thumb_sel = g->search_results.a[g->cur_result];
 				}
 				break;
 			case SDLK_BACKSPACE:
@@ -2115,16 +2161,20 @@ int handle_thumb_events()
 		case SDL_TEXTINPUT:
 			// could probably just do text[text_len++] = e.text.text[0]
 			// since I only handle ascii
-			strcat(text, e.text.text);
-			text_len += strlen(e.text.text);
-			printf("text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
+			if (g->thumb_mode == SEARCH) {
+				strcat(text, e.text.text);
+				text_len += strlen(e.text.text);
+				printf("text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
+			}
 			break;
 
 		case SDL_TEXTEDITING:
-			printf("recieved edit \"%s\"\n", e.edit.text);
-			composition = e.edit.text;
-			cursor = e.edit.start;
-			selection_len = e.edit.length;
+			if (g->thumb_mode == SEARCH) {
+				printf("recieved edit \"%s\"\n", e.edit.text);
+				composition = e.edit.text;
+				cursor = e.edit.start;
+				selection_len = e.edit.length;
+			}
 			break;
 
 		case SDL_WINDOWEVENT: {
@@ -3143,6 +3193,7 @@ int main(int argc, char** argv)
 			SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
 			SDL_RenderSetClipRect(g->ren, NULL);
 			SDL_RenderClear(g->ren);
+
 			int start = g->thumb_start_row * g->thumb_cols;
 			int end = start + g->thumb_cols*g->thumb_rows;
 			int w = g->scr_w/(float)g->thumb_cols;
@@ -3196,6 +3247,28 @@ int main(int argc, char** argv)
 						r.h = h;
 						SDL_RenderFillRect(g->ren, &r);
 					}
+				} else if (g->thumb_mode == RESULTS) {
+					
+					// TODO optimize since results are in order
+					for (int k = 0; k<g->search_results.size; ++k) {
+						if (g->search_results.a[k] == i) {
+							SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
+
+							SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
+							// have selection box take up whole screen space, easier to see
+							r.x = ((i-start) % g->thumb_cols) * w;
+							r.y = ((i-start) / g->thumb_cols) * h;
+							r.w = w;
+							r.h = h;
+							SDL_RenderFillRect(g->ren, &r);
+							break;
+						}
+					}
+					if (g->thumb_sel == i) {
+						SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
+						SDL_RenderDrawRect(g->ren, &r);
+					}
+
 				}
 			}
 		}
