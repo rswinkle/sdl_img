@@ -1,6 +1,9 @@
 
 
-#if defined(CVEC_ONLY_INT) || defined(CVEC_ONLY_DOUBLE) || defined(CVEC_ONLY_STR)     || defined(CVEC_ONLY_VOID)
+//TODO should I rename these macros
+// since you can have more than one?  But this
+// matches stb_image naming...
+#if defined(CVEC_ONLY_INT) || defined(CVEC_ONLY_DOUBLE) || defined(CVEC_ONLY_STR) || defined(CVEC_ONLY_VOID)
    #ifndef CVEC_ONLY_INT
    #define CVEC_NO_INT
    #endif

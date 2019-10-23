@@ -511,10 +511,14 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 			}
 		} else if (g->thumb_mode == RESULTS) {
 			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
-			int i = 0;
-			for (; i<g->search_results.size && g->search_results.a[i] != g->thumb_sel; ++i);
 
-			len = snprintf(info_buf, STRBUF_SZ, "result: %d / %d  rows: %d / %d  image %d / %d", i+1, (int)g->search_results.size, row, num_rows, g->thumb_sel+1, (int)g->files.size);
+			int i;
+			if (g->thumb_sel == g->search_results.a[g->cur_result]) {
+				i = g->cur_result + 1;
+				len = snprintf(info_buf, STRBUF_SZ, "result: %d / %d  rows: %d / %d  image %d / %d", i, (int)g->search_results.size, row, num_rows, g->thumb_sel+1, (int)g->files.size);
+			} else {
+				len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
+			}
 			if (len >= STRBUF_SZ) {
 				puts("info path too long");
 				cleanup(1, 1);

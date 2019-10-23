@@ -20,9 +20,6 @@
 #define _GNU_SOURCE
 
 #define CVECTOR_IMPLEMENTATION
-
-//TODO should rename those macros to CVEC_INC_*
-// since you can have more than one
 #define CVEC_ONLY_STR
 #define CVEC_ONLY_INT
 #include "cvector.h"
@@ -1945,12 +1942,14 @@ int handle_thumb_events()
 				g->status = REDRAW;
 				break;
 			case SDLK_g:
-				if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
-					g->thumb_start_row = g->files.size-1; // will get fixed at the bottom
-					g->thumb_sel = g->files.size-1;
-				} else {
-					g->thumb_start_row = 0;;
-					g->thumb_sel = 0;
+				if (g->thumb_mode != SEARCH) {
+					if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
+						g->thumb_start_row = g->files.size-1; // will get fixed at the bottom
+						g->thumb_sel = g->files.size-1;
+					} else {
+						g->thumb_start_row = 0;;
+						g->thumb_sel = 0;
+					}
 				}
 				break;
 			case SDLK_x:
@@ -2093,15 +2092,36 @@ int handle_thumb_events()
 								g->cur_result += g->search_results.size;
 						} else {
 							// TODO if move to closest result in negative direction
+							int i;
+							for (i = 0; i<g->search_results.size; ++i) {
+								if (g->search_results.a[i] > g->thumb_sel)
+									break;
+							}
+							if (!i)
+								g->cur_result = g->search_results.size-1;
+							else
+								g->cur_result = i-1;
 						}
 					} else {
 						if (g->thumb_sel == g->search_results.a[g->cur_result]) {
 							g->cur_result = (g->cur_result + 1) % g->search_results.size;
 						} else {
 							// TODO if move to closest result in positive direction
+							int i;
+							for (i = 0; i<g->search_results.size; ++i) {
+								if (g->search_results.a[i] > g->thumb_sel)
+									break;
+							}
+							if (i == g->search_results.size)
+								g->cur_result = 0;
+							else
+								g->cur_result = i;
 						}
 					}
 					g->thumb_sel = g->search_results.a[g->cur_result];
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = 1;
 				}
 				break;
 			case SDLK_BACKSPACE:
@@ -2161,7 +2181,7 @@ int handle_thumb_events()
 		case SDL_TEXTINPUT:
 			// could probably just do text[text_len++] = e.text.text[0]
 			// since I only handle ascii
-			if (g->thumb_mode == SEARCH) {
+			if (g->thumb_mode == SEARCH && text_len < STRBUF_SZ-1) {
 				strcat(text, e.text.text);
 				text_len += strlen(e.text.text);
 				printf("text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
