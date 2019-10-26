@@ -206,6 +206,17 @@ CVEC_NEW_DECLS2(thumb_state)
 
 CVEC_NEW_DEFS2(thumb_state, RESIZE)
 
+typedef struct file
+{
+	char* path;   // could be url;
+	int modified; // time_t is long int but 2038 problem is because it's really 32-bit counter
+	int size;     // in bytes (hard to believe it'd be bigger than ~2.1 GB)
+} file;
+
+CVEC_NEW_DECLS2(file)
+
+CVEC_NEW_DEFS2(file, RESIZE)
+
 typedef struct img_state
 {
 	u8* pixels;
@@ -270,6 +281,7 @@ typedef struct global_state
 	//char* config_dir;
 
 	cvector_str files;
+	cvector_file files_;
 
 	int fullscreen;
 	int fill_mode;
@@ -610,6 +622,7 @@ void cleanup(int ret, int called_setup)
 
 	cvec_free_thumb_state(&g->thumbs);
 	cvec_free_str(&g->files);
+	cvec_free_file(&g->files_);
 	curl_global_cleanup();
 	exit(ret);
 }
@@ -968,6 +981,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 	}
 
 	char* ext = NULL;
+	file f;
 
 	//printf("Scanning %s for images...\n", dirpath);
 	while ((entry = readdir(dir))) {
@@ -1018,6 +1032,11 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 
 		// have to use fullpath not d_name in case we're in a recursive call
 		cvec_push_str(&g->files, fullpath);
+
+		f.path = mystrdup(fullpath);
+		f.size = file_stat.st_size;
+		f.modified = file_stat.st_mtime;
+		cvec_push_file(&g->files_, &f);
 	}
 
 	closedir(dir);
@@ -1133,6 +1152,11 @@ int load_new_images(void* data)
 	}
 
 	return 0;
+}
+
+void free_file(void* f)
+{
+	free(((file*)f)->path);
 }
 
 void setup(int start_idx)
@@ -2913,13 +2937,14 @@ void print_help(char* prog_name, int verbose)
 	}
 }
 
-void read_list(cvector_str* images, FILE* file)
+void read_list(cvector_str* images, FILE* list_file)
 {
 	char* s;
 	char line[STRBUF_SZ] = { 0 };
 	int len;
+	file f = { 0 }; // 0 out time and size since we don't stat lists
 
-	while ((s = fgets(line, STRBUF_SZ, file))) {
+	while ((s = fgets(line, STRBUF_SZ, list_file))) {
 		// ignore comments in gqview/gthumb collection format useful
 		// when combined with findimagedupes collection output
 		if (s[0] == '#')
@@ -2935,6 +2960,9 @@ void read_list(cvector_str* images, FILE* file)
 		}
 		normalize_path(s);
 		cvec_push_str(images, s);
+
+		f.path = mystrdup(s);
+		cvec_push_file(&g->files_, &f);
 	}
 }
 
@@ -2977,7 +3005,8 @@ int main(int argc, char** argv)
 		cleanup(1, 0);
 	}
 	cvec_str(&g->files, 0, 100);
-
+	cvec_file(&g->files_, 0, 100, free_file, NULL);
+	// g->thumbs initialized if needed in generate_thumbs()
 
 	// Not currently used
 	// char* exepath = SDL_GetBasePath();
@@ -3022,6 +3051,7 @@ int main(int argc, char** argv)
 	SDL_free(prefpath);
 
 
+	file f;
 	int img_args = 0;
 	int given_list = 0;
 	int given_dir = 0;
@@ -3118,8 +3148,18 @@ int main(int argc, char** argv)
 			} else if(S_ISREG(file_stat.st_mode)) {
 				img_args++;
 				cvec_push_str(&g->files, argv[i]);
+
+				f.path = mystrdup(argv[i]);
+				f.size = file_stat.st_size;
+				f.modified = file_stat.st_mtime;
+				cvec_push_file(&g->files_, &f);
 			} else {
 				cvec_push_str(&g->files, argv[i]);
+
+				f.path = mystrdup(argv[i]);
+				f.size = 0;
+				f.modified = 0;
+				cvec_push_file(&g->files_, &f);
 			}
 		}
 	}
