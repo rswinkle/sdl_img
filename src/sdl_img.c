@@ -1513,7 +1513,6 @@ void do_shuffle()
 		return;
 	}
 	char* save = g->files_.a[g->img[0].index].path;
-	char* tmp;
 	file tmpf;
 
 	thumb_state tmp_thumb;
@@ -1521,9 +1520,6 @@ void do_shuffle()
 	// Fisher-Yates, aka Knuth Shuffle
 	for (int i=g->files.size-1; i>0; --i) {
 		j = rand() % (i+1);
-		tmp = g->files.a[i];
-		g->files.a[i] = g->files.a[j];
-		g->files.a[j] = tmp;
 
 		tmpf = g->files_.a[i];
 		g->files_.a[i] = g->files_.a[j];
@@ -1551,17 +1547,13 @@ void do_sort()
 		return;
 	}
 
-	// TODO phase 3
-	char* save = g->files.a[g->img[0].index];
+	char* save = g->files_.a[g->img[0].index].path;
 
-	if (!g->thumbs.a) {
-		qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
-	} else {
-		sort(g->files.a, g->thumbs.a, g->files.size);
-	}
+	// g->thumbs.a is either NULL or valid
+	sort(g->files_.a, g->thumbs.a, g->files.size, filepath_cmp);
 
 	for (int i=0; i<g->files.size; ++i) {
-		if (!strcmp(save, g->files.a[i])) {
+		if (!strcmp(save, g->files_.a[i].path)) {
 			g->img[0].index = i;
 			g->thumb_sel = i;
 			break;
@@ -3191,21 +3183,19 @@ int main(int argc, char** argv)
 
 		snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, img_name);
 
-		// TODO phase 3
-		qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
+		sort(g->files_.a, NULL, g->files.size, filepath_cmp);
 
 		printf("finding current image to update index\n");
-		char** res;
-		char* tmp_ptr = fullpath;
-		res = bsearch(&tmp_ptr, g->files.a, g->files.size, sizeof(char*), StringCompareSort);
+		file* res;
+		f.path = fullpath;
+		res = bsearch(&f, g->files_.a, g->files.size, sizeof(file), filepath_cmp);
 		if (!res) {
 			cleanup(0, 1);
 		}
-		start_index = res - g->files.a;
+		start_index = res - g->files_.a;
 	} else {
-		qsort(g->files.a, g->files.size, sizeof(char*), StringCompareSort);
+		sort(g->files_.a, NULL, g->files.size, filepath_cmp);
 	}
-
 
 	printf("Loaded %lu filenames\n", (unsigned long)g->files.size);
 

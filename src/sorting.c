@@ -101,6 +101,36 @@ int StringCompareSort(const void *p, const void *q)
    return StringCompare(*(char **) p, *(char **) q);
 }
 
+int filepath_cmp(const void* a, const void* b)
+{
+	return StringCompare(((file*)a)->path, ((file*)b)->path);
+}
+
+// TODO add reverse sorts?  largest to smallest and newest to oldest
+int filesize_cmp(const void* a, const void* b)
+{
+	file* f1 = (file*)a;
+	file* f2 = (file*)b;
+	if (f1->size < f2->size)
+		return -1;
+	if (f1->size > f2->size)
+		return 1;
+
+	return 0;
+}
+
+int filemodified_cmp(const void* a, const void* b)
+{
+	file* f1 = (file*)a;
+	file* f2 = (file*)b;
+	if (f1->modified < f2->modified)
+		return -1;
+	if (f1->modified > f2->modified)
+		return 1;
+
+	return 0;
+}
+
 // plain sort
 int cmp_string_lt(const void* a, const void* b)
 {
@@ -110,24 +140,37 @@ int cmp_string_lt(const void* a, const void* b)
 // TODO use quick sort or generic quicksort
 //
 //Mirrored Insertion sort, sorts a and b based on a
-void sort(char** a, thumb_state* b, size_t n)
+void sort(file* a, thumb_state* b, size_t n, int (*cmp)(const void*, const void*))
 {
 	int j;
-	char* temp;
+	file temp;
 	thumb_state tmp_thumb;
 
-	for (int i=1; i<n; ++i) {
-		j = i-1;
-		temp = a[i];
-		tmp_thumb = b[i];
-		
-		while (j >= 0 && StringCompareSort(&a[j], &temp) > 0) {
-			a[j+1] = a[j];
-			b[j+1] = b[j];
-			--j;
+	if (b) {
+		for (int i=1; i<n; ++i) {
+			j = i-1;
+			temp = a[i];
+			tmp_thumb = b[i];
+			
+			while (j >= 0 && cmp(&a[j], &temp) > 0) {
+				a[j+1] = a[j];
+				b[j+1] = b[j];
+				--j;
+			}
+			a[j+1] = temp;
+			b[j+1] = tmp_thumb;
 		}
-		a[j+1] = temp;
-		b[j+1] = tmp_thumb;
+	} else {
+		for (int i=1; i<n; ++i) {
+			j = i-1;
+			temp = a[i];
+			
+			while (j >= 0 && cmp(&a[j], &temp) > 0) {
+				a[j+1] = a[j];
+				--j;
+			}
+			a[j+1] = temp;
+		}
 	}
 
 	return;
