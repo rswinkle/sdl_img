@@ -280,8 +280,7 @@ typedef struct global_state
 	char* thumbdir;
 	//char* config_dir;
 
-	cvector_str files;
-	cvector_file files_;
+	cvector_file files;
 
 	int fullscreen;
 	int fill_mode;
@@ -561,7 +560,7 @@ void clear_img(img_state* img)
 			NULL /* .colorScheme, NULL = system default */
 		};
 
-		char* full_img_path = g->files_.a[img->index].path;
+		char* full_img_path = g->files.a[img->index].path;
 
 		snprintf(msgbox_prompt, STRBUF_SZ, "Do you want to save changes to '%s'?", full_img_path);
 		messageboxdata.message = msgbox_prompt;
@@ -621,8 +620,7 @@ void cleanup(int ret, int called_setup)
 	}
 
 	cvec_free_thumb_state(&g->thumbs);
-	cvec_free_str(&g->files);
-	cvec_free_file(&g->files_);
+	cvec_free_file(&g->files);
 	curl_global_cleanup();
 	exit(ret);
 }
@@ -695,10 +693,10 @@ int thumb_thread(void* data)
 
 		// Windows will just generate duplicate thumbnails most of the time
 #ifndef _WIN32
-		if (!(fullpath = realpath(g->files_.a[i].path, NULL)))
+		if (!(fullpath = realpath(g->files.a[i].path, NULL)))
 			continue;
 #else
-		fullpath = g->files_.a[i].path;
+		fullpath = g->files.a[i].path;
 #endif
 		get_thumbpath(fullpath, thumbpath, sizeof(thumbpath));
 #ifndef _WIN32
@@ -708,7 +706,7 @@ int thumb_thread(void* data)
 
 		if (!stat(thumbpath, &thumb_stat)) {
 			// someone has deleted the original since we made the thumb or it's a url
-			if (stat(g->files_.a[i].path, &orig_stat)) {
+			if (stat(g->files.a[i].path, &orig_stat)) {
 				continue;
 			}
 
@@ -723,9 +721,9 @@ int thumb_thread(void* data)
 			}
 		}
 
-		pix = stbi_load(g->files_.a[i].path, &w, &h, &channels, 4);
+		pix = stbi_load(g->files.a[i].path, &w, &h, &channels, 4);
 		if (!pix) {
-			printf("Couldn't load %s for thumbnail generation\n", g->files_.a[i].path);
+			printf("Couldn't load %s for thumbnail generation\n", g->files.a[i].path);
 			continue;
 		}
 
@@ -754,7 +752,7 @@ int thumb_thread(void* data)
 		}
 		free(pix);
 		free(outpix);
-		printf("generated thumb %d for %s\n", i, g->files_.a[i].path);
+		printf("generated thumb %d for %s\n", i, g->files.a[i].path);
 	}
 
 	g->generating_thumbs = SDL_FALSE;
@@ -858,7 +856,7 @@ int curl_image(int img_idx)
 	CURLcode res;
 	char filename[STRBUF_SZ];
 	char curlerror[CURL_ERROR_SIZE];
-	char* s = g->files_.a[img_idx].path;
+	char* s = g->files.a[img_idx].path;
 	FILE* imgfile;
 
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
@@ -893,7 +891,9 @@ int curl_image(int img_idx)
 		goto exit_cleanup;
 	}
 	fclose(imgfile);
-	cvec_replace_str(&g->files, img_idx, filename, NULL);
+
+	free(g->files.a[img_idx].path);
+	g->files.a[img_idx].path = mystrdup(filename);
 
 	curl_easy_cleanup(curl);
 	return 1;
@@ -1031,12 +1031,10 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 			continue;
 
 		// have to use fullpath not d_name in case we're in a recursive call
-		cvec_push_str(&g->files, fullpath);
-
 		f.path = mystrdup(fullpath);
 		f.size = file_stat.st_size;
 		f.modified = file_stat.st_mtime;
-		cvec_push_file(&g->files_, &f);
+		cvec_push_file(&g->files, &f);
 	}
 
 	closedir(dir);
@@ -1090,10 +1088,10 @@ int load_new_images(void* data)
 					for (int i=0; i<g->n_imgs; ++i) {
 						do {
 							last = wrap(last + 1);
-							ret = load_image(g->files_.a[last].path, &img[i], SDL_FALSE);
+							ret = load_image(g->files.a[last].path, &img[i], SDL_FALSE);
 							if (!ret)
 								if (curl_image(last))
-									ret = load_image(g->files_.a[last].path, &img[i], SDL_FALSE);
+									ret = load_image(g->files.a[last].path, &img[i], SDL_FALSE);
 						} while (!ret);
 						set_rect_bestfit(&img[i], g->fullscreen | g->slideshow | g->fill_mode);
 						img[i].index = last;
@@ -1103,10 +1101,10 @@ int load_new_images(void* data)
 					for (int i=g->n_imgs-1; i>=0; --i) {
 						do {
 							last = wrap(last - 1);
-							ret = load_image(g->files_.a[last].path, &img[i], SDL_FALSE);
+							ret = load_image(g->files.a[last].path, &img[i], SDL_FALSE);
 							if (!ret)
 								if (curl_image(last))
-									ret = load_image(g->files_.a[last].path, &img[i], SDL_FALSE);
+									ret = load_image(g->files.a[last].path, &img[i], SDL_FALSE);
 						} while (!ret);
 						set_rect_bestfit(&img[i], g->fullscreen | g->slideshow | g->fill_mode);
 						img[i].index = last;
@@ -1114,31 +1112,31 @@ int load_new_images(void* data)
 				}
 
 				// just set title to upper left image when !img_focus
-				SDL_SetWindowTitle(g->win, mybasename(g->files_.a[img[0].index].path, title_buf));
+				SDL_SetWindowTitle(g->win, mybasename(g->files.a[img[0].index].path, title_buf));
 			} else {
 				tmp = (load_what == RIGHT) ? 1 : -1;
 				last = g->img_focus->index;
 				do {
 					last = wrap(last + tmp);
-					ret = load_image(g->files_.a[last].path, &img[0], SDL_FALSE);
+					ret = load_image(g->files.a[last].path, &img[0], SDL_FALSE);
 					if (!ret)
 						if (curl_image(last))
-							ret = load_image(g->files_.a[last].path, &img[0], SDL_FALSE);
+							ret = load_image(g->files.a[last].path, &img[0], SDL_FALSE);
 				} while (!ret);
 				img[0].index = last;
 				img[0].scr_rect = g->img_focus->scr_rect;
 				set_rect_bestfit(&img[0], g->fullscreen | g->slideshow | g->fill_mode);
-				SDL_SetWindowTitle(g->win, mybasename(g->files_.a[img[0].index].path, title_buf));
+				SDL_SetWindowTitle(g->win, mybasename(g->files.a[img[0].index].path, title_buf));
 			}
 		} else {
 			last = g->img[g->n_imgs-1].index;
 			for (int i=g->n_imgs; i<load_what; ++i) {
 				do {
 					last = wrap(last + 1);
-					ret = load_image(g->files_.a[last].path, &g->img[i], SDL_FALSE);
+					ret = load_image(g->files.a[last].path, &g->img[i], SDL_FALSE);
 					if (!ret)
 						if (curl_image(last))
-							ret = load_image(g->files_.a[last].path, &g->img[i], SDL_FALSE);
+							ret = load_image(g->files.a[last].path, &g->img[i], SDL_FALSE);
 				} while (!ret);
 				g->img[i].index = last;
 			}
@@ -1193,13 +1191,13 @@ void setup(int start_idx)
 	g->img[0].frame_capacity = 100;
 
 	g->img[0].index = start_idx;
-	char* img_name = g->files_.a[start_idx].path;
+	char* img_name = g->files.a[start_idx].path;
 	// TODO best way to structure this and use in main()?
 	int ret = load_image(img_name, &g->img[0], SDL_FALSE);
 	if (!ret) {
 		if (curl_image(0)) {
-			ret = load_image(g->files_.a[0].path, &g->img[0], SDL_FALSE);
-			img_name = g->files_.a[0].path;
+			ret = load_image(g->files.a[0].path, &g->img[0], SDL_FALSE);
+			img_name = g->files.a[0].path;
 		}
 	}
 
@@ -1512,7 +1510,7 @@ void do_shuffle()
 	if (g->n_imgs != 1 || g->generating_thumbs) {
 		return;
 	}
-	char* save = g->files_.a[g->img[0].index].path;
+	char* save = g->files.a[g->img[0].index].path;
 	file tmpf;
 
 	thumb_state tmp_thumb;
@@ -1521,9 +1519,9 @@ void do_shuffle()
 	for (int i=g->files.size-1; i>0; --i) {
 		j = rand() % (i+1);
 
-		tmpf = g->files_.a[i];
-		g->files_.a[i] = g->files_.a[j];
-		g->files_.a[j] = tmpf;
+		tmpf = g->files.a[i];
+		g->files.a[i] = g->files.a[j];
+		g->files.a[j] = tmpf;
 
 		if (g->thumbs.a) {
 			tmp_thumb = g->thumbs.a[i];
@@ -1533,7 +1531,7 @@ void do_shuffle()
 	}
 
 	for (int i=0; i<g->files.size; ++i) {
-		if (!strcmp(save, g->files_.a[i].path)) {
+		if (!strcmp(save, g->files.a[i].path)) {
 			g->img[0].index = i;
 			g->thumb_sel = i;
 			break;
@@ -1547,13 +1545,13 @@ void do_sort()
 		return;
 	}
 
-	char* save = g->files_.a[g->img[0].index].path;
+	char* save = g->files.a[g->img[0].index].path;
 
 	// g->thumbs.a is either NULL or valid
-	sort(g->files_.a, g->thumbs.a, g->files.size, filepath_cmp);
+	sort(g->files.a, g->thumbs.a, g->files.size, filepath_cmp);
 
 	for (int i=0; i<g->files.size; ++i) {
-		if (!strcmp(save, g->files_.a[i].path)) {
+		if (!strcmp(save, g->files.a[i].path)) {
 			g->img[0].index = i;
 			g->thumb_sel = i;
 			break;
@@ -1764,7 +1762,7 @@ void do_delete(SDL_Event* next)
 		return;
 	}
 
-	char* full_img_path = g->files_.a[g->img[0].index].path;
+	char* full_img_path = g->files.a[g->img[0].index].path;
 
 	snprintf(msgbox_prompt, STRBUF_SZ, "Are you sure you want to delete '%s'?", full_img_path);
 	messageboxdata.message = msgbox_prompt;
@@ -1774,7 +1772,7 @@ void do_delete(SDL_Event* next)
 			perror("Failed to delete image");
 		} else {
 			printf("Deleted %s\n", full_img_path);
-			cvec_erase_str(&g->files, g->img[0].index, g->img[0].index);
+			cvec_erase_file(&g->files, g->img[0].index, g->img[0].index);
 
 			if (g->thumbs.a) {
 				cvec_erase_thumb_state(&g->thumbs, g->img[0].index, g->img[0].index);
@@ -1842,7 +1840,7 @@ int do_copy()
 #ifndef _WIN32
 	SDL_SetClipboardText(img->fullpath);
 #else
-	SDL_SetClipboardText(g->files_.a[img->index].path);
+	SDL_SetClipboardText(g->files.a[img->index].path);
 #endif
 
 	SDL_MessageBoxButtonData buttons[] = {
@@ -1982,12 +1980,11 @@ int handle_thumb_events()
 					// to not show again?
 					//
 					// TODO refactor to combine normal and visual mode x
-					if (remove(g->files_.a[g->thumb_sel].path)) {
+					if (remove(g->files.a[g->thumb_sel].path)) {
 						perror("Failed to delete image");
 					} else {
-						printf("Deleted %s\n", g->files_.a[g->thumb_sel].path);
-						cvec_erase_str(&g->files, g->thumb_sel, g->thumb_sel);
-						cvec_erase_file(&g->files_, g->thumb_sel, g->thumb_sel);
+						printf("Deleted %s\n", g->files.a[g->thumb_sel].path);
+						cvec_erase_file(&g->files, g->thumb_sel, g->thumb_sel);
 						cvec_erase_thumb_state(&g->thumbs, g->thumb_sel, g->thumb_sel);
 						if (!g->files.size) {
 							puts("You deleted all your currently viewed images, exiting");
@@ -2008,12 +2005,12 @@ int handle_thumb_events()
 						start = g->thumb_sel_end;
 					}
 					for (int i=start; i<=end; ++i) {
-						if (remove(g->files_.a[i].path))
+						if (remove(g->files.a[i].path))
 							perror("Failed to delete image");
 						else
-							printf("Deleted %s\n", g->files_.a[i].path);
+							printf("Deleted %s\n", g->files.a[i].path);
 					}
-					cvec_erase_str(&g->files, start, end);
+					cvec_erase_file(&g->files, start, end);
 					cvec_erase_thumb_state(&g->thumbs, start, end);
 
 					if (!g->files.size) {
@@ -2048,8 +2045,8 @@ int handle_thumb_events()
 					//text[0] = 0;
 					for (int i=0; i<g->files.size; ++i) {
 						// GNU function...
-						if (strcasestr(g->files_.a[i].path, text)) {
-							printf("Adding %s\n", g->files_.a[i].path);
+						if (strcasestr(g->files.a[i].path, text)) {
+							printf("Adding %s\n", g->files.a[i].path);
 							cvec_push_i(&g->search_results, i);
 						}
 					}
@@ -2286,11 +2283,11 @@ int handle_thumb_events()
 	}
 		
 	if (g->thumb_mode) {
-		SDL_SetWindowTitle(g->win, mybasename(g->files_.a[g->thumb_sel].path, title_buf));
+		SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->thumb_sel].path, title_buf));
 	} else if (g->img_focus) {
-		SDL_SetWindowTitle(g->win, mybasename(g->files_.a[g->img_focus->index].path, title_buf));
+		SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
 	} else {
-		SDL_SetWindowTitle(g->win, mybasename(g->files_.a[g->img[0].index].path, title_buf));
+		SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img[0].index].path, title_buf));
 	}
 
 	return 0;
@@ -2491,14 +2488,14 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_0:
 				g->img_focus = NULL;
-				SDL_SetWindowTitle(g->win, mybasename(g->files_.a[g->img[0].index].path, title_buf));
+				SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img[0].index].path, title_buf));
 				break;
 			case SDL_SCANCODE_1:
 				if (!g->loading && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					do_mode_change(MODE1);
 				} else if (g->n_imgs >= 2) {
 					g->img_focus = &g->img[0];
-					SDL_SetWindowTitle(g->win, mybasename(g->files_.a[g->img_focus->index].path, title_buf));
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
 				}
 				break;
 			case SDL_SCANCODE_2:
@@ -2506,14 +2503,14 @@ int handle_events_normally()
 					do_mode_change(MODE2);
 				} else if (g->n_imgs >= 2) {
 					g->img_focus = &g->img[1];
-					SDL_SetWindowTitle(g->win, mybasename(g->files_.a[g->img_focus->index].path, title_buf));
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
 				}
 				break;
 			case SDL_SCANCODE_3:
 				g->status = REDRAW;
 				if (g->n_imgs >= 3) {
 					g->img_focus = &g->img[2];
-					SDL_SetWindowTitle(g->win, mybasename(g->files_.a[g->img_focus->index].path, title_buf));
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
 				}
 				break;
 			case SDL_SCANCODE_4:
@@ -2521,28 +2518,28 @@ int handle_events_normally()
 					do_mode_change(MODE4);
 				} else if (g->n_imgs >= 4) {
 					g->img_focus = &g->img[3];
-					SDL_SetWindowTitle(g->win, mybasename(g->files_.a[g->img_focus->index].path, title_buf));
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
 				}
 				break;
 			case SDL_SCANCODE_5:
 				g->status = REDRAW;
 				if (g->n_imgs >= 5) {
 					g->img_focus = &g->img[4];
-					SDL_SetWindowTitle(g->win, mybasename(g->files_.a[g->img_focus->index].path, title_buf));
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
 				}
 				break;
 			case SDL_SCANCODE_6:
 				g->status = REDRAW;
 				if (g->n_imgs >= 6) {
 					g->img_focus = &g->img[5];
-					SDL_SetWindowTitle(g->win, mybasename(g->files_.a[g->img_focus->index].path, title_buf));
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
 				}
 				break;
 			case SDL_SCANCODE_7:
 				g->status = REDRAW;
 				if (g->n_imgs >= 7) {
 					g->img_focus = &g->img[6];
-					SDL_SetWindowTitle(g->win, mybasename(g->files_.a[g->img_focus->index].path, title_buf));
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
 				}
 				break;
 			case SDL_SCANCODE_8:
@@ -2550,7 +2547,7 @@ int handle_events_normally()
 					do_mode_change(MODE8);
 				} else if (g->n_imgs >= 8) {
 					g->img_focus = &g->img[7];
-					SDL_SetWindowTitle(g->win, mybasename(g->files_.a[g->img_focus->index].path, title_buf));
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
 				}
 				break;
 
@@ -2938,7 +2935,7 @@ void print_help(char* prog_name, int verbose)
 	}
 }
 
-void read_list(cvector_str* images, FILE* list_file)
+void read_list(cvector_file* images, FILE* list_file)
 {
 	char* s;
 	char line[STRBUF_SZ] = { 0 };
@@ -2960,10 +2957,8 @@ void read_list(cvector_str* images, FILE* list_file)
 			memmove(s, &s[1], len-2);
 		}
 		normalize_path(s);
-		cvec_push_str(images, s);
-
 		f.path = mystrdup(s);
-		cvec_push_file(&g->files_, &f);
+		cvec_push_file(images, &f);
 	}
 }
 
@@ -3005,8 +3000,7 @@ int main(int argc, char** argv)
 		puts("Failed to initialize libcurl");
 		cleanup(1, 0);
 	}
-	cvec_str(&g->files, 0, 100);
-	cvec_file(&g->files_, 0, 100, free_file, NULL);
+	cvec_file(&g->files, 0, 100, free_file, NULL);
 	// g->thumbs initialized if needed in generate_thumbs()
 
 	// Not currently used
@@ -3148,19 +3142,15 @@ int main(int argc, char** argv)
 				myscandir(argv[i], exts, num_exts, recurse);
 			} else if(S_ISREG(file_stat.st_mode)) {
 				img_args++;
-				cvec_push_str(&g->files, argv[i]);
-
 				f.path = mystrdup(argv[i]);
 				f.size = file_stat.st_size;
 				f.modified = file_stat.st_mtime;
-				cvec_push_file(&g->files_, &f);
+				cvec_push_file(&g->files, &f);
 			} else {
-				cvec_push_str(&g->files, argv[i]);
-
 				f.path = mystrdup(argv[i]);
 				f.size = 0;
 				f.modified = 0;
-				cvec_push_file(&g->files_, &f);
+				cvec_push_file(&g->files, &f);
 			}
 		}
 	}
@@ -3174,27 +3164,27 @@ int main(int argc, char** argv)
 	// if given a single local image, scan all the files in the same directory
 	// don't do this if a list and/or directory was given even if they were empty
 	if (g->files.size == 1 && img_args == 1 && !given_list && !given_dir) {
-		mydirname(g->files_.a[0].path, dirpath);
-		mybasename(g->files_.a[0].path, img_name);
+		mydirname(g->files.a[0].path, dirpath);
+		mybasename(g->files.a[0].path, img_name);
 
-		cvec_pop_str(&g->files, NULL);
+		cvec_pop_file(&g->files, NULL);
 
 		myscandir(dirpath, exts, num_exts, recurse); // allow recurse for base case?
 
 		snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, img_name);
 
-		sort(g->files_.a, NULL, g->files.size, filepath_cmp);
+		sort(g->files.a, NULL, g->files.size, filepath_cmp);
 
 		printf("finding current image to update index\n");
 		file* res;
 		f.path = fullpath;
-		res = bsearch(&f, g->files_.a, g->files.size, sizeof(file), filepath_cmp);
+		res = bsearch(&f, g->files.a, g->files.size, sizeof(file), filepath_cmp);
 		if (!res) {
 			cleanup(0, 1);
 		}
-		start_index = res - g->files_.a;
+		start_index = res - g->files.a;
 	} else {
-		sort(g->files_.a, NULL, g->files.size, filepath_cmp);
+		sort(g->files.a, NULL, g->files.size, filepath_cmp);
 	}
 
 	printf("Loaded %lu filenames\n", (unsigned long)g->files.size);
