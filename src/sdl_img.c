@@ -74,7 +74,8 @@ enum { OFF, ON, VISUAL, SEARCH, RESULTS }; // better names?
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
-       MODE_CHANGE, THUMB_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, NUM_USEREVENTS };
+       MODE_CHANGE, THUMB_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, SHUFFLE,
+       SORT_NAME, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -1539,7 +1540,7 @@ void do_shuffle()
 	}
 }
 
-void do_sort()
+void do_sort(compare_func cmp)
 {
 	if (g->n_imgs != 1 || g->generating_thumbs) {
 		return;
@@ -1548,7 +1549,7 @@ void do_sort()
 	char* save = g->files.a[g->img[0].index].path;
 
 	// g->thumbs.a is either NULL or valid
-	sort(g->files.a, g->thumbs.a, g->files.size, filepath_cmp);
+	sort(g->files.a, g->thumbs.a, g->files.size, cmp);
 
 	for (int i=0; i<g->files.size; ++i) {
 		if (!strcmp(save, g->files.a[i].path)) {
@@ -2420,6 +2421,18 @@ int handle_events_normally()
 			case ACTUAL_SIZE:
 				do_actual_size();
 				break;
+			case SHUFFLE:
+				do_shuffle();
+				break;
+			case SORT_NAME:
+				do_sort(filepath_cmp);
+				break;
+			case SORT_SIZE:
+				do_sort(filesize_cmp);
+				break;
+			case SORT_MODIFIED:
+				do_sort(filemodified_cmp);
+				break;
 			case DELETE_IMG:
 				do_delete(&space);
 				break;
@@ -2559,8 +2572,14 @@ int handle_events_normally()
 				do_shuffle();
 				break;
 
-			case SDL_SCANCODE_O:
-				do_sort();
+			case SDL_SCANCODE_N:
+				do_sort(filepath_cmp);
+				break;
+			case SDL_SCANCODE_Z:
+				do_sort(filesize_cmp);
+				break;
+			case SDL_SCANCODE_T:
+				do_sort(filemodified_cmp);
 				break;
 
 			case SDL_SCANCODE_P:
@@ -2574,7 +2593,7 @@ int handle_events_normally()
 				}
 				break;
 
-			case SDL_SCANCODE_T:
+			case SDL_SCANCODE_U:
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					do_thumbmode();
 				} else {

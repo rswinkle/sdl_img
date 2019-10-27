@@ -39,7 +39,9 @@ alphabetical order.
 | A                 | Actual size |
 | F                 | Toggle fill screen mode |
 | M                 | Shuffle (Mix) the images (only in single mode) |
-| O                 | Sort (Order) the images by name (only in single mode) |
+| N                 | Sort the images by name (only in single mode) |
+| Z                 | Sort the images by size (only in single mode) |
+| T                 | Sort the images by last modified (only in single mode) |
 | P                 | Pause/Unpause gif |
 | ALT + F or F11    | Toggle Fullscreen |
 | ESC               | Exit (or exit Slideshow mode then fullscreen) |
@@ -50,7 +52,7 @@ alphabetical order.
 | CTRL + 2          | Double image mode |
 | CTRL + 4          | Quad image mode   |
 | CTRL + 8          | 8 image mode      |
-| CTRL + T          | Thumbnail mode    |
+| CTRL + U          | Thumbnail mode    |
 | F1 - F10          | Start a slideshow with 1 - 10 second delay |
 
 The most obvious unique features are the multi-image modes but others include

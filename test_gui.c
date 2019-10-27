@@ -485,7 +485,6 @@ void draw_gui(struct nk_context* ctx)
 					nk_menu_item_label(ctx, "Mix images", NK_TEXT_LEFT);
 					nk_label(ctx, "M", NK_TEXT_RIGHT);
 
-					// TODO sort submenu with sort by name, size, modified etc.
 					nk_menu_item_label(ctx, "Sort by name (default)", NK_TEXT_LEFT);
 					nk_label(ctx, "N", NK_TEXT_RIGHT);
 					nk_menu_item_label(ctx, "Sort by size", NK_TEXT_LEFT);
@@ -547,7 +546,7 @@ void draw_gui(struct nk_context* ctx)
 				nk_label(ctx, "CTRL+8", NK_TEXT_RIGHT);
 
 				nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT);
-				nk_label(ctx, "CTRL+T", NK_TEXT_RIGHT);
+				nk_label(ctx, "CTRL+U", NK_TEXT_RIGHT);
 
 				nk_tree_pop(ctx);
 			} else menu_state = (menu_state == MENU_VIEW) ? MENU_NONE: menu_state;

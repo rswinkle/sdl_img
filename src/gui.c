@@ -6,7 +6,7 @@ void set_fullscreen();
 // TODO better name? cleardir?
 int empty_dir(const char* dirpath);
 
-enum { MENU_NONE, MENU_MISC, MENU_EDIT, MENU_VIEW };
+enum { MENU_NONE, MENU_MISC, MENU_SORT, MENU_EDIT, MENU_VIEW };
 
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h);
@@ -252,17 +252,45 @@ void draw_gui(struct nk_context* ctx)
 				}
 				nk_label(ctx, "A", NK_TEXT_RIGHT);
 
-				if (g->n_imgs == 1) {
-					nk_menu_item_label(ctx, "Mix images", NK_TEXT_LEFT);
-					nk_label(ctx, "M", NK_TEXT_RIGHT);
-
-					nk_menu_item_label(ctx, "Sort by name (default)", NK_TEXT_LEFT);
-					nk_label(ctx, "O", NK_TEXT_RIGHT);
-				}
-
 				nk_tree_pop(ctx);
 			} else g->menu_state = (g->menu_state == MENU_MISC) ? MENU_NONE : g->menu_state;
 
+			state = (g->menu_state == MENU_SORT) ? NK_MAXIMIZED : NK_MINIMIZED;
+			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Sort Actions", &state)) {
+				g->menu_state = MENU_SORT;
+
+				if (g->n_imgs == 1) {
+					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+					if (nk_menu_item_label(ctx, "Mix images", NK_TEXT_LEFT)) {
+						event.user.code = SHUFFLE;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "M", NK_TEXT_RIGHT);
+
+					if (nk_menu_item_label(ctx, "Sort by name (default)", NK_TEXT_LEFT)) {
+						event.user.code = SORT_NAME;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "N", NK_TEXT_RIGHT);
+
+					if (nk_menu_item_label(ctx, "Sort by size", NK_TEXT_LEFT)) {
+						event.user.code = SORT_SIZE;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "Z", NK_TEXT_RIGHT);   // S is save...
+
+					if (nk_menu_item_label(ctx, "Sort by last modified", NK_TEXT_LEFT)) {
+						event.user.code = SORT_MODIFIED;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "T", NK_TEXT_RIGHT);  // CTRL+T is thumb mode...
+				} else {
+					nk_layout_row_dynamic(ctx, 0, 1);
+					nk_label(ctx, "Only available in 1 image mode", NK_TEXT_LEFT);
+				}
+
+				nk_tree_pop(ctx);
+			} else g->menu_state = (g->menu_state == MENU_SORT) ? MENU_NONE : g->menu_state;
 
 			state = (g->menu_state == MENU_EDIT) ? NK_MAXIMIZED: NK_MINIMIZED;
 			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Image Actions", &state)) {
@@ -340,7 +368,7 @@ void draw_gui(struct nk_context* ctx)
 					event.user.code = THUMB_MODE;
 					SDL_PushEvent(&event);
 				}
-				nk_label(ctx, "CTRL+T", NK_TEXT_RIGHT);
+				nk_label(ctx, "CTRL+U", NK_TEXT_RIGHT);
 
 				nk_tree_pop(ctx);
 			} else g->menu_state = (g->menu_state == MENU_VIEW) ? MENU_NONE: g->menu_state;

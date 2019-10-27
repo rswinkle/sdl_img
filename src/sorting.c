@@ -137,10 +137,13 @@ int cmp_string_lt(const void* a, const void* b)
 	return strcmp(*(const char**)a, *(const char**)b);
 }
 
+
+typedef int (*compare_func)(const void* a, const void* b);
+
 // TODO use quick sort or generic quicksort
 //
 //Mirrored Insertion sort, sorts a and b based on a
-void sort(file* a, thumb_state* b, size_t n, int (*cmp)(const void*, const void*))
+void sort(file* a, thumb_state* b, size_t n, compare_func cmp)
 {
 	int j;
 	file temp;
