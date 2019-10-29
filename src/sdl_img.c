@@ -20,8 +20,8 @@
 #define _GNU_SOURCE
 
 #define CVECTOR_IMPLEMENTATION
-#define CVEC_ONLY_STR
 #define CVEC_ONLY_INT
+#define CVEC_ONLY_STR
 #include "cvector.h"
 
 #include "WjCryptLib_Md5.c"
@@ -282,6 +282,7 @@ typedef struct global_state
 	//char* config_dir;
 
 	cvector_file files;
+	cvector_str favs;
 
 	int fullscreen;
 	int fill_mode;
@@ -383,6 +384,15 @@ char* mybasename(const char* path, char* base)
 	base[end-start+1] = 0;
 
 	return base;
+}
+
+//stupid windows
+void normalize_path(char* path)
+{
+	for (int i=0; path[i]; ++i) {
+		if (path[i] == '\\')
+			path[i] = '/';
+	}
 }
 
 #include "sorting.c"
@@ -1796,7 +1806,52 @@ void do_actual_size()
 	}
 }
 
+// simple way to handle both cases.  Will remove paths when/if I switch to
+// some other format for favorites, sqlite maybe?
+void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
+{
+	char* s;
+	char line[STRBUF_SZ] = { 0 };
+	int len;
+	file f = { 0 }; // 0 out time and size since we don't stat lists
+
+	while ((s = fgets(line, STRBUF_SZ, list_file))) {
+		// ignore comments in gqview/gthumb collection format useful
+		// when combined with findimagedupes collection output
+		if (s[0] == '#')
+			continue;
+
+		len = strlen(s);
+		if (s[len-1] == '\n')
+			s[len-1] = 0;
+		// handle quoted paths
+		if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
+			s[len-2] = 0;
+			memmove(s, &s[1], len-2);
+		}
+		normalize_path(s);
+		if (files) {
+			f.path = mystrdup(s);
+			cvec_push_file(files, &f);
+		}
+		if (paths) {
+			cvec_push_str(paths, s);
+		}
+	}
+}
+
 #ifndef _WIN32
+
+int cvec_contains_str(cvector_str* list, char* s)
+{
+	for (int i=0; i<list->size; ++i) {
+		if (!strcmp(list->a[i], s)) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 // TODO simple cross platform realpath
 void do_save()
 {
@@ -1808,13 +1863,30 @@ void do_save()
 	snprintf(buf, STRBUF_SZ, "%s/favorites.txt", prefpath);
 	SDL_free(prefpath);
 
+	FILE* f = NULL;
+	if (!g->favs.size) {
+		f = fopen(buf, "r");
+		read_list(NULL, &g->favs, f);
+		fclose(f);
+	}
+
 	printf("saving to %s\n", buf);
-	FILE* f = fopen(buf, "a");
+	f = fopen(buf, "a");
 	if (g->img_focus) {
-		fprintf(f, "%s\n", g->img_focus->fullpath);
+		if (cvec_contains_str(&g->favs, g->img_focus->fullpath)) {
+			printf("%s already in favorites\n", g->img_focus->fullpath);
+		} else {
+			fprintf(f, "%s\n", g->img_focus->fullpath);
+			cvec_push_str(&g->favs, g->img_focus->fullpath);
+		}
 	} else {
 		for (int i=0; i<g->n_imgs; ++i) {
-			fprintf(f, "%s\n", g->img[i].fullpath);
+			if (cvec_contains_str(&g->favs, g->img[i].fullpath)) {
+				printf("%s already in favorites\n", g->img[i].fullpath);
+			} else {
+				fprintf(f, "%s\n", g->img[i].fullpath);
+				cvec_push_str(&g->favs, g->img[i].fullpath);
+			}
 		}
 	}
 
@@ -2927,15 +2999,6 @@ int handle_events()
 		return handle_thumb_events();
 }
 
-//stupid windows
-void normalize_path(char* path)
-{
-	for (int i=0; path[i]; ++i) {
-		if (path[i] == '\\')
-			path[i] = '/';
-	}
-}
-
 void print_help(char* prog_name, int verbose)
 {
 	puts("Usage:");
@@ -2951,33 +3014,6 @@ void print_help(char* prog_name, int verbose)
 		puts("  -c, --cache ./your_cache_loc       Use specified directory as cache");
 		puts("  -v, --version                      Show the version");
 		puts("  -h, --help                         Show this help");
-	}
-}
-
-void read_list(cvector_file* images, FILE* list_file)
-{
-	char* s;
-	char line[STRBUF_SZ] = { 0 };
-	int len;
-	file f = { 0 }; // 0 out time and size since we don't stat lists
-
-	while ((s = fgets(line, STRBUF_SZ, list_file))) {
-		// ignore comments in gqview/gthumb collection format useful
-		// when combined with findimagedupes collection output
-		if (s[0] == '#')
-			continue;
-
-		len = strlen(s);
-		if (s[len-1] == '\n')
-			s[len-1] = 0;
-		// handle quoted paths
-		if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
-			s[len-2] = 0;
-			memmove(s, &s[1], len-2);
-		}
-		normalize_path(s);
-		f.path = mystrdup(s);
-		cvec_push_file(images, &f);
 	}
 }
 
@@ -3020,6 +3056,7 @@ int main(int argc, char** argv)
 		cleanup(1, 0);
 	}
 	cvec_file(&g->files, 0, 100, free_file, NULL);
+	cvec_str(&g->favs, 0, 50);
 	// g->thumbs initialized if needed in generate_thumbs()
 
 	// Not currently used
@@ -3083,7 +3120,7 @@ int main(int argc, char** argv)
 				cleanup(1, 0);
 			}
 			given_list = 1;
-			read_list(&g->files, file);
+			read_list(&g->files, NULL, file);
 			fclose(file);
 		} else if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {
 			int delay;
