@@ -33,7 +33,7 @@ alphabetical order.
 | CTRL+Space        | Previous image(s) |
 | +/-               | Zoom in/out |
 | ALT + +/-         | Speed up or slow down an animated gif |
-| ALT + Direction   | Next or previous image(s) even when zoomed in |
+| CTRL + Direction  | Next or previous image(s) even when zoomed in |
 | Mouse Wheel       | Zoom in/out |
 | Left click + drag | Pan around a zoomed in image |
 | A                 | Actual size |

@@ -2750,7 +2750,7 @@ int handle_events_normally()
 			case SDL_SCANCODE_RIGHT:
 				zoomed = 0;
 				g->status = REDRAW;
-				if (g->loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
@@ -2778,7 +2778,7 @@ int handle_events_normally()
 			case SDL_SCANCODE_DOWN:
 				zoomed = 0;
 				g->status = REDRAW;
-				if (g->loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
@@ -2807,7 +2807,7 @@ int handle_events_normally()
 			case SDL_SCANCODE_LEFT:
 				zoomed = 0;
 				g->status = REDRAW;
-				if (g->loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
@@ -2835,7 +2835,7 @@ int handle_events_normally()
 			case SDL_SCANCODE_UP:
 				zoomed = 0;
 				g->status = REDRAW;
-				if (g->loading || !(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
