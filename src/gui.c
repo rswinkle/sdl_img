@@ -267,11 +267,17 @@ void draw_gui(struct nk_context* ctx)
 					}
 					nk_label(ctx, "M", NK_TEXT_RIGHT);
 
-					if (nk_menu_item_label(ctx, "Sort by name (default)", NK_TEXT_LEFT)) {
+					if (nk_menu_item_label(ctx, "Sort by file name (default)", NK_TEXT_LEFT)) {
 						event.user.code = SORT_NAME;
 						SDL_PushEvent(&event);
 					}
 					nk_label(ctx, "N", NK_TEXT_RIGHT);
+
+					if (nk_menu_item_label(ctx, "Sort by file path", NK_TEXT_LEFT)) {
+						event.user.code = SORT_PATH;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "CTRL+N", NK_TEXT_RIGHT);
 
 					if (nk_menu_item_label(ctx, "Sort by size", NK_TEXT_LEFT)) {
 						event.user.code = SORT_SIZE;

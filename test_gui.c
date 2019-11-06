@@ -487,6 +487,8 @@ void draw_gui(struct nk_context* ctx)
 
 					nk_menu_item_label(ctx, "Sort by name (default)", NK_TEXT_LEFT);
 					nk_label(ctx, "N", NK_TEXT_RIGHT);
+					nk_menu_item_label(ctx, "Sort by full path", NK_TEXT_LEFT);
+					nk_label(ctx, "CTRL+N", NK_TEXT_RIGHT);
 					nk_menu_item_label(ctx, "Sort by size", NK_TEXT_LEFT);
 					nk_label(ctx, "Z", NK_TEXT_RIGHT);   // S is save...
 					nk_menu_item_label(ctx, "Sort by last modified", NK_TEXT_LEFT);

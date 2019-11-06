@@ -75,7 +75,7 @@ enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
        MODE_CHANGE, THUMB_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, SHUFFLE,
-       SORT_NAME, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
+       SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -2497,6 +2497,9 @@ int handle_events_normally()
 				do_shuffle();
 				break;
 			case SORT_NAME:
+				do_sort(filename_cmp);
+				break;
+			case SORT_PATH:
 				do_sort(filepath_cmp);
 				break;
 			case SORT_SIZE:
@@ -2645,7 +2648,11 @@ int handle_events_normally()
 				break;
 
 			case SDL_SCANCODE_N:
-				do_sort(filepath_cmp);
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					do_sort(filepath_cmp);
+				} else {
+					do_sort(filename_cmp);
+				}
 				break;
 			case SDL_SCANCODE_Z:
 				do_sort(filesize_cmp);
@@ -3229,18 +3236,18 @@ int main(int argc, char** argv)
 
 		snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, img_name);
 
-		sort(g->files.a, NULL, g->files.size, filepath_cmp);
+		sort(g->files.a, NULL, g->files.size, filename_cmp);
 
 		printf("finding current image to update index\n");
 		file* res;
 		f.path = fullpath;
-		res = bsearch(&f, g->files.a, g->files.size, sizeof(file), filepath_cmp);
+		res = bsearch(&f, g->files.a, g->files.size, sizeof(file), filename_cmp);
 		if (!res) {
 			cleanup(0, 1);
 		}
 		start_index = res - g->files.a;
 	} else {
-		sort(g->files.a, NULL, g->files.size, filepath_cmp);
+		sort(g->files.a, NULL, g->files.size, filename_cmp);
 	}
 
 	printf("Loaded %lu filenames\n", (unsigned long)g->files.size);
