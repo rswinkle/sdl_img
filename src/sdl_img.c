@@ -3194,10 +3194,13 @@ int main(int argc, char** argv)
 		} else {
 			normalize_path(argv[i]);
 			if (stat(argv[i], &file_stat)) {
-				printf("Bad argument: \"%s\", skipping\n", argv[i]);
-				continue;
-			}
-			if (S_ISDIR(file_stat.st_mode)) {
+				//printf("Bad argument: \"%s\", skipping\n", argv[i]);
+				// assume it's a 
+				f.path = mystrdup(argv[i]);
+				f.size = 0;
+				f.modified = 0;
+				cvec_push_file(&g->files, &f);
+			} else if (S_ISDIR(file_stat.st_mode)) {
 				given_dir = 1;
 				len = strlen(argv[i]);
 				if (argv[i][len-1] == '/')
@@ -3208,11 +3211,6 @@ int main(int argc, char** argv)
 				f.path = mystrdup(argv[i]);
 				f.size = file_stat.st_size;
 				f.modified = file_stat.st_mtime;
-				cvec_push_file(&g->files, &f);
-			} else {
-				f.path = mystrdup(argv[i]);
-				f.size = 0;
-				f.modified = 0;
 				cvec_push_file(&g->files, &f);
 			}
 		}
