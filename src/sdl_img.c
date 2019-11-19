@@ -1815,6 +1815,8 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 	int len;
 	file f = { 0 }; // 0 out time and size since we don't stat lists
 
+	struct stat file_stat;
+
 	while ((s = fgets(line, STRBUF_SZ, list_file))) {
 		// ignore comments in gqview/gthumb collection format useful
 		// when combined with findimagedupes collection output
@@ -1830,10 +1832,27 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 			memmove(s, &s[1], len-2);
 		}
 		normalize_path(s);
+
 		if (files) {
-			f.path = mystrdup(s);
-			cvec_push_file(files, &f);
+			if (stat(s, &file_stat)) {
+				// assume it's a valid url, it will just skip over if it isn't
+				f.path = mystrdup(s);
+				f.size = 0;
+				f.modified = 0;
+				cvec_push_file(&g->files, &f);
+			} else if (S_ISDIR(file_stat.st_mode)) {
+				// Should I allow directories in a list?  Or make the user
+				// do the expansion so the list only has files/urls?
+				//
+				printf("Skipping directory found in list, only files and urls allowed.\n%s\n", s);
+			} else if(S_ISREG(file_stat.st_mode)) {
+				f.path = mystrdup(s);
+				f.size = file_stat.st_size;
+				f.modified = file_stat.st_mtime;
+				cvec_push_file(&g->files, &f);
+			}
 		}
+
 		if (paths) {
 			cvec_push_str(paths, s);
 		}
@@ -3194,8 +3213,8 @@ int main(int argc, char** argv)
 		} else {
 			normalize_path(argv[i]);
 			if (stat(argv[i], &file_stat)) {
-				//printf("Bad argument: \"%s\", skipping\n", argv[i]);
-				// assume it's a 
+				// printf("Bad argument: \"%s\", skipping\n", argv[i]);
+				// assume it's a valid url, it will just skip over if it isn't
 				f.path = mystrdup(argv[i]);
 				f.size = 0;
 				f.modified = 0;
