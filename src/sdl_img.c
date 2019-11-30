@@ -1794,6 +1794,21 @@ void do_delete(SDL_Event* next)
 	}
 }
 
+void do_remove(SDL_Event* next)
+{
+	// TODO allow in multi modes?
+	if (g->loading || g->n_imgs > 1)
+		return;
+
+	cvec_erase_file(&g->files, g->img[0].index, g->img[0].index);
+
+	if (g->thumbs.a) {
+		cvec_erase_thumb_state(&g->thumbs, g->img[0].index, g->img[0].index);
+	}
+	g->img[0].index--; // since everything shifted left, we need to pre-decrement to not skip an image
+	SDL_PushEvent(next);
+}
+
 void do_actual_size()
 {
 	g->status = REDRAW;
@@ -2406,6 +2421,10 @@ int handle_events_normally()
 	space.type = SDL_KEYDOWN;
 	space.key.keysym.scancode = SDL_SCANCODE_SPACE;
 
+	// I only set this to clear valgrind errors of jumps in
+	// nk_sdl_handle_event based uninitialized values
+	space.key.keysym.sym = SDLK_SPACE;
+
 	int ticks = SDL_GetTicks();
 
 	SDL_LockMutex(g->mtx);
@@ -2732,6 +2751,9 @@ int handle_events_normally()
 				}
 				break;
 
+			case SDL_SCANCODE_BACKSPACE:
+				do_remove(&space);
+				break;
 
 			case SDL_SCANCODE_F: {
 				g->status = REDRAW;
