@@ -2081,6 +2081,18 @@ int handle_thumb_events()
 					}
 				}
 				break;
+
+			// I can't decide, backspace for consistency with normal mode
+			// but r for "removal" even though in vim r means replace and x
+			// means remove but we have it remove and delete.  d would also work
+			// for delete...  Also r is rotate right (and CTRL+r is arbitrary rotation)
+			// in normal mode.
+			case SDLK_BACKSPACE:
+			case SDLK_r:
+				//TODO and test.  test removing an image or images
+				//that is currently being viewed in normal mode to make sure it's handled
+				//correctly.
+				break;
 			case SDLK_x:
 				if (g->thumb_mode == ON) {
 					// TODO warning? message prompt?  Maybe one time with a preference
