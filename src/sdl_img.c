@@ -2012,6 +2012,52 @@ void fix_thumb_sel(int dir)
 	}
 }
 
+void do_thumb_rem_del(int do_delete)
+{
+	// so code below works for both ON and VISUAL mode
+	if (g->thumb_mode == ON) {
+		g->thumb_sel_end = g->thumb_sel;
+	}
+
+	int start = g->thumb_sel, end = g->thumb_sel_end;
+	if (g->thumb_sel > g->thumb_sel_end) {
+		end = g->thumb_sel;
+		start = g->thumb_sel_end;
+	}
+	if (do_delete) {
+		for (int i=start; i<=end; ++i) {
+			if (remove(g->files.a[i].path))
+				perror("Failed to delete image");
+			else
+				printf("Deleted %s\n", g->files.a[i].path);
+		}
+	}
+	cvec_erase_file(&g->files, start, end);
+	cvec_erase_thumb_state(&g->thumbs, start, end);
+
+	if (!g->files.size) {
+		puts("You deleted all your currently viewed images, exiting");
+		cleanup(0, 1);
+	}
+
+	// TODO maybe set some state variable to trigger a NEXT event
+	// if they return to normal mode by ESC rather than hitting
+	// enter otherwise the removed/deleted image will still be their
+	// currently viewed image until they move (and if they move left
+	// they'll actually skip the image to the left since we artificially
+	// subtract one so going right will work normally)
+	for (int i=0; i<g->n_imgs; ++i) {
+		if (g->img[i].index >= start && g->img[i].index <= end) {
+			g->img[i].index = start-1;
+		}
+	}
+	g->thumb_sel = start;  // in case it was > _sel_end
+	fix_thumb_sel(1);
+
+	// exit Visual mode after x like vim
+	g->thumb_mode = ON;
+}
+
 int handle_thumb_events()
 {
 	SDL_Event e;
@@ -2089,65 +2135,11 @@ int handle_thumb_events()
 			// in normal mode.
 			case SDLK_BACKSPACE:
 			case SDLK_r:
-				//TODO and test.  test removing an image or images
-				//that is currently being viewed in normal mode to make sure it's handled
-				//correctly.
+				do_thumb_rem_del(SDL_FALSE);
 				break;
 			case SDLK_x:
-				if (g->thumb_mode == ON) {
-					// TODO warning? message prompt?  Maybe one time with a preference
-					// to not show again?
-					//
-					// TODO refactor to combine normal and visual mode x
-					if (remove(g->files.a[g->thumb_sel].path)) {
-						perror("Failed to delete image");
-					} else {
-						printf("Deleted %s\n", g->files.a[g->thumb_sel].path);
-						cvec_erase_file(&g->files, g->thumb_sel, g->thumb_sel);
-						cvec_erase_thumb_state(&g->thumbs, g->thumb_sel, g->thumb_sel);
-						if (!g->files.size) {
-							puts("You deleted all your currently viewed images, exiting");
-							cleanup(0, 1);
-						}
-						for (int i=0; i<g->n_imgs; ++i) {
-							if (g->img[i].index == g->thumb_sel) {
-								g->img[i].index--;
-								break;
-							}
-						}
-						fix_thumb_sel(1);
-					}
-				} else if (g->thumb_mode == VISUAL) {
-					int start = g->thumb_sel, end = g->thumb_sel_end;
-					if (g->thumb_sel > g->thumb_sel_end) {
-						end = g->thumb_sel;
-						start = g->thumb_sel_end;
-					}
-					for (int i=start; i<=end; ++i) {
-						if (remove(g->files.a[i].path))
-							perror("Failed to delete image");
-						else
-							printf("Deleted %s\n", g->files.a[i].path);
-					}
-					cvec_erase_file(&g->files, start, end);
-					cvec_erase_thumb_state(&g->thumbs, start, end);
-
-					if (!g->files.size) {
-						puts("You deleted all your currently viewed images, exiting");
-						cleanup(0, 1);
-					}
-
-					for (int i=0; i<g->n_imgs; ++i) {
-						if (g->img[i].index >= start && g->img[i].index <= end) {
-							g->img[i].index = start-1;
-						}
-					}
-					g->thumb_sel = start;  // in case it was > _sel_end
-					fix_thumb_sel(1);
-
-					// exit Visual mode after x like vim
-					g->thumb_mode = ON;
-				}
+				// TODO add a one time warning?  maybe a preference to turn warning on and off?
+				do_thumb_rem_del(SDL_TRUE);
 				break;
 			case SDLK_RETURN:
 				if (g->thumb_mode == ON || g->thumb_mode == RESULTS) {
