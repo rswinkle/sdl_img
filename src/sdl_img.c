@@ -2012,8 +2012,11 @@ void fix_thumb_sel(int dir)
 	}
 }
 
-void do_thumb_rem_del(int do_delete)
+void do_thumb_rem_del(int do_delete, int invert)
 {
+	// TODO code for invert, free selection, after I update cvector with cvec_remove* functions
+	// equivalent to cvec_erase* except not calling destructors (if any)
+
 	// so code below works for both ON and VISUAL mode
 	if (g->thumb_mode == ON) {
 		g->thumb_sel_end = g->thumb_sel;
@@ -2135,11 +2138,11 @@ int handle_thumb_events()
 			// in normal mode.
 			case SDLK_BACKSPACE:
 			case SDLK_r:
-				do_thumb_rem_del(SDL_FALSE);
+				do_thumb_rem_del(SDL_FALSE, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
 				break;
 			case SDLK_x:
 				// TODO add a one time warning?  maybe a preference to turn warning on and off?
-				do_thumb_rem_del(SDL_TRUE);
+				do_thumb_rem_del(SDL_TRUE, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
 				break;
 			case SDLK_RETURN:
 				if (g->thumb_mode == ON || g->thumb_mode == RESULTS) {
