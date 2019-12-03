@@ -529,11 +529,11 @@ int create_textures(img_state* img)
 	for (int i=0; i<img->frames; ++i) {
 		img->tex[i] = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, img->w, img->h);
 		if (!img->tex[i]) {
-			printf("Error creating texture: %s\n", SDL_GetError());
+			SDL_Log("Error creating texture: %s\n", SDL_GetError());
 			return 0;
 		}
 		if (SDL_UpdateTexture(img->tex[i], NULL, img->pixels+(size+2)*i, img->w*4)) {
-			printf("Error updating texture: %s\n", SDL_GetError());
+			SDL_Log("Error updating texture: %s\n", SDL_GetError());
 			return 0;
 		}
 	}
@@ -657,7 +657,7 @@ void get_thumbpath(const char* path, char* thumbpath, size_t thumbpath_len)
 	// could just do the %02x%02x etc. here but that'd be a long format string and 16 extra parameters
 	int ret = snprintf(thumbpath, thumbpath_len, "%s/%s.png", g->thumbdir, hash_str);
 	if (ret >= thumbpath_len) {
-		printf("path too long\n");
+		SDL_Log("path too long\n");
 		cleanup(0, 1);
 	}
 }
@@ -669,11 +669,11 @@ void make_thumb_tex(int i, int w, int h, u8* pix)
 
 	g->thumbs.a[i].tex = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, w, h);
 	if (!g->thumbs.a[i].tex) {
-		printf("Error creating texture: %s\n", SDL_GetError());
+		SDL_Log("Error creating texture: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
 	if (SDL_UpdateTexture(g->thumbs.a[i].tex, NULL, pix, w*4)) {
-		printf("Error updating texture: %s\n", SDL_GetError());
+		SDL_Log("Error updating texture: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
 
@@ -923,7 +923,7 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 
 #ifndef _WIN32
 	img->fullpath = realpath(fullpath, NULL);
-	printf("loading %s\n", fullpath);
+	SDL_Log("loading %s\n", fullpath);
 #endif
 
 	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, STBI_rgb_alpha, &frames);
@@ -1181,7 +1181,7 @@ void setup(int start_idx)
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
 		snprintf(error_str, STRBUF_SZ, "Couldn't initialize SDL: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
-		puts(error_str);
+		SDL_Log(error_str);
 		exit(1);
 	}
 
@@ -1221,11 +1221,23 @@ void setup(int start_idx)
 		printf("Error getting usable bounds: %s\n", SDL_GetError());
 		r.w = START_WIDTH;
 		r.h = START_HEIGHT;
+	} else {
+		SDL_Log("Usable Bounds: %d %d %d %d\n", r.x, r.y, r.w, r.h);
 	}
 	g->scr_w = MAX(g->img[0].w, START_WIDTH);
 	g->scr_h = MAX(g->img[0].h, START_HEIGHT);
-	g->scr_w = MIN(g->scr_w, r.w);
-	g->scr_h = MIN(g->scr_h, r.h-40); // UsableBounds doesn't account for bottom panel in Mate :-/
+	g->scr_w = MIN(g->scr_w, r.w - 20);  // to account for window borders/titlebar on non-X11 platforms
+	g->scr_h = MIN(g->scr_h, r.h - 40);
+
+	int max_w, max_h;
+	float hdpi = 0, vdpi = 0, ddpi = 0;
+	if (!SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi))
+		SDL_Log("DPIs: %.2f %.2f %.2f\n", ddpi, hdpi, vdpi);
+	if (!SDL_GetDisplayBounds(0, &r)) {
+		SDL_Log("Display Bounds: %d %d %d %d\n", r.x, r.y, r.w, r.h);
+		if (hdpi && vdpi && ddpi)
+			SDL_Log("Physical Screen size: %f %f %f\n", r.w / hdpi, r.h / vdpi, sqrt(r.w*r.w + r.h*r.h) / ddpi);
+	}
 
 	u32 win_flags = (g->fullscreen) ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_RESIZABLE;
 
@@ -1244,6 +1256,15 @@ void setup(int start_idx)
 		exit(1);
 	}
 
+	// GetWindowBorderSize is only supported on X11 (as of 2019)
+	int top, bottom, left, right;
+	if (!g->fullscreen && !SDL_GetWindowBordersSize(g->win, &top, &bottom, &left, &right)) {
+		g->scr_w -= left + right;
+		g->scr_h -= top + bottom;
+		SDL_SetWindowSize(g->win, g->scr_w, g->scr_h);
+		SDL_SetWindowPosition(g->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+	}
+
 	// No real reason for hardware acceleration and especially on older and/or mobile gpu's you can
 	// run into images larger than the max texture size which will then fail to load/display
 	//
@@ -1257,13 +1278,8 @@ void setup(int start_idx)
 		cleanup(1, 1);
 	}
 
-	if (!g->ren) {
-		puts(error_str);
-	}
-
-	float hdpi, vdpi, ddpi;
-	SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi);
-	printf("DPIs: %.2f %.2f %.2f\n", ddpi, hdpi, vdpi);
+	SDL_GetWindowMaximumSize(g->win, &max_w, &max_h);
+	SDL_Log("Window Max dimensions: %d %d\n", max_w, max_h);
 
 	// could adjust for dpi, then adjust for font size if necessary
 	g->x_scale = 2; //hdpi/72;
