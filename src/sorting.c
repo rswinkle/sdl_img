@@ -190,4 +190,75 @@ void sort(file* a, thumb_state* b, size_t n, compare_func cmp)
 	return;
 }
 
+// Generic Quicksort.  Partion pivots on last element
+int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare)(const void*, const void*))
+{
+	unsigned char* a = (unsigned char*)array;
+	unsigned char* x = &a[r*size];
+	size_t i = p-1;
+	int temp, k;
+	unsigned char* ptr1, *ptr2;
+
+	for (size_t j=p; j<r; ++j) {
+		if (compare(&a[j*size], x) <= 0) {
+			++i;
+
+			k = size;
+			ptr1 = &a[j*size];
+			ptr2 = &a[i*size];
+			while (k >= sizeof(int)) {
+				temp = *(int*)ptr1;
+				*(int*)ptr1 = *(int*)ptr2;
+				*(int*)ptr2 = temp;
+				k -= sizeof(int);
+				ptr1 += sizeof(int);
+				ptr2 += sizeof(int);
+			}
+			while (k) {
+				temp = *ptr1;
+				*ptr1 = *ptr2;
+				*ptr2 = temp;
+				--k;
+				++ptr1;
+				++ptr2;
+			}
+		}
+	}
+
+	++i;
+	k = size;
+	ptr1 = &a[i*size];
+	while (k >= sizeof(int)) {
+		temp = *(int*)ptr1;
+		*(int*)ptr1 = *(int*)x;
+		*(int*)x = temp;
+		k -= sizeof(int);
+		ptr1 += sizeof(int);
+		x += sizeof(int);
+	}
+	while (k) {
+		temp = *ptr1;
+		*ptr1 = *x;
+		*x = temp;
+		--k;
+		++ptr1;
+		++x;
+	}
+	return i;
+}
+
+void generic_qsort_recurse(void* a, size_t p, size_t r, size_t size, int(*compare)(const void*, const void*))
+{
+	if (p < r && ~r) {
+		int q = generic_partition(a, p, r, size, compare);
+		generic_qsort_recurse(a, p, q-1, size, compare);
+		generic_qsort_recurse(a, q+1, r, size, compare);
+	}
+}
+
+void generic_qsort(void* a, size_t n, size_t size, int(*compare)(const void* , const void*))
+{
+	generic_qsort_recurse(a, 0, n-1, size, compare);
+}
+
 

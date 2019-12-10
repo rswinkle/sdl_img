@@ -2048,14 +2048,14 @@ void do_thumb_rem_del(int do_delete, int invert)
 			if (remove(g->files.a[i].path))
 				perror("Failed to delete image");
 			else
-				printf("Deleted %s\n", g->files.a[i].path);
+				SDL_Log("Deleted %s\n", g->files.a[i].path);
 		}
 	}
 	cvec_erase_file(&g->files, start, end);
 	cvec_erase_thumb_state(&g->thumbs, start, end);
 
 	if (!g->files.size) {
-		puts("You deleted all your currently viewed images, exiting");
+		SDL_Log("You removed all your currently viewed images, exiting\n");
 		cleanup(0, 1);
 	}
 
