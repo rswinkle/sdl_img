@@ -190,19 +190,26 @@ void sort(file* a, thumb_state* b, size_t n, compare_func cmp)
 	return;
 }
 
+
+#define MAX_MIRRORS 10
+#define MAX_TYPESIZE 256
+
 // Generic Quicksort.  Partion pivots on last element
-int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare)(const void*, const void*))
+int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare)(const void*, const void*), int count, void** arrays, int* sizes)
 {
-	unsigned char* a = (unsigned char*)array;
-	unsigned char* x = &a[r*size];
+	char* a = (char*)array;
+	char* x = &a[r*size];
 	size_t i = p-1;
 	int temp, k;
-	unsigned char* ptr1, *ptr2;
+	char* ptr1, *ptr2;
+	char buf[MAX_TYPESIZE];
+	int sz;
 
 	for (size_t j=p; j<r; ++j) {
 		if (compare(&a[j*size], x) <= 0) {
 			++i;
 
+			// TODO use sizeof(long long)? memcopy/memmove?
 			k = size;
 			ptr1 = &a[j*size];
 			ptr2 = &a[i*size];
@@ -222,6 +229,16 @@ int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare
 				++ptr1;
 				++ptr2;
 			}
+
+			for (int m=0; m<count; ++m) {
+				ptr1 = (char*)arrays[m];
+				sz = sizes[m];
+				memcpy(buf, &ptr1[j*sz], sz);
+				memcpy(&ptr1[j*sz], &ptr1[i*sz], sz);
+				memcpy(&ptr1[i*sz], buf, sz);
+			}
+
+
 		}
 	}
 
@@ -244,21 +261,55 @@ int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare
 		++ptr1;
 		++x;
 	}
+	for (int m=0; m<count; ++m) {
+		ptr1 = (char*)arrays[m];
+		sz = sizes[m];
+		memcpy(buf, &ptr1[i*sz], sz);
+		memcpy(&ptr1[i*sz], &ptr1[r*sz], sz);
+		memcpy(&ptr1[r*sz], buf, sz);
+	}
 	return i;
 }
 
-void generic_qsort_recurse(void* a, size_t p, size_t r, size_t size, int(*compare)(const void*, const void*))
+void generic_qsort_recurse(void* a, size_t p, size_t r, size_t size, int(*compare)(const void*, const void*), int count, void** arrays, int* sizes)
 {
 	if (p < r && ~r) {
-		int q = generic_partition(a, p, r, size, compare);
-		generic_qsort_recurse(a, p, q-1, size, compare);
-		generic_qsort_recurse(a, q+1, r, size, compare);
+		int q = generic_partition(a, p, r, size, compare, count, arrays, sizes);
+		generic_qsort_recurse(a, p, q-1, size, compare, count, arrays, sizes);
+		generic_qsort_recurse(a, q+1, r, size, compare, count, arrays, sizes);
 	}
 }
 
-void generic_qsort(void* a, size_t n, size_t size, int(*compare)(const void* , const void*))
+void generic_qsort(void* a, size_t n, size_t size, int(*compare)(const void* , const void*), int count, void** arrays, int* sizes)
 {
-	generic_qsort_recurse(a, 0, n-1, size, compare);
+	generic_qsort_recurse(a, 0, n-1, size, compare, count, arrays, sizes);
 }
 
+void mirrored_qsort(void* a, size_t n, size_t size, int(*compare)(const void*, const void*), int count, ...)
+{
+	va_list args;
+	va_start(args, count);
+	if (count > MAX_MIRRORS) {
+		//puts("Too many mirrored arrays");
+		return;
+	}
+
+	void* arrays[MAX_MIRRORS];
+	int type_sizes[MAX_MIRRORS];
+	for (int i=0; i<count; ++i) {
+		arrays[i] = va_arg(args, void*);
+		type_sizes[i] = va_arg(args, int);
+		if (type_sizes[i] > MAX_TYPESIZE) {
+			//puts("At least one of mirrored types is too large");
+			return;
+		}
+	}
+
+	generic_qsort(a, n, size, compare, count, arrays, type_sizes);
+	va_end(args);
+
+
+}
+#undef MAX_MIRRORS
+#undef MAX_TYPESIZE
 

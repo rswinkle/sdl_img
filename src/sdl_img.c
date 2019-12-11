@@ -1575,7 +1575,11 @@ void do_sort(compare_func cmp)
 	char* save = g->files.a[g->img[0].index].path;
 
 	// g->thumbs.a is either NULL or valid
-	sort(g->files.a, g->thumbs.a, g->files.size, cmp);
+	//sort(g->files.a, g->thumbs.a, g->files.size, cmp);
+	if (g->thumbs.a)
+		mirrored_qsort(g->files.a, g->files.size, sizeof(file), cmp, 1, g->thumbs.a, sizeof(thumb_state));
+	else
+		mirrored_qsort(g->files.a, g->files.size, sizeof(file), cmp, 0);
 
 	for (int i=0; i<g->files.size; ++i) {
 		if (!strcmp(save, g->files.a[i].path)) {
