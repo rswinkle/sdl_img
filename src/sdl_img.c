@@ -734,7 +734,7 @@ int thumb_thread(void* data)
 
 		pix = stbi_load(g->files.a[i].path, &w, &h, &channels, 4);
 		if (!pix) {
-			printf("Couldn't load %s for thumbnail generation\n", g->files.a[i].path);
+			SDL_Log("Couldn't load %s for thumbnail generation\n", g->files.a[i].path);
 			continue;
 		}
 
@@ -763,12 +763,12 @@ int thumb_thread(void* data)
 		}
 		free(pix);
 		free(outpix);
-		printf("generated thumb %d for %s\n", i, g->files.a[i].path);
+		SDL_Log("generated thumb %d for %s\n", i, g->files.a[i].path);
 	}
 
 	g->generating_thumbs = SDL_FALSE;
 	g->thumbs_done = SDL_TRUE;
-	puts("Done generating thumbs, exiting thread.");
+	SDL_Log("Done generating thumbs, exiting thread.\n");
 	return 0;
 }
 
@@ -795,10 +795,11 @@ void generate_thumbs(intptr_t do_load)
 	// elem_init already NULL
 
 	g->generating_thumbs = SDL_TRUE;
-	puts("Starting thread to generate thumbs and create thumb textures...");
+	SDL_Log("Starting thread to generate thumbs and create thumb textures...\n");
 	SDL_Thread* thumb_thrd;
 	if (!(thumb_thrd = SDL_CreateThread(thumb_thread, "thumb_thrd", (void*)do_load))) {
-		puts("couldn't create thumb thread");
+		// TODO warning?
+		SDL_Log("couldn't create thumb thread\n");
 	}
 	SDL_DetachThread(thumb_thrd);
 }
@@ -807,21 +808,21 @@ void generate_thumbs(intptr_t do_load)
 #if 0
 void print_img_state(img_state* img)
 {
-	printf("{\nimg = %p\n", img);
-	printf("pixels = %p\n", img->pixels);
-	printf("WxH = %dx%d\n", img->w, img->h);
-	printf("index = %d\n", img->index);
-	printf("rotdegs = %d\n", img->rotdegs);
-	printf("frame_i = %d\ndelay = %d\nframes = %d\nframe_cap = %d\n", img->frame_i, img->delay, img->frames, img->frame_capacity);
-	printf("frame_timer = %d\nlooped = %d\n", img->frame_timer, img->looped);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "{\nimg = %p\n", img);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "pixels = %p\n", img->pixels);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "WxH = %dx%d\n", img->w, img->h);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "index = %d\n", img->index);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "rotdegs = %d\n", img->rotdegs);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "frame_i = %d\ndelay = %d\nframes = %d\nframe_cap = %d\n", img->frame_i, img->delay, img->frames, img->frame_capacity);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "frame_timer = %d\nlooped = %d\n", img->frame_timer, img->looped);
 
-	printf("tex = %p\n", img->tex);
+	("tex = %p\n", img->tex);
 	for (int i=0; i<img->frames; ++i) {
-		printf("tex[%d] = %p\n", i, img->tex[i]);
+		SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "tex[%d] = %p\n", i, img->tex[i]);
 	}
 
-	printf("scr_rect = %d %d %d %d\n", img->scr_rect.x, img->scr_rect.y, img->scr_rect.w, img->scr_rect.h);
-	printf("disp_rect = %d %d %d %d\n}\n", img->disp_rect.x, img->disp_rect.y, img->disp_rect.w, img->disp_rect.h);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "scr_rect = %d %d %d %d\n", img->scr_rect.x, img->scr_rect.y, img->scr_rect.w, img->scr_rect.h);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "disp_rect = %d %d %d %d\n}\n", img->disp_rect.x, img->disp_rect.y, img->disp_rect.w, img->disp_rect.h);
 }
 #else
 #define print_img_state(x)
@@ -879,17 +880,18 @@ int curl_image(int img_idx)
 
 	char* slash = strrchr(s, '/');
 	if (!slash) {
-		puts("invalid url");
+		SDL_Log("invalid url\n");
 		goto exit_cleanup;
 	}
 	int len = snprintf(filename, STRBUF_SZ, "%s/%s", g->cachedir, slash+1);
 	if (len >= STRBUF_SZ) {
-		puts("url too long");
+		SDL_Log("url too long\n");
 		goto exit_cleanup;
 	}
 
-	printf("Getting %s\n%s\n", s, filename);
+	SDL_Log("Getting %s\n%s\n", s, filename);
 	if (!(imgfile = fopen(filename, "wb"))) {
+		// TODO Log?
 		perror("fopen");
 		goto exit_cleanup;
 	}
@@ -898,7 +900,7 @@ int curl_image(int img_idx)
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
 
 	if ((res = curl_easy_perform(curl)) != CURLE_OK) {
-		printf("curl error: %s\n", curlerror);
+		SDL_Log("curl error: %s\n", curlerror);
 		goto exit_cleanup;
 	}
 	fclose(imgfile);
@@ -928,7 +930,7 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 
 	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, STBI_rgb_alpha, &frames);
 	if (!img->pixels) {
-		printf("failed to load %s: %s\n", fullpath, stbi_failure_reason());
+		SDL_Log("failed to load %s: %s\n", fullpath, stbi_failure_reason());
 		return 0;
 	}
 
@@ -961,7 +963,7 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 		if (!img->delay)
 			img->delay = 100;
 		img->delay = MAX(MIN_GIF_DELAY, img->delay);
-		printf("%d frames %d delay\n", frames, img->delay);
+		SDL_Log("%d frames %d delay\n", frames, img->delay);
 	}
 
 	img->frames = frames;
@@ -994,7 +996,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 	char* ext = NULL;
 	file f;
 
-	//printf("Scanning %s for images...\n", dirpath);
+	//SDL_Log("Scanning %s for images...\n", dirpath);
 	while ((entry = readdir(dir))) {
 
 		// faster than 2 strcmp calls? ignore "." and ".."
@@ -1004,7 +1006,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 
 		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, entry->d_name);
 		if (ret >= STRBUF_SZ) {
-			printf("path too long\n");
+			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "path too long\n");
 			cleanup(0, 1);
 		}
 		if (stat(fullpath, &file_stat)) {
@@ -1080,7 +1082,7 @@ int load_new_images(void* data)
 		if (load_what == EXIT)
 			break;
 
-		//printf("loading %p = %d\n", &g->loading, g->loading);
+		//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "loading %p = %d\n", &g->loading, g->loading);
 		if (load_what >= LEFT) {
 			img_state* img;
 			if (g->img == g->img1)
@@ -1181,7 +1183,7 @@ void setup(int start_idx)
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
 		snprintf(error_str, STRBUF_SZ, "Couldn't initialize SDL: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
-		SDL_Log(error_str);
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "%s\n", error_str);
 		exit(1);
 	}
 
@@ -1196,7 +1198,7 @@ void setup(int start_idx)
 	g->thumb_cols = THUMB_COLS;
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
-		perror("Couldn't allocate tex array");
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Couldn't allocate tex array: %s\n", strerror(errno));
 		cleanup(0, 1);
 	}
 	g->img[0].frame_capacity = 100;
@@ -1218,7 +1220,7 @@ void setup(int start_idx)
 
 	SDL_Rect r;
 	if (SDL_GetDisplayUsableBounds(0, &r)) {
-		printf("Error getting usable bounds: %s\n", SDL_GetError());
+		SDL_Log("Error getting usable bounds: %s\n", SDL_GetError());
 		r.w = START_WIDTH;
 		r.h = START_HEIGHT;
 	} else {
@@ -1286,7 +1288,7 @@ void setup(int start_idx)
 	g->y_scale = 2; //vdpi/72;
 
 	if (!(g->ctx = nk_sdl_init(g->win, g->ren, g->x_scale, g->y_scale))) {
-		puts("nk_sdl_init() failed!");
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "nk_sdl_init() failed!\n");
 		cleanup(1, 1);
 	}
 
@@ -1302,7 +1304,7 @@ void setup(int start_idx)
 	// next and prev events?
 	g->userevent = SDL_RegisterEvents(1);
 	if (g->userevent == (u32)-1) {
-		printf("Error: %s", SDL_GetError());
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
 
@@ -1317,23 +1319,23 @@ void setup(int start_idx)
 	SDL_RenderPresent(g->ren);
 
 	if (!(g->cnd = SDL_CreateCond())) {
-		printf("Error: %s", SDL_GetError());
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR,"Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
 
 	if (!(g->mtx = SDL_CreateMutex())) {
-		printf("Error: %s", SDL_GetError());
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
 
 	SDL_Thread* loading_thrd;
 	if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", NULL))) {
-		puts("couldn't create image loader thread");
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "couldn't create image loader thread: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
 	SDL_DetachThread(loading_thrd);
 
-	printf("Done with setup\nStarting with %s\n", img_name);
+	SDL_Log("Done with setup\nStarting with %s\n", img_name);
 
 	g->gui_timer = SDL_GetTicks();
 	g->show_gui = 1;
@@ -1800,9 +1802,9 @@ void do_delete(SDL_Event* next)
 	SDL_ShowMessageBox(&messageboxdata, &buttonid);
 	if (buttonid == 1) {
 		if (remove(full_img_path)) {
-			perror("Failed to delete image");
+			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to delete image: %s", strerror(errno));
 		} else {
-			printf("Deleted %s\n", full_img_path);
+			SDL_Log("Deleted %s\n", full_img_path);
 			cvec_erase_file(&g->files, g->img[0].index, g->img[0].index);
 
 			if (g->thumbs.a) {
@@ -1879,7 +1881,8 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 				// Should I allow directories in a list?  Or make the user
 				// do the expansion so the list only has files/urls?
 				//
-				printf("Skipping directory found in list, only files and urls allowed.\n%s\n", s);
+				//// TODO warning not info?
+				SDL_Log("Skipping directory found in list, only files and urls allowed.\n%s\n", s);
 			} else if(S_ISREG(file_stat.st_mode)) {
 				f.path = mystrdup(s);
 				f.size = file_stat.st_size;
@@ -1924,11 +1927,11 @@ void do_save()
 		fclose(f);
 	}
 
-	printf("saving to %s\n", buf);
+	SDL_Log("saving to %s\n", buf);
 	f = fopen(buf, "a");
 	if (g->img_focus) {
 		if (cvec_contains_str(&g->favs, g->img_focus->fullpath)) {
-			printf("%s already in favorites\n", g->img_focus->fullpath);
+			SDL_Log("%s already in favorites\n", g->img_focus->fullpath);
 		} else {
 			fprintf(f, "%s\n", g->img_focus->fullpath);
 			cvec_push_str(&g->favs, g->img_focus->fullpath);
@@ -1936,7 +1939,7 @@ void do_save()
 	} else {
 		for (int i=0; i<g->n_imgs; ++i) {
 			if (cvec_contains_str(&g->favs, g->img[i].fullpath)) {
-				printf("%s already in favorites\n", g->img[i].fullpath);
+				SDL_Log("%s already in favorites\n", g->img[i].fullpath);
 			} else {
 				fprintf(f, "%s\n", g->img[i].fullpath);
 				cvec_push_str(&g->favs, g->img[i].fullpath);
@@ -2175,16 +2178,16 @@ int handle_thumb_events()
 					try_move(SELECTION);
 				} else if (g->thumb_mode == SEARCH) {
 					SDL_StopTextInput();
-					printf("Final text = \"%s\"\n", text);
+					SDL_Log("Final text = \"%s\"\n", text);
 					//text[0] = 0;
 					for (int i=0; i<g->files.size; ++i) {
 						// GNU function...
 						if (strcasestr(g->files.a[i].path, text)) {
-							printf("Adding %s\n", g->files.a[i].path);
+							SDL_Log("Adding %s\n", g->files.a[i].path);
 							cvec_push_i(&g->search_results, i);
 						}
 					}
-					printf("found %d matches\n", (int)g->search_results.size);
+					SDL_Log("found %d matches\n", (int)g->search_results.size);
 					if (g->search_results.size) {
 						g->thumb_sel = g->search_results.a[0];
 						g->thumb_mode = RESULTS;
@@ -2283,7 +2286,7 @@ int handle_thumb_events()
 			case SDLK_BACKSPACE:
 				if (text_len)
 					text[--text_len] = 0;
-				printf("text is \"%s\"\n", text);
+				SDL_Log("text is \"%s\"\n", text);
 				break;
 			}
 			break;
@@ -2340,13 +2343,13 @@ int handle_thumb_events()
 			if (g->thumb_mode == SEARCH && text_len < STRBUF_SZ-1) {
 				strcat(text, e.text.text);
 				text_len += strlen(e.text.text);
-				printf("text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
+				SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
 			}
 			break;
 
 		case SDL_TEXTEDITING:
 			if (g->thumb_mode == SEARCH) {
-				printf("recieved edit \"%s\"\n", e.edit.text);
+				SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "recieved edit \"%s\"\n", e.edit.text);
 				composition = e.edit.text;
 				cursor = e.edit.start;
 				selection_len = e.edit.length;
@@ -2357,7 +2360,7 @@ int handle_thumb_events()
 			g->status = REDRAW;
 			int x, y;
 			SDL_GetWindowSize(g->win, &x, &y);
-			//printf("windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
+			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_RESIZED:
 				g->scr_w = e.window.data1;
@@ -2577,7 +2580,7 @@ int handle_events_normally()
 				do_delete(&space);
 				break;
 			default:
-				puts("Unknown user event!");
+				SDL_Log("Unknown user event!");
 			}
 			continue;
 		}
@@ -2604,7 +2607,7 @@ int handle_events_normally()
 					} else if (g->show_prefs) {
 						g->show_prefs = nk_false;
 					}else if (g->slideshow) {
-						puts("Ending slideshow");
+						SDL_Log("Ending slideshow");
 						g->slideshow = 0;
 					} else if (g->fullscreen) {
 						g->status = REDRAW;
@@ -2631,7 +2634,7 @@ int handle_events_normally()
 			case SDL_SCANCODE_F10:
 				g->slideshow = (sc - SDL_SCANCODE_CAPSLOCK)*1000;
 				g->slide_timer =  SDL_GetTicks();
-				puts("Starting slideshow");
+				SDL_Log("Starting slideshow");
 				break;
 
 			case SDL_SCANCODE_F11:
@@ -3024,7 +3027,7 @@ int handle_events_normally()
 			g->status = REDRAW;
 			int x, y;
 			SDL_GetWindowSize(g->win, &x, &y);
-			//printf("windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
+			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_RESIZED:
 				g->scr_w = e.window.data1;
@@ -3046,9 +3049,8 @@ int handle_events_normally()
 				}
 				break;
 			case SDL_WINDOWEVENT_EXPOSED:
-				//puts("exposed");
-				//printf("windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
-				//puts("exposed event");
+				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "exposed event");
+				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 				break;
 			}
 		} break; // end WINDOWEVENTS
@@ -3127,7 +3129,7 @@ int main(int argc, char** argv)
 	}
 
 	if (curl_global_init(CURL_GLOBAL_ALL)) {
-		puts("Failed to initialize libcurl");
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to initialize libcurl\n");
 		cleanup(1, 0);
 	}
 	cvec_file(&g->files, 0, 100, free_file, NULL);
@@ -3139,7 +3141,7 @@ int main(int argc, char** argv)
 
 	// TODO think of a company/org name
 	char* prefpath = SDL_GetPrefPath("", "sdl_img");
-	//printf("%s\n%s\n\n", exepath, prefpath);
+	//SDL_Log("%s\n%s\n\n", exepath, prefpath);
 	// SDL_free(exepath);
 
 	time_t t;
@@ -3154,22 +3156,23 @@ int main(int argc, char** argv)
 
 	int len = snprintf(cachedir, STRBUF_SZ, "%scache/%s", prefpath, datebuf);
 	if (len >= STRBUF_SZ) {
-		puts("cache path too long");
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "cache path too long\n");
 		cleanup(1, 0);
 	}
 	if (mkdir_p(cachedir, S_IRWXU) && errno != EEXIST) {
-		perror("Failed to make cache directory");
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make cache directory: %s\n", strerror(errno));
 		cleanup(1, 0);
 	}
 	g->cachedir = cachedir;
 
 	len = snprintf(thumbdir, STRBUF_SZ, "%sthumbnails", prefpath);
 	if (len >= STRBUF_SZ) {
-		puts("thumbnail path too long");
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "thumbnail path too long\n");
 		cleanup(1, 0);
 	}
 	if (mkdir_p(thumbdir, S_IRWXU) && errno != EEXIST) {
 		perror("Failed to make cache directory");
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make cache directory: %s\n", strerror(errno));
 		cleanup(1, 0);
 	}
 	g->thumbdir = thumbdir;
@@ -3190,8 +3193,7 @@ int main(int argc, char** argv)
 			}
 			FILE* file = fopen(argv[++i], "r");
 			if (!file) {
-				// TODO print filename
-				perror("fopen");
+				SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to open %s: %s\n", argv[i], strerror(errno));
 				cleanup(1, 0);
 			}
 			given_list = 1;
@@ -3200,17 +3202,17 @@ int main(int argc, char** argv)
 		} else if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {
 			int delay;
 			if (i+1 == argc) {
-				puts("No delay following -s, defaulting to 3 second delay.");
+				SDL_Log("No delay following -s, defaulting to 3 second delay.");
 				delay = 3;
 			} else {
 				char* end;
 				delay = strtol(argv[++i], &end, 10);
 				if (delay <= 0 || delay > 10) {
 					if (delay == 0 && end == argv[i]) {
-						puts("No time given for -s, defaulting to 3 seconds");
+						SDL_Log("No time given for -s, defaulting to 3 seconds\n");
 						i--;
 					} else {
-						printf("Invalid slideshow time given %d (should be 1-10), defaulting to 3 seconds\n", delay);
+						SDL_Log("Invalid slideshow time given %d (should be 1-10), defaulting to 3 seconds\n", delay);
 					}
 					delay = 3;
 				}
@@ -3223,10 +3225,10 @@ int main(int argc, char** argv)
 			SDL_PushEvent(&start_slideshow);
 		} else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--cache")) {
 			if (i+1 == argc) {
-				puts("no cache directory provieded, using default cache location.");
+				SDL_Log("no cache directory provieded, using default cache location.\n");
 			} else {
 				if (mkdir_p(argv[++i], S_IRWXU) && errno != EEXIST) {
-					perror("Failed to make cache directory");
+					SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make cache directory %s: %s\n", argv[i], strerror(errno));
 					cleanup(1, 0);
 				}
 				g->cachedir = argv[i];
@@ -3244,12 +3246,12 @@ int main(int argc, char** argv)
 		} else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--recursive")) {
 			; // TODO
 			if (i+1 == argc) {
-				puts("Error missing directory following -r");
+				SDL_Log("Error missing directory following -r\n");
 				break;
 			}
 			i++;
 			if (stat(argv[i], &file_stat) || !S_ISDIR(file_stat.st_mode)) {
-				printf("Bad argument, expected directory following -r: \"%s\", skipping\n", argv[i]);
+				SDL_Log("Bad argument, expected directory following -r: \"%s\", skipping\n", argv[i]);
 				continue;
 			}
 			given_dir = 1;
@@ -3262,7 +3264,6 @@ int main(int argc, char** argv)
 		} else {
 			normalize_path(argv[i]);
 			if (stat(argv[i], &file_stat)) {
-				// printf("Bad argument: \"%s\", skipping\n", argv[i]);
 				// assume it's a valid url, it will just skip over if it isn't
 				f.path = mystrdup(argv[i]);
 				f.size = 0;
@@ -3284,7 +3285,7 @@ int main(int argc, char** argv)
 		}
 	}
 	if (!g->files.size) {
-		puts("No images provided, exiting (empty list perhaps?)");
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "No images provided, exiting (empty list perhaps?)\n");
 		cleanup(1, 0);
 	}
 
@@ -3304,7 +3305,7 @@ int main(int argc, char** argv)
 
 		sort(g->files.a, NULL, g->files.size, filename_cmp);
 
-		printf("finding current image to update index\n");
+		SDL_Log("finding current image to update index\n");
 		file* res;
 		f.path = fullpath;
 		res = bsearch(&f, g->files.a, g->files.size, sizeof(file), filename_cmp);
@@ -3316,9 +3317,9 @@ int main(int argc, char** argv)
 		sort(g->files.a, NULL, g->files.size, filename_cmp);
 	}
 
-	printf("Loaded %lu filenames\n", (unsigned long)g->files.size);
+	SDL_Log("Loaded %lu filenames\n", (unsigned long)g->files.size);
 
-	printf("start_index = %d\n", start_index);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "start_index = %d\n", start_index);
 	setup(start_index);
 
 
