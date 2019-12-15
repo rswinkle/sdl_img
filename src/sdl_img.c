@@ -734,7 +734,7 @@ int thumb_thread(void* data)
 
 		pix = stbi_load(g->files.a[i].path, &w, &h, &channels, 4);
 		if (!pix) {
-			SDL_Log("Couldn't load %s for thumbnail generation\n", g->files.a[i].path);
+			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\n", g->files.a[i].path);
 			continue;
 		}
 
@@ -1335,7 +1335,7 @@ void setup(int start_idx)
 	}
 	SDL_DetachThread(loading_thrd);
 
-	SDL_Log("Done with setup\nStarting with %s\n", img_name);
+	SDL_Log("Starting with %s\n", img_name);
 
 	g->gui_timer = SDL_GetTicks();
 	g->show_gui = 1;
@@ -2517,6 +2517,7 @@ int handle_events_normally()
 
 	int mouse_x, mouse_y;
 	u32 mouse_button_mask = SDL_GetMouseState(&mouse_x, &mouse_y);
+	int sort_timer;
 	
 	int done_rotate = 0;
 	int code;
@@ -2565,16 +2566,28 @@ int handle_events_normally()
 				do_shuffle();
 				break;
 			case SORT_NAME:
+				SDL_Log("Starting sort by name\n");
+				sort_timer = SDL_GetTicks();
 				do_sort(filename_cmp);
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_PATH:
+				SDL_Log("Starting sort by path\n");
+				sort_timer = SDL_GetTicks();
 				do_sort(filepath_cmp);
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_SIZE:
+				SDL_Log("Starting sort by size\n");
+				sort_timer = SDL_GetTicks();
 				do_sort(filesize_cmp);
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_MODIFIED:
+				SDL_Log("Starting sort by modified\n");
+				sort_timer = SDL_GetTicks();
 				do_sort(filemodified_cmp);
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case DELETE_IMG:
 				do_delete(&space);

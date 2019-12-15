@@ -192,7 +192,29 @@ void sort(file* a, thumb_state* b, size_t n, compare_func cmp)
 
 
 #define MAX_MIRRORS 10
-#define MAX_TYPESIZE 256
+
+// ptr1, ptr2 are char*, temp and counter are int
+// all except size are modified
+#define inline_swap(ptr1, ptr2, temp, size, counter) \
+	counter = size;                               \
+	while (counter >= sizeof(int)) {            \
+		temp = *(int*)ptr1;                     \
+		*(int*)ptr1 = *(int*)ptr2;              \
+		*(int*)ptr2 = temp;                     \
+		counter -= sizeof(int);                 \
+		ptr1 += sizeof(int);                    \
+		ptr2 += sizeof(int);                    \
+	}                                           \
+	while (counter) {                           \
+		temp = *ptr1;                           \
+		*ptr1 = *ptr2;                          \
+		*ptr2 = temp;                           \
+		--counter;                              \
+		++ptr1;                                 \
+		++ptr2;                                 \
+	}
+
+
 
 // Generic Quicksort.  Partion pivots on last element
 int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare)(const void*, const void*), int count, void** arrays, int* sizes)
@@ -201,8 +223,7 @@ int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare
 	char* x = &a[r*size];
 	size_t i = p-1;
 	int temp, k;
-	char* ptr1, *ptr2;
-	char buf[MAX_TYPESIZE];
+	char* p1, *p2;
 	int sz;
 
 	for (size_t j=p; j<r; ++j) {
@@ -210,32 +231,15 @@ int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare
 			++i;
 
 			// TODO use sizeof(long long)? memcopy/memmove?
-			k = size;
-			ptr1 = &a[j*size];
-			ptr2 = &a[i*size];
-			while (k >= sizeof(int)) {
-				temp = *(int*)ptr1;
-				*(int*)ptr1 = *(int*)ptr2;
-				*(int*)ptr2 = temp;
-				k -= sizeof(int);
-				ptr1 += sizeof(int);
-				ptr2 += sizeof(int);
-			}
-			while (k) {
-				temp = *ptr1;
-				*ptr1 = *ptr2;
-				*ptr2 = temp;
-				--k;
-				++ptr1;
-				++ptr2;
-			}
+			p1 = &a[j*size];
+			p2 = &a[i*size];
+			inline_swap(p1, p2, temp, size, k)
 
 			for (int m=0; m<count; ++m) {
-				ptr1 = (char*)arrays[m];
 				sz = sizes[m];
-				memcpy(buf, &ptr1[j*sz], sz);
-				memcpy(&ptr1[j*sz], &ptr1[i*sz], sz);
-				memcpy(&ptr1[i*sz], buf, sz);
+				p1 = &((char*)arrays[m])[j*sz];
+				p2 = &((char*)arrays[m])[i*sz];
+				inline_swap(p1, p2, temp, sz, k)
 			}
 
 
@@ -243,30 +247,15 @@ int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare
 	}
 
 	++i;
-	k = size;
-	ptr1 = &a[i*size];
-	while (k >= sizeof(int)) {
-		temp = *(int*)ptr1;
-		*(int*)ptr1 = *(int*)x;
-		*(int*)x = temp;
-		k -= sizeof(int);
-		ptr1 += sizeof(int);
-		x += sizeof(int);
-	}
-	while (k) {
-		temp = *ptr1;
-		*ptr1 = *x;
-		*x = temp;
-		--k;
-		++ptr1;
-		++x;
-	}
+	p1 = &a[i*size];
+	p2 = x;
+	inline_swap(p1, p2, temp, size, k)
+
 	for (int m=0; m<count; ++m) {
-		ptr1 = (char*)arrays[m];
 		sz = sizes[m];
-		memcpy(buf, &ptr1[i*sz], sz);
-		memcpy(&ptr1[i*sz], &ptr1[r*sz], sz);
-		memcpy(&ptr1[r*sz], buf, sz);
+		p1 = &((char*)arrays[m])[i*sz];
+		p2 = &((char*)arrays[m])[r*sz];
+		inline_swap(p1, p2, temp, sz, k)
 	}
 	return i;
 }
@@ -299,10 +288,6 @@ void mirrored_qsort(void* a, size_t n, size_t size, int(*compare)(const void*, c
 	for (int i=0; i<count; ++i) {
 		arrays[i] = va_arg(args, void*);
 		type_sizes[i] = va_arg(args, int);
-		if (type_sizes[i] > MAX_TYPESIZE) {
-			//puts("At least one of mirrored types is too large");
-			return;
-		}
 	}
 
 	generic_qsort(a, n, size, compare, count, arrays, type_sizes);
@@ -311,5 +296,4 @@ void mirrored_qsort(void* a, size_t n, size_t size, int(*compare)(const void*, c
 
 }
 #undef MAX_MIRRORS
-#undef MAX_TYPESIZE
 

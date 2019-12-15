@@ -19,7 +19,8 @@
 #include "nuklear.h"
 #include "nuklear_sdl.h"
 
-
+#define CVECTOR_IMPLEMENTATION
+#include "cvector.h"
 
 #define WINDOW_WIDTH 1200
 #define WINDOW_HEIGHT 800
@@ -49,6 +50,10 @@ struct nk_color bg2;
 
 float x_scale;
 float y_scale;
+
+cvector_str list1;
+cvector_i selected;
+
 
 char license[STRBUF_SZ*4] =
 "The MIT License (MIT)\n"
@@ -124,6 +129,16 @@ int main(void)
 		return 1;
 	}
 	*/
+
+	char buffer[256];
+
+	cvec_str(&list1, 0, 100);
+	cvec_i(&selected, 50, 100);
+	cvec_set_val_sz_i(&selected, 0);
+	for (int i=0; i<50; i++) {
+		sprintf(buffer, "hello %d", i);
+		cvec_push_str(&list1, buffer);
+	}
 
 	if (!(ctx = nk_sdl_init(win, ren, x_scale, y_scale))) {
 		printf("nk_sdl_init() failed!");
@@ -367,6 +382,15 @@ void draw_gui(struct nk_context* ctx)
 
 
 
+	if (nk_begin(ctx, "List", nk_rect(100, 100, 400, 400), NK_WINDOW_BORDER)) {
+		nk_layout_row_dynamic(ctx, 0, 3);
+		for (int i=0; i<list1.size; ++i) {
+			nk_selectable_label(ctx, list1.a[i], NK_TEXT_LEFT, &selected.a[i]);
+			nk_label(ctx, "col2", NK_TEXT_LEFT);
+			nk_label(ctx, "col3", NK_TEXT_LEFT);
+		}
+	}
+	nk_end(ctx);
 
 
 
