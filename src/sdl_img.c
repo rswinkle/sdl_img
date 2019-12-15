@@ -2122,6 +2122,7 @@ int handle_thumb_events()
 				break;
 			case SDLK_c:
 				// turn of VISUAL (or any other mode I add later)
+				// TODO end search
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					g->thumb_mode = ON;
 				}
@@ -2161,11 +2162,10 @@ int handle_thumb_events()
 			// in normal mode.
 			case SDLK_BACKSPACE:
 			case SDLK_r:
-				do_thumb_rem_del(SDL_FALSE, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
-				break;
 			case SDLK_x:
-				// TODO add a one time warning?  maybe a preference to turn warning on and off?
-				do_thumb_rem_del(SDL_TRUE, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
+				// TODO add a one time warning for x?  maybe a preference to turn warning on and off?
+				if (g->thumb_mode != SEARCH)
+					do_thumb_rem_del(sym == SDLK_x, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
 				break;
 			case SDLK_RETURN:
 				if (g->thumb_mode == ON || g->thumb_mode == RESULTS) {
@@ -2343,13 +2343,15 @@ int handle_thumb_events()
 			if (g->thumb_mode == SEARCH && text_len < STRBUF_SZ-1) {
 				strcat(text, e.text.text);
 				text_len += strlen(e.text.text);
-				SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
+				SDL_Log("text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
+				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
 			}
 			break;
 
 		case SDL_TEXTEDITING:
 			if (g->thumb_mode == SEARCH) {
-				SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "recieved edit \"%s\"\n", e.edit.text);
+				SDL_Log("recieved edit \"%s\"\n", e.edit.text);
+				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "recieved edit \"%s\"\n", e.edit.text);
 				composition = e.edit.text;
 				cursor = e.edit.start;
 				selection_len = e.edit.length;
