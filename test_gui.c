@@ -382,12 +382,20 @@ void draw_gui(struct nk_context* ctx)
 
 
 
-	if (nk_begin(ctx, "List", nk_rect(100, 100, 400, 400), NK_WINDOW_BORDER)) {
+	if (nk_begin(ctx, "List", nk_rect(100, 100, 400, 400), NK_WINDOW_BORDER|NK_WINDOW_SCALABLE)) {
 		nk_layout_row_dynamic(ctx, 0, 3);
-		for (int i=0; i<list1.size; ++i) {
-			nk_selectable_label(ctx, list1.a[i], NK_TEXT_LEFT, &selected.a[i]);
-			nk_label(ctx, "col2", NK_TEXT_LEFT);
-			nk_label(ctx, "col3", NK_TEXT_LEFT);
+		nk_button_label(ctx, "Name");
+		nk_button_label(ctx, "Size");
+		nk_button_label(ctx, "Modified");
+		nk_layout_row_dynamic(ctx, 400, 1);
+		if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
+			nk_layout_row_dynamic(ctx, 0, 3);
+			for (int i=0; i<list1.size; ++i) {
+				nk_selectable_label(ctx, list1.a[i], NK_TEXT_LEFT, &selected.a[i]);
+				nk_label(ctx, "col2", NK_TEXT_LEFT);
+				nk_label(ctx, "col3", NK_TEXT_LEFT);
+			}
+			nk_group_end(ctx);
 		}
 	}
 	nk_end(ctx);
