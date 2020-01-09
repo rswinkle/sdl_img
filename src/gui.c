@@ -289,7 +289,7 @@ void draw_gui(struct nk_context* ctx)
 						event.user.code = SORT_MODIFIED;
 						SDL_PushEvent(&event);
 					}
-					nk_label(ctx, "T", NK_TEXT_RIGHT);  // CTRL+T is thumb mode...
+					nk_label(ctx, "T", NK_TEXT_RIGHT);
 				} else {
 					nk_layout_row_dynamic(ctx, 0, 1);
 					nk_label(ctx, "Only available in 1 image mode", NK_TEXT_LEFT);
