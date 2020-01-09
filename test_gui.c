@@ -43,6 +43,7 @@ int show_about = nk_false;
 int show_prefs = nk_false;
 int show_rotate = nk_false;
 int show_infobar = nk_true;
+int list_mode = nk_false;
 int menu_state = MENU_NONE;
 
 struct nk_colorf bg;
@@ -52,7 +53,7 @@ float x_scale;
 float y_scale;
 
 cvector_str list1;
-cvector_i selected;
+//cvector_i selected;
 
 
 char license[STRBUF_SZ*4] =
@@ -133,8 +134,8 @@ int main(void)
 	char buffer[256];
 
 	cvec_str(&list1, 0, 100);
-	cvec_i(&selected, 50, 100);
-	cvec_set_val_sz_i(&selected, 0);
+	//cvec_i(&selected, 50, 100);
+	//cvec_set_val_sz_i(&selected, 0);
 	for (int i=0; i<50; i++) {
 		sprintf(buffer, "hello %d", i);
 		cvec_push_str(&list1, buffer);
@@ -381,24 +382,50 @@ void draw_gui(struct nk_context* ctx)
 		return;
 
 
+	struct nk_style_button s = ctx->style.button;
+	//memcpy(&s, &ctx->style.button, sizeof(nk_button_style));
+	s.border = 0;
+	s.text_alignment = NK_TEXT_LEFT;
 
-	if (nk_begin(ctx, "List", nk_rect(100, 100, 400, 400), NK_WINDOW_BORDER|NK_WINDOW_SCALABLE)) {
-		nk_layout_row_dynamic(ctx, 0, 3);
-		nk_button_label(ctx, "Name");
-		nk_button_label(ctx, "Size");
-		nk_button_label(ctx, "Modified");
-		nk_layout_row_dynamic(ctx, 400, 1);
-		if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
+	static int selected = -1;
+	int is_selected = 0;
+
+	if (list_mode) {
+		if (nk_begin(ctx, "List", nk_rect(0, 30, scr_w, scr_h-60), gui_flags)) {
 			nk_layout_row_dynamic(ctx, 0, 3);
-			for (int i=0; i<list1.size; ++i) {
-				nk_selectable_label(ctx, list1.a[i], NK_TEXT_LEFT, &selected.a[i]);
-				nk_label(ctx, "col2", NK_TEXT_LEFT);
-				nk_label(ctx, "col3", NK_TEXT_LEFT);
+			nk_button_label(ctx, "Name");
+			nk_button_label(ctx, "Size");
+			nk_button_label(ctx, "Modified");
+			nk_layout_row_dynamic(ctx, scr_h-100, 1);
+			if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
+				nk_layout_row_dynamic(ctx, 0, 3);
+				for (int i=0; i<list1.size; ++i) {
+					is_selected = selected == i;
+					if (nk_selectable_label(ctx, list1.a[i], NK_TEXT_LEFT, &is_selected)) {
+						if (is_selected)
+							selected = i;
+						else
+							selected = -1;
+						printf("%s clicked %d\n", list1.a[i], selected);
+					}
+					/*
+					if (nk_selectable_label(ctx, list1.a[i], NK_TEXT_LEFT, &selected.a[i])) {
+						printf("%s clicked %d\n", list1.a[i], selected.a[i]);
+					}
+					*/
+					/*
+					if (nk_button_label_styled(ctx, &s, list1.a[i])) {
+						printf("%s clicked\n", list1.a[i]);
+					}
+					*/
+					nk_label(ctx, "col2", NK_TEXT_LEFT);
+					nk_label(ctx, "col3", NK_TEXT_LEFT);
+				}
+				nk_group_end(ctx);
 			}
-			nk_group_end(ctx);
 		}
+		nk_end(ctx);
 	}
-	nk_end(ctx);
 
 
 
@@ -566,21 +593,35 @@ void draw_gui(struct nk_context* ctx)
 				menu_state = MENU_VIEW;
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
 
-				if (nk_menu_item_label(ctx, "1 image", NK_TEXT_LEFT))
+				if (nk_menu_item_label(ctx, "1 image", NK_TEXT_LEFT)) {
 					n_imgs = 1;
+				}
 				nk_label(ctx, "CTRL+1", NK_TEXT_RIGHT);
-				if (nk_menu_item_label(ctx, "2 images", NK_TEXT_LEFT))
+				if (nk_menu_item_label(ctx, "2 images", NK_TEXT_LEFT)) {
 					n_imgs = 2;
+				}
 				nk_label(ctx, "CTRL+2", NK_TEXT_RIGHT);
-				if (nk_menu_item_label(ctx, "4 images", NK_TEXT_LEFT))
+				if (nk_menu_item_label(ctx, "4 images", NK_TEXT_LEFT)) {
 					n_imgs = 4;
+				}
 				nk_label(ctx, "CTRL+4", NK_TEXT_RIGHT);
-				if (nk_menu_item_label(ctx, "8 images", NK_TEXT_LEFT))
+				if (nk_menu_item_label(ctx, "8 images", NK_TEXT_LEFT)) {
 					n_imgs = 8;
+				}
 				nk_label(ctx, "CTRL+8", NK_TEXT_RIGHT);
 
-				nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT);
+
+				if (nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT)) {
+					list_mode = nk_false;
+				}
 				nk_label(ctx, "CTRL+U", NK_TEXT_RIGHT);
+
+				// have to treat switching back from list the same as I do switching
+				// back from thumb, selection is the 1st image, have to load following
+				// if in 2,4, or 8 mode
+				if (nk_menu_item_label(ctx, "List", NK_TEXT_LEFT))
+					list_mode = nk_true;
+				nk_label(ctx, "CTRL+L", NK_TEXT_RIGHT);
 
 				nk_tree_pop(ctx);
 			} else menu_state = (menu_state == MENU_VIEW) ? MENU_NONE: menu_state;
