@@ -74,7 +74,7 @@ enum { OFF, ON, VISUAL, SEARCH, RESULTS }; // better names?
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
-       MODE_CHANGE, THUMB_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, SHUFFLE,
+       MODE_CHANGE, THUMB_MODE, LIST_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, SHUFFLE,
        SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
 
 typedef uint8_t u8;
@@ -210,7 +210,9 @@ CVEC_NEW_DEFS2(thumb_state, RESIZE)
 typedef struct file
 {
 	char* path;   // could be url;
-	int modified; // time_t is long int but 2038 problem is because it's really 32-bit counter
+
+	// should I just make it a long it?
+	time_t modified; // time_t is long int but 2038 problem is because it's really 32-bit counter
 	int size;     // in bytes (hard to believe it'd be bigger than ~2.1 GB)
 } file;
 
@@ -291,6 +293,8 @@ typedef struct global_state
 	int show_gui;
 	int fullscreen_gui;
 	int show_infobar;
+
+	int list_mode;
 
 	int thumb_mode;
 	int thumbs_done;
@@ -2004,6 +2008,16 @@ int do_copy()
 	return 0;
 }
 
+void do_listmode()
+{
+	// TODO hmm
+	g->thumb_mode = OFF;
+
+	g->list_mode = SDL_TRUE;
+
+
+}
+
 void do_thumbmode()
 {
 	generate_thumbs(SDL_TRUE);
@@ -2552,6 +2566,9 @@ int handle_events_normally()
 			case ROT360:
 				// TODO
 				rotate_img((g->n_imgs == 1) ? &g->img[0] : g->img_focus);
+				break;
+			case LIST_MODE:
+				do_listmode();
 				break;
 			case THUMB_MODE:
 				do_thumbmode();
