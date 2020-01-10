@@ -27,6 +27,8 @@
 
 #define STRBUF_SZ 1024
 
+#define GUI_BAR_HEIGHT 30
+
 enum { MENU_NONE, MENU_MISC, MENU_SORT, MENU_EDIT, MENU_VIEW };
 enum { DELAY, ALWAYS, NEVER };
 
@@ -391,12 +393,12 @@ void draw_gui(struct nk_context* ctx)
 	int is_selected = 0;
 
 	if (list_mode) {
-		if (nk_begin(ctx, "List", nk_rect(0, 30, scr_w, scr_h-60), gui_flags)) {
+		if (nk_begin(ctx, "List", nk_rect(0, GUI_BAR_HEIGHT, scr_w, scr_h-GUI_BAR_HEIGHT), gui_flags)) {
 			nk_layout_row_dynamic(ctx, 0, 3);
 			nk_button_label(ctx, "Name");
 			nk_button_label(ctx, "Size");
 			nk_button_label(ctx, "Modified");
-			nk_layout_row_dynamic(ctx, scr_h-100, 1);
+			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-40, 1);
 			if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
 				nk_layout_row_dynamic(ctx, 0, 3);
 				for (int i=0; i<list1.size; ++i) {
@@ -425,11 +427,13 @@ void draw_gui(struct nk_context* ctx)
 			}
 		}
 		nk_end(ctx);
+
+		//return;
 	}
 
 
 
-	if (nk_begin(ctx, "Controls", nk_rect(0, 0, scr_w, 30), gui_flags)) {
+	if (nk_begin(ctx, "Controls", nk_rect(0, 0, scr_w, GUI_BAR_HEIGHT), gui_flags)) {
 
 		//g->gui_rect = nk_window_get_bounds(ctx);
 		//printf("gui %f %f %f %f\n", g->gui_rect.x, g->gui_rect.y, g->gui_rect.w, g->gui_rect.h);
@@ -610,24 +614,29 @@ void draw_gui(struct nk_context* ctx)
 				}
 				nk_label(ctx, "CTRL+8", NK_TEXT_RIGHT);
 
+				// have to treat switching back from list the same as I do switching
+				// back from thumb, selection is the 1st image, have to load following
+				// if in 2,4, or 8 mode
+				if (nk_menu_item_label(ctx, "List Mode", NK_TEXT_LEFT))
+					list_mode = nk_true;
+				nk_label(ctx, "CTRL+L", NK_TEXT_RIGHT);
 
 				if (nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT)) {
 					list_mode = nk_false;
 				}
 				nk_label(ctx, "CTRL+U", NK_TEXT_RIGHT);
 
-				// have to treat switching back from list the same as I do switching
-				// back from thumb, selection is the 1st image, have to load following
-				// if in 2,4, or 8 mode
-				if (nk_menu_item_label(ctx, "List", NK_TEXT_LEFT))
-					list_mode = nk_true;
-				nk_label(ctx, "CTRL+L", NK_TEXT_RIGHT);
 
 				nk_tree_pop(ctx);
 			} else menu_state = (menu_state == MENU_VIEW) ? MENU_NONE: menu_state;
 
 
 			nk_menu_end(ctx);
+		}
+
+		if (list_mode) {
+			nk_end(ctx);  // end "Controls" window early
+			return;
 		}
 
 		nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
@@ -722,7 +731,7 @@ void draw_gui(struct nk_context* ctx)
 
 
 	if (show_infobar) {
-		if (nk_begin(ctx, "Info", nk_rect(0, scr_h-30, scr_w, 30), gui_flags))
+		if (nk_begin(ctx, "Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), gui_flags))
 		{
 			if (n_imgs == 1) {
 				len = snprintf(info_buf, STRBUF_SZ, "1000 x 600 pixels   55 %%");
