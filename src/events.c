@@ -351,12 +351,59 @@ int handle_list_events()
 {
 	SDL_Event e;
 	int sym;
+	int code, sort_timer;
 	SDL_Keymod mod_state = SDL_GetModState();
 	char title_buf[STRBUF_SZ];
 
 	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
+		// TODO edit menu/GUI as appropriate for list mode, see which
+		// actions make sense or are worth supporting (re-evaluate if I
+		// have some sort of preview)
+		if (e.type == g->userevent) {
+			code = e.user.code;
+			switch (code) {
+			case THUMB_MODE:
+				//do_thumbmode();
+				break;
+			case SHUFFLE:
+				do_shuffle();
+				break;
+			case SORT_NAME:
+				SDL_Log("Starting sort by name\n");
+				sort_timer = SDL_GetTicks();
+				do_sort(filename_cmp);
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
+				break;
+			case SORT_PATH:
+				SDL_Log("Starting sort by path\n");
+				sort_timer = SDL_GetTicks();
+				do_sort(filepath_cmp);
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
+				break;
+			case SORT_SIZE:
+				SDL_Log("Starting sort by size\n");
+				sort_timer = SDL_GetTicks();
+				do_sort(filesize_cmp);
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
+				break;
+			case SORT_MODIFIED:
+				SDL_Log("Starting sort by modified\n");
+				sort_timer = SDL_GetTicks();
+				do_sort(filemodified_cmp);
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
+				break;
+				/*
+			case DELETE_IMG:
+				do_delete(&space);
+				break;
+				*/
+			default:
+				SDL_Log("Unknown user event!");
+			}
+			continue;
+		}
 		switch (e.type) {
 		case SDL_QUIT:
 			//nk_input_end(g->ctx); // TODO need these?

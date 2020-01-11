@@ -201,7 +201,6 @@ void draw_gui(struct nk_context* ctx)
 
 					strftime(modified_buf, sizeof(modified_buf), "%F %T", tmp_tm);
 					nk_label(ctx, modified_buf, NK_TEXT_RIGHT);
-					printf("\"%s\"\n", modified_buf);
 				}
 				nk_group_end(ctx);
 			}
