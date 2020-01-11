@@ -2354,45 +2354,19 @@ int main(int argc, char** argv)
 		is_a_gif = 0;
 		ticks = SDL_GetTicks();
 
-		if (g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
+		if (!g->list_mode && g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
 			SDL_ShowCursor(SDL_DISABLE);
 			g->show_gui = 0;
 			g->status = REDRAW;
 		}
 
 		// TODO testing, naming/organization of showing/hiding GUI vs mouse
-		if (g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
+		if (g->list_mode || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			draw_gui(g->ctx);
 			g->status = REDRAW;
 		}
 
-		if (!g->thumb_mode) {
-			for (int i=0; i<g->n_imgs; ++i) {
-				if (g->img[i].frames > 1 && !g->img[i].paused) {
-					if (ticks - g->img[i].frame_timer >= g->img[i].delay) {
-						g->img[i].frame_i = (g->img[i].frame_i + 1) % g->img[i].frames;
-						if (g->img[i].frame_i == 0)
-							g->img[i].looped = 1;
-						g->img[i].frame_timer = ticks; // should be set after present ...
-						g->status = REDRAW;
-					}
-					is_a_gif = 1;
-				}
-			}
-
-			if (g->show_gui || g->status == REDRAW) {
-				// gui drawing changes draw color so have to reset to black every time
-				SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
-				SDL_RenderSetClipRect(g->ren, NULL);
-				SDL_RenderClear(g->ren);
-				for (int i=0; i<g->n_imgs; ++i) {
-					SDL_RenderSetClipRect(g->ren, &g->img[i].scr_rect);
-					SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
-					print_img_state(&g->img[i]);
-				}
-				SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
-			}
-		} else {
+		if (g->thumb_mode) {
 			SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
 			SDL_RenderSetClipRect(g->ren, NULL);
 			SDL_RenderClear(g->ren);
@@ -2474,8 +2448,37 @@ int main(int argc, char** argv)
 
 				}
 			}
+
+		} else if (!g->list_mode) {
+			// make above plain else to do transparently show image beneath list, could work as a preview...
+			// normal mode
+			for (int i=0; i<g->n_imgs; ++i) {
+				if (g->img[i].frames > 1 && !g->img[i].paused) {
+					if (ticks - g->img[i].frame_timer >= g->img[i].delay) {
+						g->img[i].frame_i = (g->img[i].frame_i + 1) % g->img[i].frames;
+						if (g->img[i].frame_i == 0)
+							g->img[i].looped = 1;
+						g->img[i].frame_timer = ticks; // should be set after present ...
+						g->status = REDRAW;
+					}
+					is_a_gif = 1;
+				}
+			}
+
+			if (g->show_gui || g->status == REDRAW) {
+				// gui drawing changes draw color so have to reset to black every time
+				SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
+				SDL_RenderSetClipRect(g->ren, NULL);
+				SDL_RenderClear(g->ren);
+				for (int i=0; i<g->n_imgs; ++i) {
+					SDL_RenderSetClipRect(g->ren, &g->img[i].scr_rect);
+					SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
+					print_img_state(&g->img[i]);
+				}
+				SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
+			}
 		}
-		if (g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
+		if (g->list_mode || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
 			nk_sdl_render(NULL, nk_false);
 			SDL_RenderSetScale(g->ren, 1, 1);

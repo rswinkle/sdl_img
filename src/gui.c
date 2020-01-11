@@ -157,10 +157,15 @@ void draw_gui(struct nk_context* ctx)
 	static int selected = -1;
 	int is_selected = 0;
 	char size_buf[64];
+	char modified_buf[64];
+
+	struct tm *tmp_tm;
 
 	if (g->list_mode) {
 		if (nk_begin(ctx, "List", nk_rect(0, GUI_BAR_HEIGHT, scr_w, scr_h-GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR)) {
-			nk_layout_row_dynamic(ctx, 0, 3);
+			float ratios[] = { 0.5f, 0.15f, 0.35f};
+			//nk_layout_row_dynamic(ctx, 0, 3);
+			nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 
 			// TODO name or path?
 			if (nk_button_label(ctx, "Name")) {
@@ -177,7 +182,9 @@ void draw_gui(struct nk_context* ctx)
 			}
 			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-40, 1);
 			if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
-				nk_layout_row_dynamic(ctx, 0, 3);
+				// TODO ratio layout 0.5 0.2 0.3 ? give or take
+				//nk_layout_row_dynamic(ctx, 0, 3);
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 				for (int i=0; i<g->files.size; ++i) {
 					is_selected = selected == i;
 					if (nk_selectable_label(ctx, g->files.a[i].path, NK_TEXT_LEFT, &is_selected)) {
@@ -188,8 +195,13 @@ void draw_gui(struct nk_context* ctx)
 						printf("%s clicked %d\n", g->files.a[i].path, selected);
 					}
 					bytes2str(g->files.a[i].size, size_buf, 64);
-					nk_label(ctx, size_buf, NK_TEXT_LEFT);
-					nk_label(ctx, ctime(&g->files.a[i].modified), NK_TEXT_LEFT);
+					nk_label(ctx, size_buf, NK_TEXT_RIGHT);
+
+					tmp_tm = localtime(&g->files.a[i].modified);
+
+					strftime(modified_buf, sizeof(modified_buf), "%F %T", tmp_tm);
+					nk_label(ctx, modified_buf, NK_TEXT_RIGHT);
+					printf("\"%s\"\n", modified_buf);
 				}
 				nk_group_end(ctx);
 			}
@@ -438,6 +450,10 @@ void draw_gui(struct nk_context* ctx)
 			} else g->menu_state = (g->menu_state == MENU_VIEW) ? MENU_NONE: g->menu_state;
 
 			nk_menu_end(ctx);
+		}
+		if (g->list_mode) {
+			nk_end(ctx);  // end "Controls" window early
+			return;
 		}
 
 		nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);

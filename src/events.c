@@ -345,7 +345,129 @@ int handle_thumb_events()
 	}
 
 	return 0;
+}
 
+int handle_list_events()
+{
+	SDL_Event e;
+	int sym;
+	SDL_Keymod mod_state = SDL_GetModState();
+	char title_buf[STRBUF_SZ];
+
+	g->status = NOCHANGE;
+	nk_input_begin(g->ctx);
+	while (SDL_PollEvent(&e)) {
+		switch (e.type) {
+		case SDL_QUIT:
+			//nk_input_end(g->ctx); // TODO need these?
+			return 1;
+		case SDL_KEYUP:
+			sym = e.key.keysym.sym;
+			switch (sym) {
+			case SDLK_ESCAPE:
+				g->list_mode = SDL_FALSE;
+				g->status = REDRAW;
+				break;
+
+			// Do removal and deletion in list mode?
+			case SDLK_BACKSPACE:
+			case SDLK_r:
+			case SDLK_x:
+				break;
+
+			// switch to normal mode on that image
+			case SDLK_RETURN:
+				break;
+			}
+			break;
+
+		case SDL_KEYDOWN:
+			sym = e.key.keysym.sym;
+			switch (sym) {
+			// navigate through the list mode like thumb mode ie vim?
+			case SDLK_UP:
+			case SDLK_DOWN:
+			case SDLK_k:
+			case SDLK_j:
+				break;
+			case SDLK_LEFT:
+			case SDLK_RIGHT:
+			case SDLK_h:
+			case SDLK_l:
+				break;
+			}
+
+			/*
+			 * search in list mode?
+			case SDLK_n:
+				break;
+			case SDLK_BACKSPACE:
+				if (text_len)
+					text[--text_len] = 0;
+				SDL_Log("text is \"%s\"\n", text);
+				break;
+			}
+			break;
+
+		case SDL_TEXTINPUT:
+			// could probably just do text[text_len++] = e.text.text[0]
+			// since I only handle ascii
+			if (g->thumb_mode == SEARCH && text_len < STRBUF_SZ-1) {
+				strcat(text, e.text.text);
+				text_len += strlen(e.text.text);
+				SDL_Log("text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
+				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
+			}
+			break;
+
+		case SDL_TEXTEDITING:
+			if (g->thumb_mode == SEARCH) {
+				SDL_Log("recieved edit \"%s\"\n", e.edit.text);
+				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "recieved edit \"%s\"\n", e.edit.text);
+				composition = e.edit.text;
+				cursor = e.edit.start;
+				selection_len = e.edit.length;
+			}
+			break;
+			*/
+		case SDL_WINDOWEVENT: {
+			g->status = REDRAW;
+			int x, y;
+			SDL_GetWindowSize(g->win, &x, &y);
+			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
+			switch (e.window.event) {
+			case SDL_WINDOWEVENT_RESIZED:
+				g->scr_w = e.window.data1;
+				g->scr_h = e.window.data2;
+				break;
+			case SDL_WINDOWEVENT_SIZE_CHANGED:
+				g->scr_w = e.window.data1;
+				g->scr_h = e.window.data2;
+
+				// TODO how/where to reset all the "subscreens" rects
+				if (g->n_imgs == 1) {
+					SET_MODE1_SCR_RECT();
+				} else if (g->n_imgs == 2) {
+					SET_MODE2_SCR_RECTS();
+				} else if (g->n_imgs == 4) {
+					SET_MODE4_SCR_RECTS();
+				} else if (g->n_imgs == 8) {
+					SET_MODE8_SCR_RECTS();
+				}
+				break;
+			}
+		} break;
+
+		// all other event types
+		default:
+			break;
+		}
+
+		nk_sdl_handle_event(&e);
+	}
+	nk_input_end(g->ctx);
+
+	return 0;
 }
 
 int handle_events_normally()
@@ -1003,9 +1125,12 @@ int handle_events_normally()
 
 int handle_events()
 {
-	if (!g->thumb_mode)
-		return handle_events_normally();
-	else
+	if (g->list_mode)
+		return handle_list_events();
+
+	if (g->thumb_mode)
 		return handle_thumb_events();
+
+	return handle_events_normally();
 }
 
