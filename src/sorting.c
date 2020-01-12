@@ -103,13 +103,7 @@ int StringCompareSort(const void *p, const void *q)
 
 int filename_cmp(const void* a, const void* b)
 {
-	char* pa = ((file*)a)->path;
-	char* pb = ((file*)b)->path;
-	char* tmp = strrchr(pa, '/'); // TODO test on windows but I think I normalize
-	pa = (tmp) ? tmp+1 : pa;
-	tmp = strrchr(pb, '/');
-	pb = (tmp) ? tmp+1 : pb;
-	return StringCompare(pa, pb);
+	return StringCompare(((file*)a)->name, ((file*)b)->name);
 }
 
 int filepath_cmp(const void* a, const void* b)

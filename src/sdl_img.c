@@ -2546,10 +2546,13 @@ int main(int argc, char** argv)
 
 
 		//"sleep" save CPU cycles/battery especially when not viewing animated gifs
-		if (!is_a_gif && !g->list_mode) // && !g->loading)
+		if (g->list_mode) {
+			SDL_Delay(15);
+		} else if (!is_a_gif) { // && !g->loading)
 			SDL_Delay(SLEEP_TIME);
-		else
+		} else {
 			SDL_Delay(MIN_GIF_DELAY/2);
+		}
 	}
 
 	cleanup(0, 1);
