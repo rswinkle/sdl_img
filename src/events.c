@@ -413,6 +413,9 @@ int handle_list_events()
 			switch (sym) {
 			case SDLK_ESCAPE:
 				g->list_mode = SDL_FALSE;
+				SDL_ShowCursor(SDL_ENABLE);
+				g->gui_timer = SDL_GetTicks();
+				g->show_gui = SDL_TRUE;
 				g->status = REDRAW;
 				break;
 
@@ -839,6 +842,15 @@ int handle_events_normally()
 					}
 				} else {
 					g->img_focus->paused = !g->img_focus->paused;
+				}
+				break;
+
+				// L is used by rotate dang.  could get rid of 360
+				// rotation (since it's not in the GUI and was always
+				// kind of janky anyway) to clear up CTRL+L...
+			case SDL_SCANCODE_I:
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					do_listmode();
 				}
 				break;
 

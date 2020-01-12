@@ -2013,8 +2013,7 @@ void do_listmode()
 	// TODO hmm
 	g->thumb_mode = OFF;
 	g->list_mode = SDL_TRUE;
-
-
+	SDL_ShowCursor(SDL_ENABLE);
 }
 
 void do_thumbmode()

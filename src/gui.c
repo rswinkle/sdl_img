@@ -437,7 +437,7 @@ void draw_gui(struct nk_context* ctx)
 					event.user.code = LIST_MODE;
 					SDL_PushEvent(&event);
 				}
-				nk_label(ctx, "CTRL+L", NK_TEXT_RIGHT);
+				nk_label(ctx, "CTRL+I", NK_TEXT_RIGHT);
 
 				if (nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT)) {
 					event.user.code = THUMB_MODE;
