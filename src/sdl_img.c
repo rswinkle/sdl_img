@@ -102,6 +102,8 @@ typedef int64_t i64;
 #define THUMBSIZE 128
 #define THUMB_ROWS 8
 #define THUMB_COLS 15
+#define SIZE_STR_BUF 16
+#define MOD_STR_BUF 24
 
 // zoom is calculated
 // h = old_h * (1.0 + zoom*ZOOM_RATE)
@@ -214,6 +216,11 @@ typedef struct file
 	// should I just make it a long it?
 	time_t modified; // time_t is long int but 2038 problem is because it's really 32-bit counter
 	int size;     // in bytes (hard to believe it'd be bigger than ~2.1 GB)
+
+//  caching for list mode
+	char mod_str[MOD_STR_BUF];
+	char size_str[SIZE_STR_BUF];
+	char* name;  // pointing at filename in path
 } file;
 
 CVEC_NEW_DECLS2(file)
@@ -229,7 +236,7 @@ typedef struct img_state
 	char* fullpath;  // allocated by realpath() needs to be freed
 
 	int index;
-	int is_dup;
+	int is_dup;  // TODO not used
 
 	int frame_i;
 	int delay; // for now just use the same delay for every frame
@@ -337,9 +344,6 @@ char* composition;
 Sint32 cursor;
 Sint32 selection_len;
 
-// has to come after all the enums/macros/struct defs etc. 
-#include "gui.c"
-
 // works same as SUSv2 libgen.h dirname except that
 // dirpath is user provided output buffer, assumed large
 // enough, return value is dirpath
@@ -398,6 +402,36 @@ void normalize_path(char* path)
 			path[i] = '/';
 	}
 }
+
+int bytes2str(int bytes, char* buf, int len)
+{
+	// char* iec_sizes[3] = { "bytes", "KiB", "MiB" };
+	char* si_sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
+
+	char** sizes = si_sizes;
+	int i = 0;
+	double sz = bytes;
+	// TODO MiB KiB? 2^10, 2^20?
+	if (sz >= 1000000) {
+		sz /= 1000000;
+		i = 2;
+	} else if (sz >= 1000) {
+		sz /= 1000;
+		i = 1;
+	} else {
+		i = 0;
+	}
+
+	int ret = snprintf(buf, len, ((i) ? "%.1f %s" : "%.0f %s") , sz, sizes[i]);
+	if (ret >= len)
+		return 0;
+
+	return 1;
+}
+
+
+// has to come after all the enums/macros/struct defs and bytes2str 
+#include "gui.c"
 
 #include "sorting.c"
 
@@ -990,6 +1024,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 	struct dirent* entry;
 	int ret, i=0;;
 	DIR* dir;
+	struct tm* tmp_tm;
 
 	dir = opendir(dirpath);
 	if (!dir) {
@@ -997,6 +1032,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		cleanup(1, 1);
 	}
 
+	char* sep;
 	char* ext = NULL;
 	file f;
 
@@ -1051,6 +1087,12 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		f.path = mystrdup(fullpath);
 		f.size = file_stat.st_size;
 		f.modified = file_stat.st_mtime;
+
+		bytes2str(f.size, f.size_str, SIZE_STR_BUF);
+		tmp_tm = localtime(&f.modified);
+		strftime(f.mod_str, MOD_STR_BUF, "%F %T", tmp_tm);
+		sep = strrchr(f.path, '/'); // TODO test on windows but I think I normalize
+		f.name = (sep) ? sep+1 : f.path;
 		cvec_push_file(&g->files, &f);
 	}
 
@@ -1855,6 +1897,8 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 	char line[STRBUF_SZ] = { 0 };
 	int len;
 	file f = { 0 }; // 0 out time and size since we don't stat lists
+	struct tm* tmp_tm;
+	char* sep;
 
 	struct stat file_stat;
 
@@ -1891,6 +1935,13 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 				f.path = mystrdup(s);
 				f.size = file_stat.st_size;
 				f.modified = file_stat.st_mtime;
+				
+				bytes2str(f.size, f.size_str, SIZE_STR_BUF);
+				tmp_tm = localtime(&f.modified);
+				strftime(f.mod_str, MOD_STR_BUF, "%F %T", tmp_tm);
+				sep = strrchr(f.path, '/'); // TODO test on windows but I think I normalize
+				f.name = (sep) ? sep+1 : f.path;
+
 				cvec_push_file(&g->files, &f);
 			}
 		}
@@ -2168,6 +2219,7 @@ int main(int argc, char** argv)
 
 	time_t t;
 	struct tm *tmp;
+	char* sep;
 	t = time(NULL);
 
 	srand(t);
@@ -2302,6 +2354,14 @@ int main(int argc, char** argv)
 				f.path = mystrdup(argv[i]);
 				f.size = file_stat.st_size;
 				f.modified = file_stat.st_mtime;
+				// TODO list cache members
+				
+				bytes2str(f.size, f.size_str, SIZE_STR_BUF);
+				tmp = localtime(&f.modified);
+				strftime(f.mod_str, MOD_STR_BUF, "%F %T", tmp);
+				sep = strrchr(f.path, '/'); // TODO test on windows but I think I normalize
+				f.name = (sep) ? sep+1 : f.path;
+
 				cvec_push_file(&g->files, &f);
 			}
 		}
@@ -2486,7 +2546,7 @@ int main(int argc, char** argv)
 
 
 		//"sleep" save CPU cycles/battery especially when not viewing animated gifs
-		if (!is_a_gif) // && !g->loading)
+		if (!is_a_gif && !g->list_mode) // && !g->loading)
 			SDL_Delay(SLEEP_TIME);
 		else
 			SDL_Delay(MIN_GIF_DELAY/2);

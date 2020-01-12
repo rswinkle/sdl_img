@@ -5,7 +5,6 @@ void set_fullscreen();
 
 // TODO better name? cleardir?
 int empty_dir(const char* dirpath);
-int bytes2str(int bytes, char* buf, int len);
 
 enum { MENU_NONE, MENU_MISC, MENU_SORT, MENU_EDIT, MENU_VIEW };
 
@@ -156,10 +155,6 @@ void draw_gui(struct nk_context* ctx)
 	// TODO move to g?
 	static int selected = -1;
 	int is_selected = 0;
-	char size_buf[64];
-	char modified_buf[64];
-
-	struct tm *tmp_tm;
 
 	if (g->list_mode) {
 		if (nk_begin(ctx, "List", nk_rect(0, GUI_BAR_HEIGHT, scr_w, scr_h-GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR)) {
@@ -187,20 +182,14 @@ void draw_gui(struct nk_context* ctx)
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 				for (int i=0; i<g->files.size; ++i) {
 					is_selected = selected == i;
-					if (nk_selectable_label(ctx, g->files.a[i].path, NK_TEXT_LEFT, &is_selected)) {
+					if (nk_selectable_label(ctx, g->files.a[i].name, NK_TEXT_LEFT, &is_selected)) {
 						if (is_selected)
 							selected = i;
 						else
 							selected = -1;
-						printf("%s clicked %d\n", g->files.a[i].path, selected);
 					}
-					bytes2str(g->files.a[i].size, size_buf, 64);
-					nk_label(ctx, size_buf, NK_TEXT_RIGHT);
-
-					tmp_tm = localtime(&g->files.a[i].modified);
-
-					strftime(modified_buf, sizeof(modified_buf), "%F %T", tmp_tm);
-					nk_label(ctx, modified_buf, NK_TEXT_RIGHT);
+					nk_label(ctx, g->files.a[i].size_str, NK_TEXT_RIGHT);
+					nk_label(ctx, g->files.a[i].mod_str, NK_TEXT_RIGHT);
 				}
 				nk_group_end(ctx);
 			}
@@ -565,41 +554,19 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 	nk_end(ctx);
 }
 
-int bytes2str(int bytes, char* buf, int len)
-{
-	char* sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
-	int i = 0;
-	double sz = bytes;
-	if (sz >= 1000000) {
-		sz /= 1000000;
-		i = 2;
-	} else if (sz >= 1000) {
-		sz /= 1000;
-		i = 1;
-	} else {
-		i = 0;
-	}
-
-	int ret = snprintf(buf, len, "%.1f %s", sz, sizes[i]);
-	if (ret >= len)
-		return 0;
-
-	return 1;
-}
-
 void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	char info_buf[STRBUF_SZ];
-	char size_buf[64];
+	char* size_str;
 
 	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR))
 	{
 		if (g->n_imgs == 1) {
 			img_state* img = &g->img[0];
 
-			bytes2str(img->file_size, size_buf, 64);
+			size_str = g->files.a[img->index].size_str;
 
-			int len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels  %s  %d %%    %d / %lu", img->w, img->h, size_buf, (int)(img->disp_rect.h*100.0/img->h), img->index+1, (unsigned long)g->files.size);
+			int len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels  %s  %d %%    %d / %lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), img->index+1, (unsigned long)g->files.size);
 			if (len >= STRBUF_SZ) {
 				puts("info path too long");
 				cleanup(1, 1);
