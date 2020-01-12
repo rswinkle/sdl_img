@@ -220,6 +220,20 @@ int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare
 	char* p1, *p2;
 	int sz;
 
+	// pick random pivot, and swap with last element
+	int pivot = rand() % (r-p+1) + p;
+	p1 = &a[pivot * size];
+	inline_swap(x, p1, temp, size, k)
+
+	x -= size; // inline_swap modifies x
+
+	for (int m=0; m<count; ++m) {
+		sz = sizes[m];
+		p1 = &((char*)arrays[m])[r*sz];
+		p2 = &((char*)arrays[m])[pivot*sz];
+		inline_swap(p1, p2, temp, sz, k)
+	}
+
 	for (size_t j=p; j<r; ++j) {
 		if (compare(&a[j*size], x) <= 0) {
 			++i;
