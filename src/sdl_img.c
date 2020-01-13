@@ -213,11 +213,11 @@ typedef struct file
 {
 	char* path;   // could be url;
 
-	// should I just make it a long it?
-	time_t modified; // time_t is long int but 2038 problem is because it's really 32-bit counter
+	// time_t is a long int ...
+	time_t modified;
 	int size;     // in bytes (hard to believe it'd be bigger than ~2.1 GB)
 
-//  caching for list mode
+	//  caching for list mode
 	char mod_str[MOD_STR_BUF];
 	char size_str[SIZE_STR_BUF];
 	char* name;  // pointing at filename in path
@@ -2063,6 +2063,7 @@ void do_listmode()
 {
 	// TODO hmm
 	g->thumb_mode = OFF;
+	g->selection = g->img[0].index;
 	g->list_mode = SDL_TRUE;
 	SDL_ShowCursor(SDL_ENABLE);
 }

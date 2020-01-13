@@ -427,6 +427,14 @@ int handle_list_events()
 
 			// switch to normal mode on that image
 			case SDLK_RETURN:
+				g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
+
+				g->list_mode = SDL_FALSE;
+				SDL_ShowCursor(SDL_ENABLE);
+				g->gui_timer = SDL_GetTicks();
+				g->show_gui = SDL_TRUE;
+				g->status = REDRAW;
+				try_move(SELECTION);
 				break;
 			}
 			break;

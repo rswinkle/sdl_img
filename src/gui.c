@@ -2,6 +2,7 @@
 void cleanup(int ret, int called_setup);
 void set_rect_bestfit(img_state* img, int fill_screen);
 void set_fullscreen();
+int try_move(int direction);
 
 // TODO better name? cleardir?
 int empty_dir(const char* dirpath);
@@ -152,8 +153,6 @@ void draw_gui(struct nk_context* ctx)
 		return;
 	}
 
-	// TODO move to g?
-	static int selected = -1;
 	int is_selected = 0;
 
 	if (g->list_mode) {
@@ -181,12 +180,25 @@ void draw_gui(struct nk_context* ctx)
 				//nk_layout_row_dynamic(ctx, 0, 3);
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 				for (int i=0; i<g->files.size; ++i) {
-					is_selected = selected == i;
+					is_selected = g->selection == i;
 					if (nk_selectable_label(ctx, g->files.a[i].name, NK_TEXT_LEFT, &is_selected)) {
-						if (is_selected)
-							selected = i;
-						else
-							selected = -1;
+						if (is_selected) {
+							g->selection = i;
+						} else {
+							// could support unselecting, esp. with CTRL somehow if I ever allow
+							// multiple selection
+							// g->selection = -1;
+
+							// for now, treat clicking a selection as a "double click" ie same as return
+							g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
+
+							g->list_mode = SDL_FALSE;
+							SDL_ShowCursor(SDL_ENABLE);
+							g->gui_timer = SDL_GetTicks();
+							g->show_gui = SDL_TRUE;
+							g->status = REDRAW;
+							try_move(SELECTION);
+						}
 					}
 					nk_label(ctx, g->files.a[i].size_str, NK_TEXT_RIGHT);
 					nk_label(ctx, g->files.a[i].mod_str, NK_TEXT_RIGHT);
