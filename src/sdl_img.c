@@ -1249,16 +1249,25 @@ void setup(int start_idx)
 	}
 	g->img[0].frame_capacity = 100;
 
-	g->img[0].index = start_idx;
-	char* img_name = g->files.a[start_idx].path;
-	// TODO best way to structure this and use in main()?
-	int ret = load_image(img_name, &g->img[0], SDL_FALSE);
-	if (!ret) {
-		if (curl_image(0)) {
-			ret = load_image(g->files.a[0].path, &g->img[0], SDL_FALSE);
-			img_name = g->files.a[0].path;
+	// TODO handle when first image (say in a list that's out of date) is gone/invalid
+	// loop through till valid
+	// TODO can I reuse NEXT code somehow?
+	int i = start_idx;
+	char* img_name;
+	int ret;
+	do {
+		g->img[0].index = i;
+		img_name = g->files.a[i].path;
+		// TODO best way to structure this and use in main()?
+		ret = load_image(img_name, &g->img[0], SDL_FALSE);
+		if (!ret) {
+			if (curl_image(i)) {
+				ret = load_image(g->files.a[i].path, &g->img[0], SDL_FALSE);
+				img_name = g->files.a[i].path;
+			}
 		}
-	}
+		i = (i+1) % g->files.size;
+	} while (!ret && i != start_idx);
 
 	if (!ret) {
 		cleanup(0, 1);
