@@ -550,7 +550,10 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 
 		if (nk_button_label(ctx, "Clear thumbnail cache")) {
 			puts("Clearing thumbnails");
+			SDL_Log("Clearing thumbnails\n");
+			int ttimer = SDL_GetTicks();
 			empty_dir(g->thumbdir);
+			SDL_Log("Clearing thumbnails took %d\n", SDL_GetTicks()-ttimer);
 		}
 
 

@@ -735,6 +735,7 @@ int thumb_thread(void* data)
 
 	intptr_t do_load = (intptr_t)data;
 
+	int start = SDL_GetTicks();
 	u8* pix;
 	u8* outpix;
 	for (int i=0; i<g->files.size; ++i) {
@@ -806,7 +807,7 @@ int thumb_thread(void* data)
 
 	g->generating_thumbs = SDL_FALSE;
 	g->thumbs_done = SDL_TRUE;
-	SDL_Log("Done generating thumbs, exiting thread.\n");
+	SDL_Log("Done generating thumbs in %d, exiting thread.\n", SDL_GetTicks()-start);
 	return 0;
 }
 
@@ -839,6 +840,7 @@ void generate_thumbs(intptr_t do_load)
 		// TODO warning?
 		SDL_Log("couldn't create thumb thread\n");
 	}
+	// passing NULL is a no-op like free
 	SDL_DetachThread(thumb_thrd);
 }
 
@@ -943,8 +945,22 @@ int curl_image(int img_idx)
 	}
 	fclose(imgfile);
 
-	free(g->files.a[img_idx].path);
-	g->files.a[img_idx].path = mystrdup(filename);
+
+	struct stat file_stat;
+	stat(filename, &file_stat);
+
+	file* f = &g->files.a[img_idx];
+	free(f->path);
+	f->path = mystrdup(filename);
+	f->size = file_stat.st_size;
+	f->modified = file_stat.st_mtime;
+
+	bytes2str(f->size, f->size_str, SIZE_STR_BUF);
+	struct tm* tmp_tm = localtime(&f->modified);
+	strftime(f->mod_str, MOD_STR_BUF, "%F %T", tmp_tm);
+	char* sep = strrchr(f->path, '/'); // TODO test on windows but I think I normalize
+	f->name = (sep) ? sep+1 : f->path;
+
 
 	curl_easy_cleanup(curl);
 	return 1;
@@ -1933,6 +1949,11 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 				f.path = mystrdup(s);
 				f.size = 0;
 				f.modified = 0;
+
+				// leave whole url as name so user knows why size and modified are unknown
+				f.name = f.path;
+				strncpy(f.size_str, "unknown", SIZE_STR_BUF);
+				strncpy(f.mod_str, "unknown", MOD_STR_BUF);
 				cvec_push_file(&g->files, &f);
 			} else if (S_ISDIR(file_stat.st_mode)) {
 				// Should I allow directories in a list?  Or make the user
@@ -2352,6 +2373,12 @@ int main(int argc, char** argv)
 				f.path = mystrdup(argv[i]);
 				f.size = 0;
 				f.modified = 0;
+
+				// leave name as url so user knows why the other 2 are unknown
+				f.name = f.path;
+				strncpy(f.size_str, "unknown", SIZE_STR_BUF);
+				strncpy(f.mod_str, "unknown", MOD_STR_BUF);
+
 				cvec_push_file(&g->files, &f);
 			} else if (S_ISDIR(file_stat.st_mode)) {
 				given_dir = 1;
