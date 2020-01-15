@@ -1640,6 +1640,8 @@ void do_shuffle()
 			break;
 		}
 	}
+
+	g->sorted_state = NONE;
 }
 
 void do_sort(compare_func cmp)

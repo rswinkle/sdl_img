@@ -373,25 +373,49 @@ int handle_list_events()
 			case SORT_NAME:
 				SDL_Log("Starting sort by name\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filename_cmp_lt);
+				if (g->sorted_state != NAME_UP) {
+					do_sort(filename_cmp_lt);
+					g->sorted_state = NAME_UP;
+				} else {
+					do_sort(filename_cmp_gt);
+					g->sorted_state = NAME_DOWN;
+				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_PATH:
 				SDL_Log("Starting sort by path\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filepath_cmp_lt);
+				if (g->sorted_state != PATH_UP) {
+					do_sort(filepath_cmp_lt);
+					g->sorted_state = PATH_UP;
+				} else {
+					do_sort(filepath_cmp_gt);
+					g->sorted_state = PATH_DOWN;
+				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_SIZE:
 				SDL_Log("Starting sort by size\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filesize_cmp_lt);
+				if (g->sorted_state != SIZE_UP) {
+					do_sort(filesize_cmp_lt);
+					g->sorted_state = SIZE_UP;
+				} else {
+					do_sort(filesize_cmp_gt);
+					g->sorted_state = SIZE_DOWN;
+				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_MODIFIED:
 				SDL_Log("Starting sort by modified\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filemodified_cmp_lt);
+				if (g->sorted_state != MODIFIED_UP) {
+					do_sort(filemodified_cmp_lt);
+					g->sorted_state = MODIFIED_UP;
+				} else {
+					do_sort(filemodified_cmp_gt);
+					g->sorted_state = MODIFIED_DOWN;
+				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 				/*
@@ -669,24 +693,28 @@ int handle_events_normally()
 				SDL_Log("Starting sort by name\n");
 				sort_timer = SDL_GetTicks();
 				do_sort(filename_cmp_lt);
+				g->sorted_state = NAME_UP;
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_PATH:
 				SDL_Log("Starting sort by path\n");
 				sort_timer = SDL_GetTicks();
 				do_sort(filepath_cmp_lt);
+				g->sorted_state = PATH_UP;
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_SIZE:
 				SDL_Log("Starting sort by size\n");
 				sort_timer = SDL_GetTicks();
 				do_sort(filesize_cmp_lt);
+				g->sorted_state = SIZE_UP;
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_MODIFIED:
 				SDL_Log("Starting sort by modified\n");
 				sort_timer = SDL_GetTicks();
 				do_sort(filemodified_cmp_lt);
+				g->sorted_state = MODIFIED_UP;
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case DELETE_IMG:
@@ -831,15 +859,19 @@ int handle_events_normally()
 			case SDL_SCANCODE_N:
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					do_sort(filepath_cmp_lt);
+					g->sorted_state = PATH_UP;
 				} else {
 					do_sort(filename_cmp_lt);
+					g->sorted_state = NAME_UP;
 				}
 				break;
 			case SDL_SCANCODE_Z:
 				do_sort(filesize_cmp_lt);
+				g->sorted_state = SIZE_UP;
 				break;
 			case SDL_SCANCODE_T:
 				do_sort(filemodified_cmp_lt);
+				g->sorted_state = MODIFIED_UP;
 				break;
 
 			case SDL_SCANCODE_P:

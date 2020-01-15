@@ -154,6 +154,7 @@ void draw_gui(struct nk_context* ctx)
 	}
 
 	int is_selected = 0;
+	int symbol;
 
 	if (g->list_mode) {
 		if (nk_begin(ctx, "List", nk_rect(0, GUI_BAR_HEIGHT, scr_w, scr_h-GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR)) {
@@ -161,19 +162,42 @@ void draw_gui(struct nk_context* ctx)
 			//nk_layout_row_dynamic(ctx, 0, 3);
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 
+			symbol = NK_SYMBOL_NONE; // 0
+			if (g->sorted_state == NAME_UP)
+				symbol = NK_SYMBOL_TRIANGLE_UP;
+			else if (g->sorted_state == NAME_DOWN)
+				symbol = NK_SYMBOL_TRIANGLE_DOWN;
+
 			// TODO name or path?
-			if (nk_button_label(ctx, "Name")) {
-				event.user.code = SORT_PATH;
+			if (nk_button_symbol_label(ctx, symbol, "Name", NK_TEXT_LEFT)) {
+				event.user.code = SORT_NAME;
 				SDL_PushEvent(&event);
 			}
-			if (nk_button_label(ctx, "Size")) {
+
+			// I hate redundant logic but the alternative is repeated gui code
+			// TODO think of a better way
+			symbol = NK_SYMBOL_NONE; // 0
+			if (g->sorted_state == SIZE_UP)
+				symbol = NK_SYMBOL_TRIANGLE_UP;
+			else if (g->sorted_state == SIZE_DOWN)
+				symbol = NK_SYMBOL_TRIANGLE_DOWN;
+
+			if (nk_button_symbol_label(ctx, symbol, "Size", NK_TEXT_LEFT)) {
 				event.user.code = SORT_SIZE;
 				SDL_PushEvent(&event);
 			}
-			if (nk_button_label(ctx, "Modified")) {
+
+			symbol = NK_SYMBOL_NONE; // 0
+			if (g->sorted_state == MODIFIED_UP)
+				symbol = NK_SYMBOL_TRIANGLE_UP;
+			else if (g->sorted_state == MODIFIED_DOWN)
+				symbol = NK_SYMBOL_TRIANGLE_DOWN;
+
+			if (nk_button_symbol_label(ctx, symbol, "Modified", NK_TEXT_LEFT)) {
 				event.user.code = SORT_MODIFIED;
 				SDL_PushEvent(&event);
 			}
+
 			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-40, 1);
 			if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
 				// TODO ratio layout 0.5 0.2 0.3 ? give or take
@@ -328,6 +352,8 @@ void draw_gui(struct nk_context* ctx)
 					}
 					nk_label(ctx, "M", NK_TEXT_RIGHT);
 
+					// TODO I don't think it's worth it supporting showing state and reverse sorting in normal mode
+					//if (nk_menu_item_symbol_label(ctx, NK_SYMBOL_TRIANGLE_UP, "Sort by file name (default)", NK_TEXT_RIGHT)) {
 					if (nk_menu_item_label(ctx, "Sort by file name (default)", NK_TEXT_LEFT)) {
 						event.user.code = SORT_NAME;
 						SDL_PushEvent(&event);
