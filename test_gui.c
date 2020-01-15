@@ -389,8 +389,11 @@ void draw_gui(struct nk_context* ctx)
 	s.border = 0;
 	s.text_alignment = NK_TEXT_LEFT;
 
-	static int selected = -1;
+	static int selected = 25;
+	static int first_time = 1;
 	int is_selected = 0;
+
+	static struct nk_list_view lview;
 
 	if (list_mode) {
 		if (nk_begin(ctx, "List", nk_rect(0, GUI_BAR_HEIGHT, scr_w, scr_h-GUI_BAR_HEIGHT), gui_flags)) {
@@ -399,10 +402,16 @@ void draw_gui(struct nk_context* ctx)
 			nk_button_label(ctx, "Size");
 			nk_button_label(ctx, "Modified");
 			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-40, 1);
-			if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
+
+//nk_list_view_begin(struct nk_context *ctx, struct nk_list_view *view,
+ //   const char *title, nk_flags flags, int row_height, int row_count)
+			//if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
+			if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, 24, list1.size)) {
 				nk_layout_row_dynamic(ctx, 0, 3);
-				for (int i=0; i<list1.size; ++i) {
+				for (int i=lview.begin; i<lview.end && i < list1.size; ++i) {
 					is_selected = selected == i;
+					bounds = nk_widget_bounds(ctx);
+					printf("%f %f %f %f\n", bounds.x, bounds.y, bounds.w, bounds.h);
 					if (nk_selectable_label(ctx, list1.a[i], NK_TEXT_LEFT, &is_selected)) {
 						if (is_selected)
 							selected = i;
@@ -423,8 +432,27 @@ void draw_gui(struct nk_context* ctx)
 					nk_label(ctx, "col2", NK_TEXT_LEFT);
 					nk_label(ctx, "col3", NK_TEXT_LEFT);
 				}
-				nk_group_end(ctx);
+				//printf("list height = %d\n", scr_h-GUI_BAR_HEIGHT-40);
+				nk_list_view_end(&lview);
+				//nk_group_end(ctx);
 			}
+
+			nk_uint x, y;
+			nk_group_get_scroll(ctx, "Image List", &x, &y);
+			printf("scroll %u %u\n", x, y);
+
+			/*
+			nk_uint x, y;
+			if (first_time) {
+				float group_height = scr_h-GUI_BAR_HEIGHT-40;
+				nk_uint x = 0, y = (selected*14 / group_height) * group_height;
+				printf("height = %f\n", nk_window_get_height(ctx));
+				nk_group_set_scroll(ctx, "Image List", x, y);
+				first_time = 0;
+			}
+			nk_group_get_scroll(ctx, "Image List", &x, &y);
+			printf("scroll %u %u\n", x, y);
+			*/
 		}
 		nk_end(ctx);
 
@@ -640,10 +668,10 @@ void draw_gui(struct nk_context* ctx)
 		}
 
 		nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
-		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_LEFT, "prev", NK_TEXT_RIGHT)) {
+		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_LEFT, "Prev", NK_TEXT_RIGHT)) {
 			;
 		}
-		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_RIGHT, "next", NK_TEXT_LEFT)) {
+		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_RIGHT, "Next", NK_TEXT_LEFT)) {
 			;
 		}
 

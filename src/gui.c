@@ -231,6 +231,10 @@ void draw_gui(struct nk_context* ctx)
 				}
 				nk_group_end(ctx);
 			}
+
+			nk_uint x, y;
+			nk_group_get_scroll(ctx, "Image List", &x, &y);
+			printf("scroll %u %u\n", x, y);
 		}
 		nk_end(ctx);
 
