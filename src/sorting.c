@@ -101,18 +101,27 @@ int StringCompareSort(const void *p, const void *q)
    return StringCompare(*(char **) p, *(char **) q);
 }
 
-int filename_cmp(const void* a, const void* b)
+int filename_cmp_lt(const void* a, const void* b)
 {
 	return StringCompare(((file*)a)->name, ((file*)b)->name);
 }
 
-int filepath_cmp(const void* a, const void* b)
+int filename_cmp_gt(const void* a, const void* b)
+{
+	return StringCompare(((file*)b)->name, ((file*)a)->name);
+}
+
+int filepath_cmp_lt(const void* a, const void* b)
 {
 	return StringCompare(((file*)a)->path, ((file*)b)->path);
 }
 
-// TODO add reverse sorts?  largest to smallest and newest to oldest
-int filesize_cmp(const void* a, const void* b)
+int filepath_cmp_gt(const void* a, const void* b)
+{
+	return StringCompare(((file*)b)->path, ((file*)a)->path);
+}
+
+int filesize_cmp_lt(const void* a, const void* b)
 {
 	file* f1 = (file*)a;
 	file* f2 = (file*)b;
@@ -124,13 +133,37 @@ int filesize_cmp(const void* a, const void* b)
 	return 0;
 }
 
-int filemodified_cmp(const void* a, const void* b)
+int filesize_cmp_gt(const void* a, const void* b)
+{
+	file* f1 = (file*)a;
+	file* f2 = (file*)b;
+	if (f1->size > f2->size)
+		return -1;
+	if (f1->size < f2->size)
+		return 1;
+
+	return 0;
+}
+
+int filemodified_cmp_lt(const void* a, const void* b)
 {
 	file* f1 = (file*)a;
 	file* f2 = (file*)b;
 	if (f1->modified < f2->modified)
 		return -1;
 	if (f1->modified > f2->modified)
+		return 1;
+
+	return 0;
+}
+
+int filemodified_cmp_gt(const void* a, const void* b)
+{
+	file* f1 = (file*)a;
+	file* f2 = (file*)b;
+	if (f1->modified > f2->modified)
+		return -1;
+	if (f1->modified < f2->modified)
 		return 1;
 
 	return 0;

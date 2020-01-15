@@ -73,6 +73,7 @@ enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, SEL
 enum { OFF, ON, VISUAL, SEARCH, RESULTS }; // better names?
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
+enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
        MODE_CHANGE, THUMB_MODE, LIST_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, SHUFFLE,
        SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
@@ -317,6 +318,7 @@ typedef struct global_state
 	int show_prefs;
 	int show_rotate;
 	int menu_state;
+	int sorted_state;
 
 	struct nk_color bg;
 
@@ -1258,6 +1260,7 @@ void setup(int start_idx)
 	g->fill_mode = 0;
 	g->thumb_rows = THUMB_ROWS;
 	g->thumb_cols = THUMB_COLS;
+	g->sorted_state = NAME_UP;  // ie by name ascending
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Couldn't allocate tex array: %s\n", strerror(errno));
@@ -2422,18 +2425,18 @@ int main(int argc, char** argv)
 
 		snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, img_name);
 
-		sort(g->files.a, NULL, g->files.size, filename_cmp);
+		sort(g->files.a, NULL, g->files.size, filename_cmp_lt);
 
 		SDL_Log("finding current image to update index\n");
 		file* res;
 		f.path = fullpath;
-		res = bsearch(&f, g->files.a, g->files.size, sizeof(file), filename_cmp);
+		res = bsearch(&f, g->files.a, g->files.size, sizeof(file), filename_cmp_lt);
 		if (!res) {
 			cleanup(0, 1);
 		}
 		start_index = res - g->files.a;
 	} else {
-		sort(g->files.a, NULL, g->files.size, filename_cmp);
+		sort(g->files.a, NULL, g->files.size, filename_cmp_lt);
 	}
 
 	SDL_Log("Loaded %lu filenames\n", (unsigned long)g->files.size);

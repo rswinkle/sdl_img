@@ -373,25 +373,25 @@ int handle_list_events()
 			case SORT_NAME:
 				SDL_Log("Starting sort by name\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filename_cmp);
+				do_sort(filename_cmp_lt);
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_PATH:
 				SDL_Log("Starting sort by path\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filepath_cmp);
+				do_sort(filepath_cmp_lt);
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_SIZE:
 				SDL_Log("Starting sort by size\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filesize_cmp);
+				do_sort(filesize_cmp_lt);
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_MODIFIED:
 				SDL_Log("Starting sort by modified\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filemodified_cmp);
+				do_sort(filemodified_cmp_lt);
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 				/*
@@ -668,25 +668,25 @@ int handle_events_normally()
 			case SORT_NAME:
 				SDL_Log("Starting sort by name\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filename_cmp);
+				do_sort(filename_cmp_lt);
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_PATH:
 				SDL_Log("Starting sort by path\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filepath_cmp);
+				do_sort(filepath_cmp_lt);
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_SIZE:
 				SDL_Log("Starting sort by size\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filesize_cmp);
+				do_sort(filesize_cmp_lt);
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_MODIFIED:
 				SDL_Log("Starting sort by modified\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filemodified_cmp);
+				do_sort(filemodified_cmp_lt);
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case DELETE_IMG:
@@ -830,16 +830,16 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_N:
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-					do_sort(filepath_cmp);
+					do_sort(filepath_cmp_lt);
 				} else {
-					do_sort(filename_cmp);
+					do_sort(filename_cmp_lt);
 				}
 				break;
 			case SDL_SCANCODE_Z:
-				do_sort(filesize_cmp);
+				do_sort(filesize_cmp_lt);
 				break;
 			case SDL_SCANCODE_T:
-				do_sort(filemodified_cmp);
+				do_sort(filemodified_cmp_lt);
 				break;
 
 			case SDL_SCANCODE_P:
