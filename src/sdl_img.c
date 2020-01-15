@@ -1637,6 +1637,7 @@ void do_shuffle()
 		if (!strcmp(save, g->files.a[i].path)) {
 			g->img[0].index = i;
 			g->thumb_sel = i;
+			g->selection = i;
 			break;
 		}
 	}
@@ -1662,7 +1663,10 @@ void do_sort(compare_func cmp)
 	for (int i=0; i<g->files.size; ++i) {
 		if (!strcmp(save, g->files.a[i].path)) {
 			g->img[0].index = i;
+
+			// TODO combine? which name?
 			g->thumb_sel = i;
+			g->selection = i;
 			break;
 		}
 	}
