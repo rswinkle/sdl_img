@@ -1655,6 +1655,11 @@ void do_sort(compare_func cmp)
 
 	char* save = g->files.a[g->img[0].index].path;
 
+	// TODO is it worth preserving the list selection?  Or just reset it to current image?
+	// especially since it would likely jump out of view unless we reset the scroll position
+	// like we do on list startup
+	//char* list_sel = (g->list_mode) ? g->files.a[g->selection].path : NULL;
+
 	// g->thumbs.a is either NULL or valid
 	//sort(g->files.a, g->thumbs.a, g->files.size, cmp);
 	if (g->thumbs.a)
@@ -1666,7 +1671,8 @@ void do_sort(compare_func cmp)
 		if (!strcmp(save, g->files.a[i].path)) {
 			g->img[0].index = i;
 
-			g->thumb_sel = i;
+			// for now just keep current image (what they'll go back to if they hit
+			// ESC instead of double clicking or hitting Enter on another one
 			g->selection = i;
 			break;
 		}
