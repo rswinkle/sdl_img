@@ -920,7 +920,7 @@ int curl_image(int img_idx)
 	curl_easy_setopt(curl, CURLOPT_CAPATH, SDL_GetBasePath());
 	#endif
 
-	char* slash = strrchr(s, '/');
+	char* slash = strrchr(s, PATH_SEPARATOR);
 	if (!slash) {
 		SDL_Log("invalid url\n");
 		goto exit_cleanup;
@@ -960,7 +960,7 @@ int curl_image(int img_idx)
 	bytes2str(f->size, f->size_str, SIZE_STR_BUF);
 	struct tm* tmp_tm = localtime(&f->modified);
 	strftime(f->mod_str, MOD_STR_BUF, "%F %T", tmp_tm);
-	char* sep = strrchr(f->path, '/'); // TODO test on windows but I think I normalize
+	char* sep = strrchr(f->path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 	f->name = (sep) ? sep+1 : f->path;
 
 
@@ -1109,7 +1109,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		bytes2str(f.size, f.size_str, SIZE_STR_BUF);
 		tmp_tm = localtime(&f.modified);
 		strftime(f.mod_str, MOD_STR_BUF, "%F %T", tmp_tm);
-		sep = strrchr(f.path, '/'); // TODO test on windows but I think I normalize
+		sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 		f.name = (sep) ? sep+1 : f.path;
 		cvec_push_file(&g->files, &f);
 	}
@@ -1189,6 +1189,7 @@ int load_new_images(void* data)
 				}
 
 				// just set title to upper left image when !img_focus
+				// TODO use file.name for all of these
 				SDL_SetWindowTitle(g->win, mybasename(g->files.a[img[0].index].path, title_buf));
 			} else {
 				tmp = (load_what == RIGHT) ? 1 : -1;
@@ -1977,7 +1978,7 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 				bytes2str(f.size, f.size_str, SIZE_STR_BUF);
 				tmp_tm = localtime(&f.modified);
 				strftime(f.mod_str, MOD_STR_BUF, "%F %T", tmp_tm);
-				sep = strrchr(f.path, '/'); // TODO test on windows but I think I normalize
+				sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 				f.name = (sep) ? sep+1 : f.path;
 
 				cvec_push_file(&g->files, &f);
@@ -2404,7 +2405,7 @@ int main(int argc, char** argv)
 				bytes2str(f.size, f.size_str, SIZE_STR_BUF);
 				tmp = localtime(&f.modified);
 				strftime(f.mod_str, MOD_STR_BUF, "%F %T", tmp);
-				sep = strrchr(f.path, '/'); // TODO test on windows but I think I normalize
+				sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 				f.name = (sep) ? sep+1 : f.path;
 
 				cvec_push_file(&g->files, &f);
