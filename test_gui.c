@@ -389,7 +389,7 @@ void draw_gui(struct nk_context* ctx)
 	s.border = 0;
 	s.text_alignment = NK_TEXT_LEFT;
 
-	static int selected = 25;
+	static int selected = 49;
 	static int first_time = 1;
 	int is_selected = 0;
 
@@ -408,10 +408,10 @@ void draw_gui(struct nk_context* ctx)
 			//if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
 			if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, 24, list1.size)) {
 				nk_layout_row_dynamic(ctx, 0, 3);
-				for (int i=lview.begin; i<lview.end && i < list1.size; ++i) {
+				for (int i=lview.begin; i<lview.end; ++i) {
 					is_selected = selected == i;
-					bounds = nk_widget_bounds(ctx);
-					printf("%f %f %f %f\n", bounds.x, bounds.y, bounds.w, bounds.h);
+					//bounds = nk_widget_bounds(ctx);
+					//printf("%f %f %f %f\n", bounds.x, bounds.y, bounds.w, bounds.h);
 					if (nk_selectable_label(ctx, list1.a[i], NK_TEXT_LEFT, &is_selected)) {
 						if (is_selected)
 							selected = i;
@@ -433,11 +433,26 @@ void draw_gui(struct nk_context* ctx)
 					nk_label(ctx, "col3", NK_TEXT_LEFT);
 				}
 				//printf("list height = %d\n", scr_h-GUI_BAR_HEIGHT-40);
+    //view->count = (int)NK_MAX(nk_iceilf((layout->clip.h)/(float)row_height),0);
+				printf("list layout = %f %d %d\n", ctx->current->layout->clip.h, nk_iceilf(ctx->current->layout->clip.h/28.0), lview.count);
 				nk_list_view_end(&lview);
 				//nk_group_end(ctx);
 			}
 
-			nk_uint x, y;
+			// view->begin = (int)NK_MAX(((float)view->scroll_value / (float)row_height), 0.0f);
+			nk_uint x = 0, y;
+			int row_height = 24 + ctx->style.window.spacing.y;
+			printf("item spacing.y = %f %f %f\n", ctx->style.window.spacing.y, ctx->style.window.padding.y, ctx->style.window.group_padding.y);
+			//y = lview.begin * row_height;
+			int scroll_limit = (lview.total_height - ((row_height) * lview.count));
+			printf("scroll_limit = %d\n", scroll_limit);
+			y = (selected/(float)(list1.size-1) * scroll_limit) + 0.999f;
+			y = selected * 24-ctx->style.window.spacing.y/2;
+			//y = NK_MAX((selected/(float)(list1.size-1) * scroll_limit), scroll_limit);
+			if (first_time) {
+				nk_group_set_scroll(ctx, "Image List", x, y);
+				first_time = 0;
+			}
 			nk_group_get_scroll(ctx, "Image List", &x, &y);
 			printf("scroll %u %u\n", x, y);
 

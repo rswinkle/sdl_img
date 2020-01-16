@@ -1664,7 +1664,6 @@ void do_sort(compare_func cmp)
 		if (!strcmp(save, g->files.a[i].path)) {
 			g->img[0].index = i;
 
-			// TODO combine? which name?
 			g->thumb_sel = i;
 			g->selection = i;
 			break;
@@ -2592,9 +2591,7 @@ int main(int argc, char** argv)
 
 
 		//"sleep" save CPU cycles/battery especially when not viewing animated gifs
-		if (g->list_mode) {
-			SDL_Delay(15);
-		} else if (!is_a_gif) { // && !g->loading)
+		if (!is_a_gif) { // && !g->loading)
 			SDL_Delay(SLEEP_TIME);
 		} else {
 			SDL_Delay(MIN_GIF_DELAY/2);

@@ -198,12 +198,15 @@ void draw_gui(struct nk_context* ctx)
 				SDL_PushEvent(&event);
 			}
 
+			static struct nk_list_view lview;
+
 			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-40, 1);
-			if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
+			//if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
+			if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, 24, g->files.size)) {
 				// TODO ratio layout 0.5 0.2 0.3 ? give or take
 				//nk_layout_row_dynamic(ctx, 0, 3);
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
-				for (int i=0; i<g->files.size; ++i) {
+				for (int i=lview.begin; i<lview.end; ++i) {
 					// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
 					// also thumb_sel serves the same/similar purpose
 					is_selected = g->selection == i;
@@ -229,12 +232,12 @@ void draw_gui(struct nk_context* ctx)
 					nk_label(ctx, g->files.a[i].size_str, NK_TEXT_RIGHT);
 					nk_label(ctx, g->files.a[i].mod_str, NK_TEXT_RIGHT);
 				}
-				nk_group_end(ctx);
+				nk_list_view_end(&lview);
 			}
 
 			nk_uint x, y;
 			nk_group_get_scroll(ctx, "Image List", &x, &y);
-			printf("scroll %u %u\n", x, y);
+			//printf("scroll %u %u\n", x, y);
 		}
 		nk_end(ctx);
 
