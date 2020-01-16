@@ -15964,6 +15964,7 @@ nk_panel_end(struct nk_context *ctx)
             scroll_step = scroll.h * 0.10f;
             scroll_inc = scroll.h * 0.01f;
             scroll_target = (float)(int)(layout->at_y - scroll.y);
+            printf("layout->at_y %f scroll.y %f\n", layout->at_y, scroll.y);
             scroll_offset = nk_do_scrollbarv(&state, out, scroll, scroll_has_scrolling,
                 scroll_offset, scroll_target, scroll_step, scroll_inc,
                 &ctx->style.scrollv, in, style->font);
@@ -21460,8 +21461,10 @@ nk_scrollbar_behavior(nk_flags *state, struct nk_input *in,
         if ((scroll_delta < 0 || (scroll_delta > 0))) {
             /* update cursor by mouse scrolling */
             scroll_offset = scroll_offset + scroll_step * (-scroll_delta);
-            if (o == NK_VERTICAL)
+            if (o == NK_VERTICAL) {
+            	printf("offset %f target %f scroll->h %f\n", scroll_offset, target, scroll->h);
                 scroll_offset = NK_CLAMP(0, scroll_offset, target - scroll->h);
+            }
             else scroll_offset = NK_CLAMP(0, scroll_offset, target - scroll->w);
         } else if (nk_input_is_key_pressed(in, NK_KEY_SCROLL_START)) {
             /* update cursor to the beginning  */
@@ -23213,6 +23216,7 @@ nk_do_edit(nk_flags *state, struct nk_command_buffer *out,
                 scroll_step = scroll.h * 0.10f;
                 scroll_inc = scroll.h * 0.01f;
                 scroll_target = text_size.y;
+                printf("text_size.y = %f\n", text_size.y);
                 edit->scrollbar.y = nk_do_scrollbarv(&ws, out, scroll, 0,
                         scroll_offset, scroll_target, scroll_step, scroll_inc,
                         &style->scrollbar, in, font);

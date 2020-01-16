@@ -303,6 +303,7 @@ typedef struct global_state
 	int show_infobar;
 
 	int list_mode;
+	int list_setscroll;
 
 	int thumb_mode;
 	int thumbs_done;
@@ -2104,6 +2105,7 @@ void do_listmode()
 	g->thumb_mode = OFF;
 	g->selection = g->img[0].index;
 	g->list_mode = SDL_TRUE;
+	g->list_setscroll = SDL_TRUE;
 	SDL_ShowCursor(SDL_ENABLE);
 }
 

@@ -389,11 +389,12 @@ void draw_gui(struct nk_context* ctx)
 	s.border = 0;
 	s.text_alignment = NK_TEXT_LEFT;
 
-	static int selected = 49;
+	static int selected = 25;
 	static int first_time = 1;
 	int is_selected = 0;
 
 	static struct nk_list_view lview;
+	int list_height;
 
 	if (list_mode) {
 		if (nk_begin(ctx, "List", nk_rect(0, GUI_BAR_HEIGHT, scr_w, scr_h-GUI_BAR_HEIGHT), gui_flags)) {
@@ -434,21 +435,17 @@ void draw_gui(struct nk_context* ctx)
 				}
 				//printf("list height = %d\n", scr_h-GUI_BAR_HEIGHT-40);
     //view->count = (int)NK_MAX(nk_iceilf((layout->clip.h)/(float)row_height),0);
-				printf("list layout = %f %d %d\n", ctx->current->layout->clip.h, nk_iceilf(ctx->current->layout->clip.h/28.0), lview.count);
+				printf("list layout = %f %f %d %d\n", ctx->current->layout->clip.h, ctx->current->layout->bounds.h, nk_iceilf(ctx->current->layout->clip.h/28.0), lview.count);
+				list_height = ctx->current->layout->clip.h;
 				nk_list_view_end(&lview);
 				//nk_group_end(ctx);
 			}
 
 			// view->begin = (int)NK_MAX(((float)view->scroll_value / (float)row_height), 0.0f);
 			nk_uint x = 0, y;
-			int row_height = 24 + ctx->style.window.spacing.y;
-			printf("item spacing.y = %f %f %f\n", ctx->style.window.spacing.y, ctx->style.window.padding.y, ctx->style.window.group_padding.y);
-			//y = lview.begin * row_height;
-			int scroll_limit = (lview.total_height - ((row_height) * lview.count));
+			int scroll_limit = (lview.total_height - list_height);
 			printf("scroll_limit = %d\n", scroll_limit);
 			y = (selected/(float)(list1.size-1) * scroll_limit) + 0.999f;
-			y = selected * 24-ctx->style.window.spacing.y/2;
-			//y = NK_MAX((selected/(float)(list1.size-1) * scroll_limit), scroll_limit);
 			if (first_time) {
 				nk_group_set_scroll(ctx, "Image List", x, y);
 				first_time = 0;

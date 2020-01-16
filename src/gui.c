@@ -199,6 +199,7 @@ void draw_gui(struct nk_context* ctx)
 			}
 
 			static struct nk_list_view lview;
+			int list_height;
 
 			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-40, 1);
 			//if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
@@ -232,11 +233,18 @@ void draw_gui(struct nk_context* ctx)
 					nk_label(ctx, g->files.a[i].size_str, NK_TEXT_RIGHT);
 					nk_label(ctx, g->files.a[i].mod_str, NK_TEXT_RIGHT);
 				}
+				list_height = ctx->current->layout->clip.h; // ->bounds.h?
 				nk_list_view_end(&lview);
 			}
 
-			nk_uint x, y;
-			nk_group_get_scroll(ctx, "Image List", &x, &y);
+			if (g->list_setscroll) {
+				nk_uint x = 0, y;
+				int scroll_limit = lview.total_height - list_height; // little off
+				y = (g->selection/(float)(g->files.size-1) * scroll_limit) + 0.999f;
+				//nk_group_get_scroll(ctx, "Image List", &x, &y);
+				nk_group_set_scroll(ctx, "Image List", x, y);
+				g->list_setscroll = SDL_FALSE;
+			}
 			//printf("scroll %u %u\n", x, y);
 		}
 		nk_end(ctx);
