@@ -1034,7 +1034,7 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 }
 
 // renamed to not conflict with <dirent.h>'s scandir
-// which I could probably use to accomplish the most of this...
+// which I could probably use to accomplish  most of this...
 int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 {
 	char fullpath[STRBUF_SZ] = { 0 };
@@ -2434,8 +2434,14 @@ int main(int argc, char** argv)
 		sort(g->files.a, NULL, g->files.size, filename_cmp_lt);
 
 		SDL_Log("finding current image to update index\n");
+		// this is fine because it's only used when given a single image, which then scans
+		// only that directory, hence no duplicate filenames are possible
+		//
+		// in all other cases (list, multiple files/urls, directory(ies) or some
+		// combination of those) there is no "starting image", we just sort and
+		// start at the beginning of the g->files in those cases
 		file* res;
-		f.path = fullpath;
+		f.name = img_name;
 		res = bsearch(&f, g->files.a, g->files.size, sizeof(file), filename_cmp_lt);
 		if (!res) {
 			cleanup(0, 1);
