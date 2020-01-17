@@ -45,7 +45,7 @@ int show_about = nk_false;
 int show_prefs = nk_false;
 int show_rotate = nk_false;
 int show_infobar = nk_true;
-int list_mode = nk_false;
+int list_mode = nk_true;
 int menu_state = MENU_NONE;
 
 struct nk_colorf bg;
@@ -168,7 +168,7 @@ int main(void)
 		//draw_simple_gui(ctx);
 
 
-		SDL_Delay(50);
+		SDL_Delay(15);
 		SDL_SetRenderDrawColor(ren, bg2.r, bg2.g, bg2.b, bg2.a);
 		SDL_RenderSetClipRect(ren, NULL);
 		SDL_RenderClear(ren);
@@ -395,20 +395,45 @@ void draw_gui(struct nk_context* ctx)
 
 	static struct nk_list_view lview;
 	int list_height;
+	static float ratios2[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
 
 	if (list_mode) {
 		if (nk_begin(ctx, "List", nk_rect(0, GUI_BAR_HEIGHT, scr_w, scr_h-GUI_BAR_HEIGHT), gui_flags)) {
-			nk_layout_row_dynamic(ctx, 0, 3);
+			float ratios[] = { 0.5f, 0.15f, 0.35f};
+			//nk_layout_row_dynamic(ctx, 0, 3);
+		//	nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
+            nk_layout_row(ctx, NK_DYNAMIC, 0, 5, ratios2);
 			nk_button_label(ctx, "Name");
+			/* scaler */
+			bounds = nk_widget_bounds(ctx);
+			nk_spacing(ctx, 1);
+			if ((nk_input_is_mouse_hovering_rect(in, bounds) ||
+			    nk_input_is_mouse_prev_hovering_rect(in, bounds)) &&
+			    nk_input_is_mouse_down(in, NK_BUTTON_LEFT)) {
+			    printf("spacer %f %f\n", ctx->current->layout->bounds.w, ctx->current->layout->clip.w);
+				ratios2[0] += in->mouse.delta.x/(ctx->current->layout->bounds.w+8);
+				ratios2[2] -= in->mouse.delta.x/(ctx->current->layout->bounds.w+8);
+			}
 			nk_button_label(ctx, "Size");
+			bounds = nk_widget_bounds(ctx);
+			nk_spacing(ctx, 1);
+			if ((nk_input_is_mouse_hovering_rect(in, bounds) ||
+			    nk_input_is_mouse_prev_hovering_rect(in, bounds)) &&
+			    nk_input_is_mouse_down(in, NK_BUTTON_LEFT)) {
+			    //printf("spacer %f %f\n", ctx->current->layout->bounds.w, ctx->current->layout->clip.w);
+				ratios2[2] += in->mouse.delta.x/ctx->current->layout->bounds.w;
+				ratios2[4] -= in->mouse.delta.x/ctx->current->layout->bounds.w;
+			}
 			nk_button_label(ctx, "Modified");
-			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-40, 1);
 
+			printf("%.3f %.3f %.3f %.3f %.3f\n", ratios2[0], ratios2[1], ratios2[2], ratios2[3], ratios2[4]);
+
+			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-40, 1);
 //nk_list_view_begin(struct nk_context *ctx, struct nk_list_view *view,
  //   const char *title, nk_flags flags, int row_height, int row_count)
 			//if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
 			if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, 24, list1.size)) {
-				nk_layout_row_dynamic(ctx, 0, 3);
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 				for (int i=lview.begin; i<lview.end; ++i) {
 					is_selected = selected == i;
 					//bounds = nk_widget_bounds(ctx);
@@ -430,8 +455,8 @@ void draw_gui(struct nk_context* ctx)
 						printf("%s clicked\n", list1.a[i]);
 					}
 					*/
-					nk_label(ctx, "col2", NK_TEXT_LEFT);
-					nk_label(ctx, "col3", NK_TEXT_LEFT);
+					nk_label(ctx, "col2", NK_TEXT_RIGHT);
+					nk_label(ctx, "col3", NK_TEXT_RIGHT);
 				}
 				//printf("list height = %d\n", scr_h-GUI_BAR_HEIGHT-40);
     //view->count = (int)NK_MAX(nk_iceilf((layout->clip.h)/(float)row_height),0);
