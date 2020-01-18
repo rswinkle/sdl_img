@@ -436,11 +436,28 @@ int handle_list_events()
 			sym = e.key.keysym.sym;
 			switch (sym) {
 			case SDLK_ESCAPE:
-				g->list_mode = SDL_FALSE;
-				SDL_ShowCursor(SDL_ENABLE);
-				g->gui_timer = SDL_GetTicks();
-				g->show_gui = SDL_TRUE;
-				g->status = REDRAW;
+				if (g->list_mode == RESULTS) {
+					g->list_mode = ON;
+					text[0] = 0;
+					//memset(text, 0, text_len+1);
+					text_len = 0;
+
+					// if nothing was selected among search results set back
+					// to current image
+					if (g->selection < 0) {
+						g->selection = g->img[0].index;
+						g->list_setscroll = SDL_TRUE;
+					}
+
+					// redundant since we clear before doing the search atm
+					g->search_results.size = 0;
+				} else {
+					g->list_mode = OFF;
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = SDL_TRUE;
+					g->status = REDRAW;
+				}
 				break;
 
 			// Do removal and deletion in list mode?
@@ -451,14 +468,16 @@ int handle_list_events()
 
 			// switch to normal mode on that image
 			case SDLK_RETURN:
-				g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
+				if (g->selection >= 0) {
+					g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
 
-				g->list_mode = SDL_FALSE;
-				SDL_ShowCursor(SDL_ENABLE);
-				g->gui_timer = SDL_GetTicks();
-				g->show_gui = SDL_TRUE;
-				g->status = REDRAW;
-				try_move(SELECTION);
+					g->list_mode = OFF;
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = SDL_TRUE;
+					g->status = REDRAW;
+					try_move(SELECTION);
+				}
 				break;
 			}
 			break;

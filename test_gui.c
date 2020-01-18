@@ -393,18 +393,33 @@ void draw_gui(struct nk_context* ctx)
 	static int first_time = 1;
 	int is_selected = 0;
 
+	int search_state = 0;
 	static struct nk_list_view lview;
 	int list_height;
-	static float ratios2[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
+	float search_height = 24;
+	static float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
+	float search_ratio[] = { 0.8f, 0.2f };
 	static int splitter_down = 0;
+    static char field_buffer[64];
+    static int field_len;
 	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
 		splitter_down = 0;
 
 	if (list_mode) {
 		if (nk_begin(ctx, "List", nk_rect(0, GUI_BAR_HEIGHT, scr_w, scr_h-GUI_BAR_HEIGHT), gui_flags)) {
-		//	nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
-			nk_layout_row(ctx, NK_DYNAMIC, 0, 5, ratios2);
+
+			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, search_ratio);
+			search_height = nk_widget_bounds(ctx).h;
+			printf("height = %f\n", search_height);
+			if ((search_state = nk_edit_string(ctx, NK_EDIT_FIELD|NK_EDIT_SIG_ENTER, field_buffer, &field_len, 64, nk_filter_default))) {
+				field_buffer[field_len] = 0;
+				printf("edit state %d %d \"%s\"\n", search_state, SDL_GetTicks(), field_buffer);
+			}
+			nk_button_label(ctx, "Search");
+
+			nk_layout_row(ctx, NK_DYNAMIC, 0, 5, header_ratios);
 			nk_button_label(ctx, "Name");
+
 			/* scaler */
 			bounds = nk_widget_bounds(ctx);
 			nk_spacing(ctx, 1);
@@ -412,45 +427,46 @@ void draw_gui(struct nk_context* ctx)
 			    nk_input_is_mouse_down(in, NK_BUTTON_LEFT)) {
 				printf("spacer %f %f\n", ctx->current->layout->bounds.w, ctx->current->layout->clip.w);
 				float change = in->mouse.delta.x/(ctx->current->layout->bounds.w-8);
-				ratios2[0] += change;
-				ratios2[2] -= change;
-				if (ratios2[2] < 0.05f) {
-					ratios2[2] = 0.05f;
-					ratios2[0] = 0.93f - ratios2[4];
-				} else if (ratios2[0] < 0.05f) {
-					ratios2[0] = 0.05f;
-					ratios2[2] = 0.93f - ratios2[4];
+				header_ratios[0] += change;
+				header_ratios[2] -= change;
+				if (header_ratios[2] < 0.05f) {
+					header_ratios[2] = 0.05f;
+					header_ratios[0] = 0.93f - header_ratios[4];
+				} else if (header_ratios[0] < 0.05f) {
+					header_ratios[0] = 0.05f;
+					header_ratios[2] = 0.93f - header_ratios[4];
 				}
-				// TODO prevent < 0
 				splitter_down = 1;
 			}
 			nk_button_label(ctx, "Size");
+
 			bounds = nk_widget_bounds(ctx);
 			nk_spacing(ctx, 1);
 			if ((splitter_down == 2 || (nk_input_is_mouse_hovering_rect(in, bounds) && !splitter_down)) &&
 			    nk_input_is_mouse_down(in, NK_BUTTON_LEFT)) {
 				//printf("spacer %f %f\n", ctx->current->layout->bounds.w, ctx->current->layout->clip.w);
 				float change = in->mouse.delta.x/(ctx->current->layout->bounds.w-8);
-				ratios2[2] += change;
-				ratios2[4] -= change;
-				if (ratios2[2] < 0.05f) {
-					ratios2[2] = 0.05f;
-					ratios2[4] = 0.93f - ratios2[0];
-				} else if (ratios2[4] < 0.05f) {
-					ratios2[4] = 0.05f;
-					ratios2[2] = 0.93f - ratios2[0];
+				header_ratios[2] += change;
+				header_ratios[4] -= change;
+				if (header_ratios[2] < 0.05f) {
+					header_ratios[2] = 0.05f;
+					header_ratios[4] = 0.93f - header_ratios[0];
+				} else if (header_ratios[4] < 0.05f) {
+					header_ratios[4] = 0.05f;
+					header_ratios[2] = 0.93f - header_ratios[0];
 				}
 				splitter_down = 2;
 			}
 			nk_button_label(ctx, "Modified");
 
-			printf("%.3f %.3f %.3f %.3f %.3f\n", ratios2[0], ratios2[1], ratios2[2], ratios2[3], ratios2[4]);
+			printf("%.3f %.3f %.3f %.3f %.3f\n", header_ratios[0], header_ratios[1], header_ratios[2], header_ratios[3], header_ratios[4]);
 
-			float ratios[] = { ratios2[0]+0.01f, ratios2[2], ratios2[4]+0.01f };
-			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-40, 1);
+			float ratios[] = { header_ratios[0]+0.01f, header_ratios[2], header_ratios[4]+0.01f };
+
+			// TODO figure out why border goes off the edge (ie we don't see the bottom border)
+			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-2*search_height, 1);
 //nk_list_view_begin(struct nk_context *ctx, struct nk_list_view *view,
  //   const char *title, nk_flags flags, int row_height, int row_count)
-			//if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
 			if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, 24, list1.size)) {
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 				for (int i=lview.begin; i<lview.end; ++i) {

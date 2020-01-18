@@ -70,7 +70,7 @@
 
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, SELECTION, EXIT };
-enum { OFF, ON, VISUAL, SEARCH, RESULTS }; // better names?
+enum { OFF, ON, VISUAL, SEARCH, RESULTS }; // better names? reusing OFF,ON,RESULTS for list mode
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
@@ -2110,8 +2110,11 @@ void do_listmode()
 	// TODO hmm
 	g->thumb_mode = OFF;
 	g->selection = g->img[0].index;
-	g->list_mode = SDL_TRUE;
+	g->list_mode = ON;
 	g->list_setscroll = SDL_TRUE;
+	text[0] = 0;
+	text_len = 0;
+	g->search_results.size = 0;
 	SDL_ShowCursor(SDL_ENABLE);
 }
 
@@ -2121,6 +2124,7 @@ void do_thumbmode()
 	g->thumb_mode = ON;
 	g->thumb_sel = g->img[0].index;
 	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
+	g->search_results.size = 0;
 	g->status = REDRAW;
 	// TODO what a mess, need to think about the best way
 	// to handle GUI vs mouse in thumb vs normal mode

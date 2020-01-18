@@ -29,8 +29,8 @@ void draw_gui(struct nk_context* ctx)
 	int scr_w = g->scr_w/g->x_scale;
 	int scr_h = g->scr_h/g->y_scale;
 
-	//struct nk_rect bounds;
-	//const struct nk_input* in = &ctx->input;
+	struct nk_rect bounds;
+	const struct nk_input* in = &ctx->input;
 
 	// Do popups first so I can return early if eather is up
 	if (g->show_rotate) {
@@ -155,12 +155,55 @@ void draw_gui(struct nk_context* ctx)
 
 	int is_selected = 0;
 	int symbol;
+	float search_ratio[] = { 0.8f, 0.2f };
+	int list_height;
+	int active;
+	float search_height;
 
+	static struct nk_list_view lview, rview;
+	static float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
+	static int splitter_down = 0;
+
+
+	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
+		splitter_down = 0;
+
+	// TODO expand list_mode to have RESULTS too?  use thumb enum?  ESC goes back to normal listmode
 	if (g->list_mode) {
 		if (nk_begin(ctx, "List", nk_rect(0, GUI_BAR_HEIGHT, scr_w, scr_h-GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR)) {
-			float ratios[] = { 0.5f, 0.15f, 0.35f};
-			//nk_layout_row_dynamic(ctx, 0, 3);
-			nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
+
+			// TODO With Enter to search, should I even have the Search button?  It's more of a label now... maybe put it on
+			// the left?  and make it smaller?
+			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, search_ratio);
+			search_height = nk_widget_bounds(ctx).h;
+			active = nk_edit_string(ctx, NK_EDIT_FIELD|NK_EDIT_SIG_ENTER, text, &text_len, STRBUF_SZ, nk_filter_default);
+			if (nk_button_label(ctx, "Search") || (active & NK_EDIT_COMMITED)) {
+				// fast enough to do here?  I do it in events?
+				text[text_len] = 0;
+				SDL_Log("Final text = \"%s\"\n", text);
+
+				// kind of cool to add results of multiple searches together if we leave this out
+				// course their might be duplicates.  Or we could make it search within the existing
+				// search results, so consecutive searches are && together...
+				g->search_results.size = 0;
+				
+				for (int i=0; i<g->files.size; ++i) {
+					// GNU function...
+					// searching name since I'm showing names not paths in the list
+					if (strcasestr(g->files.a[i].name, text)) {
+						SDL_Log("Adding %s\n", g->files.a[i].path);
+						cvec_push_i(&g->search_results, i);
+					}
+				}
+				SDL_Log("found %d matches\n", (int)g->search_results.size);
+				memset(&rview, 0, sizeof(rview));
+				g->list_mode = RESULTS;
+
+				// use no selection to ignore the "Enter" in events so we don't exit
+				// list mode.  Could add state to handle keeping the selection but meh
+				g->selection = -1;  // no selection among search
+			}
+			nk_layout_row(ctx, NK_DYNAMIC, 0, 5, header_ratios);
 
 			symbol = NK_SYMBOL_NONE; // 0
 			if (g->sorted_state == NAME_UP)
@@ -172,6 +215,23 @@ void draw_gui(struct nk_context* ctx)
 			if (nk_button_symbol_label(ctx, symbol, "Name", NK_TEXT_LEFT)) {
 				event.user.code = SORT_NAME;
 				SDL_PushEvent(&event);
+			}
+
+			bounds = nk_widget_bounds(ctx);
+			nk_spacing(ctx, 1);
+			if ((splitter_down == 1 || (nk_input_is_mouse_hovering_rect(in, bounds) && !splitter_down)) &&
+			    nk_input_is_mouse_down(in, NK_BUTTON_LEFT)) {
+				float change = in->mouse.delta.x/(ctx->current->layout->bounds.w-8);
+				header_ratios[0] += change;
+				header_ratios[2] -= change;
+				if (header_ratios[2] < 0.05f) {
+					header_ratios[2] = 0.05f;
+					header_ratios[0] = 0.93f - header_ratios[4];
+				} else if (header_ratios[0] < 0.05f) {
+					header_ratios[0] = 0.05f;
+					header_ratios[2] = 0.93f - header_ratios[4];
+				}
+				splitter_down = 1;
 			}
 
 			// I hate redundant logic but the alternative is repeated gui code
@@ -187,6 +247,23 @@ void draw_gui(struct nk_context* ctx)
 				SDL_PushEvent(&event);
 			}
 
+			bounds = nk_widget_bounds(ctx);
+			nk_spacing(ctx, 1);
+			if ((splitter_down == 2 || (nk_input_is_mouse_hovering_rect(in, bounds) && !splitter_down)) &&
+			    nk_input_is_mouse_down(in, NK_BUTTON_LEFT)) {
+				float change = in->mouse.delta.x/(ctx->current->layout->bounds.w-8);
+				header_ratios[2] += change;
+				header_ratios[4] -= change;
+				if (header_ratios[2] < 0.05f) {
+					header_ratios[2] = 0.05f;
+					header_ratios[4] = 0.93f - header_ratios[0];
+				} else if (header_ratios[4] < 0.05f) {
+					header_ratios[4] = 0.05f;
+					header_ratios[2] = 0.93f - header_ratios[0];
+				}
+				splitter_down = 2;
+			}
+
 			symbol = NK_SYMBOL_NONE; // 0
 			if (g->sorted_state == MODIFIED_UP)
 				symbol = NK_SYMBOL_TRIANGLE_UP;
@@ -198,54 +275,99 @@ void draw_gui(struct nk_context* ctx)
 				SDL_PushEvent(&event);
 			}
 
-			static struct nk_list_view lview;
-			int list_height;
+			float ratios[] = { header_ratios[0]+0.01f, header_ratios[2], header_ratios[4]+0.01f };
+			
+			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-2*search_height, 1);
 
-			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-40, 1);
-			//if (nk_group_begin(ctx, "Image List", NK_WINDOW_BORDER)) {
-			if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, 24, g->files.size)) {
-				// TODO ratio layout 0.5 0.2 0.3 ? give or take
-				//nk_layout_row_dynamic(ctx, 0, 3);
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
-				for (int i=lview.begin; i<lview.end; ++i) {
-					// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
-					// also thumb_sel serves the same/similar purpose
-					is_selected = g->selection == i;
-					if (nk_selectable_label(ctx, g->files.a[i].name, NK_TEXT_LEFT, &is_selected)) {
-						if (is_selected) {
-							g->selection = i;
-						} else {
-							// could support unselecting, esp. with CTRL somehow if I ever allow
-							// multiple selection
-							// g->selection = -1;
-
-							// for now, treat clicking a selection as a "double click" ie same as return
-							g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
-
-							g->list_mode = SDL_FALSE;
-							SDL_ShowCursor(SDL_ENABLE);
-							g->gui_timer = SDL_GetTicks();
-							g->show_gui = SDL_TRUE;
-							g->status = REDRAW;
-							try_move(SELECTION);
-						}
+			if (g->list_mode == RESULTS) {
+				if (!g->search_results.size) {
+					if (nk_button_label(ctx, "No matching results")) {
+						g->list_mode = ON;
+						text[0] = 0;
+						text_len = 0;
+						g->selection = g->img[0].index;
+						g->list_setscroll = SDL_TRUE;
+						// redundant since we clear before doing the search atm
+						g->search_results.size = 0;
 					}
-					nk_label(ctx, g->files.a[i].size_str, NK_TEXT_RIGHT);
-					nk_label(ctx, g->files.a[i].mod_str, NK_TEXT_RIGHT);
-				}
-				list_height = ctx->current->layout->clip.h; // ->bounds.h?
-				nk_list_view_end(&lview);
-			}
+				} else {
+					if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, 24, g->search_results.size)) {
+						nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
+						for (int j=rview.begin, i=g->search_results.a[j]; j<rview.end; ++j, i=g->search_results.a[j]) {
+							// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
+							// also thumb_sel serves the same/similar purpose
+							is_selected = g->selection == i;
+							if (nk_selectable_label(ctx, g->files.a[i].name, NK_TEXT_LEFT, &is_selected)) {
+								if (is_selected) {
+									g->selection = i;
+								} else {
+									// could support unselecting, esp. with CTRL somehow if I ever allow
+									// multiple selection
+									// g->selection = -1;
 
-			if (g->list_setscroll) {
-				nk_uint x = 0, y;
-				int scroll_limit = lview.total_height - list_height; // little off
-				y = (g->selection/(float)(g->files.size-1) * scroll_limit) + 0.999f;
-				//nk_group_get_scroll(ctx, "Image List", &x, &y);
-				nk_group_set_scroll(ctx, "Image List", x, y);
-				g->list_setscroll = SDL_FALSE;
-			}
-			//printf("scroll %u %u\n", x, y);
+									// for now, treat clicking a selection as a "double click" ie same as return
+									g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
+
+									g->list_mode = OFF;
+									SDL_ShowCursor(SDL_ENABLE);
+									g->gui_timer = SDL_GetTicks();
+									g->show_gui = SDL_TRUE;
+									g->status = REDRAW;
+									try_move(SELECTION);
+								}
+							}
+							nk_label(ctx, g->files.a[i].size_str, NK_TEXT_RIGHT);
+							nk_label(ctx, g->files.a[i].mod_str, NK_TEXT_RIGHT);
+						}
+						nk_list_view_end(&rview);
+					}
+				}
+			} else {
+				// TODO figure out why border goes off the edge (ie we don't see the bottom border)
+				if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, 24, g->files.size)) {
+					// TODO ratio layout 0.5 0.2 0.3 ? give or take
+					//nk_layout_row_dynamic(ctx, 0, 3);
+					nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
+					for (int i=lview.begin; i<lview.end; ++i) {
+						// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
+						// also thumb_sel serves the same/similar purpose
+						is_selected = g->selection == i;
+						if (nk_selectable_label(ctx, g->files.a[i].name, NK_TEXT_LEFT, &is_selected)) {
+							if (is_selected) {
+								g->selection = i;
+							} else {
+								// could support unselecting, esp. with CTRL somehow if I ever allow
+								// multiple selection
+								// g->selection = -1;
+
+								// for now, treat clicking a selection as a "double click" ie same as return
+								g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
+
+								g->list_mode = SDL_FALSE;
+								SDL_ShowCursor(SDL_ENABLE);
+								g->gui_timer = SDL_GetTicks();
+								g->show_gui = SDL_TRUE;
+								g->status = REDRAW;
+								try_move(SELECTION);
+							}
+						}
+						nk_label(ctx, g->files.a[i].size_str, NK_TEXT_RIGHT);
+						nk_label(ctx, g->files.a[i].mod_str, NK_TEXT_RIGHT);
+					}
+					list_height = ctx->current->layout->clip.h; // ->bounds.h?
+					nk_list_view_end(&lview);
+				}
+
+				if (g->list_setscroll) {
+					nk_uint x = 0, y;
+					int scroll_limit = lview.total_height - list_height; // little off
+					y = (g->selection/(float)(g->files.size-1) * scroll_limit) + 0.999f;
+					//nk_group_get_scroll(ctx, "Image List", &x, &y);
+					nk_group_set_scroll(ctx, "Image List", x, y);
+					g->list_setscroll = SDL_FALSE;
+				}
+				//printf("scroll %u %u\n", x, y);
+			} // end main list
 		}
 		nk_end(ctx);
 
