@@ -155,7 +155,7 @@ void draw_gui(struct nk_context* ctx)
 
 	int is_selected = 0;
 	int symbol;
-	float search_ratio[] = { 0.8f, 0.2f };
+	float search_ratio[] = { 0.25f, 0.75f };
 	int list_height;
 	int active;
 	float search_height;
@@ -164,6 +164,7 @@ void draw_gui(struct nk_context* ctx)
 	static float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
 	static int splitter_down = 0;
 
+	int search_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
 
 	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
 		splitter_down = 0;
@@ -176,8 +177,9 @@ void draw_gui(struct nk_context* ctx)
 			// the left?  and make it smaller?
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, search_ratio);
 			search_height = nk_widget_bounds(ctx).h;
-			active = nk_edit_string(ctx, NK_EDIT_FIELD|NK_EDIT_SIG_ENTER, text, &text_len, STRBUF_SZ, nk_filter_default);
-			if (nk_button_label(ctx, "Search") || (active & NK_EDIT_COMMITED)) {
+			nk_label(ctx, "Search Filenames:", NK_TEXT_LEFT);
+			active = nk_edit_string(ctx, search_flags, text, &text_len, STRBUF_SZ, nk_filter_default);
+			if (active & NK_EDIT_COMMITED) {
 				// fast enough to do here?  I do it in events?
 				text[text_len] = 0;
 				SDL_Log("Final text = \"%s\"\n", text);
