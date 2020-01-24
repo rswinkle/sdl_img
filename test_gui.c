@@ -398,10 +398,13 @@ void draw_gui(struct nk_context* ctx)
 	int list_height;
 	float search_height = 24;
 	static float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
-	float search_ratio[] = { 0.8f, 0.2f };
+	float search_ratio[] = { 0.25f, 0.75f };
 	static int splitter_down = 0;
-    static char field_buffer[64];
-    static int field_len;
+	static char field_buffer[64];
+	static int field_len;
+
+	int search_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
+
 	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
 		splitter_down = 0;
 
@@ -411,11 +414,11 @@ void draw_gui(struct nk_context* ctx)
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, search_ratio);
 			search_height = nk_widget_bounds(ctx).h;
 			printf("height = %f\n", search_height);
-			if ((search_state = nk_edit_string(ctx, NK_EDIT_FIELD|NK_EDIT_SIG_ENTER, field_buffer, &field_len, 64, nk_filter_default))) {
+			nk_label(ctx, "Search Filenames:", NK_TEXT_LEFT);
+			if ((search_state = nk_edit_string(ctx, search_flags, field_buffer, &field_len, 64, nk_filter_default))) {
 				field_buffer[field_len] = 0;
 				printf("edit state %d %d \"%s\"\n", search_state, SDL_GetTicks(), field_buffer);
 			}
-			nk_button_label(ctx, "Search");
 
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 5, header_ratios);
 			nk_button_label(ctx, "Name");
