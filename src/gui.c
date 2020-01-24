@@ -15,6 +15,28 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 
 #define GUI_BAR_HEIGHT 30
 
+void search_filenames()
+{
+	// fast enough to do here?  I do it in events?
+	text[text_len] = 0;
+	SDL_Log("Final text = \"%s\"\n", text);
+
+	// it'd be kind of cool to add results of multiple searches together if we leave this out
+	// of course their might be duplicates.  Or we could make it search within the existing
+	// search results, so consecutive searches are && together...
+	g->search_results.size = 0;
+	
+	for (int i=0; i<g->files.size; ++i) {
+		// GNU function...
+		// searching name since I'm showing names not paths in the list
+		if (strcasestr(g->files.a[i].name, text)) {
+			SDL_Log("Adding %s\n", g->files.a[i].path);
+			cvec_push_i(&g->search_results, i);
+		}
+	}
+	SDL_Log("found %d matches\n", (int)g->search_results.size);
+}
+
 void draw_gui(struct nk_context* ctx)
 {
 	// closable gives the x, if you use it it won't come back (probably have to call show() or
@@ -180,24 +202,8 @@ void draw_gui(struct nk_context* ctx)
 			nk_label(ctx, "Search Filenames:", NK_TEXT_LEFT);
 			active = nk_edit_string(ctx, search_flags, text, &text_len, STRBUF_SZ, nk_filter_default);
 			if (active & NK_EDIT_COMMITED) {
-				// fast enough to do here?  I do it in events?
-				text[text_len] = 0;
-				SDL_Log("Final text = \"%s\"\n", text);
 
-				// kind of cool to add results of multiple searches together if we leave this out
-				// course their might be duplicates.  Or we could make it search within the existing
-				// search results, so consecutive searches are && together...
-				g->search_results.size = 0;
-				
-				for (int i=0; i<g->files.size; ++i) {
-					// GNU function...
-					// searching name since I'm showing names not paths in the list
-					if (strcasestr(g->files.a[i].name, text)) {
-						SDL_Log("Adding %s\n", g->files.a[i].path);
-						cvec_push_i(&g->search_results, i);
-					}
-				}
-				SDL_Log("found %d matches\n", (int)g->search_results.size);
+				search_filenames();
 				memset(&rview, 0, sizeof(rview));
 				g->list_mode = RESULTS;
 

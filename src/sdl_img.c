@@ -1677,6 +1677,10 @@ void do_sort(compare_func cmp)
 			break;
 		}
 	}
+
+	if (g->list_mode == RESULTS) {
+		search_filenames();
+	}
 }
 
 void do_zoom(int dir, int use_mouse)
