@@ -94,7 +94,7 @@ style_text(struct nk_context* ctx, struct nk_style_text* out_style)
 		nk_property_float(ctx, "#Y:", -100.0f, &text.padding.y, 100.0f, 1,0.5f);
 		nk_combo_end(ctx);
 	}
-	
+
 	*out_style = text;
 }
 
@@ -503,7 +503,7 @@ static void style_toggle(struct nk_context* ctx, struct nk_style_toggle* out_sty
 
 	nk_property_float(ctx, "#Border:", -100.0f, &toggle.border, 100.0f, 1,0.5f);
 	nk_property_float(ctx, "#Spacing:", -100.0f, &toggle.spacing, 100.0f, 1,0.5f);
-	
+
 
 	*out_style = toggle;
 
@@ -767,7 +767,7 @@ style_slider(struct nk_context* ctx, struct nk_style_slider* out_style)
 	//slider->rounding        = 0;
 	//slider->draw_begin      = 0;
 	//slider->draw_end        = 0;
-	
+
 	char buffer[64];
 
 	// Assumes all the style items are colors not images
@@ -1009,7 +1009,7 @@ style_progress(struct nk_context* ctx, struct nk_style_progress* out_style)
 	//prog->cursor_border     = 0;
 	//prog->draw_begin        = 0;
 	//prog->draw_end          = 0;
-	
+
 	char buffer[64];
 
 	// Assumes all the style items are colors not images
@@ -1172,7 +1172,7 @@ style_scrollbars(struct nk_context* ctx, struct nk_style_scrollbar* out_style, s
 	//scroll->draw_begin      = 0;
 	//scroll->draw_end        = 0;
 	//style->scrollv = style->scrollh;
-	
+
 	char buffer[64];
 
 	// Assumes all the style items are colors not images
@@ -1349,7 +1349,7 @@ style_scrollbars(struct nk_context* ctx, struct nk_style_scrollbar* out_style, s
 
 
 	//style->scrollv = style->scrollh;
-	
+
 	*out_style = scroll;
 	if (duplicate_styles) {
 		for (int i=0; i<n_dups; ++i) {
@@ -1622,7 +1622,7 @@ style_edit(struct nk_context* ctx, struct nk_style_edit* out_style)
 
 	// TODO subtree?
 	//edit->scrollbar         = style->scrollv;
-	
+
 	nk_property_float(ctx, "#Row Padding:", -100.0f, &edit.row_padding, 100.0f, 1,0.5f);
 	nk_property_float(ctx, "#Cursor Size:", -100.0f, &edit.cursor_size, 100.0f, 1,0.5f);
 	nk_property_float(ctx, "#Border:", -100.0f, &edit.border, 100.0f, 1,0.5f);
@@ -1765,7 +1765,7 @@ style_property(struct nk_context* ctx, struct nk_style_property* out_style)
 		nk_property_float(ctx, "#Y:", -100.0f, &property.padding.y, 100.0f, 1,0.5f);
 		nk_combo_end(ctx);
 	}
-	
+
 	// TODO check weird hover bug with properties, happens in overview basic section too
 	nk_property_float(ctx, "#Border:", -100.0f, &property.border, 100.0f, 1,0.5f);
 	nk_property_float(ctx, "#Rounding:", -100.0f, &property.rounding, 100.0f, 1,0.5f);
@@ -1820,7 +1820,7 @@ style_chart(struct nk_context* ctx, struct nk_style_chart* out_style)
 	//chart->padding          = nk_vec2(4,4);
 	//chart->border           = 0;
 	//chart->rounding         = 0;
-	
+
 	char buffer[64];
 
 	nk_layout_row_dynamic(ctx, 30, 2);
@@ -1889,7 +1889,7 @@ style_chart(struct nk_context* ctx, struct nk_style_chart* out_style)
 		nk_property_float(ctx, "#Y:", -100.0f, &chart.padding.y, 100.0f, 1,0.5f);
 		nk_combo_end(ctx);
 	}
-	
+
 	nk_property_float(ctx, "#Border:", -100.0f, &chart.border, 100.0f, 1,0.5f);
 	nk_property_float(ctx, "#Rounding:", -100.0f, &chart.rounding, 100.0f, 1,0.5f);
 
@@ -2071,7 +2071,7 @@ style_combo(struct nk_context* ctx, struct nk_style_combo* out_style)
 		nk_property_float(ctx, "#Y:", -100.0f, &combo.spacing.y, 100.0f, 1,0.5f);
 		nk_combo_end(ctx);
 	}
-	
+
 	nk_property_float(ctx, "#Border:", -100.0f, &combo.border, 100.0f, 1,0.5f);
 	nk_property_float(ctx, "#Rounding:", -100.0f, &combo.rounding, 100.0f, 1,0.5f);
 
@@ -2094,18 +2094,573 @@ style_tab(struct nk_context* ctx, struct nk_style_tab* out_style)
 	//tab->border             = 1;
 	//tab->rounding           = 0;
 
+	char buffer[64];
 
+	nk_layout_row_dynamic(ctx, 30, 2);
+
+	nk_label(ctx, "Background:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, tab.background.data.color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(tab.background.data.color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		tab.background.data.color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Border Color:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, tab.border_color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(tab.border_color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		tab.border_color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Text:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, tab.text, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(tab.text), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		tab.text = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	// putting these in matching order instead of at bottom because we have an odd number of float properties
+	const char* symbols[NK_SYMBOL_MAX] =
+{
+    "NONE",
+    "X",
+    "UNDERSCORE",
+    "CIRCLE_SOLID",
+    "CIRCLE_OUTLINE",
+    "RECT_SOLID",
+    "RECT_OUTLINE",
+    "TRIANGLE_UP",
+    "TRIANGLE_DOWN",
+    "TRIANGLE_LEFT",
+    "TRIANGLE_RIGHT",
+    "PLUS",
+    "MINUS"
+};
+
+	nk_label(ctx, "Minimize Symbol:", NK_TEXT_LEFT);
+	tab.sym_minimize = nk_combo(ctx, symbols, NK_SYMBOL_MAX, tab.sym_minimize, 25, nk_vec2(200,200));
+	nk_label(ctx, "Maxmize Symbol:", NK_TEXT_LEFT);
+	tab.sym_maximize = nk_combo(ctx, symbols, NK_SYMBOL_MAX, tab.sym_maximize, 25, nk_vec2(200,200));
+
+	nk_label(ctx, "Padding:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", tab.padding.x, tab.padding.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &tab.padding.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &tab.padding.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Spacing:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", tab.spacing.x, tab.spacing.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &tab.spacing.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &tab.spacing.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	nk_property_float(ctx, "#Indent:", -100.0f, &tab.indent, 100.0f, 1,0.5f);
+	nk_property_float(ctx, "#Border:", -100.0f, &tab.border, 100.0f, 1,0.5f);
+	nk_property_float(ctx, "#Rounding:", -100.0f, &tab.rounding, 100.0f, 1,0.5f);
 
 
 
 	*out_style = tab;
 }
+
+static void
+style_window_header(struct nk_context* ctx, struct nk_style_window_header* out_style)
+{
+	struct nk_style_window_header header = *out_style;
+	//win->header.align = NK_HEADER_RIGHT;
+	//win->header.close_symbol = NK_SYMBOL_X;
+	//win->header.minimize_symbol = NK_SYMBOL_MINUS;
+	//win->header.maximize_symbol = NK_SYMBOL_PLUS;
+	//win->header.normal = nk_style_item_color(table[NK_COLOR_HEADER]);
+	//win->header.hover = nk_style_item_color(table[NK_COLOR_HEADER]);
+	//win->header.active = nk_style_item_color(table[NK_COLOR_HEADER]);
+	//win->header.label_normal = table[NK_COLOR_TEXT];
+	//win->header.label_hover = table[NK_COLOR_TEXT];
+	//win->header.label_active = table[NK_COLOR_TEXT];
+	//win->header.label_padding = nk_vec2(4,4);
+	//win->header.padding = nk_vec2(4,4);
+	//win->header.spacing = nk_vec2(0,0);
+
+	char buffer[64];
+
+	nk_layout_row_dynamic(ctx, 30, 2);
+
+	nk_label(ctx, "Normal:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, header.normal.data.color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(header.normal.data.color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		header.normal.data.color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Hover:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, header.hover.data.color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(header.hover.data.color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		header.hover.data.color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Active:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, header.active.data.color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(header.active.data.color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		header.active.data.color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Label Normal:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, header.label_normal, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(header.label_normal), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		header.label_normal = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Label Hover:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, header.label_hover, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(header.label_hover), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		header.label_hover = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Label Active:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, header.label_active, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(header.label_active), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		header.label_active = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Label Padding:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", header.label_padding.x, header.padding.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &header.label_padding.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &header.label_padding.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Padding:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", header.padding.x, header.padding.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &header.padding.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &header.padding.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Spacing:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", header.spacing.x, header.spacing.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &header.spacing.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &header.spacing.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	const char* symbols[NK_SYMBOL_MAX] =
+{
+    "NONE",
+    "X",
+    "UNDERSCORE",
+    "CIRCLE_SOLID",
+    "CIRCLE_OUTLINE",
+    "RECT_SOLID",
+    "RECT_OUTLINE",
+    "TRIANGLE_UP",
+    "TRIANGLE_DOWN",
+    "TRIANGLE_LEFT",
+    "TRIANGLE_RIGHT",
+    "PLUS",
+    "MINUS"
+};
+
+#define NUM_ALIGNS 2
+	const char* alignments[NUM_ALIGNS] = { "LEFT", "RIGHT" };
+
+	nk_layout_row_dynamic(ctx, 30, 2);
+	nk_label(ctx, "Button Alignment:", NK_TEXT_LEFT);
+	header.align = nk_combo(ctx, alignments, NUM_ALIGNS, header.align, 25, nk_vec2(200,200));
+
+	nk_label(ctx, "Close Symbol:", NK_TEXT_LEFT);
+	header.close_symbol = nk_combo(ctx, symbols, NK_SYMBOL_MAX, header.close_symbol, 25, nk_vec2(200,200));
+	nk_label(ctx, "Minimize Symbol:", NK_TEXT_LEFT);
+	header.minimize_symbol = nk_combo(ctx, symbols, NK_SYMBOL_MAX, header.minimize_symbol, 25, nk_vec2(200,200));
+	nk_label(ctx, "Maximize Symbol:", NK_TEXT_LEFT);
+	header.maximize_symbol = nk_combo(ctx, symbols, NK_SYMBOL_MAX, header.maximize_symbol, 25, nk_vec2(200,200));
+
+	// necessary or do tree's always take the whole width?
+	//nk_layout_row_dynamic(ctx, 30, 1);
+	if (nk_tree_push(ctx, NK_TREE_TAB, "Close and Minimize Button", NK_MINIMIZED)) {
+		struct nk_style_button* dups[1] = { &header.minimize_button };
+		style_button(ctx, &header.close_button, dups, 1);
+		nk_tree_pop(ctx);
+	}
+
+
+	*out_style = header;
+}
+
+static void
+style_window(struct nk_context* ctx, struct nk_style_window* out_style)
+{
+	struct nk_style_window win = *out_style;
+	//win->background = table[NK_COLOR_WINDOW];
+	//win->fixed_background = nk_style_item_color(table[NK_COLOR_WINDOW]);
+	//win->border_color = table[NK_COLOR_BORDER];
+	//win->popup_border_color = table[NK_COLOR_BORDER];
+	//win->combo_border_color = table[NK_COLOR_BORDER];
+	//win->contextual_border_color = table[NK_COLOR_BORDER];
+	//win->menu_border_color = table[NK_COLOR_BORDER];
+	//win->group_border_color = table[NK_COLOR_BORDER];
+	//win->tooltip_border_color = table[NK_COLOR_BORDER];
+	//win->scaler = nk_style_item_color(table[NK_COLOR_TEXT]);
+	//
+	//win->rounding = 0.0f;
+	//win->spacing = nk_vec2(4,4);
+	//win->scrollbar_size = nk_vec2(10,10);
+	//win->min_size = nk_vec2(64,64);
+	//
+	//win->combo_border = 1.0f;
+	//win->contextual_border = 1.0f;
+	//win->menu_border = 1.0f;
+	//win->group_border = 1.0f;
+	//win->tooltip_border = 1.0f;
+	//win->popup_border = 1.0f;
+	//win->border = 2.0f;
+	//win->min_row_height_padding = 8;
+	//
+	//win->padding = nk_vec2(4,4);
+	//win->group_padding = nk_vec2(4,4);
+	//win->popup_padding = nk_vec2(4,4);
+	//win->combo_padding = nk_vec2(4,4);
+	//win->contextual_padding = nk_vec2(4,4);
+	//win->menu_padding = nk_vec2(4,4);
+	//win->tooltip_padding = nk_vec2(4,4);
+
+	char buffer[64];
+
+	nk_layout_row_dynamic(ctx, 30, 2);
+
+	nk_label(ctx, "Background:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, win.background, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(win.background), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		win.background = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Fixed Background:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, win.fixed_background.data.color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(win.fixed_background.data.color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		win.fixed_background.data.color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Border:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, win.border_color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(win.border_color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		win.border_color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Popup Border:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, win.popup_border_color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(win.popup_border_color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		win.popup_border_color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Combo Border:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, win.combo_border_color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(win.combo_border_color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		win.combo_border_color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Contextual Border:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, win.contextual_border_color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(win.contextual_border_color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		win.contextual_border_color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Menu Border:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, win.menu_border_color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(win.menu_border_color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		win.menu_border_color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Group Border:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, win.group_border_color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(win.group_border_color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		win.group_border_color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Tooltip Border:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, win.tooltip_border_color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(win.tooltip_border_color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		win.tooltip_border_color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Scaler:", NK_TEXT_LEFT);
+	if (nk_combo_begin_color(ctx, win.scaler.data.color, nk_vec2(nk_widget_width(ctx), 400))) {
+		nk_layout_row_dynamic(ctx, 120, 1);
+		struct nk_colorf colorf = nk_color_picker(ctx, nk_color_cf(win.scaler.data.color), NK_RGB);
+		nk_layout_row_dynamic(ctx, 25, 1);
+		colorf.r = nk_propertyf(ctx, "#R:", 0, colorf.r, 1.0f, 0.01f,0.005f);
+		colorf.g = nk_propertyf(ctx, "#G:", 0, colorf.g, 1.0f, 0.01f,0.005f);
+		colorf.b = nk_propertyf(ctx, "#B:", 0, colorf.b, 1.0f, 0.01f,0.005f);
+
+		win.scaler.data.color = nk_rgb_cf(colorf);
+
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Spacing:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", win.spacing.x, win.spacing.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &win.spacing.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &win.spacing.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Scrollbar Size:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", win.scrollbar_size.x, win.scrollbar_size.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &win.scrollbar_size.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &win.scrollbar_size.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Min Size:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", win.min_size.x, win.min_size.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", 10.0f, &win.min_size.x, 10000.0f, 1,1.0f);
+		nk_property_float(ctx, "#Y:", 10.0f, &win.min_size.y, 10000.0f, 1,1.0f);
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Padding:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", win.padding.x, win.padding.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &win.padding.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &win.padding.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Group Padding:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", win.group_padding.x, win.group_padding.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &win.group_padding.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &win.group_padding.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Popup Padding:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", win.popup_padding.x, win.popup_padding.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &win.popup_padding.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &win.popup_padding.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Combo Padding:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", win.combo_padding.x, win.combo_padding.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &win.combo_padding.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &win.combo_padding.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Contextual Padding:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", win.contextual_padding.x, win.contextual_padding.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &win.contextual_padding.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &win.contextual_padding.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Menu Padding:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", win.menu_padding.x, win.menu_padding.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &win.menu_padding.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &win.menu_padding.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	nk_label(ctx, "Tooltip Padding:", NK_TEXT_LEFT);
+	sprintf(buffer, "%.2f, %.2f", win.tooltip_padding.x, win.tooltip_padding.y);
+	if (nk_combo_begin_label(ctx, buffer, nk_vec2(200,200))) {
+		nk_layout_row_dynamic(ctx, 25, 1);
+		nk_property_float(ctx, "#X:", -100.0f, &win.tooltip_padding.x, 100.0f, 1,0.5f);
+		nk_property_float(ctx, "#Y:", -100.0f, &win.tooltip_padding.y, 100.0f, 1,0.5f);
+		nk_combo_end(ctx);
+	}
+
+	nk_property_float(ctx, "#Rounding:", -100.0f, &win.rounding, 100.0f, 1,0.5f);
+	nk_property_float(ctx, "#Combo Border:", -100.0f, &win.combo_border, 100.0f, 1,0.5f);
+	nk_property_float(ctx, "#Contextual Border:", -100.0f, &win.contextual_border, 100.0f, 1,0.5f);
+	nk_property_float(ctx, "#Menu Border:", -100.0f, &win.menu_border, 100.0f, 1,0.5f);
+	nk_property_float(ctx, "#Group Border:", -100.0f, &win.group_border, 100.0f, 1,0.5f);
+	nk_property_float(ctx, "#Tooltip Border:", -100.0f, &win.tooltip_border, 100.0f, 1,0.5f);
+	nk_property_float(ctx, "#Popup Border:", -100.0f, &win.popup_border, 100.0f, 1,0.5f);
+	nk_property_float(ctx, "#Border:", -100.0f, &win.border, 100.0f, 1,0.5f);
+
+	nk_layout_row_dynamic(ctx, 30, 1);
+	nk_property_float(ctx, "#Min Row Height Padding:", -100.0f, &win.min_row_height_padding, 100.0f, 1,0.5f);
+
+	if (nk_tree_push(ctx, NK_TREE_TAB, "Window Header", NK_MINIMIZED)) {
+		style_window_header(ctx, &win.header);
+		nk_tree_pop(ctx);
+	}
+
+	*out_style = win;
+}
+
 static int
 style_configurator(struct nk_context *ctx)
 {
 	/* window flags */
-	int show_menu = nk_true;
-	int titlebar = nk_true;
 	int border = nk_true;
 	int resize = nk_true;
 	int movable = nk_true;
@@ -2117,7 +2672,6 @@ style_configurator(struct nk_context *ctx)
 
 	/* window flags */
 	window_flags = 0;
-	//ctx->style.window.header.align = header_align;
 	if (border) window_flags |= NK_WINDOW_BORDER;
 	if (resize) window_flags |= NK_WINDOW_SCALABLE;
 	if (movable) window_flags |= NK_WINDOW_MOVABLE;
@@ -2246,6 +2800,15 @@ style_configurator(struct nk_context *ctx)
 			nk_tree_pop(ctx);
 		}
 
+		if (nk_tree_push(ctx, NK_TREE_TAB, "Tab", NK_MINIMIZED)) {
+			style_tab(ctx, &style->tab);
+			nk_tree_pop(ctx);
+		}
+
+		if (nk_tree_push(ctx, NK_TREE_TAB, "Window", NK_MINIMIZED)) {
+			style_window(ctx, &style->window);
+			nk_tree_pop(ctx);
+		}
 
 		nk_layout_row_dynamic(ctx, 30, 1);
 		if (nk_button_label(ctx, "Reset all styles to defaults")) {
@@ -2254,59 +2817,6 @@ style_configurator(struct nk_context *ctx)
 
 	}
 
-//
-//		/* window header */
-//		win = &style->window;
-//		win->header.align = NK_HEADER_RIGHT;
-//		win->header.close_symbol = NK_SYMBOL_X;
-//		win->header.minimize_symbol = NK_SYMBOL_MINUS;
-//		win->header.maximize_symbol = NK_SYMBOL_PLUS;
-//		win->header.normal = nk_style_item_color(table[NK_COLOR_HEADER]);
-//		win->header.hover = nk_style_item_color(table[NK_COLOR_HEADER]);
-//		win->header.active = nk_style_item_color(table[NK_COLOR_HEADER]);
-//		win->header.label_normal = table[NK_COLOR_TEXT];
-//		win->header.label_hover = table[NK_COLOR_TEXT];
-//		win->header.label_active = table[NK_COLOR_TEXT];
-//		win->header.label_padding = nk_vec2(4,4);
-//		win->header.padding = nk_vec2(4,4);
-//		win->header.spacing = nk_vec2(0,0);
-//
-//		/* window */
-//		win->background = table[NK_COLOR_WINDOW];
-//		win->fixed_background = nk_style_item_color(table[NK_COLOR_WINDOW]);
-//		win->border_color = table[NK_COLOR_BORDER];
-//		win->popup_border_color = table[NK_COLOR_BORDER];
-//		win->combo_border_color = table[NK_COLOR_BORDER];
-//		win->contextual_border_color = table[NK_COLOR_BORDER];
-//		win->menu_border_color = table[NK_COLOR_BORDER];
-//		win->group_border_color = table[NK_COLOR_BORDER];
-//		win->tooltip_border_color = table[NK_COLOR_BORDER];
-//		win->scaler = nk_style_item_color(table[NK_COLOR_TEXT]);
-//
-//		win->rounding = 0.0f;
-//		win->spacing = nk_vec2(4,4);
-//		win->scrollbar_size = nk_vec2(10,10);
-//		win->min_size = nk_vec2(64,64);
-//
-//		win->combo_border = 1.0f;
-//		win->contextual_border = 1.0f;
-//		win->menu_border = 1.0f;
-//		win->group_border = 1.0f;
-//		win->tooltip_border = 1.0f;
-//		win->popup_border = 1.0f;
-//		win->border = 2.0f;
-//		win->min_row_height_padding = 8;
-//
-//		win->padding = nk_vec2(4,4);
-//		win->group_padding = nk_vec2(4,4);
-//		win->popup_padding = nk_vec2(4,4);
-//		win->combo_padding = nk_vec2(4,4);
-//		win->contextual_padding = nk_vec2(4,4);
-//		win->menu_padding = nk_vec2(4,4);
-//		win->tooltip_padding = nk_vec2(4,4);
-//	}
 	nk_end(ctx);
 	return !nk_window_is_closed(ctx, "Configurator");
 }
-
-
