@@ -93,16 +93,8 @@ int handle_thumb_events()
 					try_move(SELECTION);
 				} else if (g->thumb_mode == SEARCH) {
 					SDL_StopTextInput();
-					SDL_Log("Final text = \"%s\"\n", text);
-					//text[0] = 0;
-					for (int i=0; i<g->files.size; ++i) {
-						// GNU function...
-						if (strcasestr(g->files.a[i].path, text)) {
-							SDL_Log("Adding %s\n", g->files.a[i].path);
-							cvec_push_i(&g->search_results, i);
-						}
-					}
-					SDL_Log("found %d matches\n", (int)g->search_results.size);
+					// maybe give a parameter to switch between searching names and paths
+					search_filenames();
 					if (g->search_results.size) {
 						g->thumb_sel = g->search_results.a[0];
 						g->thumb_mode = RESULTS;
@@ -430,7 +422,7 @@ int handle_list_events()
 		}
 		switch (e.type) {
 		case SDL_QUIT:
-			//nk_input_end(g->ctx); // TODO need these?
+			//nk_input_end(g->ctx); // TODO need these since we'll be exiting?
 			return 1;
 		case SDL_KEYUP:
 			sym = e.key.keysym.sym;
