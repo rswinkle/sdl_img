@@ -1122,10 +1122,28 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 
 int wrap(int z)
 {
-   int n = g->files.size;
-   while (z < 0) z += n;
-   while (z >= n) z -= n;
-   return z;
+	int n = g->files.size;
+	if (g->thumb_mode == RESULTS || g->list_mode == RESULTS) {
+		n = g->search_results.size;
+	}
+	while (z < 0) z += n;
+	while (z >= n) z -= n;
+	return z;
+}
+
+int attempt_image_load(int last, img_state* img)
+{
+	char *path;
+	if (g->thumb_mode == RESULTS || g->list_mode == RESULTS) {
+		path = g->files.a[g->search_results.a[last]].path;
+	} else {
+		path = g->files.a[last].path;
+	}
+	int ret = load_image(path, img, SDL_FALSE);
+	if (!ret)
+		if (curl_image(last))
+			ret = load_image(path, img, SDL_FALSE);
+	return ret;
 }
 
 int load_new_images(void* data)
@@ -1166,11 +1184,7 @@ int load_new_images(void* data)
 					for (int i=0; i<g->n_imgs; ++i) {
 						do {
 							last = wrap(last + 1);
-							ret = load_image(g->files.a[last].path, &img[i], SDL_FALSE);
-							if (!ret)
-								if (curl_image(last))
-									ret = load_image(g->files.a[last].path, &img[i], SDL_FALSE);
-						} while (!ret);
+						} while (!attempt_image_load(last, &img[i]));
 						set_rect_bestfit(&img[i], g->fullscreen | g->slideshow | g->fill_mode);
 						img[i].index = last;
 					}
@@ -1179,11 +1193,7 @@ int load_new_images(void* data)
 					for (int i=g->n_imgs-1; i>=0; --i) {
 						do {
 							last = wrap(last - 1);
-							ret = load_image(g->files.a[last].path, &img[i], SDL_FALSE);
-							if (!ret)
-								if (curl_image(last))
-									ret = load_image(g->files.a[last].path, &img[i], SDL_FALSE);
-						} while (!ret);
+						} while (!attempt_image_load(last, &img[i]));
 						set_rect_bestfit(&img[i], g->fullscreen | g->slideshow | g->fill_mode);
 						img[i].index = last;
 					}
@@ -1197,11 +1207,7 @@ int load_new_images(void* data)
 				last = g->img_focus->index;
 				do {
 					last = wrap(last + tmp);
-					ret = load_image(g->files.a[last].path, &img[0], SDL_FALSE);
-					if (!ret)
-						if (curl_image(last))
-							ret = load_image(g->files.a[last].path, &img[0], SDL_FALSE);
-				} while (!ret);
+				} while (!attempt_image_load(last, &img[0]));
 				img[0].index = last;
 				img[0].scr_rect = g->img_focus->scr_rect;
 				set_rect_bestfit(&img[0], g->fullscreen | g->slideshow | g->fill_mode);
@@ -1212,14 +1218,9 @@ int load_new_images(void* data)
 			for (int i=g->n_imgs; i<load_what; ++i) {
 				do {
 					last = wrap(last + 1);
-					ret = load_image(g->files.a[last].path, &g->img[i], SDL_FALSE);
-					if (!ret)
-						if (curl_image(last))
-							ret = load_image(g->files.a[last].path, &g->img[i], SDL_FALSE);
-				} while (!ret);
+				} while (!attempt_image_load(last, &g->img[i]));
 				g->img[i].index = last;
 			}
-
 		}
 
 		SDL_LockMutex(g->mtx);
