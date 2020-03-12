@@ -70,13 +70,31 @@
 
 enum { QUIT, REDRAW, NOCHANGE };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, SELECTION, EXIT };
-enum { OFF, ON, VISUAL, SEARCH, RESULTS }; // better names? reusing OFF,ON,RESULTS for list mode
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
        MODE_CHANGE, THUMB_MODE, LIST_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, SHUFFLE,
        SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
+
+// off on visual search results
+enum {
+	NORMAL           = 0x1,
+	THUMB_DFLT       = 0x2,
+	THUMB_VISUAL     = 0x4,
+	THUMB_SEARCH     = 0x8,
+	THUMB_RESULTS    = 0x10,
+	LIST_DFLT        = 0x20,
+	LIST_RESULTS     = 0x40,
+	VIEW_RESULTS     = 0x80
+};
+
+#define THUMB_MASK (THUMB_DFLT | THUMB_VISUAL | THUMB_SEARCH | THUMB_RESULTS)
+#define LIST_MASK (LIST_DFLT | LIST_RESULTS)
+
+#define IS_THUMB_MODE() (g->state & THUMB_MASK)
+#define IS_LIST_MODE() (g->state & LIST_MASK)
+#define IS_VIEW_RESULTS() (g->state & VIEW_RESULTS)
 
 typedef uint8_t u8;
 typedef uint32_t u32;
@@ -294,6 +312,8 @@ typedef struct global_state
 	cvector_file files;
 	cvector_str favs;
 
+	int state; // better name?
+
 	int fullscreen;
 	int fill_mode;
 	int gui_delay;
@@ -302,10 +322,8 @@ typedef struct global_state
 	int fullscreen_gui;
 	int show_infobar;
 
-	int list_mode;
 	int list_setscroll;
 
-	int thumb_mode;
 	int thumbs_done;
 	int thumb_start_row;
 	int thumb_rows;
@@ -1123,7 +1141,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 int wrap(int z)
 {
 	int n = g->files.size;
-	if (g->thumb_mode == RESULTS || g->list_mode == RESULTS) {
+	if (IS_VIEW_RESULTS()) {
 		n = g->search_results.size;
 	}
 	while (z < 0) z += n;
@@ -1134,14 +1152,14 @@ int wrap(int z)
 int attempt_image_load(int last, img_state* img)
 {
 	char *path;
-	if (g->thumb_mode == RESULTS || g->list_mode == RESULTS) {
+	if (IS_VIEW_RESULTS()) {
 		path = g->files.a[g->search_results.a[last]].path;
 	} else {
 		path = g->files.a[last].path;
 	}
 	int ret = load_image(path, img, SDL_FALSE);
 	if (!ret)
-		if (curl_image(last))
+		if (curl_image(last)) //TODO results
 			ret = load_image(path, img, SDL_FALSE);
 	return ret;
 }
@@ -1186,6 +1204,7 @@ int load_new_images(void* data)
 							last = wrap(last + 1);
 						} while (!attempt_image_load(last, &img[i]));
 						set_rect_bestfit(&img[i], g->fullscreen | g->slideshow | g->fill_mode);
+						SDL_Log("Loaded %d\n", last);
 						img[i].index = last;
 					}
 				} else if (load_what == LEFT) {
@@ -1201,7 +1220,8 @@ int load_new_images(void* data)
 
 				// just set title to upper left image when !img_focus
 				// TODO use file.name for all of these
-				SDL_SetWindowTitle(g->win, mybasename(g->files.a[img[0].index].path, title_buf));
+				int index = (g->state & VIEW_RESULTS) ? g->search_results.a[img[0].index] : img[0].index;
+				SDL_SetWindowTitle(g->win, mybasename(g->files.a[index].path, title_buf));
 			} else {
 				tmp = (load_what == RIGHT) ? 1 : -1;
 				last = g->img_focus->index;
@@ -1211,7 +1231,9 @@ int load_new_images(void* data)
 				img[0].index = last;
 				img[0].scr_rect = g->img_focus->scr_rect;
 				set_rect_bestfit(&img[0], g->fullscreen | g->slideshow | g->fill_mode);
-				SDL_SetWindowTitle(g->win, mybasename(g->files.a[img[0].index].path, title_buf));
+				
+				int index = (g->state & VIEW_RESULTS) ? g->search_results.a[img[0].index] : img[0].index;
+				SDL_SetWindowTitle(g->win, mybasename(g->files.a[index].path, title_buf));
 			}
 		} else {
 			last = g->img[g->n_imgs-1].index;
@@ -1264,6 +1286,7 @@ void setup(int start_idx)
 	g->thumb_rows = THUMB_ROWS;
 	g->thumb_cols = THUMB_COLS;
 	g->sorted_state = NAME_UP;  // ie by name ascending
+	g->state = NORMAL;
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Couldn't allocate tex array: %s\n", strerror(errno));
@@ -1659,7 +1682,7 @@ void do_sort(compare_func cmp)
 	// TODO is it worth preserving the list selection?  Or just reset it to current image?
 	// especially since it would likely jump out of view unless we reset the scroll position
 	// like we do on list startup
-	//char* list_sel = (g->list_mode) ? g->files.a[g->selection].path : NULL;
+	//char* list_sel = (IS_LIST_MODE()) ? g->files.a[g->selection].path : NULL;
 
 	// g->thumbs.a is either NULL or valid
 	//sort(g->files.a, g->thumbs.a, g->files.size, cmp);
@@ -1679,7 +1702,8 @@ void do_sort(compare_func cmp)
 		}
 	}
 
-	if (g->list_mode == RESULTS) {
+	// should work even while viewing results
+	if (g->state & LIST_RESULTS) {
 		search_filenames();
 	}
 }
@@ -2112,21 +2136,21 @@ int do_copy()
 
 void do_listmode()
 {
-	// TODO hmm
-	g->thumb_mode = OFF;
+	// TODO hmm handle switching directly from thumb to list and vice versa
+	g->state = LIST_DFLT;
 	g->selection = g->img[0].index;
-	g->list_mode = ON;
 	g->list_setscroll = SDL_TRUE;
 	text[0] = 0;
 	text_len = 0;
 	g->search_results.size = 0;
+	g->status = REDRAW;
 	SDL_ShowCursor(SDL_ENABLE);
 }
 
 void do_thumbmode()
 {
 	generate_thumbs(SDL_TRUE);
-	g->thumb_mode = ON;
+	g->state = THUMB_DFLT;
 	g->thumb_sel = g->img[0].index;
 	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 	g->search_results.size = 0;
@@ -2161,7 +2185,7 @@ void do_thumb_rem_del(int do_delete, int invert)
 	// equivalent to cvec_erase* except not calling destructors (if any)
 
 	// so code below works for both ON and VISUAL mode
-	if (g->thumb_mode == ON) {
+	if (g->state == THUMB_DFLT) {
 		g->thumb_sel_end = g->thumb_sel;
 	}
 
@@ -2201,7 +2225,7 @@ void do_thumb_rem_del(int do_delete, int invert)
 	fix_thumb_sel(1);
 
 	// exit Visual mode after x like vim
-	g->thumb_mode = ON;
+	g->state = THUMB_DFLT;
 }
 
 #include "events.c"
@@ -2482,19 +2506,19 @@ int main(int argc, char** argv)
 		is_a_gif = 0;
 		ticks = SDL_GetTicks();
 
-		if (!g->list_mode && g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
+		if ((!IS_LIST_MODE() || IS_VIEW_RESULTS()) && g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
 			SDL_ShowCursor(SDL_DISABLE);
 			g->show_gui = 0;
 			g->status = REDRAW;
 		}
 
 		// TODO testing, naming/organization of showing/hiding GUI vs mouse
-		if (g->list_mode || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
+		if ((IS_LIST_MODE() && !IS_VIEW_RESULTS()) || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			draw_gui(g->ctx);
 			g->status = REDRAW;
 		}
 
-		if (g->thumb_mode) {
+		if (IS_THUMB_MODE() && !IS_VIEW_RESULTS()) {
 			SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
 			SDL_RenderSetClipRect(g->ren, NULL);
 			SDL_RenderClear(g->ren);
@@ -2528,7 +2552,7 @@ int main(int argc, char** argv)
 				r.y = (((i-start) / g->thumb_cols) * h) + (h-r.h)/2;
 
 				SDL_RenderCopy(g->ren, g->thumbs.a[i].tex, NULL, &r);
-				if (g->thumb_mode == ON) {
+				if (g->state & THUMB_DFLT) {
 					if (i == g->thumb_sel) {
 						SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
 						// have selection box take up whole screen space, easier to see
@@ -2538,7 +2562,7 @@ int main(int argc, char** argv)
 						r.h = h;
 						SDL_RenderDrawRect(g->ren, &r);
 					}
-				} else if (g->thumb_mode == VISUAL) {
+				} else if (g->state & THUMB_VISUAL) {
 					if ((i >= g->thumb_sel && i <= g->thumb_sel_end) ||
 					    (i <= g->thumb_sel && i >= g->thumb_sel_end)) {
 						// TODO why doesn't setting this in setup work?  Where else is it changed?
@@ -2552,7 +2576,7 @@ int main(int argc, char** argv)
 						r.h = h;
 						SDL_RenderFillRect(g->ren, &r);
 					}
-				} else if (g->thumb_mode == RESULTS) {
+				} else if (g->state & THUMB_RESULTS) {
 					
 					// TODO optimize since results are in order
 					for (int k = 0; k<g->search_results.size; ++k) {
@@ -2577,7 +2601,7 @@ int main(int argc, char** argv)
 				}
 			}
 
-		} else if (!g->list_mode) {
+		} else if (!IS_LIST_MODE() || IS_VIEW_RESULTS()) {
 			// make above plain else to do transparently show image beneath list, could work as a preview...
 			// normal mode
 			for (int i=0; i<g->n_imgs; ++i) {
@@ -2606,7 +2630,7 @@ int main(int argc, char** argv)
 				SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
 			}
 		}
-		if (g->list_mode || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
+		if ((IS_LIST_MODE() && !IS_VIEW_RESULTS()) || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
 			nk_sdl_render(NULL, nk_false);
 			SDL_RenderSetScale(g->ren, 1, 1);

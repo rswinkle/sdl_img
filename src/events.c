@@ -26,12 +26,12 @@ int handle_thumb_events()
 				// Also need to regenerate DISP_RECT(s) for normal mode
 				// if window has changed size since switching to THUMB ...
 				// or keep it updated in SIZE_CHANGED below
-				if (g->thumb_mode >= VISUAL) {
-					g->thumb_mode = ON;
-				} else {
-					g->thumb_mode = OFF;
+				if (g->state & THUMB_DFLT) {
+					g->state = NORMAL;
 					g->thumb_start_row = 0; // TODO?
 					g->show_gui = SDL_TRUE;
+				} else {
+					g->state = THUMB_DFLT;
 				}
 				g->status = REDRAW;
 				break;
@@ -39,27 +39,27 @@ int handle_thumb_events()
 				// turn of VISUAL (or any other mode I add later)
 				// TODO end search
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-					g->thumb_mode = ON;
+					g->state = THUMB_DFLT;
 				}
 				break;
 			case SDLK_SLASH:
-				g->thumb_mode = SEARCH;
+				g->state = THUMB_SEARCH;
 				text[0] = 0;
 				text_len = 0;
 				g->search_results.size = 0;
 				SDL_StartTextInput();
 				break;
 			case SDLK_v:
-				if (g->thumb_mode == ON) {
-					g->thumb_mode = VISUAL;
+				if (g->state & THUMB_DFLT) {
+					g->state = THUMB_VISUAL;
 					g->thumb_sel_end = g->thumb_sel;
-				} else if (g->thumb_mode == VISUAL) {
-					g->thumb_mode = ON;
+				} else if (g->state & THUMB_VISUAL) {
+					g->state = THUMB_DFLT;
 				}
 				g->status = REDRAW;
 				break;
 			case SDLK_g:
-				if (g->thumb_mode != SEARCH) {
+				if (g->state != THUMB_SEARCH) {
 					if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
 						g->thumb_start_row = g->files.size-1; // will get fixed at the bottom
 						g->thumb_sel = g->files.size-1;
@@ -79,27 +79,29 @@ int handle_thumb_events()
 			case SDLK_r:
 			case SDLK_x:
 				// TODO add a one time warning for x?  maybe a preference to turn warning on and off?
-				if (g->thumb_mode != SEARCH)
+				if (g->state != THUMB_SEARCH)
 					do_thumb_rem_del(sym == SDLK_x, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
 				break;
 			case SDLK_RETURN:
-				if (g->thumb_mode == ON || g->thumb_mode == RESULTS) {
+				if (g->state & (THUMB_DFLT | THUMB_RESULTS)) {
+					// TODO if THUMB_RESULTS check if thumb_sel is in results; if so go to VIEW_RESULTS?
+					//
 					// subtract 1 since we reuse RIGHT loading code
 					g->selection = (g->thumb_sel) ? g->thumb_sel - 1 : g->files.size-1;
-					g->thumb_mode = OFF;
+					g->state = NORMAL;
 					g->thumb_start_row = 0;
 					g->show_gui = SDL_TRUE;
 					g->status = REDRAW;
 					try_move(SELECTION);
-				} else if (g->thumb_mode == SEARCH) {
+				} else if (g->state == THUMB_SEARCH) {
 					SDL_StopTextInput();
 					// maybe give a parameter to switch between searching names and paths
 					search_filenames();
 					if (g->search_results.size) {
 						g->thumb_sel = g->search_results.a[0];
-						g->thumb_mode = RESULTS;
+						g->state = THUMB_RESULTS;
 					} else {
-						g->thumb_mode = ON;
+						g->state = THUMB_DFLT;
 					}
 				}
 				break;
@@ -119,14 +121,12 @@ int handle_thumb_events()
 						g->thumb_rows = 2;
 					if (g->thumb_rows > 8)
 						g->thumb_rows = 8;
-				} else {
-					if (g->thumb_mode != SEARCH) {
-						g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? g->thumb_cols : -g->thumb_cols;
-						fix_thumb_sel((sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1);
-						SDL_ShowCursor(SDL_ENABLE);
-						g->gui_timer = SDL_GetTicks();
-						g->show_gui = 1;
-					}
+				} else if (g->state != THUMB_SEARCH) {
+					g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? g->thumb_cols : -g->thumb_cols;
+					fix_thumb_sel((sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1);
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = 1;
 				}
 				break;
 			case SDLK_LEFT:
@@ -140,7 +140,7 @@ int handle_thumb_events()
 					if (g->thumb_cols > 15)
 						g->thumb_cols = 15;
 				} else {
-					if (g->thumb_mode != SEARCH) {
+					if (g->state != THUMB_SEARCH) {
 						g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
 						fix_thumb_sel((sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1);
 						SDL_ShowCursor(SDL_ENABLE);
@@ -150,7 +150,7 @@ int handle_thumb_events()
 				}
 				break;
 			case SDLK_n:
-				if (g->thumb_mode == RESULTS) {
+				if (g->state == THUMB_RESULTS) {
 					if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
 						if (g->thumb_sel == g->search_results.a[g->cur_result]) {
 							g->cur_result--;
@@ -217,7 +217,7 @@ int handle_thumb_events()
 					// since we reuse the RIGHT loading code, have to subtract 1 so we
 					// "move right" to the selection
 					g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
-					g->thumb_mode = OFF;
+					g->state = NORMAL;
 					g->show_gui = SDL_TRUE;
 					g->thumb_start_row = 0;
 					g->status = REDRAW;
@@ -230,7 +230,7 @@ int handle_thumb_events()
 			break;
 		case SDL_MOUSEWHEEL:
 			g->status = REDRAW;
-			if (g->thumb_mode == ON) {
+			if (g->state == THUMB_DFLT) {
 				if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
 					g->thumb_sel -= e.wheel.y * g->thumb_cols;
 					fix_thumb_sel(-e.wheel.y);
@@ -247,7 +247,7 @@ int handle_thumb_events()
 		case SDL_TEXTINPUT:
 			// could probably just do text[text_len++] = e.text.text[0]
 			// since I only handle ascii
-			if (g->thumb_mode == SEARCH && text_len < STRBUF_SZ-1) {
+			if (g->state == THUMB_SEARCH && text_len < STRBUF_SZ-1) {
 				strcat(text, e.text.text);
 				text_len += strlen(e.text.text);
 				SDL_Log("text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
@@ -256,7 +256,7 @@ int handle_thumb_events()
 			break;
 
 		case SDL_TEXTEDITING:
-			if (g->thumb_mode == SEARCH) {
+			if (g->state == THUMB_SEARCH) {
 				SDL_Log("recieved edit \"%s\"\n", e.edit.text);
 				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "recieved edit \"%s\"\n", e.edit.text);
 				composition = e.edit.text;
@@ -318,7 +318,7 @@ int handle_thumb_events()
 		// No valid thumbs found, turn off visual
 		// TODO also prevent thumbmode in the first place if there are no valid thumbs?
 		if (!g->thumbs.a[g->thumb_sel].tex) {
-			g->thumb_mode = ON;
+			g->state = THUMB_DFLT;
 		}
 	}
 
@@ -328,7 +328,7 @@ int handle_thumb_events()
 		g->thumb_start_row = g->thumb_sel / g->thumb_cols - g->thumb_rows + 1;
 	}
 		
-	if (g->thumb_mode) {
+	if (IS_THUMB_MODE()) {
 		SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->thumb_sel].path, title_buf));
 	} else if (g->img_focus) {
 		SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
@@ -428,8 +428,8 @@ int handle_list_events()
 			sym = e.key.keysym.sym;
 			switch (sym) {
 			case SDLK_ESCAPE:
-				if (g->list_mode == RESULTS) {
-					g->list_mode = ON;
+				if (g->state & LIST_RESULTS) {
+					g->state = LIST_DFLT;
 					text[0] = 0;
 					//memset(text, 0, text_len+1);
 					text_len = 0;
@@ -438,13 +438,15 @@ int handle_list_events()
 					// to current image
 					if (g->selection < 0) {
 						g->selection = g->img[0].index;
-						g->list_setscroll = SDL_TRUE;
+					} else {
+						g->selection = g->search_results.a[g->selection];
 					}
+					g->list_setscroll = SDL_TRUE;
 
 					// redundant since we clear before doing the search atm
 					g->search_results.size = 0;
 				} else {
-					g->list_mode = OFF;
+					g->state = NORMAL;
 					SDL_ShowCursor(SDL_ENABLE);
 					g->gui_timer = SDL_GetTicks();
 					g->show_gui = SDL_TRUE;
@@ -461,9 +463,13 @@ int handle_list_events()
 			// switch to normal mode on that image
 			case SDLK_RETURN:
 				if (g->selection >= 0) {
+					if (g->state & LIST_RESULTS) {
+						g->state |= VIEW_RESULTS;
+					} else {
+						g->state = NORMAL;
+					}
 					g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
 
-					g->list_mode = OFF;
 					SDL_ShowCursor(SDL_ENABLE);
 					g->gui_timer = SDL_GetTicks();
 					g->show_gui = SDL_TRUE;
@@ -490,39 +496,6 @@ int handle_list_events()
 				break;
 			}
 
-			/*
-			 * search in list mode?
-			case SDLK_n:
-				break;
-			case SDLK_BACKSPACE:
-				if (text_len)
-					text[--text_len] = 0;
-				SDL_Log("text is \"%s\"\n", text);
-				break;
-			}
-			break;
-
-		case SDL_TEXTINPUT:
-			// could probably just do text[text_len++] = e.text.text[0]
-			// since I only handle ascii
-			if (g->thumb_mode == SEARCH && text_len < STRBUF_SZ-1) {
-				strcat(text, e.text.text);
-				text_len += strlen(e.text.text);
-				SDL_Log("text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
-				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
-			}
-			break;
-
-		case SDL_TEXTEDITING:
-			if (g->thumb_mode == SEARCH) {
-				SDL_Log("recieved edit \"%s\"\n", e.edit.text);
-				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "recieved edit \"%s\"\n", e.edit.text);
-				composition = e.edit.text;
-				cursor = e.edit.start;
-				selection_len = e.edit.length;
-			}
-			break;
-			*/
 		case SDL_WINDOWEVENT: {
 			g->status = REDRAW;
 			int x, y;
@@ -745,7 +718,8 @@ int handle_events_normally()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
-				if (!copy_escape && !g->fullscreen && !g->slideshow && !g->show_about && !g->show_prefs && !g->show_rotate) {
+				if (!copy_escape && !g->fullscreen && !g->slideshow && !g->show_about &&
+					!g->show_prefs && !g->show_rotate && g->state == NORMAL) {
 					//nk_input_end(g->ctx);
 					return 1;
 				} else {
@@ -765,6 +739,12 @@ int handle_events_normally()
 						g->status = REDRAW;
 						SDL_SetWindowFullscreen(g->win, 0);
 						g->fullscreen = 0;
+					} else if (IS_VIEW_RESULTS()) {
+						g->state ^= VIEW_RESULTS;
+						g->gui_timer = SDL_GetTicks();
+						g->status = REDRAW; // necessary here or below?
+					} else if (IS_THUMB_MODE() || IS_LIST_MODE()) {
+						g->state = NORMAL;
 					}
 				}
 				break;
@@ -1235,12 +1215,13 @@ int handle_events_normally()
 
 int handle_events()
 {
-	if (g->list_mode)
+	if (g->state & (NORMAL | VIEW_RESULTS))
+		return handle_events_normally();
+
+	if (IS_LIST_MODE())
 		return handle_list_events();
 
-	if (g->thumb_mode)
-		return handle_thumb_events();
+	return handle_thumb_events();
 
-	return handle_events_normally();
 }
 

@@ -167,7 +167,7 @@ void draw_gui(struct nk_context* ctx)
 		return;
 	}
 
-	if (g->thumb_mode) {
+	if (IS_THUMB_MODE()) {
 		// TODO always show infobar in thumb_mode regardless of preference?
 		if (g->show_infobar) {
 			draw_thumb_infobar(ctx, scr_w, scr_h);
@@ -191,8 +191,7 @@ void draw_gui(struct nk_context* ctx)
 	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
 		splitter_down = 0;
 
-	// TODO expand list_mode to have RESULTS too?  use thumb enum?  ESC goes back to normal listmode
-	if (g->list_mode) {
+	if (IS_LIST_MODE() && !IS_VIEW_RESULTS()) {
 		if (nk_begin(ctx, "List", nk_rect(0, GUI_BAR_HEIGHT, scr_w, scr_h-GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR)) {
 
 			// TODO With Enter to search, should I even have the Search button?  It's more of a label now... maybe put it on
@@ -205,7 +204,7 @@ void draw_gui(struct nk_context* ctx)
 
 				search_filenames();
 				memset(&rview, 0, sizeof(rview));
-				g->list_mode = RESULTS;
+				g->state = LIST_RESULTS;
 
 				// use no selection to ignore the "Enter" in events so we don't exit
 				// list mode.  Could add state to handle keeping the selection but meh
@@ -287,10 +286,10 @@ void draw_gui(struct nk_context* ctx)
 			
 			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-2*search_height, 1);
 
-			if (g->list_mode == RESULTS) {
+			if (g->state == LIST_RESULTS) {
 				if (!g->search_results.size) {
 					if (nk_button_label(ctx, "No matching results")) {
-						g->list_mode = ON;
+						g->state = LIST_DFLT;
 						text[0] = 0;
 						text_len = 0;
 						g->selection = g->img[0].index;
@@ -304,19 +303,21 @@ void draw_gui(struct nk_context* ctx)
 						for (int j=rview.begin, i=g->search_results.a[j]; j<rview.end; ++j, i=g->search_results.a[j]) {
 							// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
 							// also thumb_sel serves the same/similar purpose
-							is_selected = g->selection == i;
+							is_selected = g->selection == j;
 							if (nk_selectable_label(ctx, g->files.a[i].name, NK_TEXT_LEFT, &is_selected)) {
 								if (is_selected) {
-									g->selection = i;
+									g->selection = j;
 								} else {
 									// could support unselecting, esp. with CTRL somehow if I ever allow
 									// multiple selection
 									// g->selection = -1;
 
 									// for now, treat clicking a selection as a "double click" ie same as return
-									g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
+									//int tmp = g->search_results.a[g->selection];
+									//g->selection = (tmp) ? tmp - 1 : g->files.size-1;
+									g->selection = (g->selection) ? g->selection - 1 : g->search_results.size-1;
 
-									g->list_mode = OFF;
+									g->state |= VIEW_RESULTS;
 									SDL_ShowCursor(SDL_ENABLE);
 									g->gui_timer = SDL_GetTicks();
 									g->show_gui = SDL_TRUE;
@@ -351,7 +352,7 @@ void draw_gui(struct nk_context* ctx)
 								// for now, treat clicking a selection as a "double click" ie same as return
 								g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
 
-								g->list_mode = SDL_FALSE;
+								g->state = NORMAL;
 								SDL_ShowCursor(SDL_ENABLE);
 								g->gui_timer = SDL_GetTicks();
 								g->show_gui = SDL_TRUE;
@@ -624,7 +625,7 @@ void draw_gui(struct nk_context* ctx)
 
 			nk_menu_end(ctx);
 		}
-		if (g->list_mode) {
+		if (IS_LIST_MODE() && !IS_VIEW_RESULTS()) {
 			nk_end(ctx);  // end "Controls" window early
 			return;
 		}
@@ -746,6 +747,7 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	char info_buf[STRBUF_SZ];
 	char* size_str;
+	int index;
 
 	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR))
 	{
@@ -753,8 +755,9 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 			img_state* img = &g->img[0];
 
 			size_str = g->files.a[img->index].size_str;
+			index = (IS_VIEW_RESULTS()) ? g->search_results.a[img->index] : img->index;
 
-			int len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels  %s  %d %%    %d / %lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), img->index+1, (unsigned long)g->files.size);
+			int len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels  %s  %d %%    %d / %lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, (unsigned long)g->files.size);
 			if (len >= STRBUF_SZ) {
 				puts("info path too long");
 				cleanup(1, 1);
@@ -775,14 +778,14 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 
 	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR))
 	{
-		if (g->thumb_mode <= SEARCH) {
+		if (!(g->state & THUMB_RESULTS)) {
 			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
 			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
 			if (len >= STRBUF_SZ) {
 				puts("info path too long");
 				cleanup(1, 1);
 			}
-		} else if (g->thumb_mode == RESULTS) {
+		} else if (g->state == THUMB_RESULTS) {
 			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
 
 			int i;
