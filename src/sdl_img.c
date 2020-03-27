@@ -1913,10 +1913,16 @@ void do_delete(SDL_Event* next)
 	// and not while loading of course
 	if (g->loading || g->n_imgs != 1) {
 		// TODO messagebox here saying only support deletion in single mode?
+		SDL_Log("Only support deletion in single image mode");
 		return;
 	}
 
-	char* full_img_path = g->files.a[g->img[0].index].path;
+	char* full_img_path;
+	if (!IS_VIEW_RESULTS()) {
+		full_img_path = g->files.a[g->img[0].index].path;
+	} else {
+		full_img_path = g->files.a[g->search_results.a[g->img[0].index]].path;
+	}
 
 	snprintf(msgbox_prompt, STRBUF_SZ, "Are you sure you want to delete '%s'?", full_img_path);
 	messageboxdata.message = msgbox_prompt;
@@ -1926,11 +1932,28 @@ void do_delete(SDL_Event* next)
 			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to delete image: %s", strerror(errno));
 		} else {
 			SDL_Log("Deleted %s\n", full_img_path);
-			cvec_erase_file(&g->files, g->img[0].index, g->img[0].index);
+
+			int files_index = g->img[0].index;
+
+			if (IS_VIEW_RESULTS()) {
+				// Have to remove from results and decrement all higher results (this works
+				// because results are always found from front to back so later results always have higher
+				// g->files indices)
+				cvec_erase_i(&g->search_results, g->img[0].index, g->img[0].index);
+				for (int i=g->img[0].index; i<g->search_results.size; ++i) {
+					g->search_results.a[i]--;
+				}
+
+				// get actual index to delete correct location from files and thumbs
+				files_index = g->search_results.a[g->img[0].index];
+			}
+
+			cvec_erase_file(&g->files, files_index, files_index);
 
 			if (g->thumbs.a) {
-				cvec_erase_thumb_state(&g->thumbs, g->img[0].index, g->img[0].index);
+				cvec_erase_thumb_state(&g->thumbs, files_index, files_index);
 			}
+
 			g->img[0].index--; // since everything shifted left, we need to pre-decrement to not skip an image
 			SDL_PushEvent(next);
 		}
