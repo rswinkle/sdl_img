@@ -1837,6 +1837,11 @@ void do_flip(int is_vertical)
 
 void do_mode_change(intptr_t mode)
 {
+	if (IS_VIEW_RESULTS()) {
+		SDL_Log("Multi-mode not (yet) supported when viewing results\n");
+		return;
+	}
+
 	// mode is an enum that also == the number of images
 	if (g->n_imgs != mode && g->files.size >= mode) {
 		g->status = REDRAW;
@@ -2630,6 +2635,7 @@ int main(int argc, char** argv)
 				SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
 			}
 		}
+		// TODO ?
 		if ((IS_LIST_MODE() && !IS_VIEW_RESULTS()) || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
 			nk_sdl_render(NULL, nk_false);

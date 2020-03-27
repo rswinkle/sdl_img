@@ -454,7 +454,7 @@ int handle_list_events()
 				}
 				break;
 
-			// Do removal and deletion in list mode?
+			// TODO removal and deletion in list mode?
 			case SDLK_BACKSPACE:
 			case SDLK_r:
 			case SDLK_x:
@@ -720,6 +720,7 @@ int handle_events_normally()
 			case SDL_SCANCODE_ESCAPE:
 				if (!copy_escape && !g->fullscreen && !g->slideshow && !g->show_about &&
 					!g->show_prefs && !g->show_rotate && g->state == NORMAL) {
+					puts("exiting");
 					//nk_input_end(g->ctx);
 					return 1;
 				} else {
@@ -741,9 +742,15 @@ int handle_events_normally()
 						g->fullscreen = 0;
 					} else if (IS_VIEW_RESULTS()) {
 						g->state ^= VIEW_RESULTS;
+
+						// TODO handle n-mode in view results or just don't allow it?
+						g->selection = g->img[0].index;
+						g->img[0].index = g->search_results.a[g->selection];
+
 						g->gui_timer = SDL_GetTicks();
 						g->status = REDRAW; // necessary here or below?
 					} else if (IS_THUMB_MODE() || IS_LIST_MODE()) {
+						// TODO this can't be reached! ... right?
 						g->state = NORMAL;
 					}
 				}

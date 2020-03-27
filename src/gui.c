@@ -747,7 +747,7 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	char info_buf[STRBUF_SZ];
 	char* size_str;
-	int index;
+	unsigned long index, total;
 
 	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR))
 	{
@@ -755,9 +755,19 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 			img_state* img = &g->img[0];
 
 			size_str = g->files.a[img->index].size_str;
-			index = (IS_VIEW_RESULTS()) ? g->search_results.a[img->index] : img->index;
 
-			int len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels  %s  %d %%    %d / %lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, (unsigned long)g->files.size);
+			// 2 options when viewing results, showing n/total like normal (so it'd jump between matches)
+			// or showing n/results which is more useful imo
+			//
+			// Method 1
+			//index = (IS_VIEW_RESULTS()) ? g->search_results.a[img->index] : img->index;
+			//total = g->files.size;
+			
+			// Method 2
+			index = img->index;
+			total = (IS_VIEW_RESULTS()) ? g->search_results.size : g->files.size;
+
+			int len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels  %s  %d %%    %lu / %lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total);
 			if (len >= STRBUF_SZ) {
 				puts("info path too long");
 				cleanup(1, 1);
