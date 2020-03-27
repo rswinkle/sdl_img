@@ -1169,7 +1169,6 @@ int load_new_images(void* data)
 {
 	int tmp;
 	char title_buf[STRBUF_SZ];
-	int ret;
 	int load_what;
 	int last;
 	
