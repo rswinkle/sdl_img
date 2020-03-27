@@ -85,11 +85,21 @@ int handle_thumb_events()
 			case SDLK_RETURN:
 				if (g->state & (THUMB_DFLT | THUMB_RESULTS)) {
 					// TODO if THUMB_RESULTS check if thumb_sel is in results; if so go to VIEW_RESULTS?
-					//
-					// subtract 1 since we reuse RIGHT loading code
-					g->selection = (g->thumb_sel) ? g->thumb_sel - 1 : g->files.size-1;
-					g->state = NORMAL;
-					g->thumb_start_row = 0;
+					if (g->state & THUMB_RESULTS && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+						g->state |= VIEW_RESULTS;
+
+						// Just going to go to last result they were on
+						// not necessarily the closet one
+						//g->thumb_sel = g->search_results.a[g->cur_result];
+						g->selection = (g->cur_result) ? g->cur_result-1 : g->search_results.size-1;
+					} else {
+						g->state = NORMAL;
+						// subtract 1 since we reuse RIGHT loading code
+						g->selection = (g->thumb_sel) ? g->thumb_sel - 1 : g->files.size-1;
+					}
+
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
 					g->show_gui = SDL_TRUE;
 					g->status = REDRAW;
 					try_move(SELECTION);
@@ -157,7 +167,6 @@ int handle_thumb_events()
 							if (g->cur_result < 0)
 								g->cur_result += g->search_results.size;
 						} else {
-							// TODO if move to closest result in negative direction
 							int i;
 							for (i = 0; i<g->search_results.size; ++i) {
 								if (g->search_results.a[i] > g->thumb_sel)
@@ -172,7 +181,6 @@ int handle_thumb_events()
 						if (g->thumb_sel == g->search_results.a[g->cur_result]) {
 							g->cur_result = (g->cur_result + 1) % g->search_results.size;
 						} else {
-							// TODO if move to closest result in positive direction
 							int i;
 							for (i = 0; i<g->search_results.size; ++i) {
 								if (g->search_results.a[i] > g->thumb_sel)
@@ -465,11 +473,12 @@ int handle_list_events()
 				if (g->selection >= 0) {
 					if (g->state & LIST_RESULTS) {
 						g->state |= VIEW_RESULTS;
+						g->selection = (g->selection) ? g->selection - 1 : g->search_results.size-1;
 					} else {
 						g->state = NORMAL;
+						g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
 					}
-					g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
-
+					// Same as switching from thumbmode
 					SDL_ShowCursor(SDL_ENABLE);
 					g->gui_timer = SDL_GetTicks();
 					g->show_gui = SDL_TRUE;
@@ -743,11 +752,21 @@ int handle_events_normally()
 					} else if (IS_VIEW_RESULTS()) {
 						g->state ^= VIEW_RESULTS;
 
-						// TODO handle n-mode in view results or just don't allow it?
-						g->selection = g->img[0].index;
-						g->img[0].index = g->search_results.a[g->selection];
+						// TODO handle n-mode in view results, forbidden for now
 
+						// selection is used in listmode results, = index in results
+						g->selection = g->img[0].index;
+
+						// thumb_sel is the actual index in g->files, since results are
+						// not separated out, just highlighted like vim
+						g->img[0].index = g->thumb_sel = g->search_results.a[g->selection];
+						g->thumb_start_row = g->thumb_sel / g->thumb_cols;
+
+						// TODO macro or function?  check how many uses
+						SDL_ShowCursor(SDL_ENABLE);
 						g->gui_timer = SDL_GetTicks();
+						g->show_gui = SDL_TRUE;
+
 						g->status = REDRAW; // necessary here or below?
 					} else if (IS_THUMB_MODE() || IS_LIST_MODE()) {
 						// TODO this can't be reached! ... right?

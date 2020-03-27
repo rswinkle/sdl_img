@@ -1146,6 +1146,7 @@ int wrap(int z)
 	}
 	while (z < 0) z += n;
 	while (z >= n) z -= n;
+
 	return z;
 }
 
@@ -2141,6 +2142,10 @@ int do_copy()
 
 void do_listmode()
 {
+	if (g->n_imgs != 1) {
+		SDL_Log("Do not yet support listmode from multiimage mode");
+		return;
+	}
 	// TODO hmm handle switching directly from thumb to list and vice versa
 	g->state = LIST_DFLT;
 	g->selection = g->img[0].index;

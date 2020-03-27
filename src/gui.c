@@ -167,7 +167,7 @@ void draw_gui(struct nk_context* ctx)
 		return;
 	}
 
-	if (IS_THUMB_MODE()) {
+	if (IS_THUMB_MODE() && !IS_VIEW_RESULTS()) {
 		// TODO always show infobar in thumb_mode regardless of preference?
 		if (g->show_infobar) {
 			draw_thumb_infobar(ctx, scr_w, scr_h);
