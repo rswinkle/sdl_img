@@ -1966,11 +1966,28 @@ void do_remove(SDL_Event* next)
 	if (g->loading || g->n_imgs > 1)
 		return;
 
-	cvec_erase_file(&g->files, g->img[0].index, g->img[0].index);
+	int files_index = g->img[0].index;
+
+	if (IS_VIEW_RESULTS()) {
+		// Have to remove from results and decrement all higher results (this works
+		// because results are always found from front to back so later results always have higher
+		// g->files indices)
+		cvec_erase_i(&g->search_results, g->img[0].index, g->img[0].index);
+		for (int i=g->img[0].index; i<g->search_results.size; ++i) {
+			g->search_results.a[i]--;
+		}
+
+		// get actual index to delete correct location from files and thumbs
+		files_index = g->search_results.a[g->img[0].index];
+	}
+
+	// TODO should remove in VIEW_RESULTS remove from results only or also files and thumbs?
+	cvec_erase_file(&g->files, files_index, files_index);
 
 	if (g->thumbs.a) {
-		cvec_erase_thumb_state(&g->thumbs, g->img[0].index, g->img[0].index);
+		cvec_erase_thumb_state(&g->thumbs, files_index, files_index);
 	}
+
 	g->img[0].index--; // since everything shifted left, we need to pre-decrement to not skip an image
 	SDL_PushEvent(next);
 }

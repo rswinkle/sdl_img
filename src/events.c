@@ -5,6 +5,7 @@ int handle_thumb_events()
 	int sym;
 	SDL_Keymod mod_state = SDL_GetModState();
 	int mouse_x, mouse_y;
+	SDL_GetMouseState(&mouse_x, &mouse_y);
 	char title_buf[STRBUF_SZ];
 
 	// TODO add page or half page jumps (CTRL+U/D) and maybe / vim search
