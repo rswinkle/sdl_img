@@ -1678,7 +1678,11 @@ void do_sort(compare_func cmp)
 		return;
 	}
 
-	char* save = g->files.a[g->img[0].index].path;
+	char* save;
+	if (g->state & RESULT_MASK)
+		save = g->files.a[g->search_results.a[g->img[0].index]].path;
+	else
+		save = g->files.a[g->img[0].index].path;
 
 	// TODO is it worth preserving the list selection?  Or just reset it to current image?
 	// especially since it would likely jump out of view unless we reset the scroll position
@@ -1692,21 +1696,41 @@ void do_sort(compare_func cmp)
 	else
 		mirrored_qsort(g->files.a, g->files.size, sizeof(file), cmp, 0);
 
-	for (int i=0; i<g->files.size; ++i) {
+	// find new index of img[0]
+	int i;
+	for (i=0; i<g->files.size; ++i) {
 		if (!strcmp(save, g->files.a[i].path)) {
-			g->img[0].index = i;
-
-			// for now just keep current image (what they'll go back to if they hit
-			// ESC instead of double clicking or hitting Enter on another one
-			g->selection = i;
 			break;
 		}
 	}
 
-	// should work even while viewing results
+	// should work even while in result modes
 	if (g->state & RESULT_MASK) {
 		search_filenames();
+
+		for (int j=0; j<g->search_results.size; ++j) {
+			if (g->search_results.a[j] == i) {
+
+				// selection is used in listmode results, = index in results
+				g->selection = g->img[0].index = j;
+
+				// thumb_sel is the actual index in g->files, since results are
+				// not separated out, just highlighted like vim
+				g->thumb_sel = i;
+				g->thumb_start_row = g->thumb_sel / g->thumb_cols;
+				break;
+			}
+		}
+	} else {
+		// In non-result modes, index and selection are the files index
+		g->img[0].index = i;
+
+		// for now just keep current image (what they'll go back to if they hit
+		// ESC instead of double clicking or hitting Enter on another one)
+		// otherwise we'd have to save g->selection instead of img[0] at the top
+		g->selection = i;
 	}
+
 }
 
 void do_zoom(int dir, int use_mouse)
