@@ -204,7 +204,7 @@ void draw_gui(struct nk_context* ctx)
 
 				search_filenames();
 				memset(&rview, 0, sizeof(rview));
-				g->state = LIST_RESULTS;
+				g->state |= SEARCH_RESULTS;
 
 				// use no selection to ignore the "Enter" in events so we don't exit
 				// list mode.  Could add state to handle keeping the selection but meh
@@ -286,7 +286,7 @@ void draw_gui(struct nk_context* ctx)
 			
 			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-2*search_height, 1);
 
-			if (g->state == LIST_RESULTS) {
+			if (g->state & SEARCH_RESULTS) {
 				if (!g->search_results.size) {
 					if (nk_button_label(ctx, "No matching results")) {
 						g->state = LIST_DFLT;
@@ -788,14 +788,14 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 
 	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR))
 	{
-		if (!(g->state & THUMB_RESULTS)) {
+		if (!(g->state & SEARCH_RESULTS)) {
 			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
 			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
 			if (len >= STRBUF_SZ) {
 				puts("info path too long");
 				cleanup(1, 1);
 			}
-		} else if (g->state == THUMB_RESULTS) {
+		} else {
 			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
 
 			int i;

@@ -83,9 +83,9 @@ int handle_thumb_events()
 					do_thumb_rem_del(sym == SDLK_x, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
 				break;
 			case SDLK_RETURN:
-				if (g->state & (THUMB_DFLT | THUMB_RESULTS)) {
-					// TODO if THUMB_RESULTS check if thumb_sel is in results; if so go to VIEW_RESULTS?
-					if (g->state & THUMB_RESULTS && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				// TODO simplify state logic
+				if (g->state & (THUMB_DFLT | SEARCH_RESULTS)) {
+					if (g->state & SEARCH_RESULTS && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 						g->state |= VIEW_RESULTS;
 
 						// Just going to go to last result they were on
@@ -109,7 +109,7 @@ int handle_thumb_events()
 					search_filenames();
 					if (g->search_results.size) {
 						g->thumb_sel = g->search_results.a[0];
-						g->state = THUMB_RESULTS;
+						g->state |= SEARCH_RESULTS;
 					} else {
 						g->state = THUMB_DFLT;
 					}
@@ -160,7 +160,7 @@ int handle_thumb_events()
 				}
 				break;
 			case SDLK_n:
-				if (g->state == THUMB_RESULTS) {
+				if (g->state & SEARCH_RESULTS) {
 					if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
 						if (g->thumb_sel == g->search_results.a[g->cur_result]) {
 							g->cur_result--;
@@ -435,7 +435,7 @@ int handle_list_events()
 			sym = e.key.keysym.sym;
 			switch (sym) {
 			case SDLK_ESCAPE:
-				if (g->state & LIST_RESULTS) {
+				if (g->state & SEARCH_RESULTS) {
 					g->state = LIST_DFLT;
 					text[0] = 0;
 					//memset(text, 0, text_len+1);
@@ -470,7 +470,7 @@ int handle_list_events()
 			// switch to normal mode on that image
 			case SDLK_RETURN:
 				if (g->selection >= 0) {
-					if (g->state & LIST_RESULTS) {
+					if (g->state & SEARCH_RESULTS) {
 						g->state |= VIEW_RESULTS;
 						g->selection = (g->selection) ? g->selection - 1 : g->search_results.size-1;
 					} else {
@@ -728,7 +728,6 @@ int handle_events_normally()
 			case SDL_SCANCODE_ESCAPE:
 				if (!copy_escape && !g->fullscreen && !g->slideshow && !g->show_about &&
 					!g->show_prefs && !g->show_rotate && g->state == NORMAL) {
-					puts("exiting");
 					//nk_input_end(g->ctx);
 					return 1;
 				} else {

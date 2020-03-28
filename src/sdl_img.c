@@ -77,20 +77,20 @@ enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
        MODE_CHANGE, THUMB_MODE, LIST_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, SHUFFLE,
        SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
 
-// off on visual search results
+// Better names/macros
 enum {
 	NORMAL           = 0x1,
 	THUMB_DFLT       = 0x2,
 	THUMB_VISUAL     = 0x4,
 	THUMB_SEARCH     = 0x8,
-	THUMB_RESULTS    = 0x10,
-	LIST_DFLT        = 0x20,
-	LIST_RESULTS     = 0x40,
-	VIEW_RESULTS     = 0x80
+	LIST_DFLT        = 0x10,
+	SEARCH_RESULTS   = 0x20,
+	VIEW_RESULTS     = 0x40
 };
 
-#define THUMB_MASK (THUMB_DFLT | THUMB_VISUAL | THUMB_SEARCH | THUMB_RESULTS)
-#define LIST_MASK (LIST_DFLT | LIST_RESULTS)
+#define THUMB_MASK (THUMB_DFLT | THUMB_VISUAL | THUMB_SEARCH)
+#define LIST_MASK (LIST_DFLT)
+#define RESULT_MASK (SEARCH_RESULTS | VIEW_RESULTS)
 
 #define IS_THUMB_MODE() (g->state & THUMB_MASK)
 #define IS_LIST_MODE() (g->state & LIST_MASK)
@@ -630,6 +630,7 @@ void clear_img(img_state* img)
 			NULL /* .colorScheme, NULL = system default */
 		};
 
+		// TODO handle VIEW_RESULTS
 		char* full_img_path = g->files.a[img->index].path;
 
 		snprintf(msgbox_prompt, STRBUF_SZ, "Do you want to save changes to '%s'?", full_img_path);
@@ -1703,7 +1704,7 @@ void do_sort(compare_func cmp)
 	}
 
 	// should work even while viewing results
-	if (g->state & LIST_RESULTS) {
+	if (g->state & RESULT_MASK) {
 		search_filenames();
 	}
 }
@@ -2625,7 +2626,7 @@ int main(int argc, char** argv)
 						r.h = h;
 						SDL_RenderFillRect(g->ren, &r);
 					}
-				} else if (g->state & THUMB_RESULTS) {
+				} else if (g->state & SEARCH_RESULTS) {
 					
 					// TODO optimize since results are in order
 					for (int k = 0; k<g->search_results.size; ++k) {
