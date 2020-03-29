@@ -94,6 +94,7 @@ enum {
 
 #define IS_THUMB_MODE() (g->state & THUMB_MASK)
 #define IS_LIST_MODE() (g->state & LIST_MASK)
+#define IS_RESULTS() (g->state & RESULT_MASK)
 #define IS_VIEW_RESULTS() (g->state & VIEW_RESULTS)
 
 typedef uint8_t u8;
@@ -1862,11 +1863,6 @@ void do_flip(int is_vertical)
 
 void do_mode_change(intptr_t mode)
 {
-	if (IS_VIEW_RESULTS()) {
-		SDL_Log("Multi-mode not (yet) supported when viewing results\n");
-		return;
-	}
-
 	// mode is an enum that also == the number of images
 	if (g->n_imgs != mode && g->files.size >= mode) {
 		g->status = REDRAW;
@@ -2206,10 +2202,6 @@ int do_copy()
 
 void do_listmode()
 {
-	if (g->n_imgs != 1) {
-		SDL_Log("Do not yet support listmode from multiimage mode");
-		return;
-	}
 	// TODO hmm handle switching directly from thumb to list and vice versa
 	g->state = LIST_DFLT;
 	g->selection = g->img[0].index;

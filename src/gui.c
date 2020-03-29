@@ -584,41 +584,44 @@ void draw_gui(struct nk_context* ctx)
 				}
 				nk_label(ctx, "CTRL+1", NK_TEXT_RIGHT);
 
-				if (nk_menu_item_label(ctx, "2 images", NK_TEXT_LEFT)) {
-					event.user.code = MODE_CHANGE;
-					event.user.data1 = (void*)MODE2;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "CTRL+2", NK_TEXT_RIGHT);
+				// Can't change mode while in list mode, whatever mode you entered is how you'll exit
+				if (!IS_LIST_MODE()) {
+					if (nk_menu_item_label(ctx, "2 images", NK_TEXT_LEFT)) {
+						event.user.code = MODE_CHANGE;
+						event.user.data1 = (void*)MODE2;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "CTRL+2", NK_TEXT_RIGHT);
 
-				if (nk_menu_item_label(ctx, "4 images", NK_TEXT_LEFT)) {
-					event.user.code = MODE_CHANGE;
-					event.user.data1 = (void*)MODE4;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "CTRL+4", NK_TEXT_RIGHT);
+					if (nk_menu_item_label(ctx, "4 images", NK_TEXT_LEFT)) {
+						event.user.code = MODE_CHANGE;
+						event.user.data1 = (void*)MODE4;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "CTRL+4", NK_TEXT_RIGHT);
 
-				if (nk_menu_item_label(ctx, "8 images", NK_TEXT_LEFT)) {
-					event.user.code = MODE_CHANGE;
-					event.user.data1 = (void*)MODE8;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "CTRL+8", NK_TEXT_RIGHT);
+					if (nk_menu_item_label(ctx, "8 images", NK_TEXT_LEFT)) {
+						event.user.code = MODE_CHANGE;
+						event.user.data1 = (void*)MODE8;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "CTRL+8", NK_TEXT_RIGHT);
 
-				// have to treat switching back from list the same as I do switching
-				// back from thumb, selection is the 1st image, have to load following
-				// if in 2,4, or 8 mode
-				if (nk_menu_item_label(ctx, "List Mode", NK_TEXT_LEFT)) {
-					event.user.code = LIST_MODE;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "CTRL+I", NK_TEXT_RIGHT);
+					// have to treat switching back from list the same as I do switching
+					// back from thumb, selection is the 1st image, have to load following
+					// if in 2,4, or 8 mode
+					if (nk_menu_item_label(ctx, "List Mode", NK_TEXT_LEFT)) {
+						event.user.code = LIST_MODE;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "CTRL+I", NK_TEXT_RIGHT);
 
-				if (nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT)) {
-					event.user.code = THUMB_MODE;
-					SDL_PushEvent(&event);
+					if (nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT)) {
+						event.user.code = THUMB_MODE;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "CTRL+U", NK_TEXT_RIGHT);
 				}
-				nk_label(ctx, "CTRL+U", NK_TEXT_RIGHT);
 
 				nk_tree_pop(ctx);
 			} else g->menu_state = (g->menu_state == MENU_VIEW) ? MENU_NONE: g->menu_state;

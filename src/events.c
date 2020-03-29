@@ -446,7 +446,16 @@ int handle_list_events()
 					if (g->selection < 0) {
 						g->selection = g->img[0].index;
 					} else {
+						// convert selection
 						g->selection = g->search_results.a[g->selection];
+
+						/* TODO
+						 * flag to determine whether we ever actually entered VIEW_RESULTS
+						 * mode and thus need to change them back
+						for (int i=0; i<g->n_imgs; ++i) {
+							g->img[i].index = g->search_results.a[g->img[i].index];
+						}
+						*/
 					}
 					g->list_setscroll = SDL_TRUE;
 
@@ -542,6 +551,30 @@ int handle_list_events()
 	nk_input_end(g->ctx);
 
 	return 0;
+}
+
+// TODO macro?
+void mode_focus_change(intptr_t mode, SDL_Keymod mod_state, char* title_buf)
+{
+	// modes are 1,2,4,8
+	int is_mode = (mode == 1 || mode == 2 || mode == 4 || mode == 8) ? 1 : 0;
+
+	// parameter mode is used as mode or focus selection (1-8)
+
+	if (is_mode && !g->loading && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+		do_mode_change(mode);
+	} else if (g->n_imgs >= mode && g->n_imgs >= 2) {
+		// we don't use/set img_focus in single image mode
+		g->img_focus = &g->img[mode-1];
+
+		char* path;
+		if (IS_RESULTS())
+			path = g->files.a[g->search_results.a[g->img_focus->index]].path;
+		else
+			path = g->files.a[g->img_focus->index].path;
+
+		SDL_SetWindowTitle(g->win, mybasename(path, title_buf));
+	}
 }
 
 int handle_events_normally()
@@ -800,67 +833,38 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_0:
 				g->img_focus = NULL;
-				SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img[0].index].path, title_buf));
+				if (IS_VIEW_RESULTS())
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->search_results.a[g->img[0].index]].path, title_buf));
+				else
+					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img[0].index].path, title_buf));
 				break;
 			case SDL_SCANCODE_1:
-				if (!g->loading && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-					do_mode_change(MODE1);
-				} else if (g->n_imgs >= 2) {
-					g->img_focus = &g->img[0];
-					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
-				}
+				mode_focus_change(MODE1, mod_state, title_buf);
 				break;
 			case SDL_SCANCODE_2:
-				if (!g->loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
-					do_mode_change(MODE2);
-				} else if (g->n_imgs >= 2) {
-					g->img_focus = &g->img[1];
-					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
-				}
+				mode_focus_change(MODE2, mod_state, title_buf);
 				break;
 			case SDL_SCANCODE_3:
 				g->status = REDRAW;
-				if (g->n_imgs >= 3) {
-					g->img_focus = &g->img[2];
-					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
-				}
+				mode_focus_change(3, mod_state, title_buf);
 				break;
 			case SDL_SCANCODE_4:
-				if (!g->loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
-					do_mode_change(MODE4);
-				} else if (g->n_imgs >= 4) {
-					g->img_focus = &g->img[3];
-					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
-				}
+				mode_focus_change(MODE4, mod_state, title_buf);
 				break;
 			case SDL_SCANCODE_5:
 				g->status = REDRAW;
-				if (g->n_imgs >= 5) {
-					g->img_focus = &g->img[4];
-					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
-				}
+				mode_focus_change(5, mod_state, title_buf);
 				break;
 			case SDL_SCANCODE_6:
 				g->status = REDRAW;
-				if (g->n_imgs >= 6) {
-					g->img_focus = &g->img[5];
-					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
-				}
+				mode_focus_change(6, mod_state, title_buf);
 				break;
 			case SDL_SCANCODE_7:
 				g->status = REDRAW;
-				if (g->n_imgs >= 7) {
-					g->img_focus = &g->img[6];
-					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
-				}
+				mode_focus_change(7, mod_state, title_buf);
 				break;
 			case SDL_SCANCODE_8:
-				if (!g->loading && (mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
-					do_mode_change(MODE8);
-				} else if (g->n_imgs >= 8) {
-					g->img_focus = &g->img[7];
-					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img_focus->index].path, title_buf));
-				}
+				mode_focus_change(MODE8, mod_state, title_buf);
 				break;
 
 			case SDL_SCANCODE_A:
