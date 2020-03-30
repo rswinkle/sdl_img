@@ -147,21 +147,6 @@ typedef int64_t i64;
 #endif
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 
-// TODO not used currently, would be useful if
-// I used SDL_Surfaces
-#if SDL_BYTEORDER == SDL_BIG_ENDIAN
-#define RMASK 0xFF000000
-#define GMASK 0x00FF0000
-#define BMASK 0x0000FF00
-#define AMASK 0x000000FF
-#else
-#define RMASK 0x000000FF;
-#define GMASK 0x0000FF00;
-#define BMASK 0x00FF0000;
-#define AMASK 0xFF000000;
-#endif
-
-
 #define SET_MODE1_SCR_RECT()                                                   \
 	do {                                                                       \
 	g->img[0].scr_rect.x = 0;                                                  \
@@ -258,7 +243,6 @@ typedef struct img_state
 	char* fullpath;  // allocated by realpath() needs to be freed
 
 	int index;
-	int is_dup;  // TODO not used
 
 	int frame_i;
 	int delay; // for now just use the same delay for every frame
@@ -429,13 +413,13 @@ void normalize_path(char* path)
 
 int bytes2str(int bytes, char* buf, int len)
 {
+	// MiB KiB? 2^10, 2^20?
 	// char* iec_sizes[3] = { "bytes", "KiB", "MiB" };
 	char* si_sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
 
 	char** sizes = si_sizes;
 	int i = 0;
 	double sz = bytes;
-	// TODO MiB KiB? 2^10, 2^20?
 	if (sz >= 1000000) {
 		sz /= 1000000;
 		i = 2;
@@ -528,8 +512,8 @@ void set_rect_bestfit(img_state* img, int fill_screen)
 	float aspect = img->w/(float)img->h;
 	int h, w;
 	
-	// TODO macro evaluates division twice
-	int tmp = MIN(img->scr_rect.h, img->scr_rect.w/aspect);
+	float w_aspect = img->scr_rect.w/aspect;
+	int tmp = MIN(img->scr_rect.h, w_aspect);
 	if (fill_screen)
 		h = tmp;
 	else
@@ -633,8 +617,12 @@ void clear_img(img_state* img)
 			NULL /* .colorScheme, NULL = system default */
 		};
 
-		// TODO handle VIEW_RESULTS
-		char* full_img_path = g->files.a[img->index].path;
+		char* full_img_path;
+		if (!IS_VIEW_RESULTS()) {
+			full_img_path = g->files.a[img->index].path;
+		} else {
+			full_img_path = g->files.a[g->search_results.a[img->index]].path;
+		}
 
 		snprintf(msgbox_prompt, STRBUF_SZ, "Do you want to save changes to '%s'?", full_img_path);
 		messageboxdata.message = msgbox_prompt;

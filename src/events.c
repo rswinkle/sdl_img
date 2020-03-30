@@ -788,7 +788,7 @@ int handle_events_normally()
 
 						// thumb_sel is the actual index in g->files, since results are
 						// not separated out, just highlighted like vim
-						g->img[0].index = g->thumb_sel = g->search_results.a[g->selection];
+						g->thumb_sel = g->search_results.a[g->selection];
 						g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 
 						// for thumb mode we switch indices back immediately on leaving VIEW_RESULTS
