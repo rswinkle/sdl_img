@@ -72,9 +72,10 @@ int handle_thumb_events()
 
 			// I can't decide, backspace for consistency with normal mode
 			// but r for "removal" even though in vim r means replace and x
-			// means remove but we have it remove and delete.  d would also work
+			// means delete but we have it remove and delete.  d would also work
 			// for delete...  Also r is rotate right (and CTRL+r is arbitrary rotation)
-			// in normal mode.
+			// in normal mode.  Also Backspace is kind of a reach and is equivalent to h
+			// (move left) in vim...
 			case SDLK_BACKSPACE:
 			case SDLK_r:
 			case SDLK_x:

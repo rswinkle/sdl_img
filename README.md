@@ -45,15 +45,17 @@ alphabetical order.
 | T                 | Sort the images by last modified (only in single mode) |
 | P                 | Pause/Unpause gif |
 | ALT + F or F11    | Toggle Fullscreen |
-| ESC               | Exit (or exit Slideshow mode then fullscreen) |
+| ESC               | Exit or "Back" similar to Android |
 | L/R               | Rotate the current image left/right |
 | H/V               | Flip the current image horizontally/vertically |
 | Delete            | Delete the current image and move to the next (only in single mode) |
+| Backspace         | Remove the current image and move to the next (only in single mode) |
 | CTRL + 1          | Single image mode |
 | CTRL + 2          | Double image mode |
 | CTRL + 4          | Quad image mode   |
 | CTRL + 8          | 8 image mode      |
 | CTRL + U          | Thumbnail mode    |
+| CTRL + I          | List mode    |
 | F1 - F10          | Start a slideshow with 1 - 10 second delay |
 
 The most obvious unique features are the multi-image modes but others include
@@ -126,7 +128,7 @@ I'll even try something like AppImage or Flatpak long term just for fun.
 
 Naming Issues
 =============
-So I know there are some issues with name.
+So I know there are some issues with the name.
 
 Originally sdl_img only used SDL2 and stb_image; [stb_image](https://github.com/nothings/stb)
 and [stb_imv](https://github.com/nothings/stb-imv) already exist,
