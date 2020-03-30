@@ -86,7 +86,7 @@ int handle_thumb_events()
 				// TODO simplify state logic
 				if (g->state & (THUMB_DFLT | SEARCH_RESULTS)) {
 					if (g->state & SEARCH_RESULTS && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-						g->state |= VIEW_RESULTS;
+						g->state |= VIEW_MASK;
 
 						// Just going to go to last result they were on
 						// not necessarily the closet one
@@ -436,7 +436,6 @@ int handle_list_events()
 			switch (sym) {
 			case SDLK_ESCAPE:
 				if (g->state & SEARCH_RESULTS) {
-					g->state = LIST_DFLT;
 					text[0] = 0;
 					//memset(text, 0, text_len+1);
 					text_len = 0;
@@ -449,15 +448,15 @@ int handle_list_events()
 						// convert selection
 						g->selection = g->search_results.a[g->selection];
 
-						/* TODO
-						 * flag to determine whether we ever actually entered VIEW_RESULTS
-						 * mode and thus need to change them back
-						for (int i=0; i<g->n_imgs; ++i) {
-							g->img[i].index = g->search_results.a[g->img[i].index];
+						if (g->state & VIEWED_RESULTS) {
+							// TODO alternative, force switch to single mode?
+							for (int i=0; i<g->n_imgs; ++i) {
+								g->img[i].index = g->search_results.a[g->img[i].index];
+							}
 						}
-						*/
 					}
 					g->list_setscroll = SDL_TRUE;
+					g->state = LIST_DFLT;
 
 					// redundant since we clear before doing the search atm
 					g->search_results.size = 0;
@@ -480,7 +479,7 @@ int handle_list_events()
 			case SDLK_RETURN:
 				if (g->selection >= 0) {
 					if (g->state & SEARCH_RESULTS) {
-						g->state |= VIEW_RESULTS;
+						g->state |= VIEW_MASK;
 						g->selection = (g->selection) ? g->selection - 1 : g->search_results.size-1;
 					} else {
 						g->state = NORMAL;
@@ -783,8 +782,6 @@ int handle_events_normally()
 					} else if (IS_VIEW_RESULTS()) {
 						g->state ^= VIEW_RESULTS;
 
-						// TODO handle n-mode in view results, forbidden for now
-
 						// selection is used in listmode results, = index in results
 						g->selection = g->img[0].index;
 
@@ -792,6 +789,16 @@ int handle_events_normally()
 						// not separated out, just highlighted like vim
 						g->img[0].index = g->thumb_sel = g->search_results.a[g->selection];
 						g->thumb_start_row = g->thumb_sel / g->thumb_cols;
+
+						// for thumb mode we switch indices back immediately on leaving VIEW_RESULTS
+						// compared to list mode SEARCH_RESULTS we leave them, till we go back to
+						// LIST_DFLT.
+						if (g->state & THUMB_SEARCH) {
+							// TODO alternative, force switch to single mode?
+							for (int i=0; i<g->n_imgs; ++i) {
+								g->img[i].index = g->search_results.a[g->img[i].index];
+							}
+						}
 
 						// TODO macro or function?  check how many uses
 						SDL_ShowCursor(SDL_ENABLE);

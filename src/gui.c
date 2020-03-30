@@ -317,7 +317,7 @@ void draw_gui(struct nk_context* ctx)
 									//g->selection = (tmp) ? tmp - 1 : g->files.size-1;
 									g->selection = (g->selection) ? g->selection - 1 : g->search_results.size-1;
 
-									g->state |= VIEW_RESULTS;
+									g->state |= VIEW_MASK;
 									SDL_ShowCursor(SDL_ENABLE);
 									g->gui_timer = SDL_GetTicks();
 									g->show_gui = SDL_TRUE;
