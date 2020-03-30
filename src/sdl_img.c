@@ -1679,6 +1679,7 @@ void do_shuffle()
 void do_sort(compare_func cmp)
 {
 	if (g->n_imgs != 1 || g->generating_thumbs) {
+		SDL_Log("Can't sort in multi-image modes or while generating thumbs");
 		return;
 	}
 
@@ -1688,17 +1689,12 @@ void do_sort(compare_func cmp)
 	else
 		save = g->files.a[g->img[0].index].path;
 
-	// TODO is it worth preserving the list selection?  Or just reset it to current image?
-	// especially since it would likely jump out of view unless we reset the scroll position
-	// like we do on list startup
-	//char* list_sel = (IS_LIST_MODE()) ? g->files.a[g->selection].path : NULL;
-
 	// g->thumbs.a is either NULL or valid
-	//sort(g->files.a, g->thumbs.a, g->files.size, cmp);
-	if (g->thumbs.a)
+	if (g->thumbs.a) {
 		mirrored_qsort(g->files.a, g->files.size, sizeof(file), cmp, 1, g->thumbs.a, sizeof(thumb_state));
-	else
+	} else {
 		mirrored_qsort(g->files.a, g->files.size, sizeof(file), cmp, 0);
+	}
 
 	// find new index of img[0]
 	int i;
@@ -1729,9 +1725,16 @@ void do_sort(compare_func cmp)
 		// In non-result modes, index and selection are the files index
 		g->img[0].index = i;
 
-		// for now just keep current image (what they'll go back to if they hit
+		// NOTE(rswinkle): Decided it's not worth preserving g->selection/g->thumb_sel
+		// partly because I can't even add consistent keyboard shortcuts in thumb_mode since thumb_mode
+		// uses keycodes (since the idea is to use typing muscle memory) and normal mode uses scancodes.
+		// And n is already used when going through search results so there'd have to be an additional state check.
+		//
+		// Plus, it's very fast to just hit enter/double click on an image (in list or thumb mode), do the sort you want
+		// and switch back to list/thumb mode.
+		//
+		// So we just keep current image (what they'll go back to if they hit
 		// ESC instead of double clicking or hitting Enter on another one)
-		// otherwise we'd have to save g->selection instead of img[0] at the top
 		g->selection = i;
 	}
 
