@@ -791,6 +791,7 @@ int thumb_thread(void* data)
 				if (do_load) {
 					outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
 					make_thumb_tex(i, w, h, outpix);
+					free(outpix);
 				}
 				continue;
 			}
