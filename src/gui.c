@@ -467,7 +467,7 @@ void draw_gui(struct nk_context* ctx)
 				if (nk_selectable_label(ctx, "Fullscreen", NK_TEXT_LEFT, &g->fullscreen)) {
 					set_fullscreen();
 				}
-				nk_label(ctx, "ALT+F or F11", NK_TEXT_RIGHT);
+				nk_label(ctx, "CTRL+F or F11", NK_TEXT_RIGHT);
 
 				if (nk_selectable_label(ctx, "Best fit", NK_TEXT_LEFT, &g->fill_mode)) {
 					if (!g->img_focus) {

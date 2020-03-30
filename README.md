@@ -32,7 +32,7 @@ alphabetical order.
 | Space             | Next image(s) |
 | CTRL+Space        | Previous image(s) |
 | +/-               | Zoom in/out |
-| ALT + +/-         | Speed up or slow down an animated gif |
+| CTRL + +/-        | Speed up or slow down an animated gif |
 | CTRL + Direction  | Next or previous image(s) even when zoomed in |
 | Mouse Wheel       | Zoom in/out |
 | Left click + drag | Pan around a zoomed in image |
@@ -44,7 +44,7 @@ alphabetical order.
 | Z                 | Sort the images by size (only in single mode) |
 | T                 | Sort the images by last modified (only in single mode) |
 | P                 | Pause/Unpause gif |
-| ALT + F or F11    | Toggle Fullscreen |
+| CTRL + F or F11   | Toggle Fullscreen |
 | ESC               | Exit or "Back" similar to Android |
 | L/R               | Rotate the current image left/right |
 | H/V               | Flip the current image horizontally/vertically |

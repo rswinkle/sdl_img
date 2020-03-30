@@ -968,7 +968,7 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_F: {
 				g->status = REDRAW;
-				if (mod_state & (KMOD_LALT | KMOD_RALT)) {
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					g->fullscreen = !g->fullscreen;
 					set_fullscreen();
 				} else {
@@ -1115,7 +1115,7 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_MINUS:
 				g->status = REDRAW;
-				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (!(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					do_zoom(-KEY_ZOOM, SDL_FALSE);
 				} else {
 					if (!g->img_focus) {
@@ -1131,7 +1131,7 @@ int handle_events_normally()
 				break;
 			case SDL_SCANCODE_EQUALS:
 				g->status = REDRAW;
-				if (!(mod_state & (KMOD_LALT | KMOD_RALT))) {
+				if (!(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					do_zoom(KEY_ZOOM, SDL_FALSE);
 				} else {
 					if (!g->img_focus) {
