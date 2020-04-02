@@ -533,59 +533,62 @@ void draw_gui(struct nk_context* ctx)
 				nk_tree_pop(ctx);
 			} else g->menu_state = (g->menu_state == MENU_SORT) ? MENU_NONE : g->menu_state;
 
-			state = (g->menu_state == MENU_EDIT) ? NK_MAXIMIZED: NK_MINIMIZED;
-			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Image Actions", &state)) {
-				g->menu_state = MENU_EDIT;
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+			// For now can't do edits or change modes while in list mode, whatever mode you entered is
+			// how you'll exit (you can do a search and view results, then do any edits or mode changes
+			// in that mode before going back through list mode to normal mode)
+			// so only show these tabs in normal or view results mode (thumbmode never draws the top gui at all)
+			if (!IS_LIST_MODE() || IS_VIEW_RESULTS()) {
+				state = (g->menu_state == MENU_EDIT) ? NK_MAXIMIZED: NK_MINIMIZED;
+				if (nk_tree_state_push(ctx, NK_TREE_TAB, "Image Actions", &state)) {
+					g->menu_state = MENU_EDIT;
+					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
 
-				if (nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_LEFT)) {
-					event.user.code = ROT_LEFT;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "L", NK_TEXT_RIGHT);
+					if (nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_LEFT)) {
+						event.user.code = ROT_LEFT;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "L", NK_TEXT_RIGHT);
 
-				if (nk_menu_item_label(ctx, "Rotate Right", NK_TEXT_LEFT)) {
-					event.user.code = ROT_RIGHT;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "R", NK_TEXT_RIGHT);
+					if (nk_menu_item_label(ctx, "Rotate Right", NK_TEXT_LEFT)) {
+						event.user.code = ROT_RIGHT;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "R", NK_TEXT_RIGHT);
 
-				if (nk_menu_item_label(ctx, "Flip Horizontal", NK_TEXT_LEFT)) {
-					event.user.code = FLIP_H;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "H", NK_TEXT_RIGHT);
+					if (nk_menu_item_label(ctx, "Flip Horizontal", NK_TEXT_LEFT)) {
+						event.user.code = FLIP_H;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "H", NK_TEXT_RIGHT);
 
-				if (nk_menu_item_label(ctx, "Flip Vertical", NK_TEXT_LEFT)) {
-					event.user.code = FLIP_V;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "V", NK_TEXT_RIGHT);
+					if (nk_menu_item_label(ctx, "Flip Vertical", NK_TEXT_LEFT)) {
+						event.user.code = FLIP_V;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "V", NK_TEXT_RIGHT);
 
-				if (nk_menu_item_label(ctx, "Delete", NK_TEXT_LEFT)) {
-					event.user.code = DELETE_IMG;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "DEL", NK_TEXT_RIGHT);
+					if (nk_menu_item_label(ctx, "Delete", NK_TEXT_LEFT)) {
+						event.user.code = DELETE_IMG;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "DEL", NK_TEXT_RIGHT);
 
-				nk_tree_pop(ctx);
-			} else g->menu_state = (g->menu_state == MENU_EDIT) ? MENU_NONE: g->menu_state;
+					nk_tree_pop(ctx);
+				} else g->menu_state = (g->menu_state == MENU_EDIT) ? MENU_NONE: g->menu_state;
 
 
-			state = (g->menu_state == MENU_VIEW) ? NK_MAXIMIZED: NK_MINIMIZED;
-			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Viewing Mode", &state)) {
-				g->menu_state = MENU_VIEW;
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
+				state = (g->menu_state == MENU_VIEW) ? NK_MAXIMIZED: NK_MINIMIZED;
+				if (nk_tree_state_push(ctx, NK_TREE_TAB, "Viewing Mode", &state)) {
+					g->menu_state = MENU_VIEW;
+					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
 
-				if (nk_menu_item_label(ctx, "1 image", NK_TEXT_LEFT)) {
-					event.user.code = MODE_CHANGE;
-					event.user.data1 = (void*)MODE1;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "CTRL+1", NK_TEXT_RIGHT);
+					if (nk_menu_item_label(ctx, "1 image", NK_TEXT_LEFT)) {
+						event.user.code = MODE_CHANGE;
+						event.user.data1 = (void*)MODE1;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "CTRL+1", NK_TEXT_RIGHT);
 
-				// Can't change mode while in list mode, whatever mode you entered is how you'll exit
-				if (!IS_LIST_MODE()) {
 					if (nk_menu_item_label(ctx, "2 images", NK_TEXT_LEFT)) {
 						event.user.code = MODE_CHANGE;
 						event.user.data1 = (void*)MODE2;
@@ -621,10 +624,11 @@ void draw_gui(struct nk_context* ctx)
 						SDL_PushEvent(&event);
 					}
 					nk_label(ctx, "CTRL+U", NK_TEXT_RIGHT);
-				}
 
-				nk_tree_pop(ctx);
-			} else g->menu_state = (g->menu_state == MENU_VIEW) ? MENU_NONE: g->menu_state;
+					nk_tree_pop(ctx);
+				} else g->menu_state = (g->menu_state == MENU_VIEW) ? MENU_NONE: g->menu_state;
+
+			}
 
 			nk_menu_end(ctx);
 		}
