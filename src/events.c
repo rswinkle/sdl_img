@@ -8,27 +8,21 @@ int handle_thumb_events()
 	SDL_GetMouseState(&mouse_x, &mouse_y);
 	char title_buf[STRBUF_SZ];
 
-	// TODO add page or half page jumps (CTRL+U/D) and maybe / vim search
-	// mode?
-
 	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
 		switch (e.type) {
 		case SDL_QUIT:
-			//nk_input_end(g->ctx); // TODO need these?
+			// don't think I really need these since we'll be exiting anyway
+			nk_input_end(g->ctx);
 			return 1;
 		case SDL_KEYUP:
 			sym = e.key.keysym.sym;
 			switch (sym) {
 			case SDLK_ESCAPE:
-				// TODO merge with T, remove T?
-				// Also need to regenerate DISP_RECT(s) for normal mode
-				// if window has changed size since switching to THUMB ...
-				// or keep it updated in SIZE_CHANGED below
 				if (g->state & THUMB_DFLT) {
 					g->state = NORMAL;
-					g->thumb_start_row = 0; // TODO?
+					g->thumb_start_row = 0;
 					g->show_gui = SDL_TRUE;
 				} else {
 					g->state = THUMB_DFLT;
@@ -36,8 +30,7 @@ int handle_thumb_events()
 				g->status = REDRAW;
 				break;
 			case SDLK_c:
-				// turn of VISUAL (or any other mode I add later)
-				// TODO end search
+				// turn off VISUAL (or any other mode I add later)
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					g->state = THUMB_DFLT;
 				}
@@ -84,7 +77,6 @@ int handle_thumb_events()
 					do_thumb_rem_del(sym == SDLK_x, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
 				break;
 			case SDLK_RETURN:
-				// TODO simplify state logic
 				if (g->state & (THUMB_DFLT | SEARCH_RESULTS)) {
 					if (g->state & SEARCH_RESULTS && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 						g->state |= VIEW_MASK;
@@ -126,7 +118,6 @@ int handle_thumb_events()
 			case SDLK_k:
 			case SDLK_j:
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-					// should down increase or decrease?  I say increase to match right = increase
 					g->thumb_rows += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
 					if (g->thumb_rows < 2)
 						g->thumb_rows = 2;
@@ -212,8 +203,8 @@ int handle_thumb_events()
 			g->show_gui = 1;
 			break;
 		case SDL_MOUSEBUTTONUP:
-			// TODO have this behavior in VISUAL MODE too?  Single click changes
-			// g->thumb_sel?
+			// TODO should have this behavior in VISUAL MODE too?  Single click changes
+			// g->thumb_sel, thus adjusting your visual selection?
 			if (e.button.button == SDL_BUTTON_LEFT) {
 				g->selection = g->thumb_start_row * g->thumb_cols +
 				               (mouse_y / (g->scr_h/g->thumb_rows)) * g->thumb_cols +
@@ -288,7 +279,6 @@ int handle_thumb_events()
 				g->scr_w = e.window.data1;
 				g->scr_h = e.window.data2;
 
-				// TODO how/where to reset all the "subscreens" rects
 				if (g->n_imgs == 1) {
 					SET_MODE1_SCR_RECT();
 				} else if (g->n_imgs == 2) {
@@ -302,7 +292,7 @@ int handle_thumb_events()
 			}
 		} break;
 
-		default: // all other event types
+		default:
 			break;
 		}
 
@@ -430,7 +420,8 @@ int handle_list_events()
 		}
 		switch (e.type) {
 		case SDL_QUIT:
-			//nk_input_end(g->ctx); // TODO need these since we'll be exiting?
+			// don't think I really need these since we'll be exiting anyway
+			nk_input_end(g->ctx);
 			return 1;
 		case SDL_KEYUP:
 			sym = e.key.keysym.sym;
