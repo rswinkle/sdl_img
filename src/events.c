@@ -491,16 +491,25 @@ int handle_list_events()
 		case SDL_KEYDOWN:
 			sym = e.key.keysym.sym;
 			switch (sym) {
-			// navigate through the list mode like thumb mode ie vim?
+			// TODO navigate through the list mode like thumb mode ie vim?
 			case SDLK_UP:
 			case SDLK_DOWN:
 			case SDLK_k:
 			case SDLK_j:
-				break;
-			case SDLK_LEFT:
-			case SDLK_RIGHT:
-			case SDLK_h:
-			case SDLK_l:
+				g->selection += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
+				if (g->state & SEARCH_RESULTS) {
+					if (g->selection < 0)
+						g->selection += g->search_results.size;
+					else
+						g->selection %= g->search_results.size;
+				} else {
+					if (g->selection < 0)
+						g->selection += g->files.size;
+					else
+						g->selection %= g->files.size;
+				}
+				// TODO don't set unless necessary
+				g->list_setscroll = SDL_TRUE;
 				break;
 			}
 
