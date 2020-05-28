@@ -955,6 +955,8 @@ int curl_image(int img_idx)
 
 	if ((res = curl_easy_perform(curl)) != CURLE_OK) {
 		SDL_Log("curl error: %s\n", curlerror);
+		fclose(imgfile);
+		remove(filename);
 		goto exit_cleanup;
 	}
 	fclose(imgfile);
