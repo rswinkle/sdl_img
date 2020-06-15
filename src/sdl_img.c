@@ -967,7 +967,7 @@ int curl_image(int img_idx)
 
 	file* f = &g->files.a[img_idx];
 	free(f->path);
-	f->path = mystrdup(filename);
+	f->path = CVEC_STRDUP(filename);
 	f->size = file_stat.st_size;
 	f->modified = file_stat.st_mtime;
 
@@ -1116,7 +1116,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 			continue;
 
 		// have to use fullpath not d_name in case we're in a recursive call
-		f.path = mystrdup(fullpath);
+		f.path = CVEC_STRDUP(fullpath);
 		f.size = file_stat.st_size;
 		f.modified = file_stat.st_mtime;
 
@@ -2053,7 +2053,7 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 		if (files) {
 			if (stat(s, &file_stat)) {
 				// assume it's a valid url, it will just skip over if it isn't
-				f.path = mystrdup(s);
+				f.path = CVEC_STRDUP(s);
 				f.size = 0;
 				f.modified = 0;
 
@@ -2069,7 +2069,7 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 				//// TODO warning not info?
 				SDL_Log("Skipping directory found in list, only files and urls allowed.\n%s\n", s);
 			} else if(S_ISREG(file_stat.st_mode)) {
-				f.path = mystrdup(s);
+				f.path = CVEC_STRDUP(s);
 				f.size = file_stat.st_size;
 				f.modified = file_stat.st_mtime;
 				
@@ -2482,7 +2482,7 @@ int main(int argc, char** argv)
 			normalize_path(argv[i]);
 			if (stat(argv[i], &file_stat)) {
 				// assume it's a valid url, it will just skip over if it isn't
-				f.path = mystrdup(argv[i]);
+				f.path = CVEC_STRDUP(argv[i]);
 				f.size = 0;
 				f.modified = 0;
 
@@ -2500,7 +2500,7 @@ int main(int argc, char** argv)
 				myscandir(argv[i], exts, num_exts, recurse);
 			} else if(S_ISREG(file_stat.st_mode)) {
 				img_args++;
-				f.path = mystrdup(argv[i]);
+				f.path = CVEC_STRDUP(argv[i]);
 				f.size = file_stat.st_size;
 				f.modified = file_stat.st_mtime;
 				// TODO list cache members
