@@ -4,7 +4,13 @@ sdl_img
 [![Build Status](https://travis-ci.org/rswinkle/sdl_img.svg?branch=master)](https://travis-ci.org/rswinkle/sdl_img)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/15740/badge.svg)](https://scan.coverity.com/projects/rswinkle-sdl_img)
 
-A simple image viewer based on [stb_image.h](https://github.com/nothings/stb/blob/master/stb_image.h) (with the suggested animated GIF API extension).
+[Download the source](https://github.com/rswinkle/sdl_img)
+[Get the latest release](https://github.com/rswinkle/sdl_img/releases)
+
+A "simple" image viewer based on [stb_image.h](https://github.com/nothings/stb/blob/master/stb_image.h) (with the suggested animated GIF API extension).
+
+It's "simple" in that it would work fine as a drop in replacement for most people since all the normal/expected behavior is there,
+but it has tons of extra and unique features for power users, especially on Linux/Unix and if you're comfortable with the terminal.
 
 Goals / Focus
 =============
