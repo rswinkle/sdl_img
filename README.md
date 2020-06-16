@@ -4,13 +4,15 @@ sdl_img
 [![Build Status](https://travis-ci.org/rswinkle/sdl_img.svg?branch=master)](https://travis-ci.org/rswinkle/sdl_img)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/15740/badge.svg)](https://scan.coverity.com/projects/rswinkle-sdl_img)
 
-[Download the source](https://github.com/rswinkle/sdl_img)
-[Get the latest release](https://github.com/rswinkle/sdl_img/releases)
-
 A "simple" image viewer based on [stb_image.h](https://github.com/nothings/stb/blob/master/stb_image.h) (with the suggested animated GIF API extension).
 
 It's "simple" in that it would work fine as a drop in replacement for most people since all the normal/expected behavior is there,
 but it has tons of extra and unique features for power users, especially on Linux/Unix and if you're comfortable with the terminal.
+
+Download
+========
+Get the latest [source](https://github.com/rswinkle/sdl_img) or the latest
+[release](https://github.com/rswinkle/sdl_img/releases) from Github
 
 Goals / Focus
 =============
@@ -90,17 +92,15 @@ the default.
 
 Advanced Usage
 ==============
-```bash
-./sdl_img -l list_of_images (urls or local paths or mixed, doesn't matter)
-./sdl_img image1.jpg image2.png
-./sdl_img image1.jpg -s 4
-./sdl_img -l list_of_urls -c ./custom_cache_dir
-```
+    ./sdl_img -l list_of_images (urls or local paths or mixed, doesn't matter)
+    ./sdl_img image1.jpg image2.png
+    ./sdl_img image1.jpg -s 4
+    ./sdl_img -l list_of_urls -c ./custom_cache_dir
 
 Or any combination of those options, ie
-```bash
-./sdl_img image.jpg -l list1 -s 8 example.com/image.jpg -l list3 image4.gif -f
-```
+
+    ./sdl_img image.jpg -l list1 -s 8 example.com/image.jpg -l list3 image4.gif -f
+
 The option -s [delay] means start in slideshow mode with the given delay in seconds.
 If delay is not 1-10 or is missing, delay will be set to 3 seconds.
 
