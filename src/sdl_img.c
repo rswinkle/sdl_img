@@ -925,8 +925,11 @@ int curl_image(int img_idx)
 	char* s = g->files.a[img_idx].path;
 	FILE* imgfile;
 
+	// Do I even need to set WRITEFUNCTION?  It says it'll use fwrite by default
+	// which is all I do...
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlerror);
+	curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 	#ifdef _WIN32
 	curl_easy_setopt(curl, CURLOPT_CAINFO, "ca-bundle.crt");
 	curl_easy_setopt(curl, CURLOPT_CAPATH, SDL_GetBasePath());
@@ -954,7 +957,7 @@ int curl_image(int img_idx)
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
 
 	if ((res = curl_easy_perform(curl)) != CURLE_OK) {
-		SDL_Log("curl error: %s\n", curlerror);
+		SDL_Log("curl error: %d %s\n", res, curlerror);
 		fclose(imgfile);
 		remove(filename);
 		goto exit_cleanup;
