@@ -1221,8 +1221,8 @@ int load_new_images(void* data)
 				int index = (g->state & VIEW_RESULTS) ? g->search_results.a[img[0].index] : img[0].index;
 				SDL_SetWindowTitle(g->win, mybasename(g->files.a[index].path, title_buf));
 			} else {
-				tmp = (load_what == RIGHT) ? 1 : -1;
-				last = g->img_focus->index;
+				tmp = (load_what >= RIGHT) ? 1 : -1;
+				last = (load_what != SELECTION) ? g->img_focus->index : g->selection;
 				do {
 					last = wrap(last + tmp);
 				} while (!attempt_image_load(last, &img[0]));

@@ -46,6 +46,7 @@ alphabetical order.
 | Left click + drag | Pan around a zoomed in image |
 | A                 | Actual size |
 | F                 | Toggle fill screen mode |
+| Home              | Go to first image in the list |
 | M                 | Shuffle (Mix) the images (only in single mode) |
 | N                 | Sort the images by file name (only in single mode) |
 | CTRL+N            | Sort the images by file path (only in single mode) |

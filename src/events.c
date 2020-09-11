@@ -982,6 +982,13 @@ int handle_events_normally()
 				}
 			}
 				break;
+
+			// Go to first image in list (useful after sorting different ways without having to use
+			// list or thumb mode to scroll to the top/bottom)
+			case SDL_SCANCODE_HOME:
+				g->selection = g->files.size-1;
+				try_move(SELECTION);
+				break;
 		}
 			break;  //end SDL_KEYUP
 
