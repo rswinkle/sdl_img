@@ -1242,6 +1242,18 @@ int handle_events_normally()
 				break;
 			}
 		} break; // end WINDOWEVENTS
+		case SDL_FINGERDOWN:
+			puts("finger down");
+			break;
+		case SDL_FINGERUP:
+			puts("finger up");
+			break;
+		case SDL_FINGERMOTION:
+			puts("finger motion");
+			break;
+		case SDL_MULTIGESTURE:
+			printf("multi motion\n");
+			break;
 
 		default: // all other event types
 			break;
