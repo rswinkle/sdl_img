@@ -1244,16 +1244,22 @@ int handle_events_normally()
 		} break; // end WINDOWEVENTS
 		case SDL_FINGERDOWN:
 			puts("finger down");
+			printf("x y %f %f\n", e.tfinger.x, e.tfinger.y);
 			break;
 		case SDL_FINGERUP:
 			puts("finger up");
+			printf("x y %f %f\n", e.tfinger.x, e.tfinger.y);
 			break;
 		case SDL_FINGERMOTION:
 			puts("finger motion");
+			printf("dx dy %f %f\n", e.tfinger.dx, e.tfinger.dy);
 			break;
-		case SDL_MULTIGESTURE:
+		case SDL_MULTIGESTURE: {
 			printf("multi motion\n");
-			break;
+			printf("theta = %f dist = %f\n", e.mgesture.dTheta, e.mgesture.dDist);
+			printf("x y = %f %f\n", e.mgesture.x, e.mgesture.y);
+			printf("numfingers = %d\n", e.mgesture.numFingers);
+		} break;
 
 		default: // all other event types
 			break;
