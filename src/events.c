@@ -1236,6 +1236,7 @@ int handle_events_normally()
 			// documentation says dx and dy are normalized (-1, 1) but apparently they're not.
 			// Even if they were, it doesn't clarify if it's normalized in screen space or window space.
 			printf("dx dy %f %f\n", e.tfinger.dx, e.tfinger.dy);
+			g->status = REDRAW;
 			do_pan((int)(e.tfinger.dx+0.99), (int)(e.tfinger.dy+0.99));
 			break;
 		case SDL_MULTIGESTURE: {
@@ -1243,6 +1244,7 @@ int handle_events_normally()
 			printf("theta = %f dist = %f\n", e.mgesture.dTheta, e.mgesture.dDist);
 			printf("x y = %f %f\n", e.mgesture.x, e.mgesture.y);
 			printf("numfingers = %d\n", e.mgesture.numFingers);
+			g->status = REDRAW;
 			do_zoom(PINCH_ZOOM * e.mgesture.dDist, SDL_FALSE);
 		} break;
 
