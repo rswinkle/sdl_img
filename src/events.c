@@ -1236,8 +1236,17 @@ int handle_events_normally()
 			// documentation says dx and dy are normalized (-1, 1) but apparently they're not.
 			// Even if they were, it doesn't clarify if it's normalized in screen space or window space.
 			printf("dx dy %f %f\n", e.tfinger.dx, e.tfinger.dy);
+			printf("%d %d\n", g->scr_w, (int)(0.02*g->scr_w));
 			g->status = REDRAW;
-			do_pan((int)(e.tfinger.dx+0.99), (int)(e.tfinger.dy+0.99));
+			img = &g->img[0];
+			if (e.tfinger.dx > 0.02*g->scr_w && img->disp_rect.w <= img->scr_rect.w) {
+				puts("trymove");
+				try_move(RIGHT);
+
+			} else {
+				puts("trypan");
+				do_pan((int)(e.tfinger.dx+0.99), (int)(e.tfinger.dy+0.99));
+			}
 			break;
 		case SDL_MULTIGESTURE: {
 			printf("multi motion\n");
