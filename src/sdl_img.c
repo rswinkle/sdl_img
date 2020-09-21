@@ -140,6 +140,7 @@ typedef int64_t i64;
 #define GUI_ZOOM 5
 #define SCROLL_ZOOM 12
 #define KEY_ZOOM 12
+#define PINCH_ZOOM 3
 #define GIF_ZOOM_DIV 3
 
 #ifndef MAX

@@ -1259,6 +1259,7 @@ int handle_events_normally()
 			printf("theta = %f dist = %f\n", e.mgesture.dTheta, e.mgesture.dDist);
 			printf("x y = %f %f\n", e.mgesture.x, e.mgesture.y);
 			printf("numfingers = %d\n", e.mgesture.numFingers);
+			do_zoom(PINCH_ZOOM * e.mgesture.dDist, SDL_FALSE);
 		} break;
 
 		default: // all other event types
