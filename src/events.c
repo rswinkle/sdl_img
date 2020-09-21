@@ -1164,28 +1164,7 @@ int handle_events_normally()
 
 		case SDL_MOUSEMOTION:
 			if (mouse_button_mask & SDL_BUTTON(SDL_BUTTON_LEFT)) {
-				img = NULL;
-				if (!g->img_focus) {
-					for (int i=0; i<g->n_imgs; ++i) {
-						img = &g->img[i];
-						if (e.motion.xrel != 0 && img->disp_rect.w > img->scr_rect.w) {
-							img->disp_rect.x += e.motion.xrel;
-						}
-						if (e.motion.yrel != 0 && img->disp_rect.h > img->scr_rect.h) {
-							img->disp_rect.y += e.motion.yrel;
-						}
-						fix_rect(img);
-					}
-				} else {
-					img = g->img_focus;
-					if (e.motion.xrel != 0 && img->disp_rect.w > img->scr_rect.w) {
-						img->disp_rect.x += e.motion.xrel;
-					}
-					if (e.motion.yrel != 0 && img->disp_rect.h > img->scr_rect.h) {
-						img->disp_rect.y += e.motion.yrel;
-					}
-					fix_rect(img);
-				}
+				do_pan(e.motion.xrel, e.motion.yrel);
 			}
 			g->status = REDRAW;
 
@@ -1253,6 +1232,7 @@ int handle_events_normally()
 		case SDL_FINGERMOTION:
 			puts("finger motion");
 			printf("dx dy %f %f\n", e.tfinger.dx, e.tfinger.dy);
+			do_pan((int)e.tfinger.dx*g->scr_w, (int)e.tfinger.dy*g->scr_h);
 			break;
 		case SDL_MULTIGESTURE: {
 			printf("multi motion\n");

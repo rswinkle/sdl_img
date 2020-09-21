@@ -1752,6 +1752,32 @@ void do_zoom(int dir, int use_mouse)
 	}
 }
 
+void do_pan(int dx, int dy)
+{
+	img_state* img = NULL;
+	if (!g->img_focus) {
+		for (int i=0; i<g->n_imgs; ++i) {
+			img = &g->img[i];
+			if (dx != 0 && img->disp_rect.w > img->scr_rect.w) {
+				img->disp_rect.x += dx;
+			}
+			if (dy != 0 && img->disp_rect.h > img->scr_rect.h) {
+				img->disp_rect.y += dy;
+			}
+			fix_rect(img);
+		}
+	} else {
+		img = g->img_focus;
+		if (dx != 0 && img->disp_rect.w > img->scr_rect.w) {
+			img->disp_rect.x += dx;
+		}
+		if (dy != 0 && img->disp_rect.h > img->scr_rect.h) {
+			img->disp_rect.y += dy;
+		}
+		fix_rect(img);
+	}
+}
+
 void do_rotate(int left, int is_90)
 {
 	img_state* img;
