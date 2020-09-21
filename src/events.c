@@ -1175,6 +1175,8 @@ int handle_events_normally()
 
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
+			if (e.button.which == SDL_TOUCH_MOUSEID)
+				puts("mouse button touch");
 			g->status = REDRAW;
 			SDL_ShowCursor(SDL_ENABLE);
 			g->gui_timer = SDL_GetTicks();
@@ -1231,8 +1233,10 @@ int handle_events_normally()
 			break;
 		case SDL_FINGERMOTION:
 			puts("finger motion");
+			// documentation says dx and dy are normalized (-1, 1) but apparently they're not.
+			// Even if they were, it doesn't clarify if it's normalized in screen space or window space.
 			printf("dx dy %f %f\n", e.tfinger.dx, e.tfinger.dy);
-			do_pan((int)e.tfinger.dx*g->scr_w, (int)e.tfinger.dy*g->scr_h);
+			do_pan((int)(e.tfinger.dx+0.99), (int)(e.tfinger.dy+0.99));
 			break;
 		case SDL_MULTIGESTURE: {
 			printf("multi motion\n");
