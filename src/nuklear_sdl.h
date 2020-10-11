@@ -36,7 +36,8 @@ NK_API void nk_sdl_shutdown(void);
 
 #include <string.h>
 #include <SDL.h>
-#include <SDL2_gfxPrimitives.h>
+//#include <SDL2_gfxPrimitives.h>
+#include "SDL2_gfxPrimitives.c"
 
 #ifndef MAX
 #define MAX(a,b) ((a) < (b) ? (b) : (a))
@@ -68,7 +69,7 @@ nk_sdl_scissor(SDL_Renderer* renderer, float x, float y, float w, float h)
 {
 	sdl_clip_rect.x = x;
 	sdl_clip_rect.y = y;
-	sdl_clip_rect.w = w  + 1; 
+	sdl_clip_rect.w = w  + 1;
 	sdl_clip_rect.h = h;
 	SDL_RenderSetClipRect(renderer, &sdl_clip_rect);
 }
@@ -86,7 +87,7 @@ nk_sdl_stroke_rect(SDL_Renderer* renderer, short x, short y, unsigned short w,
 {
 	/* TODO Add line thickness support */
 	if (r == 0) {
-		rectangleRGBA(renderer, x, y, x + w, y + h, col.r, col.g, col.b, col.a); 
+		rectangleRGBA(renderer, x, y, x + w, y + h, col.r, col.g, col.b, col.a);
 	} else {
 		roundedRectangleRGBA(renderer, x, y, x + w, y + h, r, col.r, col.g, col.b, col.a);
 	}
@@ -97,13 +98,13 @@ nk_sdl_fill_rect(SDL_Renderer* renderer, short x, short y, unsigned short w,
 	unsigned short h, unsigned short r, struct nk_color col)
 {
 	if (r == 0) {
-		boxRGBA(renderer, x, y, x + w, y + h, col.r, col.g, col.b, col.a); 
+		boxRGBA(renderer, x, y, x + w, y + h, col.r, col.g, col.b, col.a);
 	} else {
 		roundedBoxRGBA(renderer, x, y, x + w, y + h, r, col.r, col.g, col.b, col.a);
 	}
 }
 
-static void 
+static void
 nk_sdl_fill_triangle(SDL_Renderer* renderer, short x0, short y0, short x1, short y1, short x2, short y2, struct nk_color col)
 {
 	filledTrigonRGBA(renderer, x0, y0, x1, y1, x2, y2, col.r, col.g, col.b, col.a);
@@ -114,7 +115,7 @@ nk_sdl_stroke_triangle(SDL_Renderer* renderer, short x0, short y0, short x1,
 	short y1, short x2, short y2, unsigned short line_thickness, struct nk_color col)
 {
 	/* TODO Add line_thickness support */
-	aatrigonRGBA(renderer, x0, y0, x1, y1, x2, y2, col.r, col.g, col.b, col.a); 
+	aatrigonRGBA(renderer, x0, y0, x1, y1, x2, y2, col.r, col.g, col.b, col.a);
 }
 
 static void
@@ -142,7 +143,7 @@ nk_sdl_stroke_polygon(SDL_Renderer* renderer, const struct nk_vec2i *pnts, int c
 		p_x[i] = pnts[i].x;
 		p_y[i] = pnts[i].y;
 	}
-	aapolygonRGBA(renderer, (Sint16 *)p_x, (Sint16 *)p_y, count, col.r, col.g, col.b, col.a); 
+	aapolygonRGBA(renderer, (Sint16 *)p_x, (Sint16 *)p_y, count, col.r, col.g, col.b, col.a);
 }
 
 static void
@@ -172,7 +173,7 @@ static void
 nk_sdl_fill_circle(SDL_Renderer* renderer, short x, short y, unsigned short w,
 	unsigned short h, struct nk_color col)
 {
-	filledEllipseRGBA(renderer,  x + w /2, y + h /2, w / 2, h / 2, col.r, col.g, col.b, col.a); 
+	filledEllipseRGBA(renderer,  x + w /2, y + h /2, w / 2, h / 2, col.r, col.g, col.b, col.a);
 }
 
 static void
@@ -180,7 +181,7 @@ nk_sdl_stroke_circle(SDL_Renderer* renderer, short x, short y, unsigned short w,
 	unsigned short h, unsigned short line_thickness, struct nk_color col)
 {
 	/* TODO  Add line_thickness support */
-	aaellipseRGBA (renderer,  x + w /2, y + h /2, w / 2, h / 2, col.r, col.g, col.b, col.a); 
+	aaellipseRGBA (renderer,  x + w /2, y + h /2, w / 2, h / 2, col.r, col.g, col.b, col.a);
 }
 
 static void
@@ -212,11 +213,11 @@ static void
 nk_sdl_draw_text(SDL_Renderer* renderer, short x, short y, unsigned short w, unsigned short h,
 	const char *text, int len, nk_sdl_Font *font, struct nk_color cbg, struct nk_color cfg)
 {
-	int i; 
-   
+	int i;
+
 	nk_sdl_fill_rect(renderer, x, y, len * font->width, font->height, 0, cbg);
 	for (i = 0; i < len; i++) {
-		characterRGBA(renderer, x, y, text[i], cfg.r, cfg.g, cfg.b, cfg.a); 
+		characterRGBA(renderer, x, y, text[i], cfg.r, cfg.g, cfg.b, cfg.a);
 		x += font->width;
 	}
 }
@@ -233,7 +234,7 @@ static void interpolate_color(struct nk_color c1, struct nk_color c2, struct nk_
 }
 
 static void
-nk_sdl_fill_rect_multi_color(SDL_Renderer* renderer, short x, short y, unsigned short w, unsigned short h, 
+nk_sdl_fill_rect_multi_color(SDL_Renderer* renderer, short x, short y, unsigned short w, unsigned short h,
 	struct nk_color left, struct nk_color top,  struct nk_color right, struct nk_color bottom)
 {
 	struct nk_color X1, X2, Y;
@@ -247,7 +248,7 @@ nk_sdl_fill_rect_multi_color(SDL_Renderer* renderer, short x, short y, unsigned 
 			interpolate_color(left, top, &X1, fraction_x);
 			interpolate_color(right, bottom, &X2, fraction_x);
 			interpolate_color(X1, X2, &Y, fraction_y);
-			pixelRGBA(renderer, x + i, y + j, Y.r, Y.g, Y.b, Y.a); 
+			pixelRGBA(renderer, x + i, y + j, Y.r, Y.g, Y.b, Y.a);
 		}
 	}
 }

@@ -55,7 +55,8 @@
 #include "nuklear_sdl.h"
 
 // for rotozoomSurfaceSize()
-#include <SDL2_rotozoom.h>
+//#include <SDL2_rotozoom.h>
+#include "SDL2_rotozoom.c"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -126,6 +127,7 @@ typedef int64_t i64;
 #define THUMB_COLS 15
 #define SIZE_STR_BUF 16
 #define MOD_STR_BUF 24
+#define SWIPE_FRACTION 0.02
 
 // zoom is calculated
 // h = old_h * (1.0 + zoom*ZOOM_RATE)

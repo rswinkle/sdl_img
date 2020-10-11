@@ -265,6 +265,19 @@ int handle_thumb_events()
 			}
 			break;
 
+		case SDL_FINGERMOTION:
+			g->status = REDRAW;
+
+			// negative or positive?
+			g->thumb_sel -= e.tfinger.dy;
+			fix_thumb_sel(e.tfinger.dy);
+
+			SDL_ShowCursor(SDL_ENABLE);
+			g->gui_timer = SDL_GetTicks();
+			g->show_gui = 1;
+
+			break;
+
 		case SDL_WINDOWEVENT: {
 			g->status = REDRAW;
 			int x, y;
@@ -1236,12 +1249,12 @@ int handle_events_normally()
 			// documentation says dx and dy are normalized (-1, 1) but apparently they're not.
 			// Even if they were, it doesn't clarify if it's normalized in screen space or window space.
 			printf("dx dy %f %f\n", e.tfinger.dx, e.tfinger.dy);
-			printf("%d %d\n", g->scr_w, (int)(0.02*g->scr_w));
+			printf("%d %d\n", g->scr_w, (int)(SWIPE_FRACTION*g->scr_w));
 			g->status = REDRAW;
 			img = &g->img[0];
-			if (e.tfinger.dx > 0.02*g->scr_w && img->disp_rect.w <= img->scr_rect.w) {
+			if (fabsf(e.tfinger.dx) > SWIPE_FRACTION*g->scr_w && img->disp_rect.w <= img->scr_rect.w) {
 				puts("trymove");
-				try_move(RIGHT);
+				try_move(e.tfinger.dx < 0 ? RIGHT : LEFT);
 
 			} else {
 				puts("trypan");
