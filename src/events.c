@@ -7,6 +7,7 @@ int handle_thumb_events()
 	int mouse_x, mouse_y;
 	SDL_GetMouseState(&mouse_x, &mouse_y);
 	char title_buf[STRBUF_SZ];
+	int tmp_sel;
 
 	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
@@ -265,14 +266,35 @@ int handle_thumb_events()
 			}
 			break;
 
+		case SDL_FINGERDOWN:
+			tmp_sel = g->thumb_start_row * g->thumb_cols +
+			           (e.tfinger.y / (g->scr_h/g->thumb_rows)) * g->thumb_cols +
+			           (e.tfinger.x / (g->scr_w/g->thumb_cols));
+
+			if (tmp_sel == g->selection) {
+				// since we reuse the RIGHT loading code, have to subtract 1 so we
+				// "move right" to the selection
+				g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
+				g->state = NORMAL;
+				g->show_gui = SDL_TRUE;
+				g->thumb_start_row = 0;
+				g->status = REDRAW;
+				try_move(SELECTION);
+			} else {
+				g->thumb_sel = g->selection;
+			}
+
+			break;
+
 		case SDL_FINGERMOTION:
 			g->status = REDRAW;
 
 			// negative or positive?
-			g->thumb_sel -= e.tfinger.dy;
-			fix_thumb_sel(e.tfinger.dy);
+			int pix_per_row = g->scr_h/g->thumb_rows;
+			g->thumb_sel -= (e.tfinger.dy/pix_per_row)*g->thumb_cols;
+			fix_thumb_sel(-e.tfinger.dy);
 
-			SDL_ShowCursor(SDL_ENABLE);
+			//SDL_ShowCursor(SDL_ENABLE);
 			g->gui_timer = SDL_GetTicks();
 			g->show_gui = 1;
 
