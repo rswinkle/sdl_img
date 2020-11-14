@@ -2144,7 +2144,10 @@ void do_save()
 
 	FILE* f = NULL;
 	if (!g->favs.size) {
-		f = fopen(buf, "r");
+		if (!(f = fopen(buf, "w+"))) {
+			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to open %s: %s\nAborting save\n", buf, strerror(errno));
+			return;
+		}
 		read_list(NULL, &g->favs, f);
 		fclose(f);
 	}
