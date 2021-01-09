@@ -6840,7 +6840,7 @@ STBIDEF stbi_uc *stbi_xload(char const *filename, int *x, int *y, int* comp, int
 
 	} else {
 		stbi__result_info ri;
-		result = stbi__load_main(&s, x, y, comp, req_comp, &ri, 8);
+		result = (stbi_uc*)stbi__load_main(&s, x, y, comp, req_comp, &ri, 8);
 		*frames = !!result;
 	}
 
