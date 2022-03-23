@@ -1623,7 +1623,7 @@ int try_move(int direction)
 	// actions while g->show_rotate.  Since we already
 	// hide the GUI while the popups up, we really just have
 	// to worry about keyboard actions.
-	if (!g->loading) {
+	if (!g->loading && !g->done_loading) {
 		SDL_LockMutex(g->mtx);
 		g->loading = direction;
 		SDL_CondSignal(g->cnd);
