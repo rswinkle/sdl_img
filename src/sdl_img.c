@@ -2144,16 +2144,19 @@ void do_save()
 
 	FILE* f = NULL;
 	if (!g->favs.size) {
-		if (!(f = fopen(buf, "w+"))) {
-			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to open %s: %s\nAborting save\n", buf, strerror(errno));
-			return;
+		if (!(f = fopen(buf, "r"))) {
+			SDL_Log("%s does not exist, will try creating it\n", buf);
+		} else {
+			read_list(NULL, &g->favs, f);
+			fclose(f);
 		}
-		read_list(NULL, &g->favs, f);
-		fclose(f);
 	}
 
+	if (!(f = fopen(buf, "a"))) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to open %s: %s\nAborting save\n", buf, strerror(errno));
+		return;
+	}
 	SDL_Log("saving to %s\n", buf);
-	f = fopen(buf, "a");
 	if (g->img_focus) {
 		if (cvec_contains_str(&g->favs, g->img_focus->fullpath)) {
 			SDL_Log("%s already in favorites\n", g->img_focus->fullpath);
