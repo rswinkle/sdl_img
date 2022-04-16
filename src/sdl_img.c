@@ -110,8 +110,8 @@ typedef int64_t i64;
 #endif
 
 // TODO hmm
-#define VERSION 0.98
-#define VERSION_STR "sdl_img 0.98"
+#define VERSION 0.99
+#define VERSION_STR "sdl_img 0.99"
 
 #define PATH_SEPARATOR '/'
 #define PAN_RATE 0.05
