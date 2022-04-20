@@ -316,7 +316,9 @@ void draw_gui(struct nk_context* ctx)
 				} else {
 					if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, 24, g->search_results.size)) {
 						nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
-						for (int j=rview.begin, i=g->search_results.a[j]; j<rview.end; ++j, i=g->search_results.a[j]) {
+						int i;
+						for (int j=rview.begin; j<rview.end; ++j) {
+							i=g->search_results.a[j];
 							// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
 							// also thumb_sel serves the same/similar purpose
 							is_selected = g->selection == j;
