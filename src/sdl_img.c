@@ -2276,8 +2276,7 @@ void fix_thumb_sel(int dir)
 
 void do_thumb_rem_del(int do_delete, int invert)
 {
-	// TODO code for invert, free selection, after I update cvector with cvec_remove* functions
-	// equivalent to cvec_erase* except not calling destructors (if any)
+	// TODO code for invert, free selection, using cvec_remove*
 
 	// so code below works for both ON and VISUAL mode
 	if (g->state == THUMB_DFLT) {
