@@ -37,15 +37,30 @@ void search_filenames()
 	text[text_len] = 0;
 	SDL_Log("Final text = \"%s\"\n", text);
 
+	// strcasestr is causing problems on windows
+	// so just convert to lower before using strstr
+	char lowertext[STRBUF_SZ] = { 0 };
+	char lowername[STRBUF_SZ] = { 0 };
+
+	for (int i=0; i<text_len; ++i) {
+		lowertext[i] = tolower(text[i]);
+	}
+
 	// it'd be kind of cool to add results of multiple searches together if we leave this out
-	// of course their might be duplicates.  Or we could make it search within the existing
+	// of course there might be duplicates.  Or we could make it search within the existing
 	// search results, so consecutive searches are && together...
 	g->search_results.size = 0;
 	
+	int j;
 	for (int i=0; i<g->files.size; ++i) {
-		// GNU function...
+
+		for (j=0; g->files.a[i].name[j]; ++j) {
+			lowername[j] = tolower(g->files.a[i].name[j]);
+		}
+		lowername[j] = 0;
+
 		// searching name since I'm showing names not paths in the list
-		if (strcasestr(g->files.a[i].name, text)) {
+		if (strstr(lowername, lowertext)) {
 			SDL_Log("Adding %s\n", g->files.a[i].path);
 			cvec_push_i(&g->search_results, i);
 		}
@@ -318,7 +333,7 @@ void draw_gui(struct nk_context* ctx)
 						nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 						int i;
 						for (int j=rview.begin; j<rview.end; ++j) {
-							i=g->search_results.a[j];
+							i = g->search_results.a[j];
 							// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
 							// also thumb_sel serves the same/similar purpose
 							is_selected = g->selection == j;

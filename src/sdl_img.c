@@ -15,10 +15,6 @@
 // CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-
-// for strcasestr
-#define _GNU_SOURCE
-
 #define CVECTOR_IMPLEMENTATION
 #define CVEC_ONLY_INT
 #define CVEC_ONLY_STR
@@ -62,6 +58,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdint.h>
+#include <ctype.h>
 
 //POSIX (mostly) works with MinGW64
 #include <sys/stat.h>

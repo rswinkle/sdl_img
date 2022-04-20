@@ -298,8 +298,6 @@ int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare
 				p2 = &((char*)arrays[m])[i*sz];
 				inline_swap(p1, p2, temp, sz, k)
 			}
-
-
 		}
 	}
 
