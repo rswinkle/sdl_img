@@ -88,9 +88,8 @@ int handle_thumb_events()
 			case SDLK_BACKSPACE:
 			case SDLK_r:
 			case SDLK_x:
-				// TODO add a one time warning for x?  maybe a preference to turn warning on and off?
 				if (g->state != THUMB_SEARCH)
-					do_thumb_rem_del(sym == SDLK_x, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
+					do_thumb_rem_del(sym == SDLK_x && g->thumb_x_deletes, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
 				break;
 			case SDLK_RETURN:
 				if (g->state & (THUMB_DFLT | SEARCH_RESULTS)) {
@@ -425,6 +424,7 @@ int handle_list_events()
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 				/*
+				 // TODO support delete in list mode?
 			case DELETE_IMG:
 				do_delete(&space);
 				break;

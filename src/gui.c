@@ -718,7 +718,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 
-	int w = 550, h = 300;
+	int w = 550, h = 320;
 	struct nk_rect bounds;
 	struct nk_rect s;
 	s.x = scr_w/2-w/2;
@@ -761,6 +761,11 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 
 
 		nk_checkbox_label(ctx, "Show info bar", &g->show_infobar);
+		nk_checkbox_label(ctx, "x deletes in Thumb mode", &g->thumb_x_deletes);
+
+		nk_layout_row_dynamic(ctx, 0, 1);
+		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
+		nk_label_wrap(ctx, g->cachedir);
 
 		if (nk_button_label(ctx, "Clear thumbnail cache")) {
 			puts("Clearing thumbnails");
@@ -769,11 +774,6 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 			empty_dir(g->thumbdir);
 			SDL_Log("Clearing thumbnails took %d\n", SDL_GetTicks()-ttimer);
 		}
-
-
-		nk_layout_row_dynamic(ctx, 0, 1);
-		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
-		nk_label_wrap(ctx, g->cachedir);
 
 
 		if (nk_button_label(ctx, "Ok")) {

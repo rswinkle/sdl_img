@@ -304,6 +304,7 @@ typedef struct global_state
 	int gui_delay;
 	int gui_timer;
 	int show_gui;
+	int thumb_x_deletes;
 	int fullscreen_gui;
 	int show_infobar;
 
@@ -1277,6 +1278,7 @@ void setup(int start_idx)
 	g->slide_delay = 3;
 	g->gui_delay = HIDE_GUI_DELAY;
 	g->show_infobar = nk_true;
+	g->thumb_x_deletes = nk_false;
 	g->bg = nk_rgb(0,0,0);
 	g->fill_mode = 0;
 	g->thumb_rows = THUMB_ROWS;
@@ -1433,8 +1435,9 @@ void setup(int start_idx)
 
 	SDL_Log("Starting with %s\n", img_name);
 
+	// Setting both of these last to maximize time/accuracy
 	g->gui_timer = SDL_GetTicks();
-	g->show_gui = 1;
+	g->show_gui = nk_true;
 }
 
 // probably now worth having a 2 line function used 3 places?
@@ -1786,7 +1789,7 @@ void do_rotate(int left, int is_90)
 				create_textures(img);
 			} else {
 				g->show_rotate = nk_true;
-				g->show_gui = 1;
+				g->show_gui = nk_true;
 				g->gui_timer = SDL_GetTicks();
 				return;
 			}
@@ -2257,7 +2260,7 @@ void do_thumbmode()
 	// total rows etc.
 	SDL_ShowCursor(SDL_ENABLE);
 	g->gui_timer = SDL_GetTicks();
-	g->show_gui = SDL_TRUE;
+	g->show_gui = nk_true;
 }
 
 void fix_thumb_sel(int dir)
@@ -2312,7 +2315,7 @@ void do_thumb_rem_del(int do_delete, int invert)
 	// subtract one so going right will work normally)
 	for (int i=0; i<g->n_imgs; ++i) {
 		if (g->img[i].index >= start && g->img[i].index <= end) {
-			g->img[i].index = start-1;
+			g->img[i].index = (start) ? start-1 : g->files.size-1;
 		}
 	}
 	g->thumb_sel = start;  // in case it was > _sel_end
@@ -2602,7 +2605,7 @@ int main(int argc, char** argv)
 
 		if ((!IS_LIST_MODE() || IS_VIEW_RESULTS()) && g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
 			SDL_ShowCursor(SDL_DISABLE);
-			g->show_gui = 0;
+			g->show_gui = nk_false;
 			g->status = REDRAW;
 		}
 
@@ -2624,7 +2627,7 @@ int main(int argc, char** argv)
 			SDL_Rect r = { 0, 0, w, h };
 			for (int i = start; i < end && i<g->files.size; ++i) {
 				// We create tex's in sequence and exit if any fail and
-				// erase them when it's source image is deleted so
+				// erase them when the source image is deleted so
 				// we can break rather than continue here
 				//
 				// EDIT: with bad paths in list we could fail to create

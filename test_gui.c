@@ -42,9 +42,10 @@ int thumb_rows = 8;
 int thumb_cols = 15;
 int gui_delay = 2;
 int show_about = nk_false;
-int show_prefs = nk_false;
+int show_prefs = nk_true;
 int show_rotate = nk_false;
 int show_infobar = nk_true;
+int thumb_x_deletes = nk_false;
 int list_mode = nk_true;
 int menu_state = MENU_NONE;
 
@@ -855,7 +856,7 @@ void draw_gui(struct nk_context* ctx)
 
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 {
-	int w = 550, h = 300; ///scale_x, h = 400/scale_y;
+	int w = 550, h = 320; ///scale_x, h = 400/scale_y;
 	struct nk_rect bounds;
 	struct nk_rect s;
 	s.x = scr_w/2-w/2;
@@ -902,14 +903,16 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		nk_property_int(ctx, "Thumb cols", 4, &thumb_cols, 15, 1, 0.05);
 
 		nk_checkbox_label(ctx, "Show info bar", &show_infobar);
+		nk_checkbox_label(ctx, "x deletes in Thumb mode", &thumb_x_deletes);
+
+		nk_layout_row_dynamic(ctx, 0, 1);
+		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
+		nk_label_wrap(ctx, cache);
 
 		if (nk_button_label(ctx, "Clear thumbnail cache")) {
 			puts("Clearing thumbnails");
 		}
 
-		nk_layout_row_dynamic(ctx, 0, 1);
-		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
-		nk_label_wrap(ctx, cache);
 
 		nk_layout_row_dynamic(ctx, 0, 1);
 		if (nk_button_label(ctx, "Ok")) {
