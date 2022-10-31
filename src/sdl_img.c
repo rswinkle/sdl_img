@@ -1059,6 +1059,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 	int ret, i=0;;
 	DIR* dir;
 	struct tm* tmp_tm;
+	int start_size = g->files.size;
 
 	dir = opendir(dirpath);
 	if (!dir) {
@@ -1129,6 +1130,8 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		f.name = (sep) ? sep+1 : f.path;
 		cvec_push_file(&g->files, &f);
 	}
+
+	SDL_Log("Found %lu images in %s\n", g->files.size-start_size, dirpath);
 
 	closedir(dir);
 	g->loading = 0;
@@ -2567,9 +2570,11 @@ int main(int argc, char** argv)
 
 		myscandir(dirpath, exts, num_exts, recurse); // allow recurse for base case?
 
+		SDL_Log("Found %lu images total\nSorting by file name now...\n", g->files.size);
+
 		snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, img_name);
 
-		sort(g->files.a, NULL, g->files.size, filename_cmp_lt);
+		mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 
 		SDL_Log("finding current image to update index\n");
 		// this is fine because it's only used when given a single image, which then scans
@@ -2586,10 +2591,9 @@ int main(int argc, char** argv)
 		}
 		start_index = res - g->files.a;
 	} else {
-		sort(g->files.a, NULL, g->files.size, filename_cmp_lt);
+		SDL_Log("Found %lu images total\nSorting by file name now...\n", g->files.size);
+		mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 	}
-
-	SDL_Log("Loaded %lu filenames\n", (unsigned long)g->files.size);
 
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "start_index = %d\n", start_index);
 	setup(start_index);
