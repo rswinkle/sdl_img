@@ -2342,6 +2342,8 @@ void print_help(char* prog_name, int verbose)
 		puts("\nApplication Options:");
 		puts("  -f, --fullscreen                   Start in fullscreen mode");
 		puts("  -s, --slide-show [delay=3]         Start in slideshow mode");
+		puts("  -r, --recursive dir                Scan dir recursively for images to add to the list");
+		puts("  -R                                 Scan all directories that come after recursively (-r after -R is redundant)");
 		puts("  -c, --cache ./your_cache_loc       Use specified directory as cache");
 		puts("  -v, --version                      Show the version");
 		puts("  -h, --help                         Show this help");
