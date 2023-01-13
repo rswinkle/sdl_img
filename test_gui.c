@@ -62,7 +62,7 @@ cvector_str list1;
 char license[STRBUF_SZ*4] =
 "The MIT License (MIT)\n"
 "\n"
-"Copyright (c) 2017-2022 Robert Winkler\n"
+"Copyright (c) 2017-2023 Robert Winkler\n"
 "\n"
 "Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated\n"
 "documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation\n"
