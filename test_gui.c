@@ -12,12 +12,13 @@
 #define NK_INCLUDE_STANDARD_VARARGS
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_STANDARD_IO
-//#define NK_INCLUDE_FONT_BAKING
-//#define NK_INCLUDE_DEFAULT_FONT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 #define NK_IMPLEMENTATION
-#define NK_SDL_IMPLEMENTATION
+#define NK_SDL_RENDERER_IMPLEMENTATION
 #include "nuklear.h"
-#include "nuklear_sdl.h"
+#include "nuklear_sdl_renderer.h"
 
 #define CVECTOR_IMPLEMENTATION
 #include "cvector.h"
@@ -27,7 +28,7 @@
 
 #define STRBUF_SZ 1024
 
-#define GUI_BAR_HEIGHT 30
+#define GUI_BAR_HEIGHT 50
 
 enum { MENU_NONE, MENU_MISC, MENU_SORT, MENU_EDIT, MENU_VIEW };
 enum { DELAY, ALWAYS, NEVER };
@@ -46,7 +47,7 @@ int show_prefs = nk_true;
 int show_rotate = nk_false;
 int show_infobar = nk_true;
 int thumb_x_deletes = nk_false;
-int list_mode = nk_true;
+int list_mode = nk_false;
 int menu_state = MENU_NONE;
 
 struct nk_colorf bg;
@@ -122,10 +123,9 @@ int main(void)
 	SDL_GetDisplayBounds(0, &r);
 	printf("display bounds: %d %d %d %d\n", r.x, r.y, r.w, r.h);
 
-	x_scale = 2; //hdpi/72;  // adjust for dpi, then go from 8pt font to 12pt
-	y_scale = 2; //vdpi/72;
+	//x_scale = 1; //hdpi/72;  // adjust for dpi, then go from 8pt font to 12pt
+	//y_scale = 1; //vdpi/72;
 
-	SDL_RenderSetScale(ren, x_scale, y_scale);
 
 	/*
 	if (SDL_RenderSetLogicalSize(ren, WINDOW_WIDTH*x_scale, WINDOW_HEIGHT*y_scale)) {
@@ -144,22 +144,49 @@ int main(void)
 		cvec_push_str(&list1, buffer);
 	}
 
-	if (!(ctx = nk_sdl_init(win, ren, x_scale, y_scale))) {
+	if (!(ctx = nk_sdl_init(win, ren))) {
 		printf("nk_sdl_init() failed!");
 		return 1;
 	}
 
+	// TODO Font stuff, refactor/reorganize
+	int render_w, render_h;
+	int window_w, window_h;
+	SDL_GetRendererOutputSize(ren, &render_w, &render_h);
+	SDL_GetWindowSize(win, &window_w, &window_h);
+	x_scale = (float)(render_w) / (float)(window_w);
+	y_scale = (float)(render_h) / (float)(window_h);
+	// could adjust for dpi, then adjust for font size if necessary
+	//g->x_scale = 2; //hdpi/72;
+	//g->y_scale = 2; //vdpi/72;
+	//SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
+	float font_scale = y_scale;
+
+	printf("scale %f %f\n", x_scale, y_scale);
+	SDL_RenderSetScale(ren, x_scale, y_scale);
+
+	struct nk_font_atlas* atlas;
+	struct nk_font_config config = nk_font_config(0);
+	struct nk_font* font;
+
+	nk_sdl_font_stash_begin(&atlas);
+	font = nk_font_atlas_add_default(atlas, 24*font_scale, &config);
+	//font = nk_font_atlas_add_from_file(atlas, "../fonts/kenvector_future_thin.ttf", 13 * font_scale, &config);
+	nk_sdl_font_stash_end();
+
+	font->handle.height /= font_scale;
+	nk_style_set_font(ctx, &font->handle);
+
 	struct nk_style_toggle* tog = &ctx->style.option;
 	printf("padding = %f %f border = %f\n", tog->padding.x, tog->padding.y, tog->border);
-	tog->padding.x = 2;
-	tog->padding.y = 2;
+	//tog->padding.x = 2;
+	//tog->padding.y = 2;
 
 	bg2 = nk_rgb(28,48,62);
 	bg = nk_color_cf(bg2);
 	while (running)
 	{
 		SDL_RenderSetScale(ren, x_scale, y_scale);
-		nk_sdl_scale(x_scale, y_scale);
 
 		if (handle_events(ctx))
 			break;
@@ -173,7 +200,7 @@ int main(void)
 		SDL_SetRenderDrawColor(ren, bg2.r, bg2.g, bg2.b, bg2.a);
 		SDL_RenderSetClipRect(ren, NULL);
 		SDL_RenderClear(ren);
-		nk_sdl_render(NULL, 0);
+		nk_sdl_render(NK_ANTI_ALIASING_ON);
 		SDL_RenderPresent(ren);
 
 	}
@@ -321,7 +348,7 @@ void draw_gui(struct nk_context* ctx)
 	if (show_about) {
 		static int license_len;;
 		license_len = strlen(license);
-		int w = 500, h = 285; ///scale_x, h = 400/scale_y;
+		int w = 700, h = 580; ///scale_x, h = 400/scale_y;
 		struct nk_rect s;
 		s.x = scr_w/2-w/2;
 		s.y = scr_h/2-h/2;
@@ -338,7 +365,7 @@ void draw_gui(struct nk_context* ctx)
 			nk_label(ctx, "Credits:", NK_TEXT_CENTERED);
 			//nk_layout_row_dynamic(ctx, 10, 2);
 			float ratios[] = { 0.3f, 0.7f, 0.2f, 0.8f };
-			nk_layout_row(ctx, NK_DYNAMIC, 10, 2, ratios);
+			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
 
 			nk_label(ctx, "stb_image*", NK_TEXT_LEFT);
 			nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
@@ -414,7 +441,7 @@ void draw_gui(struct nk_context* ctx)
 
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, search_ratio);
 			search_height = nk_widget_bounds(ctx).h;
-			printf("height = %f\n", search_height);
+			//printf("height = %f\n", search_height);
 			nk_label(ctx, "Search Filenames:", NK_TEXT_LEFT);
 			if ((search_state = nk_edit_string(ctx, search_flags, field_buffer, &field_len, 64, nk_filter_default))) {
 				field_buffer[field_len] = 0;
@@ -463,7 +490,7 @@ void draw_gui(struct nk_context* ctx)
 			}
 			nk_button_label(ctx, "Modified");
 
-			printf("%.3f %.3f %.3f %.3f %.3f\n", header_ratios[0], header_ratios[1], header_ratios[2], header_ratios[3], header_ratios[4]);
+			//printf("%.3f %.3f %.3f %.3f %.3f\n", header_ratios[0], header_ratios[1], header_ratios[2], header_ratios[3], header_ratios[4]);
 
 			float ratios[] = { header_ratios[0]+0.01f, header_ratios[2], header_ratios[4]+0.01f };
 
@@ -499,7 +526,7 @@ void draw_gui(struct nk_context* ctx)
 				}
 				//printf("list height = %d\n", scr_h-GUI_BAR_HEIGHT-40);
     //view->count = (int)NK_MAX(nk_iceilf((layout->clip.h)/(float)row_height),0);
-				printf("list layout = %f %f %d %d\n", ctx->current->layout->clip.h, ctx->current->layout->bounds.h, nk_iceilf(ctx->current->layout->clip.h/28.0), lview.count);
+				//printf("list layout = %f %f %d %d\n", ctx->current->layout->clip.h, ctx->current->layout->bounds.h, nk_iceilf(ctx->current->layout->clip.h/28.0), lview.count);
 				list_height = ctx->current->layout->clip.h;
 				nk_list_view_end(&lview);
 				//nk_group_end(ctx);
@@ -508,14 +535,14 @@ void draw_gui(struct nk_context* ctx)
 			// view->begin = (int)NK_MAX(((float)view->scroll_value / (float)row_height), 0.0f);
 			nk_uint x = 0, y;
 			int scroll_limit = (lview.total_height - list_height);
-			printf("scroll_limit = %d\n", scroll_limit);
+			//printf("scroll_limit = %d\n", scroll_limit);
 			y = (selected/(float)(list1.size-1) * scroll_limit) + 0.999f;
 			if (first_time) {
 				nk_group_set_scroll(ctx, "Image List", x, y);
 				first_time = 0;
 			}
 			nk_group_get_scroll(ctx, "Image List", &x, &y);
-			printf("scroll %u %u\n", x, y);
+			//printf("scroll %u %u\n", x, y);
 
 			/*
 			nk_uint x, y;
@@ -547,21 +574,24 @@ void draw_gui(struct nk_context* ctx)
 		
 		nk_layout_row_template_begin(ctx, 0);
 
+#define MENU_BUTTON_WIDTH 80
+#define PREV_NEXT_WIDTH 150
+#define ZOOM_ROTATE_WIDTH 50
 		// menu
-		nk_layout_row_template_push_static(ctx, 50);
+		nk_layout_row_template_push_static(ctx, MENU_BUTTON_WIDTH);
 
 		// prev next
-		nk_layout_row_template_push_static(ctx, 80);
-		nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, PREV_NEXT_WIDTH);
+		nk_layout_row_template_push_static(ctx, PREV_NEXT_WIDTH);
 
-		total_width += 50 + 80 + 80;
+		total_width += MENU_BUTTON_WIDTH + 2*PREV_NEXT_WIDTH;
 
 		// zoom, -, +
 		//nk_layout_row_template_push_static(ctx, 80);
-		nk_layout_row_template_push_static(ctx, 40);
-		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, ZOOM_ROTATE_WIDTH);
+		nk_layout_row_template_push_static(ctx, ZOOM_ROTATE_WIDTH);
 
-		total_width += 80;
+		total_width += 2*ZOOM_ROTATE_WIDTH;
 		if (total_width < scr_w)
 			do_zoom = 1;
 
@@ -575,9 +605,9 @@ void draw_gui(struct nk_context* ctx)
 		//	do_toggles = 1;
 
 		// Rotate left and right
-		nk_layout_row_template_push_static(ctx, 40);
-		nk_layout_row_template_push_static(ctx, 40);
-		total_width += 80;
+		nk_layout_row_template_push_static(ctx, ZOOM_ROTATE_WIDTH);
+		nk_layout_row_template_push_static(ctx, ZOOM_ROTATE_WIDTH);
+		total_width += 2*ZOOM_ROTATE_WIDTH;
 		if (total_width < scr_w)
 			do_rotates = 1;
 
@@ -856,7 +886,7 @@ void draw_gui(struct nk_context* ctx)
 
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 {
-	int w = 550, h = 320; ///scale_x, h = 400/scale_y;
+	int w = 700, h = 500; ///scale_x, h = 400/scale_y;
 	struct nk_rect bounds;
 	struct nk_rect s;
 	s.x = scr_w/2-w/2;
@@ -907,6 +937,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 
 		nk_layout_row_dynamic(ctx, 0, 1);
 		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
+		// TODO why is this not wrapping?
 		nk_label_wrap(ctx, cache);
 
 		if (nk_button_label(ctx, "Clear thumbnail cache")) {
@@ -914,7 +945,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		}
 
 
-		nk_layout_row_dynamic(ctx, 0, 1);
+		//nk_layout_row_dynamic(ctx, 0, 1);
 		if (nk_button_label(ctx, "Ok")) {
 			show_prefs = 0;;
 		}
