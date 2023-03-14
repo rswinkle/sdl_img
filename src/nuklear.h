@@ -27753,7 +27753,9 @@ nk_do_property(nk_flags *ws,
     struct nk_rect empty;
 
     /* left decrement button */
-    left.h = font->height/2;
+    /* NOTE(rswinkle): changed from height/2 to height to make arrows
+     * and clickable area larger */
+    left.h = font->height;
     left.w = left.h;
     left.x = property.x + style->border + style->padding.x;
     left.y = property.y + style->border + property.h/2.0f - left.h/2;
