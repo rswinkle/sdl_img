@@ -1023,6 +1023,9 @@ int handle_events_normally()
 
 			// TODO merge RIGHT/DOWN and LEFT/UP?
 			case SDL_SCANCODE_RIGHT:
+				// TODO more elegant way
+				if (g->show_prefs)
+					break;
 				zoomed = 0;
 				g->status = REDRAW;
 				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
@@ -1080,6 +1083,8 @@ int handle_events_normally()
 				break;
 
 			case SDL_SCANCODE_LEFT:
+				if (g->show_prefs)
+					break;
 				zoomed = 0;
 				g->status = REDRAW;
 				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {

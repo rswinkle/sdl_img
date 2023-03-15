@@ -29,7 +29,18 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 
-#define GUI_BAR_HEIGHT 30
+// window dimensions
+#define GUI_BAR_HEIGHT 50
+#define GUI_MENU_WIN_W 550
+#define GUI_MENU_WIN_H 600
+#define GUI_PREFS_W 860
+#define GUI_PREFS_H 530
+
+// button widths
+#define GUI_MENU_W 80
+#define GUI_PREV_NEXT_W 150
+#define GUI_ZOOM_ROTATE_W 50
+
 
 void search_filenames()
 {
@@ -422,20 +433,19 @@ void draw_gui(struct nk_context* ctx)
 		nk_layout_row_template_begin(ctx, 0);
 
 		// menu
-		nk_layout_row_template_push_static(ctx, 50);
+		nk_layout_row_template_push_static(ctx, GUI_MENU_W);
 
 		// prev next
-		nk_layout_row_template_push_static(ctx, 80);
-		nk_layout_row_template_push_static(ctx, 80);
+		nk_layout_row_template_push_static(ctx, GUI_PREV_NEXT_W);
+		nk_layout_row_template_push_static(ctx, GUI_PREV_NEXT_W);
 
 		// zoom, -, +
-		//nk_layout_row_template_push_static(ctx, 80);
-		nk_layout_row_template_push_static(ctx, 40);
-		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, GUI_ZOOM_ROTATE_W);
+		nk_layout_row_template_push_static(ctx, GUI_ZOOM_ROTATE_W);
 
 		// Rotate left and right
-		nk_layout_row_template_push_static(ctx, 40);
-		nk_layout_row_template_push_static(ctx, 40);
+		nk_layout_row_template_push_static(ctx, GUI_ZOOM_ROTATE_W);
+		nk_layout_row_template_push_static(ctx, GUI_ZOOM_ROTATE_W);
 
 		// Mode 1 2 4 8
 		/*
@@ -447,7 +457,7 @@ void draw_gui(struct nk_context* ctx)
 		*/
 		nk_layout_row_template_end(ctx);
 
-		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(400, 400))) {
+		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(GUI_MENU_WIN_W, GUI_MENU_WIN_H))) {
 			// also don't let GUI disappear when the menu is active
 			g->show_gui = 1;
 			g->gui_timer = SDL_GetTicks();
@@ -464,12 +474,12 @@ void draw_gui(struct nk_context* ctx)
 					g->x_scale = 1;
 					g->y_scale = 1;
 				}
-				nk_sdl_scale(g->x_scale, g->y_scale);
+				//nk_sdl_scale(g->x_scale, g->y_scale);
 			}
 			if (nk_menu_item_label(ctx, "+", NK_TEXT_CENTERED)) {
 				g->x_scale += 0.5;
 				g->y_scale += 0.5;
-				nk_sdl_scale(g->x_scale, g->y_scale);
+				//nk_sdl_scale(g->x_scale, g->y_scale);
 			}
 
 			nk_layout_row_dynamic(ctx, 0, 1);
@@ -526,7 +536,7 @@ void draw_gui(struct nk_context* ctx)
 				g->menu_state = MENU_SORT;
 
 				if (g->n_imgs == 1) {
-					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
 					if (nk_menu_item_label(ctx, "Mix images", NK_TEXT_LEFT)) {
 						event.user.code = SHUFFLE;
 						SDL_PushEvent(&event);
@@ -574,7 +584,7 @@ void draw_gui(struct nk_context* ctx)
 				state = (g->menu_state == MENU_EDIT) ? NK_MAXIMIZED: NK_MINIMIZED;
 				if (nk_tree_state_push(ctx, NK_TREE_TAB, "Image Actions", &state)) {
 					g->menu_state = MENU_EDIT;
-					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
 
 					if (nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_LEFT)) {
 						event.user.code = ROT_LEFT;
@@ -718,7 +728,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 
-	int w = 550, h = 320;
+	int w = GUI_PREFS_W, h = GUI_PREFS_H;
 	struct nk_rect bounds;
 	struct nk_rect s;
 	s.x = scr_w/2-w/2;
@@ -731,10 +741,10 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 	if (nk_begin(ctx, "Preferences", s, popup_flags)) {
 		nk_layout_row_dynamic(ctx, 0, 2);
 		nk_label(ctx, "background:", NK_TEXT_LEFT);
-		if (nk_combo_begin_color(ctx, nk_rgb_cf(bgf), nk_vec2(nk_widget_width(ctx), 400))) {
-			nk_layout_row_dynamic(ctx, 120, 1);
-			bgf = nk_color_picker(ctx, bgf, NK_RGBA);
-			nk_layout_row_dynamic(ctx, 25, 1);
+		if (nk_combo_begin_color(ctx, nk_rgb_cf(bgf), nk_vec2(nk_widget_width(ctx), GUI_PREFS_W/2))) {
+			nk_layout_row_dynamic(ctx, 240, 1);
+			bgf = nk_color_picker(ctx, bgf, NK_RGB);
+			nk_layout_row_dynamic(ctx, 0, 1);
 			bgf.r = nk_propertyf(ctx, "#R:", 0, bgf.r, 1.0f, 0.01f,0.005f);
 			bgf.g = nk_propertyf(ctx, "#G:", 0, bgf.g, 1.0f, 0.01f,0.005f);
 			bgf.b = nk_propertyf(ctx, "#B:", 0, bgf.b, 1.0f, 0.01f,0.005f);
@@ -759,14 +769,21 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		nk_property_int(ctx, "Thumb rows", 2, &g->thumb_rows, 8, 1, 0.05);
 		nk_property_int(ctx, "Thumb cols", 4, &g->thumb_cols, 15, 1, 0.05);
 
-
 		nk_checkbox_label(ctx, "Show info bar", &g->show_infobar);
 		nk_checkbox_label(ctx, "x deletes in Thumb mode", &g->thumb_x_deletes);
 
+		// TODO come up with better name/description
 		nk_layout_row_dynamic(ctx, 0, 1);
-		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
-		nk_label_wrap(ctx, g->cachedir);
+		nk_checkbox_label(ctx, "Preserve relative offsets in multimode movement", &g->independent_multimode);
 
+		// TODO make actually editable?  Have a folder selector popup?
+		float ratios[] = { 0.25, 0.75 };
+		nk_layout_row(ctx, NK_DYNAMIC, 60, 2, ratios);
+		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
+		int cache_len = strlen(g->cachedir);
+		nk_edit_string(ctx, NK_EDIT_SELECTABLE|NK_EDIT_CLIPBOARD, g->cachedir, &cache_len, STRBUF_SZ, nk_filter_default);
+
+		nk_layout_row_dynamic(ctx, 0, 1);
 		if (nk_button_label(ctx, "Clear thumbnail cache")) {
 			puts("Clearing thumbnails");
 			SDL_Log("Clearing thumbnails\n");
@@ -775,10 +792,14 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 			SDL_Log("Clearing thumbnails took %d\n", SDL_GetTicks()-ttimer);
 		}
 
-
+#define OK_WIDTH 200
+		nk_layout_space_begin(ctx, NK_STATIC, 60, 1);
+		nk_layout_space_push(ctx, nk_rect(GUI_PREFS_W-OK_WIDTH-12, 20, OK_WIDTH, 40));
 		if (nk_button_label(ctx, "Ok")) {
 			g->show_prefs = 0;;
 		}
+		nk_layout_space_end(ctx);
+#undef OK_WIDTH
 	}
 	nk_end(ctx);
 }

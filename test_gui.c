@@ -31,6 +31,8 @@
 #define STRBUF_SZ 1024
 
 #define GUI_BAR_HEIGHT 50
+#define GUI_MENU_WIN_W 550
+#define GUI_MENU_WIN_H 600
 
 enum { MENU_NONE, MENU_MISC, MENU_SORT, MENU_EDIT, MENU_VIEW };
 enum { DELAY, ALWAYS, NEVER };
@@ -629,7 +631,7 @@ void draw_gui(struct nk_context* ctx)
 		*/
 		nk_layout_row_template_end(ctx);
 
-		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(400, 400))) {
+		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(GUI_MENU_WIN_W, GUI_MENU_WIN_H))) {
 
 			enum nk_collapse_states state;
 			float ratios[] = { 0.7f, 0.3f, 0.8f, 0.2f };
@@ -686,7 +688,7 @@ void draw_gui(struct nk_context* ctx)
 				menu_state = MENU_SORT;
 
 				if (n_imgs == 1) {
-					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
 					nk_menu_item_label(ctx, "Mix images", NK_TEXT_LEFT);
 					nk_label(ctx, "M", NK_TEXT_RIGHT);
 
@@ -711,7 +713,7 @@ void draw_gui(struct nk_context* ctx)
 			state = (menu_state == MENU_EDIT) ? NK_MAXIMIZED : NK_MINIMIZED;
 			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Edit Actions", &state)) {
 				menu_state = MENU_EDIT;
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
 
 				nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_LEFT);
 				nk_label(ctx, "L", NK_TEXT_RIGHT);
@@ -910,14 +912,14 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 	if (nk_begin(ctx, "Preferences", s, popup_flags)) {
 		nk_layout_row_dynamic(ctx, 0, 2);
 		nk_label(ctx, "background:", NK_TEXT_LEFT);
-		if (nk_combo_begin_color(ctx, nk_rgb_cf(bg), nk_vec2(nk_widget_width(ctx), 400))) {
-			nk_layout_row_dynamic(ctx, 120, 1);
-			bg = nk_color_picker(ctx, bg, NK_RGBA);
-			nk_layout_row_dynamic(ctx, 25, 1);
+		if (nk_combo_begin_color(ctx, nk_rgb_cf(bg), nk_vec2(nk_widget_width(ctx), PREFS_W/2))) {
+			nk_layout_row_dynamic(ctx, 240, 1);
+			bg = nk_color_picker(ctx, bg, NK_RGB);
+			nk_layout_row_dynamic(ctx, 0, 1);
 			bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f,0.005f);
 			bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f,0.005f);
 			bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f,0.005f);
-			bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f,0.005f);
+			//bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f,0.005f);
 			bg2 = nk_rgb_cf(bg);
 			nk_combo_end(ctx);
 		}
@@ -960,8 +962,6 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 			puts("Clearing thumbnails");
 		}
 
-
-		//nk_layout_row_dynamic(ctx, 0, 1);
 #define OK_WIDTH 200
 		nk_layout_space_begin(ctx, NK_STATIC, 60, 1);
 		nk_layout_space_push(ctx, nk_rect(PREFS_W-OK_WIDTH-12, 20, OK_WIDTH, 40));

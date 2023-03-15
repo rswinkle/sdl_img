@@ -41,14 +41,15 @@
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_INCLUDE_STANDARD_VARARGS
 #define NK_INCLUDE_STANDARD_IO
-//#define NK_INCLUDE_FONT_BAKING
-//#define NK_INCLUDE_DEFAULT_FONT
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
 #define NK_IMPLEMENTATION
-#define NK_SDL_IMPLEMENTATION
 #include "nuklear.h"
 
 #define SDL_MAIN_HANDLED
-#include "nuklear_sdl.h"
+#define NK_SDL_RENDERER_IMPLEMENTATION
+#include "nuklear_sdl_renderer.h"
 
 // for rotozoomSurfaceSize()
 #include <SDL2_rotozoom.h>
@@ -123,6 +124,7 @@ typedef int64_t i64;
 #define THUMB_COLS 15
 #define SIZE_STR_BUF 16
 #define MOD_STR_BUF 24
+#define FONT_SIZE 24
 
 // zoom is calculated
 // h = old_h * (1.0 + zoom*ZOOM_RATE)
@@ -305,6 +307,7 @@ typedef struct global_state
 	int gui_timer;
 	int show_gui;
 	int thumb_x_deletes;
+	int independent_multimode;
 	int fullscreen_gui;
 	int show_infobar;
 
@@ -1384,14 +1387,39 @@ void setup(int start_idx)
 	SDL_GetWindowMaximumSize(g->win, &max_w, &max_h);
 	SDL_Log("Window Max dimensions: %d %d\n", max_w, max_h);
 
-	// could adjust for dpi, then adjust for font size if necessary
-	g->x_scale = 2; //hdpi/72;
-	g->y_scale = 2; //vdpi/72;
-
-	if (!(g->ctx = nk_sdl_init(g->win, g->ren, g->x_scale, g->y_scale))) {
+	if (!(g->ctx = nk_sdl_init(g->win, g->ren))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "nk_sdl_init() failed!\n");
 		cleanup(1, 1);
 	}
+
+
+	// TODO Font stuff, refactor/reorganize
+	int render_w, render_h;
+	int window_w, window_h;
+	SDL_GetRendererOutputSize(g->ren, &render_w, &render_h);
+	SDL_GetWindowSize(g->win, &window_w, &window_h);
+	g->x_scale = (float)(render_w) / (float)(window_w);
+	g->y_scale = (float)(render_h) / (float)(window_h);
+	// could adjust for dpi, then adjust for font size if necessary
+	//g->x_scale = 2; //hdpi/72;
+	//g->y_scale = 2; //vdpi/72;
+	//SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
+	float font_scale = g->y_scale;
+
+	printf("scale %f %f\n", g->x_scale, g->y_scale);
+
+	struct nk_font_atlas* atlas;
+	struct nk_font_config config = nk_font_config(0);
+	struct nk_font* font;
+
+	nk_sdl_font_stash_begin(&atlas);
+	font = nk_font_atlas_add_default(atlas, FONT_SIZE*font_scale, &config);
+	//font = nk_font_atlas_add_from_file(atlas, "../fonts/kenvector_future_thin.ttf", 13 * font_scale, &config);
+	nk_sdl_font_stash_end();
+
+	font->handle.height /= font_scale;
+	nk_style_set_font(g->ctx, &font->handle);
+
 
 	// Make GUI partially transparent
 	g->ctx->style.window.fixed_background.data.color.a *= 0.75;
@@ -2736,7 +2764,7 @@ int main(int argc, char** argv)
 		// TODO ?
 		if ((IS_LIST_MODE() && !IS_VIEW_RESULTS()) || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
-			nk_sdl_render(NULL, nk_false);
+			nk_sdl_render(NK_ANTI_ALIASING_ON);
 			SDL_RenderSetScale(g->ren, 1, 1);
 		}
 		SDL_RenderPresent(g->ren);
