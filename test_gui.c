@@ -23,6 +23,8 @@
 #define CVECTOR_IMPLEMENTATION
 #include "cvector.h"
 
+#include "style_configurator.c"
+
 #define WINDOW_WIDTH 1200
 #define WINDOW_HEIGHT 800
 
@@ -47,6 +49,7 @@ int show_prefs = nk_true;
 int show_rotate = nk_false;
 int show_infobar = nk_true;
 int thumb_x_deletes = nk_false;
+int independent_multimode = nk_false;
 int list_mode = nk_false;
 int menu_state = MENU_NONE;
 
@@ -182,6 +185,10 @@ int main(void)
 	//tog->padding.x = 2;
 	//tog->padding.y = 2;
 
+    static struct nk_color color_table[NK_COLOR_COUNT];
+    memcpy(color_table, nk_default_color_style, sizeof(color_table));
+
+
 	bg2 = nk_rgb(28,48,62);
 	bg = nk_color_cf(bg2);
 	while (running)
@@ -195,6 +202,7 @@ int main(void)
 		draw_gui(ctx);
 		//draw_simple_gui(ctx);
 
+		style_configurator(ctx, color_table);
 
 		SDL_Delay(15);
 		SDL_SetRenderDrawColor(ren, bg2.r, bg2.g, bg2.b, bg2.a);
@@ -886,7 +894,9 @@ void draw_gui(struct nk_context* ctx)
 
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 {
-	int w = 700, h = 500; ///scale_x, h = 400/scale_y;
+#define PREFS_W 860
+#define PREFS_H 530
+	int w = PREFS_W, h = PREFS_H; ///scale_x, h = 400/scale_y;
 	struct nk_rect bounds;
 	struct nk_rect s;
 	s.x = scr_w/2-w/2;
@@ -936,19 +946,30 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		nk_checkbox_label(ctx, "x deletes in Thumb mode", &thumb_x_deletes);
 
 		nk_layout_row_dynamic(ctx, 0, 1);
-		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
-		// TODO why is this not wrapping?
-		nk_label_wrap(ctx, cache);
+		nk_checkbox_label(ctx, "Preserve relative offsets in multimode movement", &independent_multimode);
 
+
+		float ratios[] = { 0.25, 0.75 };
+		nk_layout_row(ctx, NK_DYNAMIC, 60, 2, ratios);
+		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
+		int cache_len = strlen(cache);
+		nk_edit_string(ctx, NK_EDIT_SELECTABLE|NK_EDIT_CLIPBOARD, cache, &cache_len, cache_len+1, nk_filter_default);
+
+		nk_layout_row_dynamic(ctx, 0, 1);
 		if (nk_button_label(ctx, "Clear thumbnail cache")) {
 			puts("Clearing thumbnails");
 		}
 
 
 		//nk_layout_row_dynamic(ctx, 0, 1);
+#define OK_WIDTH 200
+		nk_layout_space_begin(ctx, NK_STATIC, 60, 1);
+		nk_layout_space_push(ctx, nk_rect(PREFS_W-OK_WIDTH-12, 20, OK_WIDTH, 40));
 		if (nk_button_label(ctx, "Ok")) {
 			show_prefs = 0;;
 		}
+		nk_layout_space_end(ctx);
+#undef OK_WIDTH
 	}
 	nk_end(ctx);
 }

@@ -1,8 +1,10 @@
 
-// TODO design decisions
-// plural or not?  ie style_button or style_buttons?
-// use the duplicate array method, or just let the user
-// manually set those after calling the function by accessing ctx->style->*?
+/*
+ TODO design decisions
+ plural or not?  ie style_button or style_buttons?
+ use the duplicate array method, or just let the user
+ manually set those after calling the function by accessing ctx->style->*?
+*/
 
 static const char* symbols[NK_SYMBOL_MAX] =
 {
@@ -143,31 +145,45 @@ style_button(struct nk_context* ctx, struct nk_style_button* out_style, struct n
 	style_vec2(ctx, "Image Padding:", &button.image_padding);
 	style_vec2(ctx, "Touch Padding:", &button.touch_padding);
 
-	/*
-enum nk_text_align {
-NK_TEXT_ALIGN_LEFT        = 0x01,
-NK_TEXT_ALIGN_CENTERED    = 0x02,
-NK_TEXT_ALIGN_RIGHT       = 0x04,
-NK_TEXT_ALIGN_TOP         = 0x08,
-NK_TEXT_ALIGN_MIDDLE      = 0x10,
-NK_TEXT_ALIGN_BOTTOM      = 0x20
+	const char* alignments[] =
+{
+	"LEFT",
+	"CENTERED",
+	"RIGHT",
+	"TOP LEFT",
+	"TOP CENTERED",
+	"TOP_RIGHT",
+	"BOTTOM LEFT",
+	"BOTTOM CENTERED",
+	"BOTTOM RIGHT"
 };
-enum nk_text_alignment {
-NK_TEXT_LEFT        = NK_TEXT_ALIGN_MIDDLE|NK_TEXT_ALIGN_LEFT,
-NK_TEXT_CENTERED    = NK_TEXT_ALIGN_MIDDLE|NK_TEXT_ALIGN_CENTERED,
-NK_TEXT_RIGHT       = NK_TEXT_ALIGN_MIDDLE|NK_TEXT_ALIGN_RIGHT
+
+#define TOP_LEFT       NK_TEXT_ALIGN_TOP|NK_TEXT_ALIGN_LEFT
+#define TOP_CENTER     NK_TEXT_ALIGN_TOP|NK_TEXT_ALIGN_CENTERED
+#define TOP_RIGHT      NK_TEXT_ALIGN_TOP|NK_TEXT_ALIGN_RIGHT
+#define BOTTOM_LEFT    NK_TEXT_ALIGN_BOTTOM|NK_TEXT_ALIGN_LEFT
+#define BOTTOM_CENTER  NK_TEXT_ALIGN_BOTTOM|NK_TEXT_ALIGN_CENTERED
+#define BOTTOM_RIGHT   NK_TEXT_ALIGN_BOTTOM|NK_TEXT_ALIGN_RIGHT
+
+	int aligns[] =
+{
+	NK_TEXT_LEFT,
+	NK_TEXT_CENTERED,
+	NK_TEXT_RIGHT,
+	TOP_LEFT,
+	TOP_CENTER,
+	TOP_RIGHT,
+	BOTTOM_LEFT,
+	BOTTOM_CENTER,
+	BOTTOM_RIGHT
 };
-*/
-	// TODO support combining with TOP/MIDDLE/BOTTOM .. separate combo?
-	const char* alignments[] = { "LEFT", "CENTERED", "RIGHT" };
-	int aligns[3] = { NK_TEXT_LEFT, NK_TEXT_CENTERED, NK_TEXT_RIGHT };
-	int cur_align;
-	if (button.text_alignment == NK_TEXT_LEFT) {
-		cur_align = 0;
-	} else if (button.text_alignment == NK_TEXT_CENTERED) {
-		cur_align = 1;
-	} else {
-		cur_align = 2;
+
+	int cur_align = button.text_alignment-NK_TEXT_LEFT;
+	for (int i=0; i<NK_LEN(aligns); ++i) {
+		if (button.text_alignment == aligns[i]) {
+			cur_align = i;
+			break;
+		}
 	}
 	nk_label(ctx, "Text Alignment:", NK_TEXT_LEFT);
 	cur_align = nk_combo(ctx, alignments, NK_LEN(alignments), cur_align, 25, nk_vec2(200,200));
@@ -363,7 +379,6 @@ style_scrollbars(struct nk_context* ctx, struct nk_style_scrollbar* out_style, s
 
 		//nk_layout_row_dynamic(ctx, 30, 1);
 		if (nk_tree_push(ctx, NK_TREE_TAB, "Scrollbar Buttons", NK_MINIMIZED)) {
-			// TODO best way to handle correctly with duplicate styles
 			struct nk_style_button* dups[3] = { &ctx->style.scrollh.dec_button,
 			                                    &ctx->style.scrollv.inc_button,
 			                                    &ctx->style.scrollv.dec_button };
@@ -406,9 +421,6 @@ style_edit(struct nk_context* ctx, struct nk_style_edit* out_style)
 
 	style_vec2(ctx, "Scrollbar Size:", &edit.scrollbar_size);
 	style_vec2(ctx, "Padding:", &edit.padding);
-
-	// TODO subtree?
-	//edit->scrollbar         = style->scrollv;
 
 	nk_property_float(ctx, "#Row Padding:", -100.0f, &edit.row_padding, 100.0f, 1,0.5f);
 	nk_property_float(ctx, "#Cursor Size:", -100.0f, &edit.cursor_size, 100.0f, 1,0.5f);
@@ -528,7 +540,7 @@ style_tab(struct nk_context* ctx, struct nk_style_tab* out_style)
 	style_rgb(ctx, "Border:", &tab.border_color);
 	style_rgb(ctx, "Text:", &tab.text);
 
-	// FTR, I feel these fields are misnamed and should be sym_minimized and sym_maximized since they are 
+	// FTR, I feel these fields are misnamed and should be sym_minimized and sym_maximized since they are
 	// what show in that state, not the button to push to get to that state
 	nk_label(ctx, "Minimize Symbol:", NK_TEXT_LEFT);
 	tab.sym_minimize = nk_combo(ctx, symbols, NK_SYMBOL_MAX, tab.sym_minimize, 25, nk_vec2(200,200));
@@ -572,6 +584,7 @@ style_window_header(struct nk_context* ctx, struct nk_style_window_header* out_s
 	nk_layout_row_dynamic(ctx, 30, 2);
 	nk_label(ctx, "Button Alignment:", NK_TEXT_LEFT);
 	header.align = nk_combo(ctx, alignments, NUM_ALIGNS, header.align, 25, nk_vec2(200,200));
+#undef NUM_ALIGNS
 
 	nk_label(ctx, "Close Symbol:", NK_TEXT_LEFT);
 	header.close_symbol = nk_combo(ctx, symbols, NK_SYMBOL_MAX, header.close_symbol, 25, nk_vec2(200,200));
@@ -602,7 +615,7 @@ style_window(struct nk_context* ctx, struct nk_style_window* out_style)
 	style_rgb(ctx, "Background:", &win.background);
 
 	style_item_color(ctx, "Fixed Background:", &win.fixed_background);
-	
+
 	style_rgb(ctx, "Border:", &win.border_color);
 	style_rgb(ctx, "Popup Border:", &win.popup_border_color);
 	style_rgb(ctx, "Combo Border:", &win.combo_border_color);
@@ -645,7 +658,7 @@ style_window(struct nk_context* ctx, struct nk_style_window* out_style)
 }
 
 static int
-style_configurator(struct nk_context *ctx)
+style_configurator(struct nk_context *ctx, struct nk_color color_table[NK_COLOR_COUNT])
 {
 	/* window flags */
 	int border = nk_true;
@@ -666,15 +679,6 @@ style_configurator(struct nk_context *ctx)
 	if (minimizable) window_flags |= NK_WINDOW_MINIMIZABLE;
 
 	struct nk_style *style = &ctx->style;
-
-	// TODO better way?
-	static int initialized = nk_false;
-	static struct nk_color color_table[NK_COLOR_COUNT];
-
-	if (!initialized) {
-		memcpy(color_table, nk_default_color_style, sizeof(color_table));
-		initialized = nk_true;
-	}
 
 	if (nk_begin(ctx, "Configurator", nk_rect(10, 10, 400, 600), window_flags))
 	{
@@ -793,7 +797,7 @@ style_configurator(struct nk_context *ctx)
 
 		nk_layout_row_dynamic(ctx, 30, 1);
 		if (nk_button_label(ctx, "Reset all styles to defaults")) {
-			memcpy(color_table, nk_default_color_style, sizeof(color_table));
+			memcpy(color_table, nk_default_color_style, sizeof(nk_default_color_style));
 			nk_style_default(ctx);
 		}
 
