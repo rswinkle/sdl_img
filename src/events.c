@@ -97,7 +97,7 @@ int handle_thumb_events()
 						g->state |= VIEW_MASK;
 
 						// Just going to go to last result they were on
-						// not necessarily the closet one
+						// not necessarily the closest one
 						//g->thumb_sel = g->search_results.a[g->cur_result];
 						g->selection = (g->cur_result) ? g->cur_result-1 : g->search_results.size-1;
 					} else {

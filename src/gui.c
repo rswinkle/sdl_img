@@ -774,7 +774,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 
 		// TODO come up with better name/description
 		nk_layout_row_dynamic(ctx, 0, 1);
-		nk_checkbox_label(ctx, "Preserve relative offsets in multimode movement", &g->independent_multimode);
+		nk_checkbox_label(ctx, "Preserve relative offsets in multimode movement", &g->ind_mm);
 
 		// TODO make actually editable?  Have a folder selector popup?
 		float ratios[] = { 0.25, 0.75 };

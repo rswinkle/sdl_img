@@ -303,7 +303,7 @@ typedef struct global_state
 	int gui_timer;
 	int show_gui;
 	int thumb_x_deletes;
-	int independent_multimode;
+	int ind_mm;         // independent multimode, better name?
 	int fullscreen_gui;
 	int show_infobar;
 
@@ -1199,6 +1199,9 @@ int load_new_images(void* data)
 				if (load_what >= RIGHT) {
 					last = (load_what == RIGHT) ? g->img[g->n_imgs-1].index : g->selection;
 					for (int i=0; i<g->n_imgs; ++i) {
+						if (g->ind_mm && load_what != SELECTION) {
+							last = g->img[i].index;
+						}
 						do {
 							last = wrap(last + 1);
 						} while (!attempt_image_load(last, &img[i]));
@@ -1209,6 +1212,9 @@ int load_new_images(void* data)
 				} else if (load_what == LEFT) {
 					last = g->img[0].index;
 					for (int i=g->n_imgs-1; i>=0; --i) {
+						if (g->ind_mm) {
+							last = g->img[i].index;
+						}
 						do {
 							last = wrap(last - 1);
 						} while (!attempt_image_load(last, &img[i]));
@@ -1281,6 +1287,7 @@ void setup(int start_idx)
 	g->gui_delay = HIDE_GUI_DELAY;
 	g->show_infobar = nk_true;
 	g->thumb_x_deletes = nk_false;
+	g->ind_mm = nk_false;
 	g->bg = nk_rgb(0,0,0);
 	g->fill_mode = 0;
 	g->thumb_rows = THUMB_ROWS;
@@ -2624,7 +2631,7 @@ int main(int argc, char** argv)
 		mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 	}
 
-	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "start_index = %ld\n", start_index);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "start_index = %d\n", start_index);
 	setup(start_index);
 
 
