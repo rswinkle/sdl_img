@@ -197,7 +197,7 @@ typedef int (*compare_func)(const void* a, const void* b);
 // TODO use quick sort or generic quicksort
 //
 //Mirrored Insertion sort, sorts a and b based on a
-void sort(file* a, thumb_state* b, size_t n, compare_func cmp)
+void sort(file* a, thumb_state* b, i64 n, compare_func cmp)
 {
 	int j;
 	file temp;
@@ -260,11 +260,11 @@ void sort(file* a, thumb_state* b, size_t n, compare_func cmp)
 
 
 // Generic Quicksort.  Partion pivots on last element
-int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare)(const void*, const void*), int count, void** arrays, int* sizes)
+int generic_partition(void* array, i64 p, i64 r, i64 size, int(*compare)(const void*, const void*), int count, void** arrays, int* sizes)
 {
 	char* a = (char*)array;
 	char* x = &a[r*size];
-	size_t i = p-1;
+	i64 i = p-1;
 	int temp, k;
 	char* p1, *p2;
 	int sz;
@@ -283,7 +283,7 @@ int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare
 		inline_swap(p1, p2, temp, sz, k)
 	}
 
-	for (size_t j=p; j<r; ++j) {
+	for (i64 j=p; j<r; ++j) {
 		if (compare(&a[j*size], x) <= 0) {
 			++i;
 
@@ -315,7 +315,7 @@ int generic_partition(void* array, size_t p, size_t r, size_t size, int(*compare
 	return i;
 }
 
-void generic_qsort_recurse(void* a, size_t p, size_t r, size_t size, int(*compare)(const void*, const void*), int count, void** arrays, int* sizes)
+void generic_qsort_recurse(void* a, i64 p, i64 r, i64 size, int(*compare)(const void*, const void*), int count, void** arrays, int* sizes)
 {
 	if (p < r && ~r) {
 		int q = generic_partition(a, p, r, size, compare, count, arrays, sizes);
@@ -324,12 +324,12 @@ void generic_qsort_recurse(void* a, size_t p, size_t r, size_t size, int(*compar
 	}
 }
 
-void generic_qsort(void* a, size_t n, size_t size, int(*compare)(const void* , const void*), int count, void** arrays, int* sizes)
+void generic_qsort(void* a, i64 n, i64 size, int(*compare)(const void* , const void*), int count, void** arrays, int* sizes)
 {
 	generic_qsort_recurse(a, 0, n-1, size, compare, count, arrays, sizes);
 }
 
-void mirrored_qsort(void* a, size_t n, size_t size, int(*compare)(const void*, const void*), int count, ...)
+void mirrored_qsort(void* a, i64 n, i64 size, int(*compare)(const void*, const void*), int count, ...)
 {
 	va_list args;
 	va_start(args, count);

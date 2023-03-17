@@ -15,9 +15,12 @@
 // CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+#include "myinttypes.h"
+
 #define CVECTOR_IMPLEMENTATION
 #define CVEC_ONLY_INT
 #define CVEC_ONLY_STR
+#define CVEC_SIZE_T i64
 #include "cvector.h"
 
 #include "WjCryptLib_Md5.c"
@@ -58,7 +61,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <stdint.h>
 #include <ctype.h>
 
 //POSIX (mostly) works with MinGW64
@@ -96,12 +98,6 @@ enum {
 #define IS_LIST_MODE() (g->state & LIST_MASK)
 #define IS_RESULTS() (g->state & RESULT_MASK)
 #define IS_VIEW_RESULTS() (g->state & VIEW_RESULTS)
-
-typedef uint8_t u8;
-typedef uint32_t u32;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef int64_t i64;
 
 #ifdef _WIN32
 #define mkdir(A, B) mkdir(A)
