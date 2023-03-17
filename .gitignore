@@ -32,9 +32,13 @@ build/*
 !build/Makefile
 !build/*.make
 *.swp
+tags
 
 package/LICENSE*
 package/README.md
 
 misc/
 sdl_img
+gui_test
+md5_test
+thumbnails
