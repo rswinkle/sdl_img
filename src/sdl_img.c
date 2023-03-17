@@ -1297,7 +1297,7 @@ void setup(int start_idx)
 	// TODO handle when first image (say in a list that's out of date) is gone/invalid
 	// loop through till valid
 	// TODO can I reuse NEXT code somehow?
-	int i = start_idx;
+	i64 i = start_idx;
 	char* img_name;
 	int ret;
 	do {
@@ -2615,13 +2615,16 @@ int main(int argc, char** argv)
 		if (!res) {
 			cleanup(0, 1);
 		}
-		start_index = res - g->files.a;
+		// I could change all indexes to i64 but but no one will
+		// ever open over 2^31-1 images so just explicitly convert
+		// from ptrdiff_t (i64) to int here and use ints everywhere
+		start_index =(int)(res - g->files.a);
 	} else {
 		SDL_Log("Found %lu images total\nSorting by file name now...\n", g->files.size);
 		mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 	}
 
-	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "start_index = %d\n", start_index);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "start_index = %ld\n", start_index);
 	setup(start_index);
 
 
