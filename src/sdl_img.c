@@ -39,7 +39,6 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-// TODO sin, cos, sqrt etc.
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_INCLUDE_STANDARD_VARARGS
@@ -296,6 +295,9 @@ typedef struct global_state
 	cvector_str favs;
 
 	int state; // better name?
+
+	// flag to do load returning from thumb mode
+	int do_next;
 
 	int fullscreen;
 	int fill_mode;
@@ -1285,6 +1287,7 @@ void setup(int start_idx)
 	g->img = g->img1;
 	g->slide_delay = 3;
 	g->gui_delay = HIDE_GUI_DELAY;
+	g->do_next = nk_false;
 	g->show_infobar = nk_true;
 	g->thumb_x_deletes = nk_false;
 	g->ind_mm = nk_false;
@@ -2325,20 +2328,59 @@ void do_thumb_rem_del(int do_delete, int invert)
 		end = g->thumb_sel;
 		start = g->thumb_sel_end;
 	}
-	if (do_delete) {
-		for (int i=start; i<=end; ++i) {
-			if (remove(g->files.a[i].path))
-				perror("Failed to delete image");
-			else
-				SDL_Log("Deleted %s\n", g->files.a[i].path);
+	if (!invert) {
+		if (do_delete) {
+			for (int i=start; i<=end; ++i) {
+				if (remove(g->files.a[i].path))
+					perror("Failed to delete image");
+				else
+					SDL_Log("Deleted %s\n", g->files.a[i].path);
+			}
 		}
-	}
-	cvec_erase_file(&g->files, start, end);
-	cvec_erase_thumb_state(&g->thumbs, start, end);
+		cvec_erase_file(&g->files, start, end);
+		cvec_erase_thumb_state(&g->thumbs, start, end);
 
-	if (!g->files.size) {
-		SDL_Log("You removed all your currently viewed images, exiting\n");
-		cleanup(0, 1);
+		// this can only happen normally, with invert, obviously whatever you selected
+		// is still there
+		if (!g->files.size) {
+			SDL_Log("You removed all your currently viewed images, exiting\n");
+			cleanup(0, 1);
+		}
+
+	} else {
+		// invert selection means erase the pictures after and before
+		// (in that order so less shifting is needed ... could also
+		// just make a new vector, remove the selection and copy into
+		// that and then free the original
+		int start1 = end+1, end1 = g->files.size-1;
+		// NOTE(rswinkle) cvector does not check for invalid parameters
+		if (start1 <= end1) {
+			if (do_delete) {
+				for (int i=start1; i<=end1; ++i) {
+					if (remove(g->files.a[i].path))
+						perror("Failed to delete image");
+					else
+						SDL_Log("Deleted %s\n", g->files.a[i].path);
+				}
+			}
+			cvec_erase_file(&g->files, start1, end1);
+			cvec_erase_thumb_state(&g->thumbs, start1, end1);
+		}
+
+		// now the images to the left
+		start1 = 0, end1 = start-1;
+		if (start1 <= end1) {
+			if (do_delete) {
+				for (int i=start1; i<=end1; ++i) {
+					if (remove(g->files.a[i].path))
+						perror("Failed to delete image");
+					else
+						SDL_Log("Deleted %s\n", g->files.a[i].path);
+				}
+			}
+			cvec_erase_file(&g->files, start1, end1);
+			cvec_erase_thumb_state(&g->thumbs, start1, end1);
+		}
 	}
 
 	// TODO maybe set some state variable to trigger a NEXT event
@@ -2348,14 +2390,20 @@ void do_thumb_rem_del(int do_delete, int invert)
 	// they'll actually skip the image to the left since we artificially
 	// subtract one so going right will work normally)
 	for (int i=0; i<g->n_imgs; ++i) {
-		if (g->img[i].index >= start && g->img[i].index <= end) {
-			g->img[i].index = (start) ? start-1 : g->files.size-1;
+		if (!invert) {
+			if (g->img[i].index >= start && g->img[i].index <= end) {
+				g->img[i].index = (start) ? start-1 : g->files.size-1;
+				g->do_next = nk_true;
+			}
+		} else if (g->img[i].index < start || g->img[i].index > end) {
+			g->img[i].index = (i) ? (g->img[i-1].index + 1) % g->files.size : g->files.size - 1;
+			g->do_next = nk_true;
 		}
 	}
-	g->thumb_sel = start;  // in case it was > _sel_end
+	g->thumb_sel = (!invert) ? start : 0;  // in case it was > _sel_end
 	fix_thumb_sel(1);
 
-	// exit Visual mode after x like vim
+	// exit Visual mode after r/x (and backspace in this case) like vim
 	g->state = THUMB_DFLT;
 }
 

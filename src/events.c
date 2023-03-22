@@ -36,10 +36,19 @@ int handle_thumb_events()
 			sym = e.key.keysym.sym;
 			switch (sym) {
 			case SDLK_ESCAPE:
+				// TODO really think and test state changes using ESC, thumb_sel/selection
 				if (g->state & THUMB_DFLT) {
 					g->state = NORMAL;
 					g->thumb_start_row = 0;
 					g->show_gui = SDL_TRUE;
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+
+					if (g->do_next) {
+						try_move(RIGHT);
+						g->do_next = nk_false;
+						
+					}
 				} else {
 					g->state = THUMB_DFLT;
 				}
