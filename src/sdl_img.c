@@ -2383,21 +2383,26 @@ void do_thumb_rem_del(int do_delete, int invert)
 		}
 	}
 
-	// TODO maybe set some state variable to trigger a NEXT event
-	// if they return to normal mode by ESC rather than hitting
-	// enter otherwise the removed/deleted image will still be their
-	// currently viewed image until they move (and if they move left
-	// they'll actually skip the image to the left since we artificially
-	// subtract one so going right will work normally)
+	// If the current images are among the removed, update to 1
+	// to the left and turn on the do_next flag (do when exiting thumb
+	// mode).
+	//
+	// If the current images remain but images to the left were
+	// removed, their index needs to be updated for the shift in
+	// position
 	for (int i=0; i<g->n_imgs; ++i) {
 		if (!invert) {
 			if (g->img[i].index >= start && g->img[i].index <= end) {
 				g->img[i].index = (start) ? start-1 : g->files.size-1;
 				g->do_next = nk_true;
+			} else if (g->img[i].index > end) {
+				g->img[i].index -= end - start + 1;
 			}
 		} else if (g->img[i].index < start || g->img[i].index > end) {
 			g->img[i].index = (i) ? (g->img[i-1].index + 1) % g->files.size : g->files.size - 1;
 			g->do_next = nk_true;
+		} else {
+			g->img[i].index -= start;
 		}
 	}
 	g->thumb_sel = (!invert) ? start : 0;  // in case it was > _sel_end
