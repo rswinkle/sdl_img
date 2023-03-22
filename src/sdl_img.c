@@ -108,7 +108,10 @@ enum {
 
 #define PATH_SEPARATOR '/'
 #define PAN_RATE 0.05
-#define MIN_GIF_DELAY 10
+#define MAX_GIF_FPS 100
+#define MIN_GIF_DELAY (1000/MAX_GIF_FPS)
+#define DEFAULT_GIF_FPS 20
+#define DEFAULT_GIF_DELAY (1000/DEFAULT_GIF_FPS)
 #define HIDE_GUI_DELAY 2
 #define SLEEP_TIME 50
 #define STRBUF_SZ 1024
@@ -1034,7 +1037,7 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 		img->looped = 0;
 		img->delay = *(short*)(&img->pixels[size]); // * 10;
 		if (!img->delay)
-			img->delay = 100;
+			img->delay = DEFAULT_GIF_DELAY;
 		img->delay = MAX(MIN_GIF_DELAY, img->delay);
 		SDL_Log("%d frames %d delay\n", frames, img->delay);
 	}
