@@ -46,15 +46,16 @@ void search_filenames()
 {
 	// fast enough to do here?  I do it in events?
 	text[text_len] = 0;
-	SDL_Log("Final text = \"%s\"\n", text);
+	SDL_Log("Final text = \"%s\"\n", &text[1]);
 
 	// strcasestr is causing problems on windows
 	// so just convert to lower before using strstr
 	char lowertext[STRBUF_SZ] = { 0 };
 	char lowername[STRBUF_SZ] = { 0 };
 
-	for (int i=0; i<text_len; ++i) {
-		lowertext[i] = tolower(text[i]);
+	// start at 1 to cut off '/'
+	for (int i=1; i<text_len; ++i) {
+		lowertext[i-1] = tolower(text[i]);
 	}
 
 	// it'd be kind of cool to add results of multiple searches together if we leave this out
@@ -859,8 +860,7 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	int num_rows = (g->files.size+g->thumb_cols-1)/g->thumb_cols;
 	int row;
 
-	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR))
-	{
+	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR)) {
 		if (!(g->state & SEARCH_RESULTS)) {
 			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
 			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
@@ -884,8 +884,16 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 			}
 		}
 
-		nk_layout_row_dynamic(ctx, 0, 1);
-		nk_label(ctx, info_buf, NK_TEXT_RIGHT);
+		if (g->state != THUMB_SEARCH) {
+			nk_layout_row_dynamic(ctx, 0, 1);
+			nk_label(ctx, info_buf, NK_TEXT_RIGHT);
+		} else {
+			// keep GUI up to show what they've typed
+			g->gui_timer = SDL_GetTicks();
+			nk_layout_row_dynamic(ctx, 0, 2);
+			nk_label(ctx, text, NK_TEXT_LEFT);
+			nk_label(ctx, info_buf, NK_TEXT_RIGHT);
+		}
 	}
 	nk_end(ctx);
 }

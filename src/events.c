@@ -62,10 +62,14 @@ int handle_thumb_events()
 				break;
 			case SDLK_SLASH:
 				g->state = THUMB_SEARCH;
-				text[0] = 0;
-				text_len = 0;
+				text[0] = '/';
+				text[1] = 0;
+				text_len = 1;
 				g->search_results.size = 0;
 				SDL_StartTextInput();
+
+				g->gui_timer = SDL_GetTicks();
+				g->show_gui = nk_true;
 				break;
 			case SDLK_v:
 				if (g->state & THUMB_DFLT) {
@@ -102,6 +106,7 @@ int handle_thumb_events()
 				break;
 			case SDLK_RETURN:
 				if (g->state & (THUMB_DFLT | SEARCH_RESULTS)) {
+					// TODO document this behavior
 					if (g->state & SEARCH_RESULTS && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 						g->state |= VIEW_MASK;
 
@@ -379,6 +384,9 @@ int handle_list_events()
 			code = e.user.code;
 			switch (code) {
 			case THUMB_MODE:
+				// TODO manage state switching between list mode and thumb mode
+				// ie viewing search results of the former seamlessly moving to
+				// the latter
 				//do_thumbmode();
 				break;
 			case SHUFFLE:
