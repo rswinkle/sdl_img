@@ -811,6 +811,7 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	char gif_buf[32];
 	char* size_str;
 	unsigned long index, total;
+	float ratios[] = { 0.5f, 0.1, 0.4f };
 
 	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR))
 	{
@@ -830,17 +831,18 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 			index = img->index;
 			total = (IS_VIEW_RESULTS()) ? g->search_results.size : g->files.size;
 
-			int len = snprintf(info_buf, STRBUF_SZ, "%d x %d pixels  %s  %d %%    %lu / %lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total);
+			int len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total);
 			if (len >= STRBUF_SZ) {
 				puts("info path too long");
 				cleanup(1, 1);
 			}
 			if (img->frames > 1) {
-				snprintf(gif_buf, 32, "%lu / %d", img->frame_i+1, img->frames);
+				snprintf(gif_buf, 32, "%lu/%d", img->frame_i+1, img->frames);
 
-				nk_layout_row_dynamic(ctx, 0, 3);
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
+				//nk_layout_row_static(ctx, 0, 3);
 				nk_label(ctx, info_buf, NK_TEXT_LEFT);
-				nk_label(ctx, gif_buf, NK_TEXT_RIGHT);
+				nk_label(ctx, gif_buf, NK_TEXT_LEFT);
 
 				g->progress_hovered = nk_widget_is_hovered(ctx);
 				nk_progress(ctx, &img->frame_i, img->frames-1, NK_MODIFIABLE);
