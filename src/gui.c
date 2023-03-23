@@ -141,7 +141,7 @@ void draw_gui(struct nk_context* ctx)
 					g->orig_w = 0;
 					g->orig_h = 0;
 				}
-				g->show_rotate = 0;;
+				g->show_rotate = SDL_FALSE;;
 			}
 		}
 		nk_end(ctx);
@@ -187,7 +187,7 @@ void draw_gui(struct nk_context* ctx)
 
 			nk_layout_row_dynamic(ctx, 0, 1);
 			if (nk_button_label(ctx, "Ok")) {
-				g->show_about = 0;;
+				g->show_about = SDL_FALSE;;
 			}
 		}
 		nk_end(ctx);
@@ -205,7 +205,7 @@ void draw_gui(struct nk_context* ctx)
 	// be able to interact with it.  Could look up how to make them inactive
 	// but meh, this is simpler
 	if (g->show_about || g->show_prefs || g->show_rotate) {
-		g->show_gui = 1;
+		g->show_gui = SDL_TRUE;
 		g->gui_timer = SDL_GetTicks();
 		return;
 	}
@@ -218,7 +218,7 @@ void draw_gui(struct nk_context* ctx)
 		return;
 	}
 
-	int is_selected = 0;
+	int is_selected = SDL_FALSE;
 	int symbol;
 	float search_ratio[] = { 0.25f, 0.75f };
 	int list_height;
@@ -346,7 +346,7 @@ void draw_gui(struct nk_context* ctx)
 						int i;
 						for (int j=rview.begin; j<rview.end; ++j) {
 							i = g->search_results.a[j];
-							// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
+							// TODO Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
 							// also thumb_sel serves the same/similar purpose
 							is_selected = g->selection == j;
 							if (nk_selectable_label(ctx, g->files.a[i].name, NK_TEXT_LEFT, &is_selected)) {
@@ -460,7 +460,7 @@ void draw_gui(struct nk_context* ctx)
 
 		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(GUI_MENU_WIN_W, GUI_MENU_WIN_H))) {
 			// also don't let GUI disappear when the menu is active
-			g->show_gui = 1;
+			g->show_gui = SDL_TRUE;
 			g->gui_timer = SDL_GetTicks();
 
 			enum nk_collapse_states state;
@@ -485,10 +485,10 @@ void draw_gui(struct nk_context* ctx)
 
 			nk_layout_row_dynamic(ctx, 0, 1);
 			if (nk_menu_item_label(ctx, "Preferences", NK_TEXT_LEFT)) {
-				g->show_prefs = nk_true;
+				g->show_prefs = SDL_TRUE;
 			}
 			if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
-				g->show_about = nk_true;
+				g->show_about = SDL_TRUE;
 			}
 			if (nk_menu_item_label(ctx, "Exit", NK_TEXT_LEFT)) {
 				event.type = SDL_QUIT;
@@ -797,7 +797,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		nk_layout_space_begin(ctx, NK_STATIC, 60, 1);
 		nk_layout_space_push(ctx, nk_rect(GUI_PREFS_W-OK_WIDTH-12, 20, OK_WIDTH, 40));
 		if (nk_button_label(ctx, "Ok")) {
-			g->show_prefs = 0;;
+			g->show_prefs = SDL_FALSE;;
 		}
 		nk_layout_space_end(ctx);
 #undef OK_WIDTH

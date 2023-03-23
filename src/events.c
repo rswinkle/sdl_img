@@ -69,7 +69,7 @@ int handle_thumb_events()
 				SDL_StartTextInput();
 
 				g->gui_timer = SDL_GetTicks();
-				g->show_gui = nk_true;
+				g->show_gui = SDL_TRUE;
 				break;
 			case SDLK_v:
 				if (g->state & THUMB_DFLT) {
@@ -157,7 +157,7 @@ int handle_thumb_events()
 					fix_thumb_sel((sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1);
 					SDL_ShowCursor(SDL_ENABLE);
 					g->gui_timer = SDL_GetTicks();
-					g->show_gui = 1;
+					g->show_gui = SDL_TRUE;
 				}
 				break;
 			case SDLK_LEFT:
@@ -176,7 +176,7 @@ int handle_thumb_events()
 						fix_thumb_sel((sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1);
 						SDL_ShowCursor(SDL_ENABLE);
 						g->gui_timer = SDL_GetTicks();
-						g->show_gui = 1;
+						g->show_gui = SDL_TRUE;
 					}
 				}
 				break;
@@ -216,7 +216,7 @@ int handle_thumb_events()
 					g->thumb_sel = g->search_results.a[g->cur_result];
 					SDL_ShowCursor(SDL_ENABLE);
 					g->gui_timer = SDL_GetTicks();
-					g->show_gui = 1;
+					g->show_gui = SDL_TRUE;
 				}
 				break;
 			case SDLK_BACKSPACE:
@@ -229,7 +229,7 @@ int handle_thumb_events()
 		case SDL_MOUSEMOTION:
 			SDL_ShowCursor(SDL_ENABLE);
 			g->gui_timer = SDL_GetTicks();
-			g->show_gui = 1;
+			g->show_gui = SDL_TRUE;
 			break;
 		case SDL_MOUSEBUTTONUP:
 			// TODO should have this behavior in VISUAL MODE too?  Single click changes
@@ -269,7 +269,7 @@ int handle_thumb_events()
 				}
 				SDL_ShowCursor(SDL_ENABLE);
 				g->gui_timer = SDL_GetTicks();
-				g->show_gui = 1;
+				g->show_gui = SDL_TRUE;
 			}
 			break;
 
@@ -619,7 +619,7 @@ int handle_events_normally()
 	img_state* img;
 
 	// eat all escapes this frame after copy dialog ended with "no"
-	int copy_escape = 0;
+	int copy_escape = SDL_FALSE;
 
 	g->status = NOCHANGE;
 
@@ -698,7 +698,7 @@ int handle_events_normally()
 	u32 mouse_button_mask = SDL_GetMouseState(&mouse_x, &mouse_y);
 	int sort_timer;
 	
-	int done_rotate = 0;
+	int done_rotate = SDL_FALSE;
 	int code;
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
@@ -991,7 +991,7 @@ int handle_events_normally()
 					} else {
 						do_rotate(sc == SDL_SCANCODE_L, SDL_TRUE);
 					}
-					done_rotate = 1;
+					done_rotate = SDL_TRUE;
 				}
 				break;
 
@@ -1043,7 +1043,7 @@ int handle_events_normally()
 				// TODO more elegant way
 				if (g->show_prefs)
 					break;
-				zoomed = 0;
+				zoomed = SDL_FALSE;
 				g->status = REDRAW;
 				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (!g->img_focus) {
@@ -1052,7 +1052,7 @@ int handle_events_normally()
 							if (img->disp_rect.w > img->scr_rect.w) {
 								img->disp_rect.x -= PAN_RATE * img->disp_rect.w;
 								fix_rect(img);
-								zoomed = 1;
+								zoomed = SDL_TRUE;
 							}
 							zoomed = zoomed || img->disp_rect.h > img->scr_rect.h;
 						}
@@ -1061,7 +1061,7 @@ int handle_events_normally()
 						if (img->disp_rect.w > img->scr_rect.w) {
 							img->disp_rect.x -= PAN_RATE * img->disp_rect.w;
 							fix_rect(img);
-							zoomed = 1;
+							zoomed = SDL_TRUE;
 						}
 						zoomed = zoomed || img->disp_rect.h > img->scr_rect.h;
 					}
@@ -1071,7 +1071,7 @@ int handle_events_normally()
 				}
 				break;
 			case SDL_SCANCODE_DOWN:
-				zoomed = 0;
+				zoomed = SDL_FALSE;
 				g->status = REDRAW;
 				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (!g->img_focus) {
@@ -1080,7 +1080,7 @@ int handle_events_normally()
 							if (img->disp_rect.h > img->scr_rect.h) {
 								img->disp_rect.y -= PAN_RATE * img->disp_rect.h;
 								fix_rect(img);
-								zoomed = 1;
+								zoomed = SDL_TRUE;
 							}
 							zoomed = zoomed || img->disp_rect.w > img->scr_rect.w;
 						}
@@ -1089,7 +1089,7 @@ int handle_events_normally()
 						if (img->disp_rect.h > img->scr_rect.h) {
 							img->disp_rect.y -= PAN_RATE * img->disp_rect.h;
 							fix_rect(img);
-							zoomed = 1;
+							zoomed = SDL_TRUE;
 						}
 						zoomed = zoomed || img->disp_rect.w > img->scr_rect.w;
 					}
@@ -1102,7 +1102,7 @@ int handle_events_normally()
 			case SDL_SCANCODE_LEFT:
 				if (g->show_prefs)
 					break;
-				zoomed = 0;
+				zoomed = SDL_FALSE;
 				g->status = REDRAW;
 				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (!g->img_focus) {
@@ -1111,7 +1111,7 @@ int handle_events_normally()
 							if (img->disp_rect.w > img->scr_rect.w) {
 								img->disp_rect.x += PAN_RATE * img->disp_rect.w;
 								fix_rect(img);
-								zoomed = 1;
+								zoomed = SDL_TRUE;
 							}
 							zoomed = zoomed || img->disp_rect.h > img->scr_rect.h;
 						}
@@ -1120,7 +1120,7 @@ int handle_events_normally()
 						if (img->disp_rect.w > img->scr_rect.w) {
 							img->disp_rect.x += PAN_RATE * img->disp_rect.w;
 							fix_rect(img);
-							zoomed = 1;
+							zoomed = SDL_TRUE;
 						}
 						zoomed = zoomed || img->disp_rect.h > img->scr_rect.h;
 					}
@@ -1130,7 +1130,7 @@ int handle_events_normally()
 				}
 				break;
 			case SDL_SCANCODE_UP:
-				zoomed = 0;
+				zoomed = SDL_FALSE;
 				g->status = REDRAW;
 				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					if (!g->img_focus) {
@@ -1139,7 +1139,7 @@ int handle_events_normally()
 							if (img->disp_rect.h > img->scr_rect.h) {
 								img->disp_rect.y += PAN_RATE * img->disp_rect.h;
 								fix_rect(img);
-								zoomed = 1;
+								zoomed = SDL_TRUE;
 							}
 							zoomed = zoomed || img->disp_rect.w > img->scr_rect.w;
 						}
@@ -1148,7 +1148,7 @@ int handle_events_normally()
 						if (img->disp_rect.h > img->scr_rect.h) {
 							img->disp_rect.y += PAN_RATE * img->disp_rect.h;
 							fix_rect(img);
-							zoomed = 1;
+							zoomed = SDL_TRUE;
 						}
 						zoomed = zoomed || img->disp_rect.w > img->scr_rect.w;
 					}
@@ -1208,7 +1208,7 @@ int handle_events_normally()
 
 			SDL_ShowCursor(SDL_ENABLE);
 			g->gui_timer = SDL_GetTicks();
-			g->show_gui = 1;
+			g->show_gui = SDL_TRUE;
 			break;
 
 		case SDL_MOUSEBUTTONDOWN:
@@ -1218,7 +1218,7 @@ int handle_events_normally()
 			g->status = REDRAW;
 			SDL_ShowCursor(SDL_ENABLE);
 			g->gui_timer = SDL_GetTicks();
-			g->show_gui = 1;
+			g->show_gui = SDL_TRUE;
 			break;
 
 		case SDL_MOUSEWHEEL:

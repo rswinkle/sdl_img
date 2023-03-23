@@ -1526,6 +1526,9 @@ void rotate_img90(img_state* img, int left)
 		p = (i32*)&pix[k*(sz*4+2)];
 		for (int i=0; i<h; ++i) {
 			for (int j=0; j<w; ++j) {
+				// TODO use memcpy, because get unaligned access
+				// errors because of the 2 byte short after
+				// every frame... worth it?
 				if (left)
 					rot[(w-j-1)*h+i] = p[i*w+j];
 				else
@@ -2230,7 +2233,7 @@ void do_save()
 // and trying to minimize external dependencies.
 int do_copy()
 {
-	static int show_warning = 1;
+	static int show_warning = SDL_TRUE;
 
 	if (g->loading)
 		return 0;
