@@ -798,7 +798,7 @@ int handle_events_normally()
 						g->show_about = nk_false;
 					} else if (g->show_prefs) {
 						g->show_prefs = nk_false;
-					}else if (g->slideshow) {
+					} else if (g->slideshow) {
 						SDL_Log("Ending slideshow");
 						g->slideshow = 0;
 					} else if (g->fullscreen) {
@@ -1215,10 +1215,22 @@ int handle_events_normally()
 
 		case SDL_MOUSEWHEEL:
 			g->status = REDRAW;
-			if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
-				do_zoom(e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
+			if (!g->progress_hovered) {
+				if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
+					do_zoom(e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
+				} else {
+					do_zoom(-e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
+				}
 			} else {
-				do_zoom(-e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
+				int f = g->img[0].frame_i;
+				f += e.wheel.y;
+				if (f < 0) {
+					f += g->img[0].frames;
+				}
+				f %= g->img[0].frames;
+
+				g->img[0].frame_i = f;
+				g->gui_timer = SDL_GetTicks();
 			}
 			break;
 

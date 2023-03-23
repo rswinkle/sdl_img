@@ -841,12 +841,8 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 				nk_label(ctx, info_buf, NK_TEXT_LEFT);
 				nk_label(ctx, gif_buf, NK_TEXT_RIGHT);
 
-				g->progress_hovered = nk_false;
-				if (nk_widget_is_hovered(ctx)) {
-					g->progress_hovered = nk_true;
-				}
+				g->progress_hovered = nk_widget_is_hovered(ctx);
 				nk_progress(ctx, &img->frame_i, img->frames-1, NK_MODIFIABLE);
-				printf("frame_i = %lu\n", img->frame_i);
 			} else {
 				nk_layout_row_static(ctx, 0, scr_w, 1);
 				nk_label(ctx, info_buf, NK_TEXT_LEFT);

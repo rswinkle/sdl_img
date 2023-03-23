@@ -2706,6 +2706,7 @@ int main(int argc, char** argv)
 		if ((!IS_LIST_MODE() || IS_VIEW_RESULTS()) && g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
 			SDL_ShowCursor(SDL_DISABLE);
 			g->show_gui = nk_false;
+			g->progress_hovered = nk_false;
 			g->status = REDRAW;
 		}
 
