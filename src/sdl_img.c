@@ -214,6 +214,7 @@ CVEC_NEW_DECLS2(thumb_state)
 
 CVEC_NEW_DEFS2(thumb_state, RESIZE)
 
+// TODO struct packing?  save a few bytes?
 typedef struct file
 {
 	char* path;   // could be url;
@@ -242,7 +243,7 @@ typedef struct img_state
 
 	int index;
 
-	int frame_i;
+	nk_size frame_i;
 	int delay; // for now just use the same delay for every frame
 	int frames;
 	int frame_capacity;
@@ -301,6 +302,8 @@ typedef struct global_state
 
 	// flag to do load returning from thumb mode
 	int do_next;
+
+	int progress_hovered;
 
 	int fullscreen;
 	int fill_mode;
@@ -1291,6 +1294,7 @@ void setup(int start_idx)
 	g->slide_delay = 3;
 	g->gui_delay = HIDE_GUI_DELAY;
 	g->do_next = nk_false;
+	g->progress_hovered = nk_false;
 	g->show_infobar = nk_true;
 	g->thumb_x_deletes = nk_false;
 	g->ind_mm = nk_false;
@@ -2798,13 +2802,15 @@ int main(int argc, char** argv)
 			// make above plain else to do transparently show image beneath list, could work as a preview...
 			// normal mode
 			for (int i=0; i<g->n_imgs; ++i) {
-				if (g->img[i].frames > 1 && !g->img[i].paused) {
-					if (ticks - g->img[i].frame_timer >= g->img[i].delay) {
-						g->img[i].frame_i = (g->img[i].frame_i + 1) % g->img[i].frames;
-						if (g->img[i].frame_i == 0)
-							g->img[i].looped = 1;
-						g->img[i].frame_timer = ticks; // should be set after present ...
-						g->status = REDRAW;
+				if (g->img[i].frames > 1) {
+					if (!g->progress_hovered && !g->img[i].paused) {
+						if (ticks - g->img[i].frame_timer >= g->img[i].delay) {
+							g->img[i].frame_i = (g->img[i].frame_i + 1) % g->img[i].frames;
+							if (g->img[i].frame_i == 0)
+								g->img[i].looped = 1;
+							g->img[i].frame_timer = ticks; // should be set after present ...
+							g->status = REDRAW;
+						}
 					}
 					is_a_gif = 1;
 				}

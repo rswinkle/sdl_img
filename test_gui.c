@@ -46,6 +46,8 @@ int slide_delay = 3;
 int thumb_rows = 8;
 int thumb_cols = 15;
 int gui_delay = 2;
+nk_size gif_prog = 0;
+int gif_prog_active = 0;
 int show_about = nk_false;
 int show_prefs = nk_true;
 int show_rotate = nk_false;
@@ -193,8 +195,20 @@ int main(void)
 
 	bg2 = nk_rgb(28,48,62);
 	bg = nk_color_cf(bg2);
+	int start_time = SDL_GetTicks();
+	int time;
+	int mx, my;
+	Uint32 mstate;
 	while (running)
 	{
+		time = SDL_GetTicks();
+		mstate = SDL_GetMouseState(&mx, &my);
+		if (!(SDL_BUTTON_LMASK & mstate) && time - start_time > 50) {
+			gif_prog++;
+			gif_prog %= 112;
+			printf("gif_prog = %lu\n", gif_prog);
+			start_time = SDL_GetTicks();
+		}
 		SDL_RenderSetScale(ren, x_scale, y_scale);
 
 		if (handle_events(ctx))
@@ -883,8 +897,9 @@ void draw_gui(struct nk_context* ctx)
 					puts("info path too long");
 					exit(1);
 				}
-				nk_layout_row_static(ctx, 0, scr_w, 1);
+				nk_layout_row_dynamic(ctx, 0, 2);
 				nk_label(ctx, info_buf, NK_TEXT_LEFT);
+				nk_progress(ctx, &gif_prog, 112, NK_MODIFIABLE);
 			}
 		}
 		nk_end(ctx);
