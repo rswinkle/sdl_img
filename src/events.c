@@ -1224,10 +1224,24 @@ int handle_events_normally()
 		case SDL_MOUSEWHEEL:
 			g->status = REDRAW;
 			if (!g->progress_hovered) {
-				if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
-					do_zoom(e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
+				if (!(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
+					if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
+						do_zoom(e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
+					} else {
+						do_zoom(-e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
+					}
+				} else if (!g->img_focus) {
+					for (int i=0; i<g->n_imgs; ++i) {
+						if (g->img[i].frames > 1) {
+							g->img[i].delay -= e.wheel.y*10;
+							g->img[i].delay = MAX(MIN_GIF_DELAY, g->img[i].delay);
+						}
+					}
 				} else {
-					do_zoom(-e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
+					if (g->img_focus->frames > 1) {
+						g->img_focus->delay -= e.wheel.y*10;
+						g->img_focus->delay = MAX(MIN_GIF_DELAY, g->img_focus->delay);
+					}
 				}
 			} else {
 				int f = g->img[0].frame_i;
