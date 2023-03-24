@@ -45,10 +45,10 @@ extern inline char isnum(char b)
 	return 0;
 }
 
-extern inline int parsenum(char **a_p)
+extern inline i64 parsenum(char **a_p)
 {
 	char *a = *a_p;
-	int result = *a - '0';
+	i64 result = *a - '0';
 	++a;
 
 	while (isnum(*a)) {
@@ -72,7 +72,7 @@ int StringCompare(char *a, char *b)
 
 	while (*a && *b) {
 
-		int a0, b0;	// will contain either a number or a letter
+		i64 a0, b0; // will contain either a number or a letter
 
 		if (isnum(*a) && isnum(*b)) {
 			a0 = parsenum(&a);
