@@ -617,6 +617,7 @@ int handle_events_normally()
 	int zoomed;
 	char title_buf[STRBUF_SZ];
 	img_state* img;
+	int scroll_y;
 
 	// eat all escapes this frame after copy dialog ended with "no"
 	int copy_escape = SDL_FALSE;
@@ -1223,29 +1224,29 @@ int handle_events_normally()
 
 		case SDL_MOUSEWHEEL:
 			g->status = REDRAW;
+			scroll_y = e.wheel.y;
+			if (e.wheel.direction != SDL_MOUSEWHEEL_NORMAL)
+				scroll_y = -scroll_y;
+
 			if (!g->progress_hovered) {
 				if (!(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
-					if (e.wheel.direction == SDL_MOUSEWHEEL_NORMAL) {
-						do_zoom(e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
-					} else {
-						do_zoom(-e.wheel.y*SCROLL_ZOOM, SDL_TRUE);
-					}
+					do_zoom(scroll_y*SCROLL_ZOOM, SDL_TRUE);
 				} else if (!g->img_focus) {
 					for (int i=0; i<g->n_imgs; ++i) {
 						if (g->img[i].frames > 1) {
-							g->img[i].delay -= e.wheel.y*10;
+							g->img[i].delay -= scroll_y*10;
 							g->img[i].delay = MAX(MIN_GIF_DELAY, g->img[i].delay);
 						}
 					}
 				} else {
 					if (g->img_focus->frames > 1) {
-						g->img_focus->delay -= e.wheel.y*10;
+						g->img_focus->delay -= scroll_y*10;
 						g->img_focus->delay = MAX(MIN_GIF_DELAY, g->img_focus->delay);
 					}
 				}
 			} else {
 				int f = g->img[0].frame_i;
-				f += e.wheel.y;
+				f += scroll_y;
 				if (f < 0) {
 					f += g->img[0].frames;
 				}
