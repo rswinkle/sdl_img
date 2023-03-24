@@ -922,7 +922,7 @@ int mkdir_p(const char* path, mode_t mode)
 	return 0;
 }
 
-int curl_image(int img_idx)
+char* curl_image(int img_idx)
 {
 	CURL* curl = curl_easy_init();
 	CURLcode res;
@@ -988,11 +988,11 @@ int curl_image(int img_idx)
 
 
 	curl_easy_cleanup(curl);
-	return 1;
+	return f->path;
 
 exit_cleanup:
 	curl_easy_cleanup(curl);
-	return 0;
+	return NULL;
 }
 
 int load_image(const char* fullpath, img_state* img, int make_textures)
@@ -1167,7 +1167,7 @@ int attempt_image_load(int last, img_state* img)
 	}
 	int ret = load_image(path, img, SDL_FALSE);
 	if (!ret)
-		if (curl_image(last)) //TODO results
+		if ((path = curl_image(last))) //TODO results
 			ret = load_image(path, img, SDL_FALSE);
 	return ret;
 }
@@ -1323,9 +1323,8 @@ void setup(int start_idx)
 		// TODO best way to structure this and use in main()?
 		ret = load_image(img_name, &g->img[0], SDL_FALSE);
 		if (!ret) {
-			if (curl_image(i)) {
-				ret = load_image(g->files.a[i].path, &g->img[0], SDL_FALSE);
-				img_name = g->files.a[i].path;
+			if ((img_name = curl_image(i))) {
+				ret = load_image(img_name, &g->img[0], SDL_FALSE);
 			}
 		}
 		i = (i+1) % g->files.size;
