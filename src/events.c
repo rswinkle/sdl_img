@@ -745,6 +745,9 @@ int handle_events_normally()
 			case ACTUAL_SIZE:
 				do_actual_size();
 				break;
+			case REMOVE_BAD:
+				remove_bad_paths();
+				break;
 			case SHUFFLE:
 				do_shuffle();
 				break;

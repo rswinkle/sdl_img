@@ -73,8 +73,8 @@ enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
-       MODE_CHANGE, THUMB_MODE, LIST_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, SHUFFLE,
-       SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
+       MODE_CHANGE, THUMB_MODE, LIST_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, REMOVE_BAD,
+       SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
 
 // Better names/macros
 enum {
@@ -684,6 +684,46 @@ void cleanup(int ret, int called_setup)
 	exit(ret);
 }
 
+void remove_bad_paths()
+{
+	if (!g->n_bad_paths) {
+		SDL_Log("No bad paths to remove, have you generated thumbs?\n");
+		return;
+	}
+
+	char* cur_paths[8];
+	for (int i=0; i<g->n_imgs; i++) {
+		cur_paths[i] = g->files.a[g->img[i].index].path;
+	}
+
+	int j;
+	// bad paths were already set to NULL, and thumb_state array was
+	// calloc'd so tex also NULL, so can remove rather than erase
+	for (int i=0; i<g->files.size; i++) {
+		if (!g->files.a[i].path) {
+			for (j=i+1; !g->files.a[j].path; j++);
+
+			SDL_Log("Removing [%d %d]\n", i, j-1);
+			cvec_remove_file(&g->files, i, j-1);
+			cvec_remove_thumb_state(&g->thumbs, i, j-1);
+		}
+	}
+
+	// inefficient brute force, meh
+	// TODO use bsearch if list is currently sorted
+	int n = g->n_imgs;
+	for (int i=0; i<n; i++) {
+		for (int j=0; j<g->files.size; j++) {
+			if (!strcmp(cur_paths[i], g->files.a[j].path)) {
+				g->img[i].index = j;
+				break;
+			}
+		}
+	}
+	g->n_bad_paths = 0;
+	SDL_Log("Done removing bad paths\n");
+}
+
 char* curl_image(int img_idx)
 {
 	CURL* curl = curl_easy_init();
@@ -697,7 +737,7 @@ char* curl_image(int img_idx)
 	// which is all I do...
 	//curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlerror);
-	//curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+	curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 	#ifdef _WIN32
 	curl_easy_setopt(curl, CURLOPT_CAINFO, "ca-bundle.crt");
 	curl_easy_setopt(curl, CURLOPT_CAPATH, SDL_GetBasePath());
@@ -723,8 +763,13 @@ char* curl_image(int img_idx)
 
 	curl_easy_setopt(curl, CURLOPT_URL, s);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
+	// follow redirect
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 
-	if ((res = curl_easy_perform(curl)) != CURLE_OK) {
+	res = curl_easy_perform(curl);
+	long http_code = 0;
+	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+	if (res != CURLE_OK || http_code != 200) {
 		SDL_Log("curl error: %d %s\n", res, curlerror);
 		fclose(imgfile);
 		remove(filename);
@@ -735,6 +780,14 @@ char* curl_image(int img_idx)
 
 	struct stat file_stat;
 	stat(filename, &file_stat);
+	// empty file
+	if (!file_stat.st_size) {
+		SDL_Log("file size is 0\n");
+		remove(filename);
+		goto exit_cleanup;
+	} else {
+		SDL_Log("file size is %ld\n", file_stat.st_size);
+	}
 
 	file* f = &g->files.a[img_idx];
 	free(f->path);
@@ -826,8 +879,14 @@ int thumb_thread(void* data)
 			// TODO threading issue if user is trying
 			// to load i at the same time, both will try
 			// to download it
-			if (!curl_image(i))
+			SDL_Log("Couldn't stat %d %s\n", i, g->files.a[i].path);
+			if (!curl_image(i)) {
+				SDL_Log("Couldn't curl %d\n", i);
+				free(g->files.a[i].path);
+				g->files.a[i].path = NULL;
+				g->n_bad_paths++;
 				continue;
+			}
 		}
 
 		// Windows will just generate duplicate thumbnails most of the time
@@ -1157,10 +1216,13 @@ int attempt_image_load(int last, img_state* img)
 	} else {
 		path = g->files.a[last].path;
 	}
-	int ret = load_image(path, img, SDL_FALSE);
-	if (!ret)
-		if ((path = curl_image(last))) //TODO results
-			ret = load_image(path, img, SDL_FALSE);
+	int ret = 0;
+	if (path) {
+		ret = load_image(path, img, SDL_FALSE);
+		if (!ret)
+			if ((path = curl_image(last))) //TODO results
+				ret = load_image(path, img, SDL_FALSE);
+	}
 	return ret;
 }
 
