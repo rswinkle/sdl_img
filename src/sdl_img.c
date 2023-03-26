@@ -287,6 +287,8 @@ typedef struct global_state
 	cvector_file files;
 	cvector_str favs;
 
+	int n_bad_paths; // number of paths/urls that failed
+
 	int state; // better name?
 
 	// flag to do load returning from thumb mode
@@ -1294,6 +1296,7 @@ void setup(int start_idx)
 	g->thumb_cols = THUMB_COLS;
 	g->sorted_state = NAME_UP;  // ie by name ascending
 	g->state = NORMAL;
+	g->n_bad_paths = 0;
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Couldn't allocate tex array: %s\n", strerror(errno));
@@ -1303,26 +1306,21 @@ void setup(int start_idx)
 
 	// TODO handle when first image (say in a list that's out of date) is gone/invalid
 	// loop through till valid
-	// TODO can I reuse NEXT code somehow?
-	i64 i = start_idx;
-	char* img_name;
+	i64 last = start_idx;
 	int ret;
+	img_state* img = &g->img[0];
+	img->index = last;
 	do {
-		g->img[0].index = i;
-		img_name = g->files.a[i].path;
-		// TODO best way to structure this and use in main()?
-		ret = load_image(img_name, &g->img[0], SDL_FALSE);
-		if (!ret) {
-			if ((img_name = curl_image(i))) {
-				ret = load_image(img_name, &g->img[0], SDL_FALSE);
-			}
-		}
-		i = (i+1) % g->files.size;
-	} while (!ret && i != start_idx);
+		ret = attempt_image_load(last, img);
+		last = wrap(last+1);
+	} while (!ret && last != start_idx);
 
 	if (!ret) {
 		cleanup(0, 1);
 	}
+
+	img->index = wrap(last-1);
+	char* img_name = g->files.a[img->index].path;
 
 	SDL_Rect r;
 	if (SDL_GetDisplayUsableBounds(0, &r)) {
