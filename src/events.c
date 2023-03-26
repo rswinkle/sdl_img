@@ -959,7 +959,8 @@ int handle_events_normally()
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					do_thumbmode();
 				} else {
-					// TODO GUI for this?
+					// TODO GUI for this?  starts thumb thread in the background
+					// without switching to thumb mode
 					generate_thumbs(SDL_FALSE);
 				}
 				break;

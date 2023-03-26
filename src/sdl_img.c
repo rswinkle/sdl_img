@@ -190,17 +190,6 @@ enum {
 	}                                                                               \
 	} while (0)
 
-#define SET_THUMB_SCR_RECTS()                                                       \
-	do {                                                                            \
-	for (int i=0; i<120; ++i) {                                                     \
-		g->img[i].scr_rect.x = (i%15)*g->scr_w/15;                                  \
-		g->img[i].scr_rect.y = (i/15)*g->scr_h/8;                                   \
-		g->img[i].scr_rect.w = g->scr_w/15;                                         \
-		g->img[i].scr_rect.h = g->scr_h/8;                                          \
-		set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);  \
-	}                                                                               \
-	} while (0)
-
 typedef struct thumb_state
 {
 	int w;
@@ -693,6 +682,79 @@ void cleanup(int ret, int called_setup)
 	exit(ret);
 }
 
+char* curl_image(int img_idx)
+{
+	CURL* curl = curl_easy_init();
+	CURLcode res;
+	char filename[STRBUF_SZ];
+	char curlerror[CURL_ERROR_SIZE];
+	char* s = g->files.a[img_idx].path;
+	FILE* imgfile;
+
+	// Do I even need to set WRITEFUNCTION?  It says it'll use fwrite by default
+	// which is all I do...
+	//curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlerror);
+	//curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+	#ifdef _WIN32
+	curl_easy_setopt(curl, CURLOPT_CAINFO, "ca-bundle.crt");
+	curl_easy_setopt(curl, CURLOPT_CAPATH, SDL_GetBasePath());
+	#endif
+
+	char* slash = strrchr(s, PATH_SEPARATOR);
+	if (!slash) {
+		SDL_Log("invalid url\n");
+		goto exit_cleanup;
+	}
+	int len = snprintf(filename, STRBUF_SZ, "%s/%s", g->cachedir, slash+1);
+	if (len >= STRBUF_SZ) {
+		SDL_Log("url too long\n");
+		goto exit_cleanup;
+	}
+
+	SDL_Log("Getting %s\n%s\n", s, filename);
+	if (!(imgfile = fopen(filename, "wb"))) {
+		// TODO Log?
+		perror("fopen");
+		goto exit_cleanup;
+	}
+
+	curl_easy_setopt(curl, CURLOPT_URL, s);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
+
+	if ((res = curl_easy_perform(curl)) != CURLE_OK) {
+		SDL_Log("curl error: %d %s\n", res, curlerror);
+		fclose(imgfile);
+		remove(filename);
+		goto exit_cleanup;
+	}
+	fclose(imgfile);
+
+
+	struct stat file_stat;
+	stat(filename, &file_stat);
+
+	file* f = &g->files.a[img_idx];
+	free(f->path);
+	f->path = CVEC_STRDUP(filename);
+	f->size = file_stat.st_size;
+	f->modified = file_stat.st_mtime;
+
+	bytes2str(f->size, f->size_str, SIZE_STR_BUF);
+	struct tm* tmp_tm = localtime(&f->modified);
+	strftime(f->mod_str, MOD_STR_BUF, "%F %T", tmp_tm);
+	char* sep = strrchr(f->path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
+	f->name = (sep) ? sep+1 : f->path;
+
+
+	curl_easy_cleanup(curl);
+	return f->path;
+
+exit_cleanup:
+	curl_easy_cleanup(curl);
+	return NULL;
+}
+
 extern inline void hash2str(char* str, MD5_HASH* h)
 {
 	char buf[3];
@@ -758,7 +820,13 @@ int thumb_thread(void* data)
 	u8* pix;
 	u8* outpix;
 	for (int i=0; i<g->files.size; ++i) {
-		// TODO better to stat orig here and error out early for a url?
+		if (stat(g->files.a[i].path, &orig_stat)) {
+			// TODO threading issue if user is trying
+			// to load i at the same time, both will try
+			// to download it
+			if (!curl_image(i))
+				continue;
+		}
 
 		// Windows will just generate duplicate thumbnails most of the time
 #ifndef _WIN32
@@ -774,11 +842,6 @@ int thumb_thread(void* data)
 
 
 		if (!stat(thumbpath, &thumb_stat)) {
-			// someone has deleted the original since we made the thumb or it's a url
-			if (stat(g->files.a[i].path, &orig_stat)) {
-				continue;
-			}
-
 			// make sure original hasn't been modified since thumb was made
 			// don't think it's necessary to check nanoseconds
 			if (orig_stat.st_mtime < thumb_stat.st_mtime) {
@@ -920,79 +983,6 @@ int mkdir_p(const char* path, mode_t mode)
 	}
 
 	return 0;
-}
-
-char* curl_image(int img_idx)
-{
-	CURL* curl = curl_easy_init();
-	CURLcode res;
-	char filename[STRBUF_SZ];
-	char curlerror[CURL_ERROR_SIZE];
-	char* s = g->files.a[img_idx].path;
-	FILE* imgfile;
-
-	// Do I even need to set WRITEFUNCTION?  It says it'll use fwrite by default
-	// which is all I do...
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
-	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlerror);
-	curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-	#ifdef _WIN32
-	curl_easy_setopt(curl, CURLOPT_CAINFO, "ca-bundle.crt");
-	curl_easy_setopt(curl, CURLOPT_CAPATH, SDL_GetBasePath());
-	#endif
-
-	char* slash = strrchr(s, PATH_SEPARATOR);
-	if (!slash) {
-		SDL_Log("invalid url\n");
-		goto exit_cleanup;
-	}
-	int len = snprintf(filename, STRBUF_SZ, "%s/%s", g->cachedir, slash+1);
-	if (len >= STRBUF_SZ) {
-		SDL_Log("url too long\n");
-		goto exit_cleanup;
-	}
-
-	SDL_Log("Getting %s\n%s\n", s, filename);
-	if (!(imgfile = fopen(filename, "wb"))) {
-		// TODO Log?
-		perror("fopen");
-		goto exit_cleanup;
-	}
-
-	curl_easy_setopt(curl, CURLOPT_URL, s);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, imgfile);
-
-	if ((res = curl_easy_perform(curl)) != CURLE_OK) {
-		SDL_Log("curl error: %d %s\n", res, curlerror);
-		fclose(imgfile);
-		remove(filename);
-		goto exit_cleanup;
-	}
-	fclose(imgfile);
-
-
-	struct stat file_stat;
-	stat(filename, &file_stat);
-
-	file* f = &g->files.a[img_idx];
-	free(f->path);
-	f->path = CVEC_STRDUP(filename);
-	f->size = file_stat.st_size;
-	f->modified = file_stat.st_mtime;
-
-	bytes2str(f->size, f->size_str, SIZE_STR_BUF);
-	struct tm* tmp_tm = localtime(&f->modified);
-	strftime(f->mod_str, MOD_STR_BUF, "%F %T", tmp_tm);
-	char* sep = strrchr(f->path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
-	f->name = (sep) ? sep+1 : f->path;
-
-
-	curl_easy_cleanup(curl);
-	return f->path;
-
-exit_cleanup:
-	curl_easy_cleanup(curl);
-	return NULL;
 }
 
 int load_image(const char* fullpath, img_state* img, int make_textures)
