@@ -529,13 +529,11 @@ void draw_gui(struct nk_context* ctx)
 				}
 				nk_label(ctx, "A", NK_TEXT_RIGHT);
 
-				SDL_Log("bad_paths = %d\n", g->n_bad_paths);
-				if (g->n_bad_paths) {
+				if (g->has_bad_paths) {
 					// TODO "Clean List"?
 					if (nk_menu_item_label(ctx, "Remove Bad Paths", NK_TEXT_LEFT)) {
 						event.user.code = REMOVE_BAD;
 						SDL_PushEvent(&event);
-						SDL_Log("Pushed REMOVE_BAD\n");
 					}
 					nk_label(ctx, "C", NK_TEXT_RIGHT);
 				}

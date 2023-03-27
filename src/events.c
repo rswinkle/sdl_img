@@ -89,6 +89,9 @@ int handle_thumb_events()
 						g->thumb_start_row = 0;;
 						g->thumb_sel = 0;
 					}
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = SDL_TRUE;
 				}
 				break;
 

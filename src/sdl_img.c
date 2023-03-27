@@ -287,7 +287,7 @@ typedef struct global_state
 	cvector_file files;
 	cvector_str favs;
 
-	int n_bad_paths; // number of paths/urls that failed
+	int has_bad_paths;
 
 	int state; // better name?
 
@@ -686,10 +686,22 @@ void cleanup(int ret, int called_setup)
 
 void remove_bad_paths()
 {
-	if (!g->n_bad_paths) {
-		SDL_Log("No bad paths to remove, have you generated thumbs?\n");
+	if (!g->has_bad_paths) {
+		if (!g->thumbs_done) {
+			SDL_Log("No bad paths to remove, have you generated thumbnails to check all images\n");
+		} else {
+			SDL_Log("No bad paths!\n");
+		}
 		return;
 	}
+
+	if (g->generating_thumbs) {
+		SDL_Log("You're already generating thumbs, wait for it to finish\n");
+		return;
+	}
+	// NOTE For now no need for flag/mutex here that prevents
+	// thumb thread starting because it only starts from the
+	// main thread, ie the one busy here
 
 	char* cur_paths[8];
 	for (int i=0; i<g->n_imgs; i++) {
@@ -703,9 +715,10 @@ void remove_bad_paths()
 		if (!g->files.a[i].path) {
 			for (j=i+1; !g->files.a[j].path; j++);
 
-			SDL_Log("Removing [%d %d]\n", i, j-1);
+			//SDL_Log("Removing [%d %d]\n", i, j-1);
 			cvec_remove_file(&g->files, i, j-1);
-			cvec_remove_thumb_state(&g->thumbs, i, j-1);
+			if (g->thumbs.a)
+				cvec_remove_thumb_state(&g->thumbs, i, j-1);
 		}
 	}
 
@@ -720,8 +733,8 @@ void remove_bad_paths()
 			}
 		}
 	}
-	g->n_bad_paths = 0;
-	SDL_Log("Done removing bad paths\n");
+	g->has_bad_paths = SDL_FALSE;
+	SDL_Log("Finished removing bad paths\n");
 }
 
 char* curl_image(int img_idx)
@@ -737,7 +750,7 @@ char* curl_image(int img_idx)
 	// which is all I do...
 	//curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
 	curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curlerror);
-	curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+	//curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 	#ifdef _WIN32
 	curl_easy_setopt(curl, CURLOPT_CAINFO, "ca-bundle.crt");
 	curl_easy_setopt(curl, CURLOPT_CAPATH, SDL_GetBasePath());
@@ -768,9 +781,18 @@ char* curl_image(int img_idx)
 
 	res = curl_easy_perform(curl);
 	long http_code = 0;
+	char* content_type = NULL;
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-	if (res != CURLE_OK || http_code != 200) {
-		SDL_Log("curl error: %d %s\n", res, curlerror);
+	curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &content_type);
+	// TODO test !content_type || !strstr(content_type, "image")?
+	if (res != CURLE_OK || http_code != 200 ||
+		!content_type || strncmp(content_type, "image", 5)) {
+		SDL_Log("curlcode: %d '%s'\nhttp_code: %ld", res, curlerror, http_code);
+		if (!content_type) {
+			SDL_Log("No content-type returned, ignoring\n");
+		} else {
+			SDL_Log("Not an image: %s\n", content_type);
+		}
 		fclose(imgfile);
 		remove(filename);
 		goto exit_cleanup;
@@ -780,7 +802,9 @@ char* curl_image(int img_idx)
 
 	struct stat file_stat;
 	stat(filename, &file_stat);
-	// empty file
+	// TODO don't think I need this any more, could also use
+	// CURLINFO_CONTENT_LENGTH_DOWNLOAD_T
+	/*
 	if (!file_stat.st_size) {
 		SDL_Log("file size is 0\n");
 		remove(filename);
@@ -788,6 +812,7 @@ char* curl_image(int img_idx)
 	} else {
 		SDL_Log("file size is %ld\n", file_stat.st_size);
 	}
+	*/
 
 	file* f = &g->files.a[img_idx];
 	free(f->path);
@@ -875,6 +900,10 @@ int thumb_thread(void* data)
 	u8* pix;
 	u8* outpix;
 	for (int i=0; i<g->files.size; ++i) {
+		if (!g->files.a[i].path) {
+			continue;
+		}
+
 		if (stat(g->files.a[i].path, &orig_stat)) {
 			// TODO threading issue if user is trying
 			// to load i at the same time, both will try
@@ -884,7 +913,7 @@ int thumb_thread(void* data)
 				SDL_Log("Couldn't curl %d\n", i);
 				free(g->files.a[i].path);
 				g->files.a[i].path = NULL;
-				g->n_bad_paths++;
+				g->has_bad_paths = SDL_TRUE;
 				continue;
 			}
 		}
@@ -1053,11 +1082,7 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 	// img->frames should always be 0 and there should be no allocated textures
 	// in tex because clear_img(img) should always have been called before
 
-#ifndef _WIN32
-	img->fullpath = realpath(fullpath, NULL);
 	SDL_Log("loading %s\n", fullpath);
-#endif
-
 	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, STBI_rgb_alpha, &frames);
 	if (!img->pixels) {
 		SDL_Log("failed to load %s: %s\n", fullpath, stbi_failure_reason());
@@ -1211,17 +1236,24 @@ int wrap(int z)
 int attempt_image_load(int last, img_state* img)
 {
 	char *path;
+	int i = last;
 	if (IS_VIEW_RESULTS()) {
-		path = g->files.a[g->search_results.a[last]].path;
-	} else {
-		path = g->files.a[last].path;
+		i = g->search_results.a[last];
 	}
+
+	path = g->files.a[i].path;
 	int ret = 0;
 	if (path) {
-		ret = load_image(path, img, SDL_FALSE);
-		if (!ret)
-			if ((path = curl_image(last))) //TODO results
+		if (!(ret = load_image(path, img, SDL_FALSE))) {
+			if ((path = curl_image(last))) {
 				ret = load_image(path, img, SDL_FALSE);
+			}
+		}
+		if (!ret) {
+			free(g->files.a[i].path);
+			g->files.a[i].path = NULL;
+			g->has_bad_paths = SDL_TRUE;
+		}
 	}
 	return ret;
 }
@@ -1358,7 +1390,7 @@ void setup(int start_idx)
 	g->thumb_cols = THUMB_COLS;
 	g->sorted_state = NAME_UP;  // ie by name ascending
 	g->state = NORMAL;
-	g->n_bad_paths = 0;
+	g->has_bad_paths = SDL_FALSE;
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Couldn't allocate tex array: %s\n", strerror(errno));
@@ -2167,8 +2199,13 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 			continue;
 
 		len = strlen(s);
-		if (s[len-1] == '\n')
-			s[len-1] = 0;
+		if (s[len-1] == '\n') {
+			len--;
+			s[len] = 0;
+		}
+		if (!len)
+			continue;
+
 		// handle quoted paths
 		if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
 			s[len-2] = 0;
