@@ -309,6 +309,7 @@ typedef struct global_state
 	int list_setscroll;
 
 	int thumbs_done;
+	int thumbs_loaded;
 	int thumb_start_row;
 	int thumb_rows;
 	int thumb_cols;
@@ -734,7 +735,7 @@ void remove_bad_paths()
 		}
 	}
 	g->has_bad_paths = SDL_FALSE;
-	SDL_Log("Finished removing bad paths\n");
+	SDL_Log("Done removing bad paths\n");
 }
 
 char* curl_image(int img_idx)
@@ -880,7 +881,7 @@ void make_thumb_tex(int i, int w, int h, u8* pix)
 	g->thumbs.a[i].h = h;
 }
 
-int thumb_thread(void* data)
+int gen_thumbs(void* data)
 {
 	int w, h, channels;
 	int out_w, out_h;
@@ -980,7 +981,8 @@ int thumb_thread(void* data)
 
 	g->generating_thumbs = SDL_FALSE;
 	g->thumbs_done = SDL_TRUE;
-	SDL_Log("Done generating thumbs in %d, exiting thread.\n", SDL_GetTicks()-start);
+	g->thumbs_loaded = do_load;
+	SDL_Log("Done generating thumbs in %.2f seconds, exiting thread.\n", (SDL_GetTicks()-start)/1000.0f);
 	return 0;
 }
 
@@ -991,7 +993,7 @@ void free_thumb(void* t)
 
 void generate_thumbs(intptr_t do_load)
 {
-	if (g->thumbs.a || (g->thumbs_done && !do_load))
+	if (g->thumbs.a)
 		return;
 
 	// still using separate calloc because calling vec constructor uses
@@ -1007,14 +1009,50 @@ void generate_thumbs(intptr_t do_load)
 	// elem_init already NULL
 
 	g->generating_thumbs = SDL_TRUE;
-	SDL_Log("Starting thread to generate thumbs and create thumb textures...\n");
+	SDL_Log("Starting thread to generate thumbs\n");
+	if (do_load) {
+		SDL_Log("Will load them as well\n");
+	}
 	SDL_Thread* thumb_thrd;
-	if (!(thumb_thrd = SDL_CreateThread(thumb_thread, "thumb_thrd", (void*)do_load))) {
+	if (!(thumb_thrd = SDL_CreateThread(gen_thumbs, "gen_thumbs_thrd", (void*)do_load))) {
 		// TODO warning?
 		SDL_Log("couldn't create thumb thread\n");
 	}
 	// passing NULL is a no-op like free
 	SDL_DetachThread(thumb_thrd);
+}
+
+int load_thumbs(void* data)
+{
+	int w, h, channels;
+	char* fullpath;
+	u8* outpix;
+	char thumbpath[STRBUF_SZ] = { 0 };
+	int start = SDL_GetTicks();
+
+	for (int i=0; i<g->thumbs.size; i++) {
+		if (!g->files.a[i].path) {
+			continue;
+		}
+#ifndef _WIN32
+		if (!(fullpath = realpath(g->files.a[i].path, NULL)))
+			continue;
+#else
+		fullpath = g->files.a[i].path;
+#endif
+		get_thumbpath(fullpath, thumbpath, sizeof(thumbpath));
+#ifndef _WIN32
+		free(fullpath); // keep for use below? not worth it imo
+#endif
+
+		outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
+		make_thumb_tex(i, w, h, outpix);
+		free(outpix);
+	}
+
+	g->thumbs_loaded = SDL_TRUE;
+	SDL_Log("Done loading thumbs in %.2f seconds, exiting thread.\n", (SDL_GetTicks()-start)/1000.0f);
+	return 0;
 }
 
 // debug
@@ -2380,7 +2418,18 @@ void do_listmode()
 
 void do_thumbmode()
 {
-	generate_thumbs(SDL_TRUE);
+	if (!g->thumbs_done) {
+		generate_thumbs(SDL_TRUE);
+	} else if (!g->thumbs_loaded) {
+		SDL_Thread* thumb_thrd;
+		if (!(thumb_thrd = SDL_CreateThread(load_thumbs, "load_thumbs_thrd", NULL))) {
+			// TODO warning?
+			SDL_Log("couldn't create load thumb thread\n");
+		}
+		// passing NULL is a no-op like free
+		SDL_DetachThread(thumb_thrd);
+	}
+
 	g->state = THUMB_DFLT;
 	g->thumb_sel = g->img[0].index;
 	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
@@ -2613,6 +2662,7 @@ int main(int argc, char** argv)
 		cleanup(1, 0);
 	}
 	g->thumbdir = thumbdir;
+	SDL_Log("%s\n%s\n", g->cachedir, g->thumbdir);
 
 	SDL_free(prefpath);
 
