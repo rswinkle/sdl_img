@@ -18,6 +18,7 @@ NK_API void                 nk_sdl_font_stash_end(void);
 NK_API int                  nk_sdl_handle_event(SDL_Event *evt);
 NK_API void                 nk_sdl_render(enum nk_anti_aliasing);
 NK_API void                 nk_sdl_shutdown(void);
+NK_API void                 nk_sdl_scale(float x_scale, float y_scale);
 
 #if SDL_COMPILEDVERSION < SDL_VERSIONNUM(2, 0, 22)
 /* Metal API does not support cliprects with negative coordinates or large
@@ -62,7 +63,8 @@ static struct nk_sdl {
     struct nk_font_atlas atlas;
 } sdl;
 
-
+static float scale_x;
+static float scale_y;
 
 NK_INTERN void
 nk_sdl_device_upload_atlas(const void *image, int width, int height)
@@ -269,8 +271,6 @@ nk_sdl_handle_event(SDL_Event *evt)
 {
     struct nk_context *ctx = &sdl.ctx;
 
-    float scale_x, scale_y;
-    SDL_RenderGetScale(sdl.renderer, &scale_x, &scale_y);
     /* optional grabbing behavior */
     if (ctx->input.mouse.grab) {
         SDL_SetRelativeMouseMode(SDL_TRUE);
@@ -346,7 +346,7 @@ nk_sdl_handle_event(SDL_Event *evt)
         case SDL_MOUSEMOTION:
             if (ctx->input.mouse.grabbed) {
                 // TODO hmm?
-                int x = (int)ctx->input.mouse.prev.x, y = (int)ctx->input.mouse.prev.y;
+                int x = (int)ctx->input.mouse.prev.x/scale_x, y = (int)ctx->input.mouse.prev.y/scale_y;
                 nk_input_motion(ctx, x + evt->motion.xrel/scale_x, y + evt->motion.yrel/scale_y);
             }
             else nk_input_motion(ctx, evt->motion.x/scale_x, evt->motion.y/scale_y);
@@ -378,5 +378,13 @@ void nk_sdl_shutdown(void)
     nk_buffer_free(&dev->cmds);
     memset(&sdl, 0, sizeof(sdl));
 }
+
+NK_API void
+nk_sdl_scale(float x_scale, float y_scale)
+{
+	scale_x = x_scale;
+	scale_y = y_scale;
+}
+
 
 #endif /* NK_SDL_RENDERER_IMPLEMENTATION */

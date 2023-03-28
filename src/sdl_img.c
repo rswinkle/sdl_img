@@ -1535,10 +1535,10 @@ void setup(int start_idx)
 	// could adjust for dpi, then adjust for font size if necessary
 	//g->x_scale = 2; //hdpi/72;
 	//g->y_scale = 2; //vdpi/72;
-	//SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
 	float font_scale = g->y_scale;
 
 	printf("scale %f %f\n", g->x_scale, g->y_scale);
+	nk_sdl_scale(g->x_scale, g->y_scale);
 
 	struct nk_font_atlas* atlas;
 	struct nk_font_config config = nk_font_config(0);

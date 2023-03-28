@@ -149,7 +149,7 @@ void draw_gui(struct nk_context* ctx)
 
 
 	if (g->show_about) {
-		int w = 550, h = 285; ///scale_x, h = 400/scale_y;
+		int w = 700, h = 580; ///scale_x, h = 400/scale_y;
 		struct nk_rect s;
 		s.x = scr_w/2-w/2;
 		s.y = scr_h/2-h/2;
@@ -168,7 +168,7 @@ void draw_gui(struct nk_context* ctx)
 
 			//nk_layout_row_dynamic(ctx, 10, 2);
 			float ratios[] = { 0.3f, 0.7f, 0.2f, 0.8f };
-			nk_layout_row(ctx, NK_DYNAMIC, 10, 2, ratios);
+			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
 
 			nk_label(ctx, "stb_image*", NK_TEXT_LEFT);
 			nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
@@ -475,12 +475,12 @@ void draw_gui(struct nk_context* ctx)
 					g->x_scale = 1;
 					g->y_scale = 1;
 				}
-				//nk_sdl_scale(g->x_scale, g->y_scale);
+				nk_sdl_scale(g->x_scale, g->y_scale);
 			}
 			if (nk_menu_item_label(ctx, "+", NK_TEXT_CENTERED)) {
 				g->x_scale += 0.5;
 				g->y_scale += 0.5;
-				//nk_sdl_scale(g->x_scale, g->y_scale);
+				nk_sdl_scale(g->x_scale, g->y_scale);
 			}
 
 			nk_layout_row_dynamic(ctx, 0, 1);
