@@ -233,7 +233,7 @@ typedef struct img_state
 	int index;
 
 	nk_size frame_i;
-	int delay; // for now just use the same delay for every frame
+	int delay; // just use the same delay for every frame
 	int frames;
 	int frame_capacity;
 	int frame_timer;
@@ -576,7 +576,7 @@ int create_textures(img_state* img)
 			SDL_Log("Error creating texture: %s\n", SDL_GetError());
 			return 0;
 		}
-		if (SDL_UpdateTexture(img->tex[i], NULL, img->pixels+(size+2)*i, img->w*4)) {
+		if (SDL_UpdateTexture(img->tex[i], NULL, img->pixels+size*i, img->w*4)) {
 			SDL_Log("Error updating texture: %s\n", SDL_GetError());
 			return 0;
 		}
@@ -1115,13 +1115,13 @@ int mkdir_p(const char* path, mode_t mode)
 
 int load_image(const char* fullpath, img_state* img, int make_textures)
 {
-	int frames, n;
+	int frames, n, delay;
 
 	// img->frames should always be 0 and there should be no allocated textures
 	// in tex because clear_img(img) should always have been called before
 
 	SDL_Log("loading %s\n", fullpath);
-	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, STBI_rgb_alpha, &frames);
+	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, STBI_rgb_alpha, &frames, &delay);
 	if (!img->pixels) {
 		SDL_Log("failed to load %s: %s\n", fullpath, stbi_failure_reason());
 		return 0;
@@ -1144,17 +1144,14 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 		img->frame_capacity = frames;
 	}
 
-	int size = img->w * img->h * 4;
 	//gif delay is in 100ths, ticks are 1000ths, but newer stb_image converts for us
 	//assume that the delay is the same for all frames (never seen anything else anyway)
-	//and if delay is 0, default to 10 fps
+	//and if delay is 0, default to DEFAULT_GIF_FPS fps
 	img->looped = 1;
 	img->paused = 0;
 	if (frames > 1) {
 		img->looped = 0;
-		img->delay = *(short*)(&img->pixels[size]); // * 10;
-		if (!img->delay)
-			img->delay = DEFAULT_GIF_DELAY;
+		img->delay = (delay) ? delay : DEFAULT_GIF_DELAY;
 		img->delay = MAX(MIN_GIF_DELAY, img->delay);
 		SDL_Log("%d frames %d delay\n", frames, img->delay);
 	}
