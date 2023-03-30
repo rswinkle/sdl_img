@@ -853,7 +853,12 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 				nk_label(ctx, info_buf, NK_TEXT_LEFT);
 				nk_label(ctx, gif_buf, NK_TEXT_RIGHT);
 
-				g->progress_hovered = nk_widget_is_hovered(ctx);
+				// don't hide the GUI if you're interacting with it
+				if ((g->progress_hovered = nk_widget_is_hovered(ctx))) {
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = SDL_TRUE;
+				}
 				nk_progress(ctx, &img->frame_i, img->frames-1, NK_MODIFIABLE);
 			} else {
 				nk_layout_row_static(ctx, 0, scr_w, 1);

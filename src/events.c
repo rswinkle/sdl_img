@@ -1260,7 +1260,6 @@ int handle_events_normally()
 				f %= g->img[0].frames;
 
 				g->img[0].frame_i = f;
-				g->gui_timer = SDL_GetTicks();
 			}
 			break;
 
