@@ -1271,8 +1271,13 @@ int handle_events_normally()
 			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_RESIZED:
-				g->scr_w = e.window.data1;
-				g->scr_h = e.window.data2;
+				// keep GUI visible while resizing
+				g->show_gui = SDL_TRUE;
+				SDL_ShowCursor(SDL_ENABLE);
+				g->gui_timer = SDL_GetTicks();
+				// this event is always preceded by WINOWEVENT_SIZE_CHANGED
+				//g->scr_w = e.window.data1;
+				//g->scr_h = e.window.data2;
 				break;
 			case SDL_WINDOWEVENT_SIZE_CHANGED:
 				g->scr_w = e.window.data1;
