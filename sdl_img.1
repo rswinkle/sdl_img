@@ -1,5 +1,5 @@
 .\" Man page for SDL_IMG
-.TH SDL_IMG 1 "20 April 2022" "0.99" "The SDL2 and stb_image based image viewer"
+.TH SDL_IMG 1 "1 April 2023" "1.00" "The SDL2 and stb_image based image viewer"
 .\" Please adjust this date when revising the manpage.
 .\"
 .SH "NAME"
@@ -18,32 +18,31 @@ sdl_img \- A simple but unique image viewer based on stb_image and SDL2
 .B ./sdl_img -l list1 example.com/image.jpg -l list3 -r ~/somedir
 
 .SH "DESCRIPTION"
-\fBsdl_img\fR is designed to be simple, easy to use image viewer that implements
-some unique features while still having a short (~2200 SLOC not including
-libraries) simple codebase.  It handles all the normal functions of an image
-viewer (browsing through directories, zoom, pan, rotate, delete, slideshow).
+\fBsdl_img\fR is designed to be a simple, easy to use image viewer that
+implements some unique features while still having a short (~5000 SLOC not
+including libraries) simple codebase.  It handles all the normal functions of an
+image viewer (browsing through directories, zoom, pan, rotate, delete, slideshow).
 .TS
 l l .
-Controls	Description
+Controls          	Description
 Left (or Up)      	Previous image(s) or pan if appropriate
 Right (or Down)   	Next image(s) or pan if appropriate
-Space             	Next image(s) even when zoomed in
-CTRL+Space        	Previous image(s) even when zoomed in
-+/-               	Zoom in/out
-CTRL + +/-        	Speed up or slow down an animated gif
+Space             	Next image(s)
+CTRL+Space        	Previous image(s)
 CTRL + Direction  	Next or previous image(s) even when zoomed in
++/-               	Zoom in/out
 Mouse Wheel       	Zoom in/out
 Left click + drag 	Pan around a zoomed in image
 A                 	Actual size
 F                 	Toggle fill screen mode
+Home              	Go to first image in the list
 M                 	Shuffle (Mix) the images (only in single mode)
 N                 	Sort the images by file name (only in single mode)
 CTRL+N            	Sort the images by file path (only in single mode)
 Z                 	Sort the images by size (only in single mode)
 T                 	Sort the images by last modified (only in single mode)
-P                 	Pause/Unpause gif
 CTRL + F or F11   	Toggle Fullscreen
-ESC               	Exit (or exit Slideshow mode then fullscreen)
+ESC               	Exit or "Back" similar to Android
 L/R               	Rotate the current image left/right
 H/V               	Flip the current image horizontally/vertically
 Delete            	Delete the current image and move to the next (only in single mode)
@@ -57,15 +56,40 @@ CTRL + I          	List mode
 F1 - F10          	Start a slideshow with 1 - 10 second delay
 .TE
 
-The most obvious unique features are the multi-image modes but others include
-slowing/speeding/pausing gifs, vim inspired thumbnail mode, shuffle/sort etc.
+For GIFS there are extra controls, though the progress bar is only
+displayed if you are viewing a GIF in single image mode:
+.TS
+l l .
+GIF Controls            	Description
+CTRL + +/-              	Speed up or slow down an animated gif
+CTRL + Mouse Wheel      	Speed up or slow down an animated gif
+P                       	Pause/Unpause gif
+Mouse over progress bar 	Pause
+Wheel over progress bar 	Scroll through frames
+click/drag progress bar 	select/scroll frames
+.TE
+
+The most obvious unique features are the multi-image modes but others include the
+extra GIF features, the vim inspired thumbnail mode, the list mode, shuffle/sort etc.
 
 Within each image mode the basic controls work on all images simultaneously
 unless a specific image is selected by hitting 1-n and then they operate only
 on that image, ie cycling, zooming, fit will only effect that image.
-To return to "all at once" mode, hit 0.  In this way you can compare multiple
-images simultaneously with a single viewer instance (even if they aren't sequential
-alphabetically).  Switching from a higher mode to a lower will show the first n images
+To return to "all at once" mode, hit 0.
+
+By default, when you hit next/prev in n-image mode, it will display the n sequential
+images immediately after the nth image or before the 1st image.  This is annoying if
+you're trying to compare a sequence of tuples that aren't interleaved when sorted.  For
+example if you have files abc01.jpg, abc02.jpg,... and xyz01.jpg, xyz02.jpg..., all of
+the former would sort first.  If you wanted to compare abcX with xyzX in 2-image mode
+every time you hit next, you'd go from [abcX,xyzX] to [xyzX+1,xyzX+2].  To solve this
+you can go to preferences and select the toggle "Preserve relative offsets in multimode
+movement" which would lead to [abcX,xyzX] to [abcX+1,xyzX+1] behavior.  I'm open to
+a better name/description ("Independent movement mode"?) and to making that the default
+behavior.
+
+Switching from a lower to a higher mode will load images to the right of the last image
+currently viewed.  Switching from a higher to a lower will show the first n images
 of the higher mode where n is the lower number.  An exception is if you have an
 image selected and go to single mode, that is the image that will be used.
 
@@ -75,15 +99,11 @@ All other controls work while in slideshow mode, meaning starting a slideshow do
 automatically toggle to fullscreen, it will run in double, quad or oct-image mode, or
 even on a single image selected within those modes.
 
-Something to note about the rotation functionality are that while it will rotate any
+Something to note about the rotation functionality is that while it will rotate any
 image, it will only ask whether you're sure you want to save single frame images because
 stb_image_write does not support gifs at all, let alone animated gifs.  It will try to
 detect the type from the extension and output that type if possible, otherwise jpg is
 the default.
-Where it differs from most viewers is in its more unique features.  These
-include multi-image modes, specifically 2, 4 and 8 image modes where all the
-normal controls (with the exception of delete) continue to work, either on
-the entire set of images or an individual selected from the group.
 .PP
 .SH "OPTIONS"
 .TP
