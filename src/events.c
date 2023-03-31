@@ -15,6 +15,41 @@
 // CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+// TODO move elsewhere?  rename?
+void discard_rotation(img_state* img)
+{
+	if (!g->orig_pix) {
+		return;
+	}
+
+	free(img->pixels);  // free rotated pixels
+	img->pixels = g->orig_pix;
+	img->w = g->orig_w;
+	img->h = g->orig_h;
+	img->edited = NOT_EDITED;
+	img->rotdegs = 0;
+	g->orig_pix = NULL;
+	g->orig_w = 0;
+	g->orig_h = 0;
+	g->status = REDRAW;
+	for (int i=0; i<img->frames; ++i) {
+		SDL_DestroyTexture(img->tex[i]);
+	}
+	if (!create_textures(img)) {
+		cleanup(0, 1);
+	}
+
+	// TODO refactor this, rotate_img90 and do_rotate
+	if (g->n_imgs == 1)
+		SET_MODE1_SCR_RECT();
+	else if (g->n_imgs == 2)
+		SET_MODE2_SCR_RECTS();
+	else if (g->n_imgs == 4)
+		SET_MODE4_SCR_RECTS();
+	else
+		SET_MODE8_SCR_RECTS();
+}
+
 int handle_thumb_events()
 {
 	SDL_Event e;
@@ -805,9 +840,9 @@ int handle_events_normally()
 					return 1;
 				} else {
 					if (g->show_rotate) {
-						// TODO handle case where user hits ESC with image as
-						// TO_ROTATE (could still be pristine or they rotated with preview, changed the angle
-						// again and then hit ESC, only want to prompt to save in the latter case)
+						// ESC discards all changes, including previewed changes which means
+						// we may have to clean up/free
+						discard_rotation((g->n_imgs == 1) ? &g->img[0] : g->img_focus);
 						g->show_rotate = nk_false;
 					} else if (g->show_about) {
 						g->show_about = nk_false;
