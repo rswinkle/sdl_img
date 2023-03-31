@@ -1692,8 +1692,7 @@ void rotate_img(img_state* img)
 	// flips the positive rotation direction back to normal.
 	float rads = -img->rotdegs * (3.14159265f/180.0f);
 
-	// As long as I need SDL2_gfx for nuklear I might as well use it for other stuff
-	// I can always go back to my own code later
+	// TODO nuklear_sdl_renderer no longer uses SDL2_gfx, so replace with my own code
 	int wrot, hrot;
 	rotozoomSurfaceSize(w, h, -img->rotdegs, 1, &wrot, &hrot);
 
@@ -1702,7 +1701,7 @@ void rotate_img(img_state* img)
 	int sz = w*h*4;
 	int sz_rot = wrot*hrot*4;
 
-	size_t alloc_size = frames * (sz_rot + ((frames>1)?2:0));
+	size_t alloc_size = frames * sz_rot;
 
 	u8* rot_pixels = NULL;
 	if (g->orig_pix) {
@@ -1729,8 +1728,8 @@ void rotate_img(img_state* img)
 
 	// TODO anti-aliasing, GL_LINEAR style interpolation?
 	for (int k=0; k<frames; ++k) {
-		inu32 = (u32*)&pix[(sz+2)*k];
-		outu32 = (u32*)&rot_pixels[(sz_rot+2)*k];
+		inu32 = (u32*)&pix[sz*k];
+		outu32 = (u32*)&rot_pixels[sz_rot*k];
 		for (int i=0; i<hrot; ++i) {
 			y = i - hrot2;
 			for (int j=0; j<wrot; ++j) {

@@ -205,6 +205,7 @@ void draw_gui(struct nk_context* ctx)
 	// be able to interact with it.  Could look up how to make them inactive
 	// but meh, this is simpler
 	if (g->show_about || g->show_prefs || g->show_rotate) {
+		//SDL_ShowCursor(SDL_ENABLE);  // shouldn't be necessary
 		g->show_gui = SDL_TRUE;
 		g->gui_timer = SDL_GetTicks();
 		return;
