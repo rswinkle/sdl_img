@@ -21,6 +21,7 @@
 #define CVEC_ONLY_INT
 #define CVEC_ONLY_STR
 #define CVEC_SIZE_T i64
+#define PRIcv_sz PRIiMAX
 #include "cvector.h"
 
 #include "WjCryptLib_Md5.c"
@@ -1246,7 +1247,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		cvec_push_file(&g->files, &f);
 	}
 
-	SDL_Log("Found %lu images in %s\n", g->files.size-start_size, dirpath);
+	SDL_Log("Found %+"PRIcv_sz" images in %s\n", g->files.size-start_size, dirpath);
 
 	closedir(dir);
 	g->loading = 0;
@@ -2820,7 +2821,7 @@ int main(int argc, char** argv)
 
 		myscandir(dirpath, exts, num_exts, recurse); // allow recurse for base case?
 
-		SDL_Log("Found %lu images total\nSorting by file name now...\n", g->files.size);
+		SDL_Log("Found %+"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
 
 		snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, img_name);
 
@@ -2844,7 +2845,7 @@ int main(int argc, char** argv)
 		// from ptrdiff_t (i64) to int here and use ints everywhere
 		start_index =(int)(res - g->files.a);
 	} else {
-		SDL_Log("Found %lu images total\nSorting by file name now...\n", g->files.size);
+		SDL_Log("Found %+"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
 		mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 	}
 
