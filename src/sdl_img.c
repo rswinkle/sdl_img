@@ -53,9 +53,6 @@
 #define NK_SDL_RENDERER_IMPLEMENTATION
 #include "nuklear_sdl_renderer.h"
 
-// for rotozoomSurfaceSize()
-#include <SDL2_rotozoom.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1671,6 +1668,32 @@ void rotate_img90(img_state* img, int left)
 	// img->rotdegs += ((left) ? 90 : -90);
 }
 
+void calc_rotated_size(int w, int h, float degrees, int* out_w, int* out_h)
+{
+	// heavily based on SDL2_gfx's rotozoomSurfaceSize that I used to
+	// use
+	double rads = degrees * (3.14159265/180.0);
+
+	double sin_t = sin(rads);
+	double cos_t = cos(rads);
+
+	double w2 = w/2;
+	double h2 = h/2;
+
+	double c_w2 = cos_t*w2;
+	double c_h2 = cos_t*h2;
+
+	double s_w2 = sin_t*w2;
+	double s_h2 = sin_t*h2;
+
+	int w_h = MAX((int)
+		ceil(MAX(MAX(MAX(fabs(c_w2 + s_h2), fabs(c_w2 - s_h2)), fabs(-c_w2 + s_h2)), fabs(-c_w2 - s_h2))), 1);
+	int h_h = MAX((int)
+		ceil(MAX(MAX(MAX(fabs(s_w2 + c_h2), fabs(s_w2 - c_h2)), fabs(-s_w2 + c_h2)), fabs(-s_w2 - c_h2))), 1);
+	*out_w = 2 * w_h;
+	*out_h = 2 * h_h;
+}
+
 void rotate_img(img_state* img)
 {
 	int w, h, frames;
@@ -1692,9 +1715,8 @@ void rotate_img(img_state* img)
 	// flips the positive rotation direction back to normal.
 	float rads = -img->rotdegs * (3.14159265f/180.0f);
 
-	// TODO nuklear_sdl_renderer no longer uses SDL2_gfx, so replace with my own code
 	int wrot, hrot;
-	rotozoomSurfaceSize(w, h, -img->rotdegs, 1, &wrot, &hrot);
+	calc_rotated_size(w, h, -img->rotdegs, &wrot, &hrot);
 
 	int hrot2 = hrot / 2;
 	int wrot2 = wrot / 2;
