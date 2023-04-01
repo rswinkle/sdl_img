@@ -101,8 +101,8 @@ enum {
 #endif
 
 // TODO hmm
-#define VERSION 0.99
-#define VERSION_STR "sdl_img 0.99"
+#define VERSION 1.0
+#define VERSION_STR "sdl_img 1.0-RC1"
 
 #define PATH_SEPARATOR '/'
 #define PAN_RATE 0.05
