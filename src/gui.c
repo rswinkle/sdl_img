@@ -381,7 +381,6 @@ void draw_gui(struct nk_context* ctx)
 				if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, FONT_SIZE+16, g->files.size)) {
 					// TODO ratio layout 0.5 0.2 0.3 ? give or take
 					//nk_layout_row_dynamic(ctx, 0, 3);
-					printf("%d %d %d\n", lview.begin, lview.end, lview.count);
 					nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 					for (int i=lview.begin; i<lview.end; ++i) {
 						// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
