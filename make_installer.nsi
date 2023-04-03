@@ -43,7 +43,7 @@ InstallDir "$PROGRAMfILES64\sdl_img"
 ; !define MUI_WELCOMEPAGE_TITLE "Welcome to the sdl_img Setup"
 
 
-!define MUI_WELCOMEPAGE_TEXT "http://robertwinkler.com/projects/sdl_img$\r$\n$\r$\nThis will install sdl_img on your computer.$\r$\n$\r$\nsdl_img is an image viewer built using the SDL2 and stb_image libraries.  Thanks to the latter, it has support for many different image formats including JPEG, PNG, BMP, GIF, and netpbm.  sdl_img focuses on interesting, unique features like multi-image browsing."
+!define MUI_WELCOMEPAGE_TEXT "http://robertwinkler.com/projects/sdl_img$\r$\n$\r$\nThis will install sdl_img on your computer.$\r$\n$\r$\nsdl_img is an image viewer built using the SDL2 and stb_image libraries.  Thanks to the latter, it has support for many different image formats including JPEG, PNG, BMP, GIF, and netpbm.  sdl_img focuses on interesting, unique features like multi-image browsing, full control of GIF playback, a vim inspired thumbnail mode, and a list mode."
 
 
 !define MUI_FINISHPAGE_LINK "sdl_img Website"
