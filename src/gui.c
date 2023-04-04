@@ -174,10 +174,8 @@ void draw_gui(struct nk_context* ctx)
 			nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
 			nk_label(ctx, "SDL2", NK_TEXT_LEFT);
 			nk_label(ctx, "libsdl.org", NK_TEXT_RIGHT);
-			nk_label(ctx, "SDL2_gfx", NK_TEXT_LEFT);
-			nk_label(ctx, "ferzkopp.net", NK_TEXT_RIGHT);
 			nk_label(ctx, "nuklear GUI", NK_TEXT_LEFT);
-			nk_label(ctx, "github.com/vurtun/nuklear", NK_TEXT_RIGHT);
+			nk_label(ctx, "github.com/Immediate-Mode-UI/Nuklear", NK_TEXT_RIGHT);
 			nk_label(ctx, "libcurl", NK_TEXT_LEFT);
 			nk_label(ctx, "curl.haxx.se/libcurl/", NK_TEXT_RIGHT);
 			nk_label(ctx, "WjCryptLib_Md5", NK_TEXT_LEFT);
