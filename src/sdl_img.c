@@ -100,7 +100,6 @@ enum {
 #define mkdir(A, B) mkdir(A)
 #endif
 
-// TODO hmm
 #define VERSION 1.0
 #define VERSION_STR "sdl_img 1.0-RC1"
 
@@ -768,8 +767,8 @@ char* curl_image(int img_idx)
 
 	SDL_Log("Getting %s\n%s\n", s, filename);
 	if (!(imgfile = fopen(filename, "wb"))) {
-		// TODO Log?
 		perror("fopen");
+
 		goto exit_cleanup;
 	}
 
@@ -783,7 +782,6 @@ char* curl_image(int img_idx)
 	char* content_type = NULL;
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
 	curl_easy_getinfo(curl, CURLINFO_CONTENT_TYPE, &content_type);
-	// TODO test !content_type || !strstr(content_type, "image")?
 	if (res != CURLE_OK || http_code != 200 ||
 		!content_type || strncmp(content_type, "image", 5)) {
 		SDL_Log("curlcode: %d '%s'\nhttp_code: %ld", res, curlerror, http_code);

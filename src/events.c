@@ -378,6 +378,10 @@ int handle_thumb_events()
 	if (!g->thumbs.a[g->thumb_sel].tex) {
 		if (!g->thumb_sel) {
 			for (; !g->thumbs.a[g->thumb_sel].tex && g->thumb_sel<g->files.size-1; ++g->thumb_sel);
+
+			// no valid thumbs, probably just started generating, stay on 0 so the title doesn't flicker
+			if (g->thumb_sel == g->files.size-1)
+				g->thumb_sel = 0;
 		} else {
 			for (; !g->thumbs.a[g->thumb_sel].tex && g->thumb_sel>0; --g->thumb_sel);
 		}

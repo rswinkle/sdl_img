@@ -201,8 +201,7 @@ so I chose sdl_img rather than stb_img.  Unfortunately, SDL_image and SDL2_image
 (libsdl-image1.2 and libsdl2-image in repos) also exist so there's a minor clash there too.
 
 Now I'm using the following libraries:
-[SDL2](https://www.libsdl.org), [SDL2_gfx](http://www.ferzkopp.net/wordpress/2016/01/02/sdl_gfx-sdl2_gfx/)
-stb_image, stb_image_write, stb_image_resize
+[SDL2](https://www.libsdl.org), stb_image, stb_image_write, stb_image_resize
 [libcurl](https://curl.haxx.se/libcurl/)
 [nuklear](https://github.com/vurtun/nuklear) (immediate mode GUI library)
 [WjCryptLibMd5](https://github.com/WaterJuice/WjCryptLib)
