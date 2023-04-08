@@ -62,6 +62,7 @@
 
 //POSIX (mostly) works with MinGW64
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <dirent.h>
 #include <curl/curl.h>
 
@@ -819,7 +820,7 @@ char* curl_image(int img_idx)
 
 	bytes2str(f->size, f->size_str, SIZE_STR_BUF);
 	struct tm* tmp_tm = localtime(&f->modified);
-	strftime(f->mod_str, MOD_STR_BUF, "%F %T", tmp_tm);
+	strftime(f->mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp_tm); // %F %T
 	char* sep = strrchr(f->path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 	f->name = (sep) ? sep+1 : f->path;
 
@@ -1239,7 +1240,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 
 		bytes2str(f.size, f.size_str, SIZE_STR_BUF);
 		tmp_tm = localtime(&f.modified);
-		strftime(f.mod_str, MOD_STR_BUF, "%F %T", tmp_tm);
+		strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp_tm); // %F %T
 		sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 		f.name = (sep) ? sep+1 : f.path;
 		cvec_push_file(&g->files, &f);
@@ -2293,7 +2294,7 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 				
 				bytes2str(f.size, f.size_str, SIZE_STR_BUF);
 				tmp_tm = localtime(&f.modified);
-				strftime(f.mod_str, MOD_STR_BUF, "%F %T", tmp_tm);
+				strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp_tm); // %F %T
 				sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 				f.name = (sep) ? sep+1 : f.path;
 
@@ -2654,8 +2655,7 @@ int main(int argc, char** argv)
 	srand(t);
 
 	tmp = localtime(&t);
-	strftime(datebuf, sizeof(datebuf), "%F", tmp);
-	//strftime(datebuf, sizeof(datebuf), "%Y%m%d", tmp);
+	strftime(datebuf, sizeof(datebuf), "%Y-%m-%d", tmp);  // %F
 
 	int len = snprintf(cachedir, STRBUF_SZ, "%scache/%s", prefpath, datebuf);
 	if (len >= STRBUF_SZ) {
@@ -2794,7 +2794,7 @@ int main(int argc, char** argv)
 				
 				bytes2str(f.size, f.size_str, SIZE_STR_BUF);
 				tmp = localtime(&f.modified);
-				strftime(f.mod_str, MOD_STR_BUF, "%F %T", tmp);
+				strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp); // %F %T
 				sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 				f.name = (sep) ? sep+1 : f.path;
 

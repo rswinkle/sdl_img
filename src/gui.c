@@ -844,7 +844,7 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 				cleanup(1, 1);
 			}
 			if (img->frames > 1) {
-				snprintf(gif_buf, 32, "%lu/%d", img->frame_i+1, img->frames);
+				snprintf(gif_buf, 32, "%d/%d", (int)img->frame_i+1, img->frames);
 
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 				//nk_layout_row_static(ctx, 0, 3);
