@@ -22,7 +22,7 @@ fpm -s dir -t deb -v 1.0 -n sdl_img -C package_linux \
 --url "https://github.com/rswinkle/sdl_img"
 
 
-fpm -s dir -t tar -v 1.0-RC1 -n sdl_img_1.0-RC1 -C package_linux \
+fpm -s dir -t tar -v 1.0-RC2 -n sdl_img_1.0-RC2 -C package_linux \
 --log info --verbose \
 -d "libsdl2-2.0-0 >= 2.0.5" -d "libcurl4" \
 -m "Robert Winkler <rob121618@gmail.com>" \

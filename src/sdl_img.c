@@ -102,7 +102,7 @@ enum {
 #endif
 
 #define VERSION 1.0
-#define VERSION_STR "sdl_img 1.0-RC1"
+#define VERSION_STR "sdl_img 1.0-RC2"
 
 #define PATH_SEPARATOR '/'
 #define PAN_RATE 0.05
