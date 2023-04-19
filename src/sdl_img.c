@@ -1620,28 +1620,19 @@ void rotate_img90(img_state* img, int left)
 	int sz = w*h;
 	int frames = img->frames;
 	u8* rotated = NULL;
-	if (frames > 1) {
-		if (!(rotated = malloc(frames*(sz*4+2)))) {
-			perror("Couldn't allocate rotated");
-			cleanup(0, 1);
-		}
-		*(i16*)(&rotated[sz*4]) = img->delay;
-	} else {
-		if (!(rotated = malloc(sz*4))) {
-			perror("Couldn't allocate rotated");
-			cleanup(0, 1);
-		}
+
+	if (!(rotated = malloc(frames*(sz*4)))) {
+		perror("Couldn't allocate rotated");
+		cleanup(0, 1);
 	}
+
 	u8* pix = img->pixels;
 	i32 *p, *rot;
 	for (int k=0; k<frames; ++k) {
-		rot = (i32*)&rotated[k*(sz*4+2)];
-		p = (i32*)&pix[k*(sz*4+2)];
+		rot = (i32*)&rotated[k*(sz*4)];
+		p = (i32*)&pix[k*(sz*4)];
 		for (int i=0; i<h; ++i) {
 			for (int j=0; j<w; ++j) {
-				// TODO use memcpy, because get unaligned access
-				// errors because of the 2 byte short after
-				// every frame... worth it?
 				if (left)
 					rot[(w-j-1)*h+i] = p[i*w+j];
 				else
@@ -2007,38 +1998,29 @@ void do_flip(int is_vertical)
 		u8* pix = img->pixels;
 		u8* flip_pix = NULL;
 
-		if (frames > 1) {
-			if (!(flip_pix = malloc(frames * (sz*4+2)))) {
-				perror("Couldn't allocate flipped");
-				cleanup(0, 1);
-			}
-			*(i16*)(&flip_pix[sz*4]) = img->delay;
-		} else {
-			if (!(flip_pix = malloc(sz*4))) {
-				perror("Couldn't allocate flipped");
-				cleanup(0, 1);
-			}
+		if (!(flip_pix = malloc(frames * (sz*4)))) {
+			perror("Couldn't allocate flipped");
+			cleanup(0, 1);
 		}
 
 		i32* p;
 		i32* flip;
 		if (is_vertical) {
 			for (int i=0; i<frames; ++i) {
-				p = (i32*)&pix[i*(sz*4+2)];
-				flip = (i32*)&flip_pix[i*(sz*4+2)];
+				p = (i32*)&pix[i*(sz*4)];
+				flip = (i32*)&flip_pix[i*(sz*4)];
 				for (int j=0; j<h; ++j) {
-
-					// TODO replace with memcpy
-					for (int k=0; k<w; ++k) {
-						flip[(h-1-j)*w + k] = p[j*w + k];
-					}
+					memcpy(&flip[(h-1-j)*w], &p[j*w], w*sizeof(i32));
+					//for (int k=0; k<w; ++k) {
+					//	flip[(h-1-j)*w + k] = p[j*w + k];
+					//}
 				}
 			}
 
 		} else {
 			for (int i=0; i<frames; ++i) {
-				p = (i32*)&pix[i*(sz*4+2)];
-				flip = (i32*)&flip_pix[i*(sz*4+2)];
+				p = (i32*)&pix[i*(sz*4)];
+				flip = (i32*)&flip_pix[i*(sz*4)];
 				for (int j=0; j<h; ++j) {
 					for (int k=0; k<w; ++k) {
 						flip[j*w + w-1-k] = p[j*w+k];
