@@ -1,7 +1,6 @@
 sdl_img
 =======
 
-#[![Build Status](https://travis-ci.org/rswinkle/sdl_img.svg?branch=master)](https://travis-ci.org/rswinkle/sdl_img)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/15740/badge.svg)](https://scan.coverity.com/projects/rswinkle-sdl_img)
 
 A "simple" image viewer based on [stb_image.h](https://github.com/nothings/stb/blob/master/stb_image.h) (with the suggested animated GIF API extension).
