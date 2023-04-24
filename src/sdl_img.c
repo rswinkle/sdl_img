@@ -1414,6 +1414,7 @@ void setup(int start_idx)
 	g->do_next = nk_false;
 	g->progress_hovered = nk_false;
 	g->show_infobar = nk_true;
+	g->fullscreen_gui = DELAY;
 	g->thumb_x_deletes = nk_false;
 	g->ind_mm = nk_false;
 	g->bg = nk_rgb(0,0,0);

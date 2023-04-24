@@ -41,6 +41,8 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 #define GUI_PREV_NEXT_W 150
 #define GUI_ZOOM_ROTATE_W 50
 
+#define MAX_SLIDE_DELAY 10
+#define MAX_GUI_DELAY 60
 
 void search_filenames()
 {
@@ -764,10 +766,10 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		}
 
 		nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
-		nk_property_int(ctx, "#", 1, &g->slide_delay, 10, 1, 0.05);
+		nk_property_int(ctx, "#", 1, &g->slide_delay, MAX_SLIDE_DELAY, 1, 0.3);
 
 		nk_label(ctx, "Hide GUI delay:", NK_TEXT_LEFT);
-		nk_property_int(ctx, "#", 1, &g->gui_delay, 60, 1, 0.3);
+		nk_property_int(ctx, "#", 1, &g->gui_delay, MAX_GUI_DELAY, 1, 0.3);
 
 		nk_label(ctx, "GUI in Fullscreen mode:", NK_TEXT_LEFT);
 		static const char* gui_options[] = { "Delay", "Always", "Never" };
