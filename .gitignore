@@ -37,8 +37,7 @@ tags
 package/LICENSE*
 package/README.md
 
-misc/
-sdl_img
-gui_test
-md5_test
-thumbnails
+prototyping/sdl_img
+prototyping/gui_test
+prototyping/md5_test
+prototyping/thumbnails
