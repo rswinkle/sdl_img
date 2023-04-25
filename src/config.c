@@ -37,10 +37,7 @@ int find_key(char* key)
 	return -1;
 }
 
-#define CLAMP_255(a) ((a) > 255) ? 255 : (a)
-#define CLAMP_ab(x, a, b) ((x) < (a)) ? (a) : (((x) > (b)) ? (b) : (x))
-
-int read_config(FILE* cfg_file)
+int read_config(char* filename)
 {
 	char* s;
 	char line[STRBUF_SZ] = { 0 };
@@ -48,8 +45,13 @@ int read_config(FILE* cfg_file)
 	char val[401] = { 0 };
 	int len;
 	char* sep;
+	int red,green,blue;
 
-	int r,g,b;
+	snprintf(line, STRBUF_SZ, "%s/%s", g->prefpath, filename);
+	FILE* cfg_file = fopen(line, "r");
+	if (!cfg_file) {
+		return 0;
+	}
 
 	while ((s = fgets(line, STRBUF_SZ, cfg_file))) {
 		if (s[0] == '#' || s[0] == '\n')
@@ -65,8 +67,8 @@ int read_config(FILE* cfg_file)
 
 		switch (k) {
 		case BACKGROUND:
-			sscanf(val, "%d,%d,%d", &r, &g, &b);
-			g->bg = nk_rgb(r,g,b); // clamps for us
+			sscanf(val, "%d,%d,%d", &red, &green, &blue);
+			g->bg = nk_rgb(red,green,blue); // clamps for us
 
 			break;
 		case SLIDE_DELAY:
@@ -117,19 +119,28 @@ int read_config(FILE* cfg_file)
 
 		case CACHE_DIR:
 			// NOTE g->cachedir is set to point to local array in main()
-			strcpy(g->cachedir, val);
+			//strcpy(g->cachedir, val);
 			break;
 		default:
 			printf("Error: Ignoring invalid key: '%s'\n", key);
 		}
 	}
+	fclose(cfg_file);
 	return 1;
 }
 
 
-int write_config(FILE* cfg_file)
+int write_config(char* filename)
 {
 	const char* bool_str[] = { "false", "true" };
+	const char* fullscreen_gui_str[] = { "delay", "always", "never" };
+
+	char filepath[STRBUF_SZ];
+	snprintf(filepath, STRBUF_SZ, "%s/%s", g->prefpath, filename);
+	FILE* cfg_file = fopen(filepath, "w");
+	if (!cfg_file) {
+		return 0;
+	}
 
 	for (int i=0; i<NUM_KEYS; i++) {
 
@@ -146,7 +157,7 @@ int write_config(FILE* cfg_file)
 			fprintf(cfg_file, "%d\n", g->gui_delay);
 			break;
 		case FULLSCREEN_GUI:
-			fprintf(cfg_file, "%s\n", fullscreen_gui_str(g->fullscreen_gui));
+			fprintf(cfg_file, "%s\n", fullscreen_gui_str[g->fullscreen_gui]);
 			break;
 		case THUMB_ROWS:
 			fprintf(cfg_file, "%d\n", g->thumb_rows);
@@ -168,9 +179,10 @@ int write_config(FILE* cfg_file)
 			break;
 
 		case CACHE_DIR:
-			fprintf(cfg_file, "%s\n", g->cachedir);
+			//fprintf(cfg_file, "%s\n", g->cachedir);
 			break;
 		}
 	}
+	fclose(cfg_file);
 	return 1;
 }

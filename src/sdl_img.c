@@ -108,16 +108,16 @@ enum {
 #define PAN_RATE 0.05
 #define MAX_GIF_FPS 120
 #define MIN_GIF_DELAY (1000/MAX_GIF_FPS)
-#define DEFAULT_GIF_FPS 20
-#define DEFAULT_GIF_DELAY (1000/DEFAULT_GIF_FPS)
-#define HIDE_GUI_DELAY 2
+#define DFLT_GIF_FPS 20
+#define DFLT_GIF_DELAY (1000/DFLT_GIF_FPS)
+#define DFLT_GUI_DELAY 2
 #define SLEEP_TIME 50
 #define STRBUF_SZ 1024
 #define START_WIDTH 1200
 #define START_HEIGHT 800
 #define THUMBSIZE 128
-#define THUMB_ROWS 8
-#define THUMB_COLS 15
+#define DFLT_THUMB_ROWS 8
+#define DFLT_THUMB_COLS 15
 #define SIZE_STR_BUF 16
 #define MOD_STR_BUF 24
 #define FONT_SIZE 24
@@ -280,7 +280,7 @@ typedef struct global_state
 
 	char* cachedir;
 	char* thumbdir;
-	//char* config_dir;
+	char* prefpath;
 
 	cvector_file files;
 	cvector_str favs;
@@ -292,6 +292,7 @@ typedef struct global_state
 	// flag to do load returning from thumb mode
 	int do_next;
 
+	// whether you're hovering over GIF progress bar
 	int progress_hovered;
 
 	int fullscreen;
@@ -438,6 +439,8 @@ int bytes2str(int bytes, char* buf, int len)
 #include "gui.c"
 
 #include "sorting.c"
+
+#include "config.c"
 
 size_t write_data(void* buf, size_t size, size_t num, void* userp)
 {
@@ -677,6 +680,9 @@ void cleanup(int ret, int called_setup)
 		SDL_Quit();
 	}
 
+	write_config("config.txt");
+
+	free(g->prefpath);
 	cvec_free_thumb_state(&g->thumbs);
 	cvec_free_file(&g->files);
 	curl_global_cleanup();
@@ -1143,12 +1149,12 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 
 	//gif delay is in 100ths, ticks are 1000ths, but newer stb_image converts for us
 	//assume that the delay is the same for all frames (never seen anything else anyway)
-	//and if delay is 0, default to DEFAULT_GIF_FPS fps
+	//and if delay is 0, default to DFLT_GIF_FPS fps
 	img->looped = 1;
 	img->paused = 0;
 	if (frames > 1) {
 		img->looped = 0;
-		img->delay = (delay) ? delay : DEFAULT_GIF_DELAY;
+		img->delay = (delay) ? delay : DFLT_GIF_DELAY;
 		img->delay = MAX(MIN_GIF_DELAY, img->delay);
 		SDL_Log("%d frames %d delay\n", frames, img->delay);
 	}
@@ -1407,23 +1413,29 @@ void setup(int start_idx)
 		exit(1);
 	}
 
+	// TODO some of these could be stored preferences?
 	g->n_imgs = 1;
 	g->img = g->img1;
-	g->slide_delay = 3;
-	g->gui_delay = HIDE_GUI_DELAY;
 	g->do_next = nk_false;
 	g->progress_hovered = nk_false;
-	g->show_infobar = nk_true;
-	g->fullscreen_gui = DELAY;
-	g->thumb_x_deletes = nk_false;
-	g->ind_mm = nk_false;
-	g->bg = nk_rgb(0,0,0);
 	g->fill_mode = 0;
-	g->thumb_rows = THUMB_ROWS;
-	g->thumb_cols = THUMB_COLS;
 	g->sorted_state = NAME_UP;  // ie by name ascending
 	g->state = NORMAL;
 	g->has_bad_paths = SDL_FALSE;
+
+	// If no config file, set default preferences
+	// NOTE cachedir already set to default in main
+	if (!read_config("config.txt")) {
+		g->slide_delay = 3;
+		g->gui_delay = DFLT_GUI_DELAY;
+		g->show_infobar = nk_true;
+		g->fullscreen_gui = DELAY;
+		g->thumb_x_deletes = nk_false;
+		g->ind_mm = nk_false;
+		g->bg = nk_rgb(0,0,0);
+		g->thumb_rows = DFLT_THUMB_ROWS;
+		g->thumb_cols = DFLT_THUMB_COLS;
+	}
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Couldn't allocate tex array: %s\n", strerror(errno));
@@ -2310,9 +2322,7 @@ void do_save()
 		return;
 
 	char buf[STRBUF_SZ];
-	char* prefpath = SDL_GetPrefPath("", "sdl_img");
-	snprintf(buf, STRBUF_SZ, "%s/favorites.txt", prefpath);
-	SDL_free(prefpath);
+	snprintf(buf, STRBUF_SZ, "%s/favorites.txt", g->prefpath);
 
 	FILE* f = NULL;
 	if (!g->favs.size) {
@@ -2664,9 +2674,6 @@ int main(int argc, char** argv)
 	g->thumbdir = thumbdir;
 	SDL_Log("%s\n%s\n", g->cachedir, g->thumbdir);
 
-	SDL_free(prefpath);
-
-
 	file f;
 	int img_args = 0;
 	int given_list = 0;
@@ -2831,8 +2838,9 @@ int main(int argc, char** argv)
 	}
 
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "start_index = %d\n", start_index);
+	
+	g->prefpath = prefpath;
 	setup(start_index);
-
 
 	int is_a_gif;
 	while (1) {
