@@ -776,8 +776,8 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		bounds = nk_widget_bounds(ctx);
 		g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, 12, nk_vec2(bounds.w, 300));
 
-		nk_property_int(ctx, "Thumb rows", 2, &g->thumb_rows, 8, 1, 0.05);
-		nk_property_int(ctx, "Thumb cols", 4, &g->thumb_cols, 15, 1, 0.05);
+		nk_property_int(ctx, "Thumb rows", MIN_THUMB_ROWS, &g->thumb_rows, MAX_THUMB_ROWS, 1, 0.05);
+		nk_property_int(ctx, "Thumb cols", MIN_THUMB_COLS, &g->thumb_cols, MAX_THUMB_COLS, 1, 0.05);
 
 		nk_checkbox_label(ctx, "Show info bar", &g->show_infobar);
 		nk_checkbox_label(ctx, "x deletes in Thumb mode", &g->thumb_x_deletes);

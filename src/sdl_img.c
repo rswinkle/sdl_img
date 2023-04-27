@@ -116,8 +116,10 @@ enum {
 #define START_WIDTH 1200
 #define START_HEIGHT 800
 #define THUMBSIZE 128
-#define DFLT_THUMB_ROWS 8
-#define DFLT_THUMB_COLS 15
+#define MIN_THUMB_ROWS 2
+#define MIN_THUMB_COLS 4
+#define MAX_THUMB_ROWS 8
+#define MAX_THUMB_COLS 15
 #define SIZE_STR_BUF 16
 #define MOD_STR_BUF 24
 #define FONT_SIZE 24
@@ -1433,8 +1435,8 @@ void setup(int start_idx)
 		g->thumb_x_deletes = nk_false;
 		g->ind_mm = nk_false;
 		g->bg = nk_rgb(0,0,0);
-		g->thumb_rows = DFLT_THUMB_ROWS;
-		g->thumb_cols = DFLT_THUMB_COLS;
+		g->thumb_rows = MAX_THUMB_ROWS;
+		g->thumb_cols = MAX_THUMB_COLS;
 	}
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {

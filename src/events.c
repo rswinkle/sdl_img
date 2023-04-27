@@ -186,10 +186,10 @@ int handle_thumb_events()
 			case SDLK_j:
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					g->thumb_rows += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
-					if (g->thumb_rows < 2)
-						g->thumb_rows = 2;
-					if (g->thumb_rows > 8)
-						g->thumb_rows = 8;
+					if (g->thumb_rows < MIN_THUMB_ROWS)
+						g->thumb_rows = MIN_THUMB_ROWS;
+					if (g->thumb_rows > MAX_THUMB_ROWS)
+						g->thumb_rows = MAX_THUMB_ROWS;
 				} else if (g->state != THUMB_SEARCH) {
 					g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? g->thumb_cols : -g->thumb_cols;
 					fix_thumb_sel((sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1);
@@ -204,10 +204,10 @@ int handle_thumb_events()
 			case SDLK_l:
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					g->thumb_cols += (sym == SDLK_LEFT || sym == SDLK_h) ? -1 : 1;
-					if (g->thumb_cols < 4)
-						g->thumb_cols = 4;
-					if (g->thumb_cols > 15)
-						g->thumb_cols = 15;
+					if (g->thumb_cols < MIN_THUMB_COLS)
+						g->thumb_cols = MIN_THUMB_COLS;
+					if (g->thumb_cols > MAX_THUMB_COLS)
+						g->thumb_cols = MAX_THUMB_COLS;
 				} else {
 					if (g->state != THUMB_SEARCH) {
 						g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
