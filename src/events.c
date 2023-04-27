@@ -58,6 +58,7 @@ int handle_thumb_events()
 	int mouse_x, mouse_y;
 	SDL_GetMouseState(&mouse_x, &mouse_y);
 	char title_buf[STRBUF_SZ];
+	int i;
 
 	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
@@ -290,6 +291,29 @@ int handle_thumb_events()
 					g->status = REDRAW;
 					try_move(SELECTION);
 				} else {
+					// TODO handling shift group selection separately using normal visual mode start/end
+					// make it work like it does in file browser
+					if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+						if (!g->search_results.size) {
+							cvec_push_i(&g->search_results, g->selection);
+						} else {
+							for (i=0; i<g->search_results.size; i++) {
+								if (g->search_results.a[i] == g->selection) {
+									cvec_erase_i(&g->search_results, i, i);
+									break;
+								} else if (g->search_results.a[i] > g->selection) {
+									cvec_insert_i(&g->search_results, i, g->selection);
+									break;
+								}
+							}
+							if (i == g->search_results.size) {
+								cvec_push_i(&g->search_results, g->selection);
+							}
+						}
+						if (g->search_results.size) {
+							g->state = THUMB_SEARCH | SEARCH_RESULTS;  // Need both
+						}
+					}
 					// TODO is there anything besides clicks == 1 or 2?
 					g->thumb_sel = g->selection;
 				}
