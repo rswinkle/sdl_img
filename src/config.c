@@ -1,5 +1,6 @@
 
 enum {
+	GUI_SCALE,
 	BACKGROUND,
 	SLIDE_DELAY,
 	HIDE_GUI_DELAY,
@@ -15,6 +16,7 @@ enum {
 
 char* keys[] =
 {
+	"gui_scale",
 	"background",
 	"slide_delay",
 	"hide_gui_delay",
@@ -46,6 +48,7 @@ int read_config(char* filename)
 	int len;
 	char* sep;
 	int red,green,blue;
+	float scale, tmp;
 
 	snprintf(line, STRBUF_SZ, "%s/%s", g->prefpath, filename);
 	FILE* cfg_file = fopen(line, "r");
@@ -66,6 +69,20 @@ int read_config(char* filename)
 		int k = find_key(key);
 
 		switch (k) {
+		case GUI_SCALE:
+			// TODO
+			sscanf(val, "%f", &scale);
+			if (scale < 1.0f) {
+				scale = 1.0f;
+			}
+			// make sure only 0.5 increments
+			tmp = floor(scale);
+			if (tmp != scale) {
+				scale = tmp + 0.5f;
+			}
+			g->y_scale = g->x_scale = scale;
+
+			break;
 		case BACKGROUND:
 			sscanf(val, "%d,%d,%d", &red, &green, &blue);
 			g->bg = nk_rgb(red,green,blue); // clamps for us
@@ -147,6 +164,11 @@ int write_config(char* filename)
 		fprintf(cfg_file, "%s: ", keys[i]);
 
 		switch (i) {
+		case GUI_SCALE:
+			// TODO either save x and y scale separately or combine
+			// into a single member g->scale if they're always the same
+			fprintf(cfg_file, "%.1f\n", g->x_scale);
+			break;
 		case BACKGROUND:
 			fprintf(cfg_file, "%u,%u,%u\n", g->bg.r, g->bg.g, g->bg.b);
 			break;

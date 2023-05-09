@@ -1,4 +1,4 @@
-
+gui_scale: 1.0
 background: 0,300,0
 slide_delay : 3
 hide_gui_delay:  2

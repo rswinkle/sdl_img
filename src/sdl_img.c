@@ -1424,6 +1424,7 @@ void setup(int start_idx)
 	g->sorted_state = NAME_UP;  // ie by name ascending
 	g->state = NORMAL;
 	g->has_bad_paths = SDL_FALSE;
+	int got_config = nk_true;
 
 	// If no config file, set default preferences
 	// NOTE cachedir already set to default in main
@@ -1437,6 +1438,7 @@ void setup(int start_idx)
 		g->bg = nk_rgb(0,0,0);
 		g->thumb_rows = MAX_THUMB_ROWS;
 		g->thumb_cols = MAX_THUMB_COLS;
+		got_config = nk_false;
 	}
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
@@ -1535,12 +1537,14 @@ void setup(int start_idx)
 
 
 	// TODO Font stuff, refactor/reorganize
-	int render_w, render_h;
-	int window_w, window_h;
-	SDL_GetRendererOutputSize(g->ren, &render_w, &render_h);
-	SDL_GetWindowSize(g->win, &window_w, &window_h);
-	g->x_scale = (float)(render_w) / (float)(window_w);
-	g->y_scale = (float)(render_h) / (float)(window_h);
+	if (!got_config) {
+		int render_w, render_h;
+		int window_w, window_h;
+		SDL_GetRendererOutputSize(g->ren, &render_w, &render_h);
+		SDL_GetWindowSize(g->win, &window_w, &window_h);
+		g->x_scale = (float)(render_w) / (float)(window_w);
+		g->y_scale = (float)(render_h) / (float)(window_h);
+	}
 	// could adjust for dpi, then adjust for font size if necessary
 	//g->x_scale = 2; //hdpi/72;
 	//g->y_scale = 2; //vdpi/72;
