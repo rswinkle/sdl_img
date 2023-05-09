@@ -49,7 +49,7 @@ int gui_delay = 2;
 nk_size gif_prog = 0;
 int gif_prog_active = 0;
 int show_about = nk_false;
-int show_prefs = nk_true;
+int show_prefs = nk_false;
 int show_rotate = nk_false;
 int show_infobar = nk_true;
 int thumb_x_deletes = nk_false;
@@ -130,8 +130,8 @@ int main(void)
 	SDL_GetDisplayBounds(0, &r);
 	printf("display bounds: %d %d %d %d\n", r.x, r.y, r.w, r.h);
 
-	//x_scale = 1; //hdpi/72;  // adjust for dpi, then go from 8pt font to 12pt
-	//y_scale = 1; //vdpi/72;
+	x_scale = 1; //hdpi/72;  // adjust for dpi, then go from 8pt font to 12pt
+	y_scale = 1; //vdpi/72;
 
 
 	/*
@@ -201,6 +201,7 @@ int main(void)
 	Uint32 mstate;
 	while (running)
 	{
+		/*
 		time = SDL_GetTicks();
 		mstate = SDL_GetMouseState(&mx, &my);
 		if (!(SDL_BUTTON_LMASK & mstate) && time - start_time > 50) {
@@ -209,7 +210,8 @@ int main(void)
 			printf("gif_prog = %lu\n", gif_prog);
 			start_time = SDL_GetTicks();
 		}
-		SDL_RenderSetScale(ren, x_scale, y_scale);
+		*/
+		//SDL_RenderSetScale(ren, x_scale, y_scale);
 
 		if (handle_events(ctx))
 			break;
@@ -220,12 +222,12 @@ int main(void)
 
 		style_configurator(ctx, color_table);
 
-		SDL_Delay(15);
 		SDL_SetRenderDrawColor(ren, bg2.r, bg2.g, bg2.b, bg2.a);
 		SDL_RenderSetClipRect(ren, NULL);
 		SDL_RenderClear(ren);
 		nk_sdl_render(NK_ANTI_ALIASING_ON);
 		SDL_RenderPresent(ren);
+		SDL_Delay(15);
 
 	}
 
