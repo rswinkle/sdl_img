@@ -228,7 +228,7 @@ typedef struct img_state
 	int w;
 	int h;
 	int file_size;
-	char* fullpath;  // allocated by realpath() needs to be freed
+	char* fullpath;  // just points to file.path, doesn't own
 
 	int index;
 
@@ -653,7 +653,7 @@ void clear_img(img_state* img)
 	//ones logic is based on
 	//stbi_image_free(img->pixels);
 	free(img->pixels);
-	free(img->fullpath);
+	img->fullpath = NULL; // now just points to file.path so don't free
 	img->pixels = NULL;
 	img->frames = 0;
 	img->rotdegs = 0;
@@ -822,7 +822,14 @@ char* curl_image(int img_idx)
 
 	file* f = &g->files.a[img_idx];
 	free(f->path);
+
+	// Have to call realpath in case the user passed
+	// a relative path cachedir as a command line argument
+#ifndef _WIN32
+	f->path = realpath(filename, NULL);
+#else
 	f->path = CVEC_STRDUP(filename);
+#endif
 	f->size = file_stat.st_size;
 	f->modified = file_stat.st_mtime;
 
@@ -892,12 +899,6 @@ int gen_thumbs(void* data)
 	int out_w, out_h;
 	char thumbpath[STRBUF_SZ] = { 0 };
 
-	// seems so much more efficient but PATH_MAX isn't really accurate
-	// or portable... I'm tempted to just pick an arbitrary number like 4*STRBUF_SZ
-	// or something
-	// char fullpath[PATH_MAX] = { 0 };
-	char* fullpath;
-
 	struct stat thumb_stat, orig_stat;
 
 	intptr_t do_load = (intptr_t)data;
@@ -924,18 +925,10 @@ int gen_thumbs(void* data)
 			}
 		}
 
-		// Windows will just generate duplicate thumbnails most of the time
-#ifndef _WIN32
-		if (!(fullpath = realpath(g->files.a[i].path, NULL)))
-			continue;
-#else
-		fullpath = g->files.a[i].path;
-#endif
-		get_thumbpath(fullpath, thumbpath, sizeof(thumbpath));
-#ifndef _WIN32
-		free(fullpath); // keep for use below? not worth it imo
-#endif
-
+		// path was already set to realpath in myscandir if using linux
+		// Windows will just generate duplicate thumbnails when accessing the
+		// same image from a different relative path
+		get_thumbpath(g->files.a[i].path, thumbpath, sizeof(thumbpath));
 
 		if (!stat(thumbpath, &thumb_stat)) {
 			// make sure original hasn't been modified since thumb was made
@@ -1030,7 +1023,6 @@ void generate_thumbs(intptr_t do_load)
 int load_thumbs(void* data)
 {
 	int w, h, channels;
-	char* fullpath;
 	u8* outpix;
 	char thumbpath[STRBUF_SZ] = { 0 };
 	int start = SDL_GetTicks();
@@ -1039,16 +1031,7 @@ int load_thumbs(void* data)
 		if (!g->files.a[i].path) {
 			continue;
 		}
-#ifndef _WIN32
-		if (!(fullpath = realpath(g->files.a[i].path, NULL)))
-			continue;
-#else
-		fullpath = g->files.a[i].path;
-#endif
-		get_thumbpath(fullpath, thumbpath, sizeof(thumbpath));
-#ifndef _WIN32
-		free(fullpath); // keep for use below? not worth it imo
-#endif
+		get_thumbpath(g->files.a[i].path, thumbpath, sizeof(thumbpath));
 
 		outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
 		make_thumb_tex(i, w, h, outpix);
@@ -1132,7 +1115,7 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 		return 0;
 	}
 
-	struct stat file_stat;
+	struct stat file_stat = { 0 };
 	if (!stat(fullpath, &file_stat)) {
 		img->file_size = file_stat.st_size;
 	}
@@ -1168,6 +1151,9 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 		if (!create_textures(img))
 			return 0;
 	}
+
+	// just a reference not a deep copy
+	img->fullpath = fullpath;
 
 	return 1;
 }
@@ -1242,7 +1228,11 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 			continue;
 
 		// have to use fullpath not d_name in case we're in a recursive call
+#ifndef _WIN32
+		f.path = realpath(fullpath, NULL);
+#else
 		f.path = CVEC_STRDUP(fullpath);
+#endif
 		f.size = file_stat.st_size;
 		f.modified = file_stat.st_mtime;
 
@@ -2328,7 +2318,7 @@ void do_save()
 		return;
 
 	char buf[STRBUF_SZ];
-	snprintf(buf, STRBUF_SZ, "%s/favorites.txt", g->prefpath);
+	snprintf(buf, STRBUF_SZ, "%sfavorites.txt", g->prefpath);
 
 	FILE* f = NULL;
 	if (!g->favs.size) {
@@ -2479,8 +2469,6 @@ void fix_thumb_sel(int dir)
 
 void do_thumb_rem_del(int do_delete, int invert)
 {
-	// TODO code for invert, free selection, using cvec_remove*
-
 	// so code below works for both ON and VISUAL mode
 	if (g->state == THUMB_DFLT) {
 		g->thumb_sel_end = g->thumb_sel;
