@@ -2445,6 +2445,7 @@ void do_thumbmode()
 
 	g->state = THUMB_DFLT;
 	g->thumb_sel = g->img[0].index;
+	g->thumb_sel_end = g->img[0].index;
 	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 	g->search_results.size = 0;
 	g->status = REDRAW;

@@ -87,6 +87,7 @@ int handle_thumb_events()
 					}
 				} else {
 					g->state = THUMB_DFLT;
+					g->thumb_sel_end = g->thumb_sel;
 				}
 				g->status = REDRAW;
 				break;
@@ -291,12 +292,14 @@ int handle_thumb_events()
 					g->status = REDRAW;
 					try_move(SELECTION);
 				} else {
-					// TODO handling shift group selection separately using normal visual mode start/end
-					// make it work like it does in file browser
+					// Trying to make it work exactly like file browsers (or at least nautilus) is
+					// too much of a pain
+					// You can do CTRL or SHIFT, or SHIFT and then CTRL but not SHIFT+CTRL
 					if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 						if (!g->search_results.size) {
 							cvec_push_i(&g->search_results, g->selection);
 						} else {
+							// Keep arbitrary selections sorted
 							for (i=0; i<g->search_results.size; i++) {
 								if (g->search_results.a[i] == g->selection) {
 									cvec_erase_i(&g->search_results, i, i);
@@ -313,7 +316,26 @@ int handle_thumb_events()
 						if (g->search_results.size) {
 							g->state = THUMB_SEARCH | SEARCH_RESULTS;  // Need both
 						}
+					} else if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
+						int start = g->thumb_sel_end;
+						int end = g->selection;
+						if (g->selection < g->thumb_sel_end) {
+							start = g->selection;
+							end = g->thumb_sel_end;
+						}
+						cvec_clear_i(&g->search_results);
+						for (int i=start; i<=end; i++) {
+							cvec_push_i(&g->search_results, i);
+						}
+						if (g->search_results.size) {
+							g->state = THUMB_SEARCH | SEARCH_RESULTS;  // Need both
+						}
+					} else {
+						cvec_clear_i(&g->search_results);
+						g->thumb_sel_end = g->selection;
+						g->state = THUMB_DFLT;
 					}
+
 					// TODO is there anything besides clicks == 1 or 2?
 					g->thumb_sel = g->selection;
 				}
