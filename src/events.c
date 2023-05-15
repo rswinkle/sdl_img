@@ -50,6 +50,54 @@ void discard_rotation(img_state* img)
 		SET_MODE8_SCR_RECTS();
 }
 
+void handle_mouse_selection(SDL_Keymod mod_state)
+{
+	int i;
+	// Trying to make it work exactly like file browsers is
+	// too much of a pain
+	// You can do CTRL or SHIFT, or SHIFT and then CTRL but not SHIFT+CTRL
+	if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+		if (!g->search_results.size) {
+			cvec_push_i(&g->search_results, g->selection);
+		} else {
+			// Keep arbitrary selections sorted
+			for (i=0; i<g->search_results.size; i++) {
+				if (g->search_results.a[i] == g->selection) {
+					cvec_erase_i(&g->search_results, i, i);
+					break;
+				} else if (g->search_results.a[i] > g->selection) {
+					cvec_insert_i(&g->search_results, i, g->selection);
+					break;
+				}
+			}
+			if (i == g->search_results.size) {
+				cvec_push_i(&g->search_results, g->selection);
+			}
+		}
+		if (g->search_results.size) {
+			g->state = THUMB_SEARCH | SEARCH_RESULTS;  // Need both
+		}
+	} else if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
+		int start = g->thumb_sel_end;
+		int end = g->selection;
+		if (g->selection < g->thumb_sel_end) {
+			start = g->selection;
+			end = g->thumb_sel_end;
+		}
+		cvec_clear_i(&g->search_results);
+		for (i=start; i<=end; i++) {
+			cvec_push_i(&g->search_results, i);
+		}
+		if (g->search_results.size) {
+			g->state = THUMB_SEARCH | SEARCH_RESULTS;  // Need both
+		}
+	} else {
+		cvec_clear_i(&g->search_results);
+		g->thumb_sel_end = g->selection;
+		g->state = THUMB_DFLT;
+	}
+}
+
 int handle_thumb_events()
 {
 	SDL_Event e;
@@ -58,7 +106,6 @@ int handle_thumb_events()
 	int mouse_x, mouse_y;
 	SDL_GetMouseState(&mouse_x, &mouse_y);
 	char title_buf[STRBUF_SZ];
-	int i;
 
 	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
@@ -141,8 +188,8 @@ int handle_thumb_events()
 			case SDLK_BACKSPACE:
 			case SDLK_r:
 			case SDLK_x:
-				if (g->state != THUMB_SEARCH)
-					do_thumb_rem_del(sym == SDLK_x && g->thumb_x_deletes, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
+				// TODO Also support Delete key?
+				do_thumb_rem_del(sym == SDLK_x && g->thumb_x_deletes, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
 				break;
 			case SDLK_RETURN:
 				if (g->state & (THUMB_DFLT | SEARCH_RESULTS)) {
@@ -292,49 +339,7 @@ int handle_thumb_events()
 					g->status = REDRAW;
 					try_move(SELECTION);
 				} else {
-					// Trying to make it work exactly like file browsers (or at least nautilus) is
-					// too much of a pain
-					// You can do CTRL or SHIFT, or SHIFT and then CTRL but not SHIFT+CTRL
-					if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-						if (!g->search_results.size) {
-							cvec_push_i(&g->search_results, g->selection);
-						} else {
-							// Keep arbitrary selections sorted
-							for (i=0; i<g->search_results.size; i++) {
-								if (g->search_results.a[i] == g->selection) {
-									cvec_erase_i(&g->search_results, i, i);
-									break;
-								} else if (g->search_results.a[i] > g->selection) {
-									cvec_insert_i(&g->search_results, i, g->selection);
-									break;
-								}
-							}
-							if (i == g->search_results.size) {
-								cvec_push_i(&g->search_results, g->selection);
-							}
-						}
-						if (g->search_results.size) {
-							g->state = THUMB_SEARCH | SEARCH_RESULTS;  // Need both
-						}
-					} else if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
-						int start = g->thumb_sel_end;
-						int end = g->selection;
-						if (g->selection < g->thumb_sel_end) {
-							start = g->selection;
-							end = g->thumb_sel_end;
-						}
-						cvec_clear_i(&g->search_results);
-						for (int i=start; i<=end; i++) {
-							cvec_push_i(&g->search_results, i);
-						}
-						if (g->search_results.size) {
-							g->state = THUMB_SEARCH | SEARCH_RESULTS;  // Need both
-						}
-					} else {
-						cvec_clear_i(&g->search_results);
-						g->thumb_sel_end = g->selection;
-						g->state = THUMB_DFLT;
-					}
+					handle_mouse_selection(mod_state);
 
 					// TODO is there anything besides clicks == 1 or 2?
 					g->thumb_sel = g->selection;

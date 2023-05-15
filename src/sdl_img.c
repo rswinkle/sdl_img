@@ -1153,7 +1153,7 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 	}
 
 	// just a reference not a deep copy
-	img->fullpath = fullpath;
+	img->fullpath = (char*)fullpath;
 
 	return 1;
 }
@@ -2467,9 +2467,66 @@ void fix_thumb_sel(int dir)
 	}
 }
 
-void do_thumb_rem_del(int do_delete, int invert)
+void do_thumb_rem_del_search(int do_delete, int invert)
 {
-	// so code below works for both ON and VISUAL mode
+	int i;
+	if (!invert) {
+		// this can only happen normally, with invert, obviously whatever you selected
+		// is still there, should be no duplicates in search_results so we can
+		// check up front without actually doing the removal
+		if (g->search_results.size == g->files.size) {
+			SDL_Log("You removed all your currently viewed images, exiting\n");
+			cleanup(0, 1);
+		}
+
+		// search_results is sorted so we can go backward
+		// to not mess up earlier result indices
+		do {
+			i = cvec_pop_i(&g->search_results);
+			// TODO try to detect runs to erase more at once?
+
+			if (do_delete) {
+				if (remove(g->files.a[i].path))
+					perror("Failed to delete image");
+				else
+					SDL_Log("Deleted %s\n", g->files.a[i].path);
+			}
+			cvec_erase_file(&g->files, i, i);
+			cvec_erase_thumb_state(&g->thumbs, i, i);
+		} while (g->search_results.size);
+	} else {
+		int end = g->files.size-1;
+		do {
+			i = cvec_pop_i(&g->search_results);
+
+			if (do_delete) {
+				for (int j=i+1; j<=end; ++j) {
+					if (remove(g->files.a[j].path))
+						perror("Failed to delete image");
+					else
+						SDL_Log("Deleted %s\n", g->files.a[j].path);
+				}
+			}
+			// This works even if i == end.  erase becomes a no-op
+			cvec_erase_file(&g->files, i+1, end);
+			cvec_erase_thumb_state(&g->thumbs, i+1, end);
+
+			end = i-1;
+		} while (g->search_results.size);
+	}
+
+	// Not worth trying to handle arbitrary selection imo so just reset to 0
+	g->do_next = nk_true;
+	int idx = g->files.size-1;
+	for (int i=0; i<g->n_imgs; ++i) {
+		g->img[i].index = idx++;
+	}
+	g->thumb_sel = 0;
+}
+
+void do_thumb_rem_del_dflt_visual(int do_delete, int invert)
+{
+	// so code below works for both THUMB_DFLT and VISUAL mode
 	if (g->state == THUMB_DFLT) {
 		g->thumb_sel_end = g->thumb_sel;
 	}
@@ -2480,6 +2537,11 @@ void do_thumb_rem_del(int do_delete, int invert)
 		start = g->thumb_sel_end;
 	}
 	if (!invert) {
+		if (end - start + 1 == g->files.size) {
+			SDL_Log("You removed all your currently viewed images, exiting\n");
+			cleanup(0, 1);
+		}
+
 		if (do_delete) {
 			for (int i=start; i<=end; ++i) {
 				if (remove(g->files.a[i].path))
@@ -2490,50 +2552,43 @@ void do_thumb_rem_del(int do_delete, int invert)
 		}
 		cvec_erase_file(&g->files, start, end);
 		cvec_erase_thumb_state(&g->thumbs, start, end);
-
-		// this can only happen normally, with invert, obviously whatever you selected
-		// is still there
-		if (!g->files.size) {
-			SDL_Log("You removed all your currently viewed images, exiting\n");
-			cleanup(0, 1);
-		}
-
 	} else {
 		// invert selection means erase the pictures after and before
 		// (in that order so less shifting is needed ... could also
 		// just make a new vector, remove the selection and copy into
 		// that and then free the original
 		int start1 = end+1, end1 = g->files.size-1;
-		// NOTE(rswinkle) cvector does not check for invalid parameters
-		if (start1 <= end1) {
-			if (do_delete) {
-				for (int i=start1; i<=end1; ++i) {
-					if (remove(g->files.a[i].path))
-						perror("Failed to delete image");
-					else
-						SDL_Log("Deleted %s\n", g->files.a[i].path);
-				}
+		if (do_delete) {
+			for (int i=start1; i<=end1; ++i) {
+				if (remove(g->files.a[i].path))
+					perror("Failed to delete image");
+				else
+					SDL_Log("Deleted %s\n", g->files.a[i].path);
 			}
-			cvec_erase_file(&g->files, start1, end1);
-			cvec_erase_thumb_state(&g->thumbs, start1, end1);
 		}
+		// NOTE(rswinkle) cvector does not check for invalid parameters
+		// but erase will become a no-op if start1 is end1+1
+		// as long as cvec_sz is a signed integer type
+		cvec_erase_file(&g->files, start1, end1);
+		cvec_erase_thumb_state(&g->thumbs, start1, end1);
 
 		// now the images to the left
 		start1 = 0, end1 = start-1;
-		if (start1 <= end1) {
-			if (do_delete) {
-				for (int i=start1; i<=end1; ++i) {
-					if (remove(g->files.a[i].path))
-						perror("Failed to delete image");
-					else
-						SDL_Log("Deleted %s\n", g->files.a[i].path);
-				}
+		if (do_delete) {
+			for (int i=start1; i<=end1; ++i) {
+				if (remove(g->files.a[i].path))
+					perror("Failed to delete image");
+				else
+					SDL_Log("Deleted %s\n", g->files.a[i].path);
 			}
+		}
+		// Not an error but would waste time copying the entire vectors
+		// onto themselves, becomes memmove(&v[0], &v[0], v.size*sizeof(int))
+		if (end1 >= 0) {
 			cvec_erase_file(&g->files, start1, end1);
 			cvec_erase_thumb_state(&g->thumbs, start1, end1);
 		}
 	}
-
 	// If the current images are among the removed, update to 1
 	// to the left and turn on the do_next flag (do when exiting thumb
 	// mode).
@@ -2557,6 +2612,16 @@ void do_thumb_rem_del(int do_delete, int invert)
 		}
 	}
 	g->thumb_sel = (!invert) ? start : 0;  // in case it was > _sel_end
+}
+
+void do_thumb_rem_del(int do_delete, int invert)
+{
+	if (g->state & THUMB_SEARCH) {
+		do_thumb_rem_del_search(do_delete, invert);
+	} else {
+		do_thumb_rem_del_dflt_visual(do_delete, invert);
+	}
+
 	fix_thumb_sel(1);
 
 	// exit Visual mode after r/x (and backspace in this case) like vim
@@ -2667,7 +2732,7 @@ int main(int argc, char** argv)
 		cleanup(1, 0);
 	}
 	g->thumbdir = thumbdir;
-	SDL_Log("%s\n%s\n", g->cachedir, g->thumbdir);
+	printf("cache: %s\nthumbnails%s\n", g->cachedir, g->thumbdir);
 
 	file f;
 	int img_args = 0;
