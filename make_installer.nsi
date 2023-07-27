@@ -88,7 +88,7 @@ Section "-Core"
 	File ${INST_FOLDER}\sdl_img.exe
 
 	;SetOutPath $INSTDIR\lib
-	File ${INST_FOLDER}\*.dll
+	File /nonfatal ${INST_FOLDER}\*.dll
 
 	; SetOutPath $INSTDIR\lib
 	File ${INST_FOLDER}\sdl_img.ico
