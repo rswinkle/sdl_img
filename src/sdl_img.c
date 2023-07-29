@@ -47,11 +47,11 @@
 #define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
 #define NK_INCLUDE_FONT_BAKING
 #define NK_INCLUDE_DEFAULT_FONT
-#define NK_IMPLEMENTATION
+//#define NK_IMPLEMENTATION
 #include "nuklear.h"
 
 #define SDL_MAIN_HANDLED
-#define NK_SDL_RENDERER_IMPLEMENTATION
+//#define NK_SDL_RENDERER_IMPLEMENTATION
 #include "nuklear_sdl_renderer.h"
 
 #include <stdio.h>
