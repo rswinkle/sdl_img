@@ -1,8 +1,14 @@
 
-CC=clang
+ifeq ($(OS), Windows_NT)
+	CC=win-clang
+	DBG_OPTS=-std=gnu99 -g -O0 -Wall
+else
+	CC=clang
+	DBG_OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall
+endif
+
 CFLAGS=`pkg-config sdl2 libcurl --cflags`
 LIBS=`pkg-config sdl2 libcurl --libs` -lm
-DBG_OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall
 REL_OPTS=-std=gnu99 -msse -O3 -DNDEBUG
 
 all:
@@ -14,19 +20,28 @@ debug: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear.o
 	$(CC) $(DBG_OPTS) src/sdl_img.c nuklear.o -o sdl_img $(CFLAGS) $(LIBS)
 
 nuklear.o: src/nuklear.h src/nuklear_sdl_renderer.h
-	$(CC) $(DBUG_OPTS) -c src/nuklear.c `sdl2-config --cflags` -lm
+	$(CC) $(DBUG_OPTS) -c src/nuklear.c `sdl2-config --cflags`
 
 release: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear_release.o
 	$(CC) $(REL_OPTS) src/sdl_img.c nuklear.o -o sdl_img $(CFLAGS) $(LIBS)
 
 nuklear_release.o: src/nuklear.h src/nuklear_sdl_renderer.h
-	$(CC) $(REL_OPTS) -c src/nuklear.c `sdl2-config --cflags` -lm
+	$(CC) $(REL_OPTS) -c src/nuklear.c `pkg-config sdl2 --cflags`
 
-win_debug:
-	echo "win_debug"
+win_debug: nuklear.o
+	$(CC) $(DBG_OPTS) src/sdl_img.c nuklear.o -o sdl_img.exe $(CFLAGS) $(LIBS)
 
-win_release:
-	echo "win_release"
+win_release: nuklear.o
+	$(CC) $(REL_OPTS) src/sdl_img.c nuklear.o -o sdl_img.exe $(CFLAGS) $(LIBS)
+
+win_package:
+	cat dll_list.txt | xargs -I{} cp {} package/
+	#cp ./*.dll package/
+	cp LICENSE.txt package/
+	cp LICENSE package/
+	cp README.md package/
+	unix2dos package/README.md package/LICENSE*
+	cp sdl_img.exe package/
 
 clean:
 	rm sdl_img *.o *.exe
