@@ -34,6 +34,9 @@ win_debug: nuklear.o
 win_release: nuklear.o
 	$(CC) $(REL_OPTS) src/sdl_img.c nuklear.o -o sdl_img.exe $(CFLAGS) $(LIBS)
 
+lua:
+	$(MAKE) -C lua-5.4.6/
+
 win_package:
 	cat dll_list.txt | xargs -I{} cp {} package/
 	#cp ./*.dll package/
@@ -44,5 +47,6 @@ win_package:
 	cp sdl_img.exe package/
 
 clean:
-	rm sdl_img *.o *.exe
+	rm -f sdl_img *.o *.exe
+	$(MAKE) -C lua-5.4.6/ clean
 
