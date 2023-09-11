@@ -127,7 +127,7 @@ void call_va(lua_State* L, const char* func, const char* sig, ...)
 		case '>':
 			goto endargs;
 		default:
-			error(L, "invalid option (%c)", sig[-1]);
+			error(L, "invalid option (%c)\n", sig[-1]);
 		}
 	}
 endargs:
@@ -135,7 +135,7 @@ endargs:
 	nres = strlen(sig); // number of expected results
 
 	if (lua_pcall(L, narg, nres, 0)) {
-		error(L, "error calling '%s': %s", func, lua_tostring(L, -1));
+		error(L, "error calling '%s': %s\n", func, lua_tostring(L, -1));
 	}
 
 	nres = -nres;  // stack index of first result
@@ -150,7 +150,7 @@ endargs:
 		case 'f':
 			dres = lua_tonumberx(L, nres, &isnum);
 			if (!isnum) {
-				error(L, "wrong result type");
+				error(L, "wrong result type\n");
 			}
 			*va_arg(v1, double*) = dres;
 			break;
@@ -158,24 +158,24 @@ endargs:
 		case 'i':
 			ires = lua_tointegerx(L, nres, &isnum);
 			if (!isnum) {
-				error(L, "wrong result type");
+				error(L, "wrong result type\n");
 			}
 			*va_arg(v1, int*) = ires;
 			break;
 		case 's':
 			if (!(sres = lua_tostring(L, nres))) {
-				error(L, "wrong result type");
+				error(L, "wrong result type\n");
 			}
 			*va_arg(v1, char**) = (char*)sres;
 			break;
 		case 'b':
 			if (!(bool_res = lua_toboolean(L, nres))) {
-				error(L, "wrong result type");
+				error(L, "wrong result type\n");
 			}
 			*va_arg(v1, int*) = bool_res;
 			break;
 		default:
-			error(L, "invalid option (%c)", sig[-1]);
+			error(L, "invalid option (%c)\n", sig[-1]);
 		}
 		nres++;
 	}

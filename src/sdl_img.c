@@ -442,7 +442,7 @@ int bytes2str(int bytes, char* buf, int len)
 
 #include "sorting.c"
 
-#include "config.c"
+#include "lua_config.c"
 
 size_t write_data(void* buf, size_t size, size_t num, void* userp)
 {
@@ -682,7 +682,7 @@ void cleanup(int ret, int called_setup)
 		SDL_Quit();
 	}
 
-	write_config("config.txt");
+	write_config("config.lua");
 
 	free(g->prefpath);
 	cvec_free_thumb_state(&g->thumbs);
@@ -1418,7 +1418,7 @@ void setup(int start_idx)
 
 	// If no config file, set default preferences
 	// NOTE cachedir already set to default in main
-	if (!read_config("config.txt")) {
+	if (!read_config("config.lua")) {
 		g->slide_delay = 3;
 		g->gui_delay = DFLT_GUI_DELAY;
 		g->show_infobar = nk_true;

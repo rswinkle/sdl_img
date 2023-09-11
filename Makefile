@@ -8,7 +8,7 @@ else
 endif
 
 CFLAGS=`pkg-config sdl2 libcurl --cflags`
-LIBS=`pkg-config sdl2 libcurl --libs` -lm
+LIBS=`pkg-config sdl2 libcurl --libs` -lm -Llua-5.4.6/src -llua
 REL_OPTS=-std=gnu99 -msse -O3 -DNDEBUG
 
 all:
@@ -16,13 +16,13 @@ all:
 	echo $(LIBS)
 	echo $(OPTS)
 
-debug: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear.o
+debug: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear.o lua
 	$(CC) $(DBG_OPTS) src/sdl_img.c nuklear.o -o sdl_img $(CFLAGS) $(LIBS)
 
 nuklear.o: src/nuklear.h src/nuklear_sdl_renderer.h
 	$(CC) $(DBUG_OPTS) -c src/nuklear.c `sdl2-config --cflags`
 
-release: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear_release.o
+release: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear_release.o lua
 	$(CC) $(REL_OPTS) src/sdl_img.c nuklear.o -o sdl_img $(CFLAGS) $(LIBS)
 
 nuklear_release.o: src/nuklear.h src/nuklear_sdl_renderer.h
