@@ -345,7 +345,7 @@ typedef struct global_state
 static global_state state = { 0 };
 global_state* g = &state;
 
-char text[STRBUF_SZ];
+char text_buf[STRBUF_SZ];
 int text_len;
 char* composition;
 Sint32 cursor;
@@ -682,7 +682,10 @@ void cleanup(int ret, int called_setup)
 		SDL_Quit();
 	}
 
-	write_config("config.lua");
+	char config_path[STRBUF_SZ] = {0};
+	snprintf(config_path, STRBUF_SZ, "%sconfig.lua", g->prefpath);
+
+	write_config(config_path);
 
 	free(g->prefpath);
 	cvec_free_thumb_state(&g->thumbs);
@@ -1394,6 +1397,7 @@ void setup(int start_idx)
 	g->ren = NULL;
 	char error_str[STRBUF_SZ] = { 0 };
 	char title_buf[STRBUF_SZ] = { 0 };
+	char config_path[STRBUF_SZ] = { 0 };
 
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 
@@ -1416,9 +1420,11 @@ void setup(int start_idx)
 	g->has_bad_paths = SDL_FALSE;
 	int got_config = nk_true;
 
+	snprintf(config_path, STRBUF_SZ, "%sconfig.lua", g->prefpath);
+	printf("config file: %s\n", config_path);
 	// If no config file, set default preferences
 	// NOTE cachedir already set to default in main
-	if (!read_config("config.lua")) {
+	if (!read_config(config_path)) {
 		g->slide_delay = 3;
 		g->gui_delay = DFLT_GUI_DELAY;
 		g->show_infobar = nk_true;
@@ -1884,7 +1890,7 @@ void do_sort(compare_func cmp)
 
 	// should work even while in result modes
 	if (g->state & RESULT_MASK) {
-		search_filenames();
+		search_filenames(SDL_FALSE);
 
 		for (int j=0; j<g->search_results.size; ++j) {
 			if (g->search_results.a[j] == i) {
@@ -2416,7 +2422,7 @@ void do_listmode()
 	g->state = LIST_DFLT;
 	g->selection = g->img[0].index;
 	g->list_setscroll = SDL_TRUE;
-	text[0] = 0;
+	text_buf[0] = 0;
 	text_len = 0;
 	g->search_results.size = 0;
 	g->status = REDRAW;
@@ -2732,7 +2738,7 @@ int main(int argc, char** argv)
 		cleanup(1, 0);
 	}
 	g->thumbdir = thumbdir;
-	printf("cache: %s\nthumbnails%s\n", g->cachedir, g->thumbdir);
+	printf("cache: %s\nthumbnails: %s\n", g->cachedir, g->thumbdir);
 
 	file f;
 	int img_args = 0;
@@ -3053,6 +3059,8 @@ int main(int argc, char** argv)
 			SDL_Delay(MIN_GIF_DELAY/2);
 		}
 	}
+
+	// TODO save current prefs to config
 
 	cleanup(0, 1);
 	//never get here

@@ -146,8 +146,8 @@ int handle_thumb_events()
 				break;
 			case SDLK_SLASH:
 				g->state = THUMB_SEARCH;
-				text[0] = '/';
-				text[1] = 0;
+				text_buf[0] = '/';
+				text_buf[1] = 0;
 				text_len = 1;
 				g->search_results.size = 0;
 				SDL_StartTextInput();
@@ -188,8 +188,10 @@ int handle_thumb_events()
 			case SDLK_BACKSPACE:
 			case SDLK_r:
 			case SDLK_x:
-				// TODO Also support Delete key?
-				do_thumb_rem_del(sym == SDLK_x && g->thumb_x_deletes, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
+				if (g->state != THUMB_SEARCH) {
+					// TODO Also support Delete key?
+					do_thumb_rem_del(sym == SDLK_x && g->thumb_x_deletes, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
+				}
 				break;
 			case SDLK_RETURN:
 				if (g->state & (THUMB_DFLT | SEARCH_RESULTS)) {
@@ -215,7 +217,7 @@ int handle_thumb_events()
 				} else if (g->state == THUMB_SEARCH) {
 					SDL_StopTextInput();
 					// maybe give a parameter to switch between searching names and paths
-					search_filenames();
+					search_filenames(SDL_TRUE);
 					if (g->search_results.size) {
 						g->thumb_sel = g->search_results.a[0];
 						g->state |= SEARCH_RESULTS;
@@ -308,8 +310,8 @@ int handle_thumb_events()
 				break;
 			case SDLK_BACKSPACE:
 				if (text_len)
-					text[--text_len] = 0;
-				SDL_Log("text is \"%s\"\n", text);
+					text_buf[--text_len] = 0;
+				SDL_Log("text is \"%s\"\n", text_buf);
 				break;
 			}
 			break;
@@ -363,19 +365,19 @@ int handle_thumb_events()
 			break;
 
 		case SDL_TEXTINPUT:
-			// could probably just do text[text_len++] = e.text.text[0]
+			// could probably just do text_buf[text_len++] = e.text.text[0]
 			// since I only handle ascii
 			if (g->state == THUMB_SEARCH && text_len < STRBUF_SZ-1) {
-				strcat(text, e.text.text);
+				strcat(text_buf, e.text.text);
 				text_len += strlen(e.text.text);
-				SDL_Log("text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
+				SDL_Log("text is \"%s\" \"%s\" %d %d\n", text_buf, composition, cursor, selection_len);
 				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "text is \"%s\" \"%s\" %d %d\n", text, composition, cursor, selection_len);
 			}
 			break;
 
 		case SDL_TEXTEDITING:
 			if (g->state == THUMB_SEARCH) {
-				SDL_Log("recieved edit \"%s\"\n", e.edit.text);
+				SDL_Log("received edit \"%s\"\n", e.edit.text);
 				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "recieved edit \"%s\"\n", e.edit.text);
 				composition = e.edit.text;
 				cursor = e.edit.start;
@@ -554,8 +556,8 @@ int handle_list_events()
 			switch (sym) {
 			case SDLK_ESCAPE:
 				if (g->state & SEARCH_RESULTS) {
-					text[0] = 0;
-					//memset(text, 0, text_len+1);
+					text_buf[0] = 0;
+					//memset(text_buf, 0, text_len+1);
 					text_len = 0;
 
 					// if nothing was selected among search results set back

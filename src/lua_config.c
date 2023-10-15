@@ -79,8 +79,9 @@ int read_config(char* filename)
 
 
 	if (luaL_dofile(L, filename)) {
-		return 0;
-		//error(L, "cannot run config. file: %s\n", lua_tostring(L, -1));
+		error(L, "cannot run config. file: %s\n", lua_tostring(L, -1));
+		//lua_close(L);
+		//return 0;
 	}
 
 	g->x_scale = g->y_scale = get_global_number(L, "gui_scale");
@@ -110,6 +111,8 @@ int read_config(char* filename)
 	cache_dir = cachedir_buf;
 	*/
 
+	/*
+	// TODO labeled output
 	printf("%f\n", g->x_scale);
 	printf("%d,%d,%d\n", g->bg.r, g->bg.g, g->bg.b);
 	printf("%d\n", g->slide_delay);
@@ -122,6 +125,7 @@ int read_config(char* filename)
 	printf("%d\n", g->ind_mm);
 	//printf("'%s'\n", cache_dir);
 
+	*/
 
 	lua_close(L);
 	return 0;
@@ -161,7 +165,7 @@ int write_config(char* filename)
 			fprintf(cfg_file, "%d\n", g->gui_delay);
 			break;
 		case FULLSCREEN_GUI:
-			fprintf(cfg_file, "%s\n", fullscreen_gui_str[g->fullscreen_gui]);
+			fprintf(cfg_file, "\"%s\"\n", fullscreen_gui_str[g->fullscreen_gui]);
 			break;
 		case THUMB_ROWS:
 			fprintf(cfg_file, "%d\n", g->thumb_rows);
@@ -203,6 +207,7 @@ int load_str2enum(lua_State* L, const char* name, const char** enum_names, int* 
 		}
 		error(L, "invalid value for enum %s: '%s'\n", name, value);
 	} else {
+		stackDump(L);
 		error(L, "'%s' is not a string\n", name);
 	}
 	return -1;
@@ -251,10 +256,10 @@ int get_color_field(lua_State* L, const char* key)
 	}
 	if (lua_isinteger(L, -1)) {
 		result = lua_tointeger(L, -1);
-		printf("Is integer: %d\n", result);
+		//printf("Is integer: %d\n", result);
 	} else {
 		float tmp = (float)lua_tonumber(L, -1);
-		printf("is float: %f\n", tmp);
+		//printf("is float: %f\n", tmp);
 		result = (int)(tmp*255);
 	}
 

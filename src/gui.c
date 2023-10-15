@@ -44,11 +44,13 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 #define MAX_SLIDE_DELAY 10
 #define MAX_GUI_DELAY 60
 
-void search_filenames()
+void search_filenames(int is_vimmode)
 {
 	// fast enough to do here?  I do it in events?
-	text[text_len] = 0;
-	SDL_Log("Final text = \"%s\"\n", &text[1]);
+	text_buf[text_len] = 0;
+	char* text = text_buf + ((is_vimmode) ? 1 : 0);
+	
+	SDL_Log("Final text = \"%s\"\n", text);
 
 	// strcasestr is causing problems on windows
 	// so just convert to lower before using strstr
@@ -56,8 +58,8 @@ void search_filenames()
 	char lowername[STRBUF_SZ] = { 0 };
 
 	// start at 1 to cut off '/'
-	for (int i=1; i<text_len; ++i) {
-		lowertext[i-1] = tolower(text[i]);
+	for (int i=0; text[i]; ++i) {
+		lowertext[i] = tolower(text[i]);
 	}
 
 	// it'd be kind of cool to add results of multiple searches together if we leave this out
@@ -243,10 +245,10 @@ void draw_gui(struct nk_context* ctx)
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, search_ratio);
 			search_height = nk_widget_bounds(ctx).h;
 			nk_label(ctx, "Search Filenames:", NK_TEXT_LEFT);
-			active = nk_edit_string(ctx, search_flags, text, &text_len, STRBUF_SZ, nk_filter_default);
+			active = nk_edit_string(ctx, search_flags, text_buf, &text_len, STRBUF_SZ, nk_filter_default);
 			if (active & NK_EDIT_COMMITED) {
 
-				search_filenames();
+				search_filenames(SDL_FALSE);
 				memset(&rview, 0, sizeof(rview));
 				g->state |= SEARCH_RESULTS;
 
@@ -334,7 +336,7 @@ void draw_gui(struct nk_context* ctx)
 				if (!g->search_results.size) {
 					if (nk_button_label(ctx, "No matching results")) {
 						g->state = LIST_DFLT;
-						text[0] = 0;
+						text_buf[0] = 0;
 						text_len = 0;
 						g->selection = g->img[0].index;
 						g->list_setscroll = SDL_TRUE;
@@ -907,7 +909,7 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 			// keep GUI up to show what they've typed
 			g->gui_timer = SDL_GetTicks();
 			nk_layout_row_dynamic(ctx, 0, 2);
-			nk_label(ctx, text, NK_TEXT_LEFT);
+			nk_label(ctx, text_buf, NK_TEXT_LEFT);
 			nk_label(ctx, info_buf, NK_TEXT_RIGHT);
 		}
 	}
