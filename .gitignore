@@ -17,6 +17,7 @@
 *.app
 *.pyc
 *.deb
+sdl_img
 
 #ignore ~ files
 *~

@@ -27,7 +27,7 @@
 #include "WjCryptLib_Md5.c"
 
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
-#include "stb_image_resize.h"
+#include "stb_image_resize2.h"
 
 // was messing with tcc
 //#define STBI_NO_SIMD
@@ -963,7 +963,7 @@ int gen_thumbs(void* data)
 			cleanup(0, 1);
 		}
 
-		if (!stbir_resize_uint8(pix, w, h, 0, outpix, out_w, out_h, 0, 4)) {
+		if (!stbir_resize_uint8_linear(pix, w, h, 0, outpix, out_w, out_h, 0, STBIR_RGBA)) {
 			free(pix);
 			free(outpix);
 			continue;
