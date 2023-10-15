@@ -61,6 +61,7 @@ void set_color(lua_State* L, ColorEntry* ct);
 int load_fullscreen_gui(lua_State* L);
 
 char* fullscreen_gui_str(int fsg_enum);
+void write_config(FILE* cfg_file);
 
 ColorEntry colortable[] =
 {
@@ -72,16 +73,17 @@ ColorEntry colortable[] =
 	{ NULL,    { 0, 0, 0} }     // sentinal
 };
 
-int read_config(char* filename)
+int read_config_file(char* filename)
 {
 	lua_State* L = luaL_newstate();
 	luaL_openlibs(L);
 
-
 	if (luaL_dofile(L, filename)) {
-		error(L, "cannot run config. file: %s\n", lua_tostring(L, -1));
-		//lua_close(L);
-		//return 0;
+		//error(L, "cannot run config. file: %s\n", lua_tostring(L, -1));
+		perror("Cannot run lua config file");
+		fprintf(stderr, "lua error: %s\n", lua_tostring(L, -1));
+		lua_close(L);
+		return 0;
 	}
 
 	g->x_scale = g->y_scale = get_global_number(L, "gui_scale");
@@ -111,39 +113,36 @@ int read_config(char* filename)
 	cache_dir = cachedir_buf;
 	*/
 
-	/*
-	// TODO labeled output
-	printf("%f\n", g->x_scale);
-	printf("%d,%d,%d\n", g->bg.r, g->bg.g, g->bg.b);
-	printf("%d\n", g->slide_delay);
-	printf("%d\n", g->gui_delay);
-	printf("%d %s\n", g->fullscreen_gui, fullscreen_gui_str(g->fullscreen_gui));
-	printf("%d\n", g->thumb_rows);
-	printf("%d\n", g->thumb_cols);
-	printf("%d\n", g->show_infobar);
-	printf("%d\n", g->thumb_x_deletes);
-	printf("%d\n", g->ind_mm);
-	//printf("'%s'\n", cache_dir);
-
-	*/
+	// For debug purposes
+	write_config(stdout);
 
 	lua_close(L);
-	return 0;
+	return 1;
+}
+
+int write_config_file(char* filename)
+{
+	char filepath[STRBUF_SZ];
+	snprintf(filepath, STRBUF_SZ, "%s%s", g->prefpath, filename);
+	FILE* cfg_file = fopen(filepath, "w");
+	if (!cfg_file) {
+		perror("Failed to open config file for writing");
+		return 0;
+	}
+
+	write_config(cfg_file);
+
+	fclose(cfg_file);
+
+	return 1;
 }
 
 // TODO replace with something that's more automatic, maybe put everything in a table
 // and serialize it
-int write_config(char* filename)
+void write_config(FILE* cfg_file)
 {
 	const char* bool_str[] = { "false", "true" };
 	const char* fullscreen_gui_str[] = { "delay", "always", "never" };
-
-	char filepath[STRBUF_SZ];
-	snprintf(filepath, STRBUF_SZ, "%s/%s", g->prefpath, filename);
-	FILE* cfg_file = fopen(filepath, "w");
-	if (!cfg_file) {
-		return 0;
-	}
 
 	for (int i=0; i<NUM_KEYS; i++) {
 
@@ -191,8 +190,6 @@ int write_config(char* filename)
 			break;
 		}
 	}
-	fclose(cfg_file);
-	return 1;
 }
 
 int load_str2enum(lua_State* L, const char* name, const char** enum_names, int* enum_values, int len)

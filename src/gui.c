@@ -749,7 +749,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 	s.w = w;
 	s.h = h;
 
-	static struct nk_colorf bgf = { 0, 0, 0, 1 };
+	struct nk_colorf bgf = nk_color_cf(g->bg);
 
 	if (nk_begin(ctx, "Preferences", s, popup_flags)) {
 		nk_layout_row_dynamic(ctx, 0, 2);

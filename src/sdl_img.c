@@ -682,10 +682,9 @@ void cleanup(int ret, int called_setup)
 		SDL_Quit();
 	}
 
-	char config_path[STRBUF_SZ] = {0};
-	snprintf(config_path, STRBUF_SZ, "%sconfig.lua", g->prefpath);
-
-	write_config(config_path);
+	// appends prefpath inside
+	write_config_file("config.lua");
+	write_config(stdout);
 
 	free(g->prefpath);
 	cvec_free_thumb_state(&g->thumbs);
@@ -1424,7 +1423,7 @@ void setup(int start_idx)
 	printf("config file: %s\n", config_path);
 	// If no config file, set default preferences
 	// NOTE cachedir already set to default in main
-	if (!read_config(config_path)) {
+	if (!read_config_file(config_path)) {
 		g->slide_delay = 3;
 		g->gui_delay = DFLT_GUI_DELAY;
 		g->show_infobar = nk_true;
@@ -2804,7 +2803,6 @@ int main(int argc, char** argv)
 		} else if (!strcmp(argv[i], "-R")) {
 			recurse = 1;
 		} else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--recursive")) {
-			; // TODO
 			if (i+1 == argc) {
 				SDL_Log("Error missing directory following -r\n");
 				break;
