@@ -242,6 +242,7 @@ void draw_gui(struct nk_context* ctx)
 
 			// TODO With Enter to search, should I even have the Search button?  It's more of a label now... maybe put it on
 			// the left?  and make it smaller?
+			// TODO How to automatically focus on the search box if they start typing?
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, search_ratio);
 			search_height = nk_widget_bounds(ctx).h;
 			nk_label(ctx, "Search Filenames:", NK_TEXT_LEFT);
@@ -347,7 +348,7 @@ void draw_gui(struct nk_context* ctx)
 					if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, FONT_SIZE+16, g->search_results.size)) {
 						nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 						int i;
-						for (int j=rview.begin; j<=rview.end; ++j) {
+						for (int j=rview.begin; j<rview.end; ++j) {
 							i = g->search_results.a[j];
 							// TODO Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
 							// also thumb_sel serves the same/similar purpose
