@@ -664,6 +664,9 @@ void clear_img(img_state* img)
 void cleanup(int ret, int called_setup)
 {
 	if (called_setup) {
+		// appends prefpath inside
+		write_config_file("config.lua");
+		write_config(stdout);
 
 		// not really necessary to exit thread but
 		// valgrind reports it as possibly lost if not
@@ -681,10 +684,6 @@ void cleanup(int ret, int called_setup)
 		SDL_DestroyWindow(g->win);
 		SDL_Quit();
 	}
-
-	// appends prefpath inside
-	write_config_file("config.lua");
-	write_config(stdout);
 
 	free(g->prefpath);
 	cvec_free_thumb_state(&g->thumbs);
@@ -1390,6 +1389,50 @@ void free_file(void* f)
 	free(((file*)f)->path);
 }
 
+void setup_dirs()
+{
+	char datebuf[200] = { 0 };
+	time_t t;
+	struct tm *tmp;
+	int len;
+
+	t = time(NULL);
+	srand(t);
+
+	char* prefpath = g->prefpath;
+
+	// cachedir wasn't passed as an argument or loaded from config.lua
+	if (!g->cachedir[0]) {
+		tmp = localtime(&t);
+		strftime(datebuf, sizeof(datebuf), "%Y-%m-%d", tmp);  // %F
+
+		len = snprintf(g->cachedir, STRBUF_SZ, "%scache/%s", prefpath, datebuf);
+		if (len >= STRBUF_SZ) {
+			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "cache path too long\n");
+			cleanup(1, 1);
+		}
+		if (mkdir_p(g->cachedir, S_IRWXU) && errno != EEXIST) {
+			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make cache directory: %s\n", strerror(errno));
+			cleanup(1, 1);
+		}
+	}
+
+	// TODO make thumbnail directory a configuration variable
+	// if not a passable argument
+	len = snprintf(g->thumbdir, STRBUF_SZ, "%sthumbnails", prefpath);
+	if (len >= STRBUF_SZ) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "thumbnail path too long\n");
+		cleanup(1, 1);
+	}
+	if (mkdir_p(g->thumbdir, S_IRWXU) && errno != EEXIST) {
+		perror("Failed to make cache directory");
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make cache directory: %s\n", strerror(errno));
+		cleanup(1, 1);
+	}
+
+	printf("cache: %s\nthumbnails: %s\n", g->cachedir, g->thumbdir);
+}
+
 void setup(int start_idx)
 {
 	g->win = NULL;
@@ -1435,6 +1478,8 @@ void setup(int start_idx)
 		g->thumb_cols = MAX_THUMB_COLS;
 		got_config = nk_false;
 	}
+
+	setup_dirs();
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Couldn't allocate tex array: %s\n", strerror(errno));
@@ -2662,8 +2707,7 @@ int main(int argc, char** argv)
 	char fullpath[STRBUF_SZ] = { 0 };
 	char cachedir[STRBUF_SZ] = { 0 };
 	char thumbdir[STRBUF_SZ] = { 0 };
-	char datebuf[200] = { 0 };
-	int ticks;
+	int ticks, len;
 	struct stat file_stat;
 
 	const char* exts[] =
@@ -2697,47 +2741,17 @@ int main(int argc, char** argv)
 	cvec_str(&g->favs, 0, 50);
 	// g->thumbs initialized if needed in generate_thumbs()
 
+	// just point these at a buffer that will live forever
+	g->cachedir = cachedir;
+	g->thumbdir = thumbdir;
+
 	// Not currently used
 	// char* exepath = SDL_GetBasePath();
 
 	// TODO think of a company/org name
-	char* prefpath = SDL_GetPrefPath("", "sdl_img");
-	//SDL_Log("%s\n%s\n\n", exepath, prefpath);
+	g->prefpath = SDL_GetPrefPath("", "sdl_img");
+	//SDL_Log("%s\n%s\n\n", exepath, g->prefpath);
 	// SDL_free(exepath);
-
-	time_t t;
-	struct tm *tmp;
-	char* sep;
-	t = time(NULL);
-
-	srand(t);
-
-	tmp = localtime(&t);
-	strftime(datebuf, sizeof(datebuf), "%Y-%m-%d", tmp);  // %F
-
-	int len = snprintf(cachedir, STRBUF_SZ, "%scache/%s", prefpath, datebuf);
-	if (len >= STRBUF_SZ) {
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "cache path too long\n");
-		cleanup(1, 0);
-	}
-	if (mkdir_p(cachedir, S_IRWXU) && errno != EEXIST) {
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make cache directory: %s\n", strerror(errno));
-		cleanup(1, 0);
-	}
-	g->cachedir = cachedir;
-
-	len = snprintf(thumbdir, STRBUF_SZ, "%sthumbnails", prefpath);
-	if (len >= STRBUF_SZ) {
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "thumbnail path too long\n");
-		cleanup(1, 0);
-	}
-	if (mkdir_p(thumbdir, S_IRWXU) && errno != EEXIST) {
-		perror("Failed to make cache directory");
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make cache directory: %s\n", strerror(errno));
-		cleanup(1, 0);
-	}
-	g->thumbdir = thumbdir;
-	printf("cache: %s\nthumbnails: %s\n", g->cachedir, g->thumbdir);
 
 	file f;
 	int img_args = 0;
@@ -2847,9 +2861,9 @@ int main(int argc, char** argv)
 				// TODO list cache members
 				
 				bytes2str(f.size, f.size_str, SIZE_STR_BUF);
-				tmp = localtime(&f.modified);
+				struct tm* tmp = localtime(&f.modified);
 				strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp); // %F %T
-				sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
+				char* sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 				f.name = (sep) ? sep+1 : f.path;
 
 				cvec_push_file(&g->files, &f);
@@ -2903,7 +2917,6 @@ int main(int argc, char** argv)
 
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "start_index = %d\n", start_index);
 	
-	g->prefpath = prefpath;
 	setup(start_index);
 
 	int is_a_gif;

@@ -1,11 +1,11 @@
 .\" Man page for SDL_IMG
-.TH SDL_IMG 1 "1 April 2023" "1.0" "The SDL2 and stb_image based image viewer"
+.TH SDL_IMG 1 "16 October 2023" "1.0" "The SDL2 and stb_image based image viewer"
 .\" Please adjust this date when revising the manpage.
 .\"
 .SH "NAME"
 sdl_img \- A simple but unique image viewer based on stb_image and SDL2
 .SH "SYNOPSIS"
-.B ./sdl_img [-f] [-R] [-s [delay]] [-r dir] [files/dirs] [-l text_list]
+.B ./sdl_img [-f] [-R] [-s [delay]] [-r dir] [-l text_list] [files/dirs]
 
 .B ./sdl_img image1.jpg (will open all images in same dir)
 
@@ -16,6 +16,8 @@ sdl_img \- A simple but unique image viewer based on stb_image and SDL2
 .B ./sdl_img image1.jpg somedir/* otherdir/image2.png
 
 .B ./sdl_img -l list1 example.com/image.jpg -l list3 -r ~/somedir
+
+Not all of the options are listed here; see below for the remainder.
 
 .SH "DESCRIPTION"
 \fBsdl_img\fR is designed to be a simple, easy to use image viewer that
