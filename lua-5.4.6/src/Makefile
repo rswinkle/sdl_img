@@ -6,7 +6,11 @@
 # Your platform. See PLATS for possible values.
 PLAT= guess
 
+ifeq ($(OS), Windows_NT)
+CC=win-clang
+else
 CC= gcc -std=gnu99
+endif
 CFLAGS= -O2 -Wall -Wextra -DLUA_COMPAT_5_3 $(SYSCFLAGS) $(MYCFLAGS)
 LDFLAGS= $(SYSLDFLAGS) $(MYLDFLAGS)
 LIBS= -lm $(SYSLIBS) $(MYLIBS)

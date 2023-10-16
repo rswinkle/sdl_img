@@ -7,7 +7,7 @@ else
 	DBG_OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall
 endif
 
-CFLAGS=`pkg-config sdl2 libcurl --cflags`
+CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.6/src
 LIBS=`pkg-config sdl2 libcurl --libs` -lm -Llua-5.4.6/src -llua
 REL_OPTS=-std=gnu99 -msse -O3 -DNDEBUG
 
@@ -28,17 +28,18 @@ release: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear_release.o lu
 nuklear_release.o: src/nuklear.h src/nuklear_sdl_renderer.h
 	$(CC) $(REL_OPTS) -c src/nuklear.c `pkg-config sdl2 --cflags`
 
-win_debug: nuklear.o
+win_debug: nuklear.o lua
 	$(CC) $(DBG_OPTS) src/sdl_img.c nuklear.o -o sdl_img.exe $(CFLAGS) $(LIBS)
 
-win_release: nuklear.o
+win_release: nuklear.o lua
 	$(CC) $(REL_OPTS) src/sdl_img.c nuklear.o -o sdl_img.exe $(CFLAGS) $(LIBS)
 
 lua:
 	$(MAKE) -C lua-5.4.6/
 
 win_package:
-	cat dll_list.txt | xargs -I{} cp {} package/
+	#cat mingw_dll_list.txt | xargs -I{} cp {} package/
+	win-ldd sdl_img.exe | grep mingw64 | awk '{print $$3}' | xargs -I{} cp {} package/
 	#cp ./*.dll package/
 	cp LICENSE.txt package/
 	cp LICENSE package/
