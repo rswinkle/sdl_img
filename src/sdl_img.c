@@ -338,6 +338,8 @@ typedef struct global_state
 	SDL_cond* cnd;
 	SDL_mutex* mtx;
 
+	// debugging
+
 } global_state;
 
 // Use a pointer in case I ever move this to another TU, though it's unlikely
@@ -1177,6 +1179,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		cleanup(1, 1);
 	}
 
+	char* tmp;
 	char* sep;
 	char* ext = NULL;
 	file f;
@@ -1230,7 +1233,12 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 
 		// have to use fullpath not d_name in case we're in a recursive call
 #ifndef _WIN32
-		f.path = realpath(fullpath, NULL);
+		// resize to exact length to save memory, reduce internal
+		// fragmentation.  This dropped memory use by 80% in certain
+		// extreme cases.
+		//f.path = realpath(fullpath, NULL);
+		tmp = realpath(fullpath, NULL);
+		f.path = realloc(tmp, strlen(tmp)+1);
 #else
 		f.path = CVEC_STRDUP(fullpath);
 #endif
@@ -1925,6 +1933,7 @@ void do_sort(compare_func cmp)
 	}
 
 	// find new index of img[0]
+	// TODO use bsearch?
 	int i;
 	for (i=0; i<g->files.size; ++i) {
 		if (!strcmp(save, g->files.a[i].path)) {
@@ -2918,6 +2927,7 @@ int main(int argc, char** argv)
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "start_index = %d\n", start_index);
 	
 	setup(start_index);
+
 
 	int is_a_gif;
 	while (1) {

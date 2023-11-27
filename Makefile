@@ -47,6 +47,12 @@ win_package:
 	unix2dos package/README.md package/LICENSE*
 	cp sdl_img.exe package/
 
+install: release
+	cp ./sdl_img /usr/local/bin
+	cp sdl_img.1 /usr/local/share/man/man1
+	cp sdl_img.desktop /usr/share/applications
+	cp ./package/sdl_img.png /usr/share/icons/hicolor/48x48/apps
+
 clean:
 	rm -f sdl_img *.o *.exe
 	$(MAKE) -C lua-5.4.6/ clean

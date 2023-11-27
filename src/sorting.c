@@ -52,6 +52,8 @@ extern inline i64 parsenum(char **a_p)
 	++a;
 
 	while (isnum(*a)) {
+		// signed integer overflow undefined behavior on very large numbers
+		// do I care about that here?
 		result *= 10;
 		result += *a - '0';
 		++a;
