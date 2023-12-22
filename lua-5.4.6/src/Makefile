@@ -7,7 +7,7 @@
 PLAT= guess
 
 # TODO if using github.com/Alexpux/MSYS2-Cross
-#ifeq ($(OS), Windows_NT)
+#ifeq ($(OS), cross_win)
 #CC=win-clang
 #else
 #CC= gcc -std=gnu99

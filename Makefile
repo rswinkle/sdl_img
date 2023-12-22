@@ -1,42 +1,75 @@
 
-# TODO if using github.com/Alexpux/MSYS2-Cross
-#@ifeq ($(OS), Windows_NT)
-#@	CC=win-clang
-#@	DBG_OPTS=-std=gnu99 -g -O0 -Wall
-#@else
-#@	CC=clang
-#@	DBG_OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall
-#@endif
+
+# default to linux
+PLAT=linux
+
+
+# windows: msys2 mingw64 environment
+#
+# cross_win: msys2 clang/ucrt64 cross compile env using
+# using github.com/Alexpux/MSYS2-Cross
+
+PLATS=linux windows cross_win
+
+
+# for some reason the sanitizers aren't working in my cross compile environment
+# but it's really only for creating a windows release/package anyway
+ifeq ($(PLAT), cross_win)
+	config=release
+endif
+
+ifeq ($(config), release)
+	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
+else
+	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall
+endif
 
 CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.6/src
 LIBS=`pkg-config sdl2 libcurl --libs` -lm -Llua-5.4.6/src -llua
-REL_OPTS=-std=gnu99 -msse -O3 -DNDEBUG
 
-all:
-	echo $(CFLAGS)
-	echo $(LIBS)
-	echo $(OPTS)
+DESTDIR=/usr/local
 
-debug: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear.o lua
-	$(CC) $(DBG_OPTS) src/sdl_img.c nuklear.o -o sdl_img $(CFLAGS) $(LIBS)
+PKGDIR=package_linux
+PKG_DIR=$(PKGDIR)$(DESTDIR)
+
+
+all: $(PLAT)
+	echo $(PKGDIR)
+
+linux: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear.o lua
+	$(CC) $(OPTS) src/sdl_img.c nuklear.o -o sdl_img $(CFLAGS) $(LIBS)
+
+linux_package: sdl_img
+	mkdir -p $(PKG_DIR)/bin
+	mkdir -p $(PKG_DIR)/share/man/man1
+	mkdir -p $(PKG_DIR)/share/applications
+	mkdir -p $(PKG_DIR)/share/icons/hicolor/48x48/apps
+	cp ./sdl_img $(PKG_DIR)/bin
+	cp sdl_img.1 $(PKG_DIR)/share/man/man1
+	cp sdl_img.desktop $(PKG_DIR)/share/applications
+	cp ./package/sdl_img.png $(PKG_DIR)/share/icons/hicolor/48x48/apps
+	fpm -s dir -t deb -v 1.0-RC2 -n sdl_img -C $(PKGDIR) \
+	--log info --verbose \
+	-d "libsdl2-2.0-0 >= 2.0.5" -d "libcurl4" \
+	-m "Robert Winkler <rob121618@gmail.com>" \
+	--description "A simple image viewer based on SDL2 and stb_image" \
+	--license MIT \
+	--url "https://github.com/rswinkle/sdl_img"
+	fpm -s dir -t tar -v 1.0-RC2 -n sdl_img_1.0-RC2 -C package_linux \
+	--log info --verbose \
+	-d "libsdl2-2.0-0 >= 2.0.5" -d "libcurl4" \
+	-m "Robert Winkler <rob121618@gmail.com>" \
+	--description "A simple image viewer based on SDL2 and stb_image" \
+	--license MIT \
+	--url "https://github.com/rswinkle/sdl_img"
 
 nuklear.o: src/nuklear.h src/nuklear_sdl_renderer.h
-	$(CC) $(DBUG_OPTS) -c src/nuklear.c `sdl2-config --cflags`
+	$(CC) $(OPTS) -c src/nuklear.c `sdl2-config --cflags`
 
-release: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear_release.o lua
-	$(CC) $(REL_OPTS) src/sdl_img.c nuklear.o -o sdl_img $(CFLAGS) $(LIBS)
+windows: nuklear.o lua_win
+	$(CC) $(OPTS) src/sdl_img.c nuklear.o -o sdl_img.exe $(CFLAGS) $(LIBS)
 
-nuklear_release.o: src/nuklear.h src/nuklear_sdl_renderer.h
-	$(CC) $(REL_OPTS) -c src/nuklear.c `pkg-config sdl2 --cflags`
-
-
-win_debug: nuklear.o lua_win
-	$(CC) $(DBG_OPTS) src/sdl_img.c nuklear.o -o sdl_img.exe $(CFLAGS) $(LIBS)
-
-win_release: nuklear_release.o lua_win
-	$(CC) $(REL_OPTS) src/sdl_img.c nuklear.o -o sdl_img.exe $(CFLAGS) $(LIBS)
-
-win_package: win_release
+windows_package: windows
 	ldd sdl_img.exe | grep mingw64 | cut -d' ' -f3 | xargs -I{} cp {} package/
 	cp LICENSE.txt package/
 	cp LICENSE package/
@@ -51,20 +84,34 @@ lua:
 lua_win:
 	cd lua-5.4.6/src && $(MAKE) PLAT=mingw
 
-cross_win_package:
+# These are using github.com/Alexpux/MSYS2-Cross
+lua_cross_win:
+	cd lua-5.4.6/src && $(MAKE) CC=win-clang PLAT=generic
+
+cross_win: nuklear.o lua_cross_win
+	win-clang $(OPTS) src/sdl_img.c nuklear.o -o sdl_img.exe $(CFLAGS) $(LIBS)
+
+cross_win_package: cross_win
 	#cat mingw_dll_list.txt | xargs -I{} cp {} package/
-	win-ldd sdl_img.exe | grep mingw64 | awk '{print $$3}' | xargs -I{} cp {} package/
+	#win-ldd sdl_img.exe | grep mingw64 | awk '{print $$3}' | xargs -I{} cp {} package/
+	win-ldd sdl_img.exe | grep ucrt64 | awk '{print $$3}' | xargs -I{} cp {} package/
 	cp LICENSE.txt package/
 	cp LICENSE package/
 	cp README.md package/
 	unix2dos package/README.md package/LICENSE*
 	cp sdl_img.exe package/
+	$(wine_makensis) make_installer.nsi
 
-install: release
-	cp ./sdl_img /usr/local/bin
-	cp sdl_img.1 /usr/local/share/man/man1
-	cp sdl_img.desktop /usr/share/applications
-	cp ./package/sdl_img.png /usr/share/icons/hicolor/48x48/apps
+
+install: linux
+	mkdir -p $(DESTDIR)/bin
+	mkdir -p $(DESTDIR)/share/man/man1
+	mkdir -p $(DESTDIR)/share/applications
+	mkdir -p $(DESTDIR)/share/icons/hicolor/48x48/apps
+	cp ./sdl_img $(DESTDIR)/bin
+	cp sdl_img.1 $(DESTDIR)/share/man/man1
+	cp sdl_img.desktop $(DESTDIR)/share/applications
+	cp ./package/sdl_img.png $(DESTDIR)/share/icons/hicolor/48x48/apps
 
 clean:
 	rm -f sdl_img *.o *.exe
