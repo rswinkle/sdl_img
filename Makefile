@@ -34,7 +34,6 @@ PKG_DIR=$(PKGDIR)$(DESTDIR)
 
 
 all: $(PLAT)
-	echo $(PKGDIR)
 
 linux: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear.o lua
 	$(CC) $(OPTS) src/sdl_img.c nuklear.o -o sdl_img $(CFLAGS) $(LIBS)
@@ -103,7 +102,7 @@ cross_win_package: cross_win
 	$(wine_makensis) make_installer.nsi
 
 
-install: linux
+install: sdl_img
 	mkdir -p $(DESTDIR)/bin
 	mkdir -p $(DESTDIR)/share/man/man1
 	mkdir -p $(DESTDIR)/share/applications
