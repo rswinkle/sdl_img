@@ -86,12 +86,21 @@ int read_config_file(char* filename)
 		return 0;
 	}
 
-	g->x_scale = g->y_scale = get_global_number(L, "gui_scale");
+	float scale = get_global_number(L, "gui_scale");
+	if (scale < 1.0f) {
+		scale = 1.0f;
+	}
+	// make sure only 0.5 increments
+	float tmp = floor(scale);
+	if (tmp != scale) {
+		scale = tmp + 0.5f;
+	}
+	g->y_scale = g->x_scale = scale;
 
-	g->slide_delay = get_global_int(L, "slide_delay");
-	g->gui_delay = get_global_int(L, "hide_gui_delay");
-	g->thumb_rows = get_global_int(L, "thumb_rows");
-	g->thumb_cols = get_global_int(L, "thumb_cols");
+	g->slide_delay = get_global_int_clamp(L, "slide_delay", 1, MAX_SLIDE_DELAY);
+	g->gui_delay = get_global_int_clamp(L, "hide_gui_delay", 1, MAX_GUI_DELAY);
+	g->thumb_rows = get_global_int_clamp(L, "thumb_rows", 2, 8);
+	g->thumb_cols = get_global_int_clamp(L, "thumb_cols", 4, 15);
 
 	// enum
 	g->fullscreen_gui = load_fullscreen_gui(L);

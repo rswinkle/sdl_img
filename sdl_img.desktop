@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=sdl_img
-Comment=Browse and rotate images
+Comment=SDL2 and stb_image based image viewer with unique features
 TryExec=sdl_img
 Exec=sdl_img %U
 # TRANSLATORS: Do NOT translate or transliterate this text!

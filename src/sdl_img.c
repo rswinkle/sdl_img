@@ -26,12 +26,15 @@
 
 #include "WjCryptLib_Md5.c"
 
+// for TCC
+#define STBIR_NO_SIMD
+
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include "stb_image_resize2.h"
 
-// was messing with tcc
-//#define STBI_NO_SIMD
-//#define SDL_DISABLE_IMMINTRIN_H
+// for TCC
+#define STBI_NO_SIMD
+#define SDL_DISABLE_IMMINTRIN_H
 //
 //#define STBI_FAILURE_USERMSG
 #define STB_IMAGE_IMPLEMENTATION

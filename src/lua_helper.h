@@ -11,7 +11,8 @@
 
 void error(lua_State* L, const char *fmt, ...);
 
-int getglobint(lua_State* L, const char* var);
+int get_global_int(lua_State* L, const char* var);
+int get_global_int_clamp(lua_State* L, const char* var, int min, int max);
 void call_va(lua_State* L, const char* func, const char* sig, ...);
 
 void stackDump(lua_State* L);
@@ -27,6 +28,17 @@ void error(lua_State* L, const char *fmt, ...)
 	exit(EXIT_FAILURE);
 }
 
+int get_global_int_clamp(lua_State* L, const char* var, int min, int max)
+{
+	int ret = get_global_int(L, var);
+	if (ret < min) {
+		ret = min;
+	}
+	if (ret > max) {
+		ret = max;
+	}
+	return ret;
+}
 
 int get_global_int(lua_State* L, const char* var)
 {
