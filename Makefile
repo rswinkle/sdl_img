@@ -11,8 +11,7 @@ PLAT=linux
 
 PLATS=linux windows cross_win
 
-CC=tcc
-CFLAGS=-DSDL_DISABLE_IMMINTRIN_H
+#CC=tcc
 
 
 # for some reason the sanitizers aren't working in my cross compile environment
@@ -22,9 +21,11 @@ ifeq ($(PLAT), cross_win)
 endif
 
 ifeq ($(config), release)
-	OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
+	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
+	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
 else
-	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall -DSDL_DISABLE_IMMINTRIN_H
+	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall
+	#OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall -DSDL_DISABLE_IMMINTRIN_H
 endif
 
 CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.6/src
