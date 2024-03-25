@@ -126,6 +126,14 @@ enum {
 #define MOD_STR_BUF 24
 #define FONT_SIZE 24
 
+// If this is defined, sdl_img will add files without extensions
+// to the list in directory scans if stbi_info() returns true.
+// This can make the startup a bit slower if you are scanning a
+// large directory (possibly recursively) with many files without
+// extensions since stbi_info actually has to open those files
+// to determine if they are a valid supported image type
+#define CHECK_IF_NO_EXTENSION
+
 // zoom is calculated
 // h = old_h * (1.0 + zoom*ZOOM_RATE)
 // zoom is divided by GIF_ZOOM_DIV if any
@@ -1170,10 +1178,16 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 	char fullpath[STRBUF_SZ] = { 0 };
 	struct stat file_stat;
 	struct dirent* entry;
-	int ret, i=0;;
+	int ret, i=0;
 	DIR* dir;
 	struct tm* tmp_tm;
+
+	// can be used if I call stbi_info for files without extensions
+	// or I could just pass NULLs
+	int x, y, n;
+
 	int start_size = g->files.size;
+
 
 	dir = opendir(dirpath);
 	if (!dir) {
@@ -1221,17 +1235,23 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 			continue;
 		}
 
-		// only add supported extensions
 		ext = strrchr(entry->d_name, '.');
+
+#ifndef CHECK_IF_NO_EXTENSION
+		// only add supported extensions
 		if (!ext)
 			continue;
-
-		for (i=0; i<num_exts; ++i) {
-			if (!strcasecmp(ext, exts[i]))
-				break;
+#else
+		if (ext)
+#endif
+		{
+			for (i=0; i<num_exts; ++i) {
+				if (!strcasecmp(ext, exts[i]))
+					break;
+			}
+			if (i == num_exts)
+				continue;
 		}
-		if (i == num_exts)
-			continue;
 
 		// have to use fullpath not d_name in case we're in a recursive call
 #ifndef _WIN32
@@ -1244,6 +1264,14 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 #else
 		f.path = CVEC_STRDUP(fullpath);
 #endif
+
+#ifdef CHECK_IF_NO_EXTENSION
+		if (!stbi_info(f.path, &x, &y, &n)) {
+			free(f.path);
+			continue;
+		}
+#endif
+
 		f.size = file_stat.st_size;
 		f.modified = file_stat.st_mtime;
 
