@@ -34,6 +34,7 @@ build/*
 !build/*.make
 *.swp
 tags
+scratch/*
 
 package/LICENSE*
 package/README.md

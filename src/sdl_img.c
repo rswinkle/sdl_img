@@ -1060,7 +1060,7 @@ void print_img_state(img_state* img)
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "frame_i = %d\ndelay = %d\nframes = %d\nframe_cap = %d\n", img->frame_i, img->delay, img->frames, img->frame_capacity);
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "frame_timer = %d\nlooped = %d\n", img->frame_timer, img->looped);
 
-	("tex = %p\n", img->tex);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "tex = %p\n", img->tex);
 	for (int i=0; i<img->frames; ++i) {
 		SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "tex[%d] = %p\n", i, img->tex[i]);
 	}
@@ -2894,7 +2894,9 @@ int main(int argc, char** argv)
 		mydirname(g->files.a[0].path, dirpath);
 		mybasename(g->files.a[0].path, img_name);
 
-		cvec_pop_file(&g->files, NULL);
+		// popm to not free the string and keep the file in case
+		// the start image is not added in the scan
+		cvec_popm_file(&g->files, &f);
 
 		myscandir(dirpath, exts, num_exts, recurse); // allow recurse for base case?
 
@@ -2912,10 +2914,25 @@ int main(int argc, char** argv)
 		// combination of those) there is no "starting image", we just sort and
 		// start at the beginning of the g->files in those cases
 		file* res;
-		f.name = img_name;
 		res = bsearch(&f, g->files.a, g->files.size, sizeof(file), filename_cmp_lt);
 		if (!res) {
-			cleanup(0, 1);
+			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not find starting image '%s' when scanning containing directory\n", img_name);
+			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "This means it did not have a searched-for extension; adding to list and attempting load anyway\n");
+			int i;
+			for (i=0; i<g->files.size; i++) {
+				if (filename_cmp_lt(&f, &g->files.a[i]) <= 0) {
+					cvec_insert_file(&g->files, i, &f);
+					res = &g->files.a[i];
+					break;
+				}
+			}
+			if (i == g->files.size) {
+				cvec_push_file(&g->files, &f);
+				res = &g->files.a[i];
+			}
+		} else {
+			// no longer need this, it was found in the scan
+			free(f.name);
 		}
 		// I could change all indexes to i64 but but no one will
 		// ever open over 2^31-1 images so just explicitly convert
