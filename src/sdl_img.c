@@ -708,7 +708,7 @@ void remove_bad_paths()
 {
 	if (!g->has_bad_paths) {
 		if (!g->thumbs_done) {
-			SDL_Log("No bad paths to remove, have you generated thumbnails to check all images\n");
+			SDL_Log("No bad paths to remove, have you generated thumbnails to check all images?\n");
 		} else {
 			SDL_Log("No bad paths!\n");
 		}
@@ -733,9 +733,9 @@ void remove_bad_paths()
 	// calloc'd so tex also NULL, so can remove rather than erase
 	for (int i=0; i<g->files.size; i++) {
 		if (!g->files.a[i].path) {
-			for (j=i+1; !g->files.a[j].path; j++);
+			for (j=i+1; j < g->files.size && !g->files.a[j].path; j++);
 
-			//SDL_Log("Removing [%d %d]\n", i, j-1);
+			SDL_Log("Removing [%d %d]\n", i, j-1);
 			cvec_remove_file(&g->files, i, j-1);
 			if (g->thumbs.a)
 				cvec_remove_thumb_state(&g->thumbs, i, j-1);
