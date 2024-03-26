@@ -125,6 +125,7 @@ enum {
 #define SIZE_STR_BUF 16
 #define MOD_STR_BUF 24
 #define FONT_SIZE 24
+#define NUM_DFLT_EXTS 11
 
 // If this is defined, sdl_img will add files without extensions
 // to the list in directory scans if stbi_info() returns true.
@@ -133,6 +134,10 @@ enum {
 // extensions since stbi_info actually has to open those files
 // to determine if they are a valid supported image type
 #define CHECK_IF_NO_EXTENSION
+
+// If defined, all log output goes to log.txt in the
+// same directory as config.lua
+//#define USE_LOGFILE
 
 // zoom is calculated
 // h = old_h * (1.0 + zoom*ZOOM_RATE)
@@ -349,6 +354,7 @@ typedef struct global_state
 	SDL_mutex* mtx;
 
 	// debugging
+	FILE* logfile;
 
 } global_state;
 
@@ -455,6 +461,23 @@ int bytes2str(int bytes, char* buf, int len)
 #include "sorting.c"
 
 #include "lua_config.c"
+
+void log_output_func(void *userdata, int category, SDL_LogPriority priority, const char *message)
+{
+	static const char *priority_prefixes[] = {
+    	NULL,
+    	"VERBOSE",
+    	"DEBUG",
+    	"INFO",
+    	"WARN",
+    	"ERROR",
+    	"CRITICAL"
+	};
+
+	FILE* logfile = userdata;
+    fprintf(logfile, "%s: %s\n", priority_prefixes[priority], message);
+    fflush(logfile);
+}
 
 size_t write_data(void* buf, size_t size, size_t num, void* userp)
 {
@@ -675,6 +698,10 @@ void clear_img(img_state* img)
 
 void cleanup(int ret, int called_setup)
 {
+	if (g->logfile) {
+		SDL_Log("In cleanup()");
+		fclose(g->logfile);
+	}
 	if (called_setup) {
 		// appends prefpath inside
 		write_config_file("config.lua");
@@ -1501,7 +1528,7 @@ void setup(int start_idx)
 	int got_config = nk_true;
 
 	snprintf(config_path, STRBUF_SZ, "%sconfig.lua", g->prefpath);
-	printf("config file: %s\n", config_path);
+	SDL_Log("config file: %s\n", config_path);
 	// If no config file, set default preferences
 	// NOTE cachedir already set to default in main
 	if (!read_config_file(config_path)) {
@@ -2749,7 +2776,7 @@ int main(int argc, char** argv)
 	int ticks, len;
 	struct stat file_stat;
 
-	const char* exts[] =
+	const char* default_exts[NUM_DFLT_EXTS] =
 	{
 		".jpg",
 		".jpeg",
@@ -2765,7 +2792,9 @@ int main(int argc, char** argv)
 		".pic",
 		".psd"
 	};
-	int num_exts = sizeof(exts)/sizeof(*exts);
+	const char** exts = default_exts;
+
+	int num_exts = NUM_DFLT_EXTS;
 
 	if (argc < 2) {
 		print_help(argv[0], SDL_FALSE);
@@ -2791,6 +2820,13 @@ int main(int argc, char** argv)
 	g->prefpath = SDL_GetPrefPath("", "sdl_img");
 	//SDL_Log("%s\n%s\n\n", exepath, g->prefpath);
 	// SDL_free(exepath);
+
+#ifdef USE_LOGFILE
+	char log_path[STRBUF_SZ];
+	snprintf(log_path, sizeof(log_path), "%slog.txt", g->prefpath);
+	g->logfile = fopen(log_path, "w");
+	SDL_LogSetOutputFunction(log_output_func, g->logfile);
+#endif
 
 	file f;
 	int img_args = 0;
@@ -2960,7 +2996,7 @@ int main(int argc, char** argv)
 			}
 		} else {
 			// no longer need this, it was found in the scan
-			free(f.name);
+			free(f.path);
 		}
 		// I could change all indexes to i64 but but no one will
 		// ever open over 2^31-1 images so just explicitly convert

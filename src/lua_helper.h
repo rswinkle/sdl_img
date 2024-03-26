@@ -105,6 +105,35 @@ int get_global_strbuf(lua_State* L, const char* var, char* buf, int buf_sz)
 	return 1;
 }
 
+int get_global_str_array(lua_State* L, const char* var, char*** out_array)
+{
+	lua_getglobal(L, var);
+	if (!lua_istable(L, -1)) {
+		error(L, "'%s', should be a table (array of strings)\n", var);
+	}
+	int n_strs = lua_rawlen(L, -1);
+	char** arr = malloc(n_strs * sizeof(char*));
+
+	const char* tmp;
+	size_t len;
+
+	for (int i=1; i<=n_strs; i++) {
+		if (lua_geti(L, -1, i) != LUA_TSTRING) {
+			error(L, "expected a string\n");
+		}
+
+		// inline strdup that also handles
+		tmp = lua_tolstring(L, -1, &len);
+		arr[i-1] = malloc(len+1);
+		memcpy(arr[i-1], tmp, len+1);
+
+		lua_pop(L, 1);
+	}
+
+	return 1;
+}
+
+
 void call_va(lua_State* L, const char* func, const char* sig, ...)
 {
 	va_list v1;
