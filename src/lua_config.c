@@ -22,8 +22,9 @@ enum {
 	X_DELETES_THUMB,
 	RELATIVE_OFFSETS,
 	IMG_EXTS,
-	NUM_KEYS,
 	CACHE_DIR,
+	THUMB_DIR,
+	NUM_KEYS
 };
 
 char* keys[] =
@@ -40,6 +41,7 @@ char* keys[] =
 	"relative_offsets",
 	"img_exts",
 	"cache_dir",
+	"thumb_dir"
 };
 
 // TODO better name
@@ -123,14 +125,13 @@ int read_config_file(char* filename)
 		g->n_exts = n;
 	}
 
-	/*
-	cache_dir = NULL;
-	if (!get_global_strbuf(L, "cache_dir", cachedir_buf, STRBUF_SZ)) {
-		fprintf(stderr, "cache_dir string is too long!\n");
-		return 0;
+	// TODO think about where I really want cachedir storage/ownership...maybe
+	// just make cachedir and thumbdir actual arrays in g and be done with it?
+	if (get_global_strbuf(L, "cache_dir", g->cachedir, STRBUF_SZ)) {
+		g->cfg_cachedir = SDL_TRUE;
 	}
-	cache_dir = cachedir_buf;
-	*/
+
+	get_global_strbuf(L, "thumb_dir", g->thumbdir, STRBUF_SZ);
 
 	// For debug purposes
 	write_config(stdout);
@@ -165,7 +166,10 @@ void write_config(FILE* cfg_file)
 
 	for (int i=0; i<NUM_KEYS; i++) {
 
-		fprintf(cfg_file, "%s = ", keys[i]);
+		// TODO handle optional configs with a variable default value better
+		if (i != CACHE_DIR || g->cfg_cachedir) {
+			fprintf(cfg_file, "%s = ", keys[i]);
+		}
 
 		switch (i) {
 		case GUI_SCALE:
@@ -205,7 +209,12 @@ void write_config(FILE* cfg_file)
 			break;
 
 		case CACHE_DIR:
-			//fprintf(cfg_file, "%s\n", g->cachedir);
+			if (g->cfg_cachedir) {
+				fprintf(cfg_file, "'%s'\n", g->cachedir);
+			}
+			break;
+		case THUMB_DIR:
+			fprintf(cfg_file, "'%s'\n", g->thumbdir);
 			break;
 		case IMG_EXTS:
 			fprintf(cfg_file, "{\n");

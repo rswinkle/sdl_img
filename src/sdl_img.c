@@ -295,6 +295,7 @@ typedef struct global_state
 
 	int status;
 
+	int cfg_cachedir;
 	char* cachedir;
 	char* thumbdir;
 	char* prefpath;
@@ -1479,18 +1480,19 @@ void setup_dirs()
 			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "cache path too long\n");
 			cleanup(1, 1);
 		}
-		if (mkdir_p(g->cachedir, S_IRWXU) && errno != EEXIST) {
-			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make cache directory: %s\n", strerror(errno));
-			cleanup(1, 1);
-		}
+	}
+	if (mkdir_p(g->cachedir, S_IRWXU) && errno != EEXIST) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make cache directory: %s\n", strerror(errno));
+		cleanup(1, 1);
 	}
 
-	// TODO make thumbnail directory a configuration variable
-	// if not a passable argument
-	len = snprintf(g->thumbdir, STRBUF_SZ, "%sthumbnails", prefpath);
-	if (len >= STRBUF_SZ) {
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "thumbnail path too long\n");
-		cleanup(1, 1);
+	// if thumbdir was not set from config file
+	if (!g->thumbdir[0]) {
+		len = snprintf(g->thumbdir, STRBUF_SZ, "%sthumbnails", prefpath);
+		if (len >= STRBUF_SZ) {
+			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "thumbnail path too long\n");
+			cleanup(1, 1);
+		}
 	}
 	if (mkdir_p(g->thumbdir, S_IRWXU) && errno != EEXIST) {
 		perror("Failed to make cache directory");
@@ -2814,6 +2816,11 @@ int main(int argc, char** argv)
 	g->prefpath = SDL_GetPrefPath("", "sdl_img");
 	//SDL_Log("%s\n%s\n\n", exepath, g->prefpath);
 	// SDL_free(exepath);
+	
+	// have to set these before load_config
+	// just point these at a buffer that will live forever
+	g->cachedir = cachedir;
+	g->thumbdir = thumbdir;
 
 	int got_config = load_config();
 
@@ -2830,9 +2837,6 @@ int main(int argc, char** argv)
 	cvec_str(&g->favs, 0, 50);
 	// g->thumbs initialized if needed in generate_thumbs()
 
-	// just point these at a buffer that will live forever
-	g->cachedir = cachedir;
-	g->thumbdir = thumbdir;
 
 
 #ifdef USE_LOGFILE

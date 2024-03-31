@@ -89,16 +89,23 @@ char* get_global_str(lua_State* L, const char* var)
 
 int get_global_strbuf(lua_State* L, const char* var, char* buf, int buf_sz)
 {
-	lua_getglobal(L, var);
+	if (lua_getglobal(L, var) == LUA_TNIL) {
+		fprintf(stderr, "global var '%s' does not exist\n", var);
+		lua_pop(L, 1); // remove nil from stack
+		return 0;
+	}
+
 	if (lua_type(L, -1) != LUA_TSTRING) {
 		error(L, "'%s', should be a string\n", var);
 	}
 	size_t len;
 	const char* result = lua_tolstring(L, -1, &len);
 	if (len >= buf_sz) {
+		error(L, "'%s' is to long for provided string buffer\n", var);
 		// error or log?
 		return 0;
 	}
+	//memcpy(buf, result, len+1);
 	strcpy(buf, result);
 
 	lua_pop(L, 1);  // remove result from stack
