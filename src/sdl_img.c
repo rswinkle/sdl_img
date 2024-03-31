@@ -302,6 +302,9 @@ typedef struct global_state
 	cvector_file files;
 	cvector_str favs;
 
+	const char** img_exts;
+	int n_exts;
+
 	int has_bad_paths;
 
 	int state; // better name?
@@ -1293,7 +1296,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 #endif
 
 #ifdef CHECK_IF_NO_EXTENSION
-		if (!stbi_info(f.path, &x, &y, &n)) {
+		if (!ext && !stbi_info(f.path, &x, &y, &n)) {
 			free(f.path);
 			continue;
 		}
@@ -1498,13 +1501,38 @@ void setup_dirs()
 	printf("cache: %s\nthumbnails: %s\n", g->cachedir, g->thumbdir);
 }
 
-void setup(int start_idx)
+int load_config()
+{
+	char config_path[STRBUF_SZ] = { 0 };
+	snprintf(config_path, STRBUF_SZ, "%sconfig.lua", g->prefpath);
+	SDL_Log("config file: %s\n", config_path);
+
+	// If no config file, set default preferences
+	// NOTE cachedir already set to default in main
+	if (!read_config_file(config_path)) {
+		g->slide_delay = 3;
+		g->gui_delay = DFLT_GUI_DELAY;
+		g->show_infobar = nk_true;
+		g->fullscreen_gui = DELAY;
+		g->thumb_x_deletes = nk_false;
+		g->ind_mm = nk_false;
+		g->bg = nk_rgb(0,0,0);
+		g->thumb_rows = MAX_THUMB_ROWS;
+		g->thumb_cols = MAX_THUMB_COLS;
+		
+		return nk_false;
+	}
+	SDL_Log("Successfully loaded config file\n");
+
+	return nk_true;
+}
+
+void setup(int start_idx, int got_config)
 {
 	g->win = NULL;
 	g->ren = NULL;
 	char error_str[STRBUF_SZ] = { 0 };
 	char title_buf[STRBUF_SZ] = { 0 };
-	char config_path[STRBUF_SZ] = { 0 };
 
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 
@@ -1525,24 +1553,6 @@ void setup(int start_idx)
 	g->sorted_state = NAME_UP;  // ie by name ascending
 	g->state = NORMAL;
 	g->has_bad_paths = SDL_FALSE;
-	int got_config = nk_true;
-
-	snprintf(config_path, STRBUF_SZ, "%sconfig.lua", g->prefpath);
-	SDL_Log("config file: %s\n", config_path);
-	// If no config file, set default preferences
-	// NOTE cachedir already set to default in main
-	if (!read_config_file(config_path)) {
-		g->slide_delay = 3;
-		g->gui_delay = DFLT_GUI_DELAY;
-		g->show_infobar = nk_true;
-		g->fullscreen_gui = DELAY;
-		g->thumb_x_deletes = nk_false;
-		g->ind_mm = nk_false;
-		g->bg = nk_rgb(0,0,0);
-		g->thumb_rows = MAX_THUMB_ROWS;
-		g->thumb_cols = MAX_THUMB_COLS;
-		got_config = nk_false;
-	}
 
 	setup_dirs();
 
@@ -2306,6 +2316,8 @@ void do_remove(SDL_Event* next)
 
 	int files_index = g->img[0].index;
 
+	// TODO log removal
+
 	if (IS_VIEW_RESULTS()) {
 		// Have to remove from results and decrement all higher results (this works
 		// because results are always found from front to back so later results always have higher
@@ -2792,9 +2804,18 @@ int main(int argc, char** argv)
 		".pic",
 		".psd"
 	};
-	const char** exts = default_exts;
+	g->img_exts = default_exts;
+	g->n_exts = NUM_DFLT_EXTS;
 
-	int num_exts = NUM_DFLT_EXTS;
+	// Not currently used
+	// char* exepath = SDL_GetBasePath();
+
+	// TODO think of a company/org name
+	g->prefpath = SDL_GetPrefPath("", "sdl_img");
+	//SDL_Log("%s\n%s\n\n", exepath, g->prefpath);
+	// SDL_free(exepath);
+
+	int got_config = load_config();
 
 	if (argc < 2) {
 		print_help(argv[0], SDL_FALSE);
@@ -2813,13 +2834,6 @@ int main(int argc, char** argv)
 	g->cachedir = cachedir;
 	g->thumbdir = thumbdir;
 
-	// Not currently used
-	// char* exepath = SDL_GetBasePath();
-
-	// TODO think of a company/org name
-	g->prefpath = SDL_GetPrefPath("", "sdl_img");
-	//SDL_Log("%s\n%s\n\n", exepath, g->prefpath);
-	// SDL_free(exepath);
 
 #ifdef USE_LOGFILE
 	char log_path[STRBUF_SZ];
@@ -2906,7 +2920,7 @@ int main(int argc, char** argv)
 			if (argv[i][len-1] == '/')
 				argv[i][len-1] = 0;
 
-			myscandir(argv[i], exts, num_exts, SDL_TRUE);
+			myscandir(argv[i], g->img_exts, g->n_exts, SDL_TRUE);
 
 		} else {
 			normalize_path(argv[i]);
@@ -2927,7 +2941,7 @@ int main(int argc, char** argv)
 				len = strlen(argv[i]);
 				if (argv[i][len-1] == '/')
 					argv[i][len-1] = 0;
-				myscandir(argv[i], exts, num_exts, recurse);
+				myscandir(argv[i], g->img_exts, g->n_exts, recurse);
 			} else if(S_ISREG(file_stat.st_mode)) {
 				img_args++;
 				f.path = CVEC_STRDUP(argv[i]);
@@ -2962,7 +2976,7 @@ int main(int argc, char** argv)
 		// the start image is not added in the scan
 		cvec_popm_file(&g->files, &f);
 
-		myscandir(dirpath, exts, num_exts, recurse); // allow recurse for base case?
+		myscandir(dirpath, g->img_exts, g->n_exts, recurse); // allow recurse for base case?
 
 		SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
 
@@ -3009,7 +3023,7 @@ int main(int argc, char** argv)
 
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "start_index = %d\n", start_index);
 	
-	setup(start_index);
+	setup(start_index, got_config);
 
 
 	int is_a_gif;

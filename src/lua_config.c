@@ -21,6 +21,7 @@ enum {
 	SHOW_INFO_BAR,
 	X_DELETES_THUMB,
 	RELATIVE_OFFSETS,
+	IMG_EXTS,
 	NUM_KEYS,
 	CACHE_DIR,
 };
@@ -37,7 +38,8 @@ char* keys[] =
 	"show_info_bar",
 	"x_deletes_thumb",
 	"relative_offsets",
-	"cache_dir"
+	"img_exts",
+	"cache_dir",
 };
 
 // TODO better name
@@ -112,6 +114,14 @@ int read_config_file(char* filename)
 	g->show_infobar = get_global_bool(L, "show_info_bar");
 	g->thumb_x_deletes  = get_global_bool(L, "x_deletes_thumb");
 	g->ind_mm = get_global_bool(L, "relative_offsets");
+
+
+	char** exts = NULL;
+	int n = get_global_str_array(L, "img_exts", &exts);
+	if (n) {
+		g->img_exts = exts;
+		g->n_exts = n;
+	}
 
 	/*
 	cache_dir = NULL;
@@ -196,6 +206,13 @@ void write_config(FILE* cfg_file)
 
 		case CACHE_DIR:
 			//fprintf(cfg_file, "%s\n", g->cachedir);
+			break;
+		case IMG_EXTS:
+			fprintf(cfg_file, "{\n");
+			for (int j=0; j<g->n_exts; j++) {
+				fprintf(cfg_file, "\t'%s',\n", g->img_exts[j]);
+			}
+			fprintf(cfg_file, "}\n");
 			break;
 		}
 	}

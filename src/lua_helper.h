@@ -107,10 +107,20 @@ int get_global_strbuf(lua_State* L, const char* var, char* buf, int buf_sz)
 
 int get_global_str_array(lua_State* L, const char* var, char*** out_array)
 {
-	lua_getglobal(L, var);
+	// Don't throw an error if the variable doesn't exist
+	if (lua_getglobal(L, var) == LUA_TNIL) {
+		fprintf(stderr, "global var '%s' does not exist\n", var);
+		lua_pop(L, 1); // remove nil from stack
+		return 0;
+	}
+
 	if (!lua_istable(L, -1)) {
 		error(L, "'%s', should be a table (array of strings)\n", var);
 	}
+	if (!out_array) {
+		return 0;
+	}
+
 	int n_strs = lua_rawlen(L, -1);
 	char** arr = malloc(n_strs * sizeof(char*));
 
@@ -130,7 +140,9 @@ int get_global_str_array(lua_State* L, const char* var, char*** out_array)
 		lua_pop(L, 1);
 	}
 
-	return 1;
+	*out_array = arr;
+
+	return n_strs;
 }
 
 
