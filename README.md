@@ -174,13 +174,15 @@ ESC to backs out of View Results, Results, and list mode entirely.
 
 Building
 ========
-On Linux, just run `./build.sh` for debug, `./build_release.sh` for release.
+On Linux I now use a custom Makefile.  Just running `make` will create a debug build,
+while `make config=release` (after a `make clean`) will create an optimized build.
 
-On Windows I use [MSYS2](https://github.com/msys2/msys2/wiki/MSYS2-installation).  I don't
-like/use IDE's and I can't stand the Window's command line.  MSYS2 allows me to have the
-same environment and tools as Linux.  So it's basically the same, `./build_win.sh` and
-`./build_win_release.sh`.
+On Windows I use [MSYS2](https://github.com/msys2/msys2/wiki/MSYS2-installation).
+You can do `make PLAT=windows` or just change the default at the top of the makefile so
+you don't have to specify it every time.
 
+There are other targets for creating packages (ie installers) and some expermental
+targets for cross compiling.
 
 Packaging
 =========
