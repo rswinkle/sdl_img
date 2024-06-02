@@ -1932,7 +1932,7 @@ int try_move(int direction)
 {
 	// TODO prevent moves and some other
 	// actions while g->show_rotate.  Since we already
-	// hide the GUI while the popups up, we really just have
+	// hide the GUI while the popup's up, we really just have
 	// to worry about keyboard actions.
 	if (!g->loading && !g->done_loading) {
 		SDL_LockMutex(g->mtx);
@@ -1949,6 +1949,12 @@ void do_shuffle()
 	if (g->n_imgs != 1 || g->generating_thumbs) {
 		return;
 	}
+
+	if (g->has_bad_paths) {
+		SDL_Log("Removing bad paths before shuffling...");
+		remove_bad_paths();
+	}
+
 	char* save = g->files.a[g->img[0].index].path;
 	file tmpf;
 
@@ -1986,6 +1992,11 @@ void do_sort(compare_func cmp)
 	if (g->n_imgs != 1 || g->generating_thumbs) {
 		SDL_Log("Can't sort in multi-image modes or while generating thumbs");
 		return;
+	}
+
+	if (g->has_bad_paths) {
+		SDL_Log("Removing bad paths before sorting...");
+		remove_bad_paths();
 	}
 
 	char* save;
@@ -3181,8 +3192,6 @@ int main(int argc, char** argv)
 			SDL_Delay(MIN_GIF_DELAY/2);
 		}
 	}
-
-	// TODO save current prefs to config
 
 	cleanup(0, 1);
 	//never get here
