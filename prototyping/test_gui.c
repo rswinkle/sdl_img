@@ -220,7 +220,7 @@ int main(void)
 		draw_gui(ctx);
 		//draw_simple_gui(ctx);
 
-		style_configurator(ctx, color_table);
+		//style_configurator(ctx, color_table);
 
 		SDL_SetRenderDrawColor(ren, bg2.r, bg2.g, bg2.b, bg2.a);
 		SDL_RenderSetClipRect(ren, NULL);

@@ -18,6 +18,8 @@
 *.pyc
 *.deb
 sdl_img
+lua-5.4.6/src/lua
+lua-5.4.6/src/luac
 
 #ignore ~ files
 *~
@@ -45,3 +47,4 @@ prototyping/md5_test
 prototyping/thumbnails
 prototyping/testlconfig
 prototyping/scandir
+prototyping/fb_test
