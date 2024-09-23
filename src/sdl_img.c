@@ -989,7 +989,7 @@ int gen_thumbs(void* data)
 
 		pix = stbi_load(g->files.a[i].path, &w, &h, &channels, 4);
 		if (!pix) {
-			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\n", g->files.a[i].path);
+			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\nError %s", g->files.a[i].path, stbi_failure_reason());
 			continue;
 		}
 

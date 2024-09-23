@@ -121,7 +121,7 @@ int read_config_file(char* filename)
 	char** exts = NULL;
 	int n = get_global_str_array(L, "img_exts", &exts);
 	if (n) {
-		g->img_exts = exts;
+		g->img_exts = (const char**)exts;
 		g->n_exts = n;
 	}
 
