@@ -245,9 +245,14 @@ void draw_gui(struct nk_context* ctx)
 			// TODO How to automatically focus on the search box if they start typing?
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, search_ratio);
 			search_height = nk_widget_bounds(ctx).h;
+
 			nk_label(ctx, "Search Filenames:", NK_TEXT_LEFT);
+
+			if (!IS_RESULTS()) {
+				nk_edit_focus(ctx, NK_EDIT_DEFAULT);
+			}
 			active = nk_edit_string(ctx, search_flags, text_buf, &text_len, STRBUF_SZ, nk_filter_default);
-			if (active & NK_EDIT_COMMITED) {
+			if (active & NK_EDIT_COMMITED && text_len) {
 
 				search_filenames(SDL_FALSE);
 				memset(&rview, 0, sizeof(rview));
@@ -256,6 +261,7 @@ void draw_gui(struct nk_context* ctx)
 				// use no selection to ignore the "Enter" in events so we don't exit
 				// list mode.  Could add state to handle keeping the selection but meh
 				g->selection = -1;  // no selection among search
+				//nk_edit_unfocus(ctx);
 			}
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 5, header_ratios);
 
@@ -377,8 +383,16 @@ void draw_gui(struct nk_context* ctx)
 							nk_label(ctx, g->files.a[i].size_str, NK_TEXT_RIGHT);
 							nk_label(ctx, g->files.a[i].mod_str, NK_TEXT_RIGHT);
 						}
+						list_height = ctx->current->layout->clip.h; // ->bounds.h?
 						nk_list_view_end(&rview);
 					}
+				}
+				if (g->list_setscroll) {
+					nk_uint x = 0, y;
+					int scroll_limit = rview.total_height - list_height; // little off
+					y = (g->selection/(float)(g->search_results.size-1) * scroll_limit) + 0.999f;
+					nk_group_set_scroll(ctx, "Result List", x, y);
+					g->list_setscroll = SDL_FALSE;
 				}
 			} else {
 				if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, FONT_SIZE+16, g->files.size)) {
@@ -414,7 +428,6 @@ void draw_gui(struct nk_context* ctx)
 					list_height = ctx->current->layout->clip.h; // ->bounds.h?
 					nk_list_view_end(&lview);
 				}
-
 				if (g->list_setscroll) {
 					nk_uint x = 0, y;
 					int scroll_limit = lview.total_height - list_height; // little off
@@ -425,6 +438,7 @@ void draw_gui(struct nk_context* ctx)
 				}
 				//printf("scroll %u %u\n", x, y);
 			} // end main list
+
 		}
 		nk_end(ctx);
 

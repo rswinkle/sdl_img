@@ -86,13 +86,12 @@ enum {
 	LIST_DFLT        = 0x10,
 	SEARCH_RESULTS   = 0x20,
 	VIEW_RESULTS     = 0x40,
-	VIEWED_RESULTS   = 0x80
 };
 
 #define THUMB_MASK (THUMB_DFLT | THUMB_VISUAL | THUMB_SEARCH)
 #define LIST_MASK (LIST_DFLT)
 #define RESULT_MASK (SEARCH_RESULTS | VIEW_RESULTS)
-#define VIEW_MASK (VIEW_RESULTS | VIEWED_RESULTS)
+#define VIEW_MASK (VIEW_RESULTS)
 
 #define IS_THUMB_MODE() (g->state & THUMB_MASK)
 #define IS_LIST_MODE() (g->state & LIST_MASK)
@@ -1946,7 +1945,7 @@ int try_move(int direction)
 
 void do_shuffle()
 {
-	if (g->n_imgs != 1 || g->generating_thumbs) {
+	if (g->n_imgs != 1 || g->generating_thumbs || IS_VIEW_RESULTS()) {
 		return;
 	}
 

@@ -568,7 +568,7 @@ int handle_list_events()
 						// convert selection
 						g->selection = g->search_results.a[g->selection];
 
-						if (g->state & VIEWED_RESULTS) {
+						if (IS_VIEW_RESULTS()) {
 							// TODO alternative, force switch to single mode?
 							for (int i=0; i<g->n_imgs; ++i) {
 								g->img[i].index = g->search_results.a[g->img[i].index];
@@ -581,11 +581,14 @@ int handle_list_events()
 					// redundant since we clear before doing the search atm
 					g->search_results.size = 0;
 				} else {
+					g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
+
 					g->state = NORMAL;
 					SDL_ShowCursor(SDL_ENABLE);
 					g->gui_timer = SDL_GetTicks();
 					g->show_gui = SDL_TRUE;
 					g->status = REDRAW;
+					try_move(SELECTION);
 				}
 				break;
 
@@ -917,6 +920,7 @@ int handle_events_normally()
 
 						// selection is used in listmode results, = index in results
 						g->selection = g->img[0].index;
+						g->list_setscroll = SDL_TRUE;
 
 						// thumb_sel is the actual index in g->files, since results are
 						// not separated out, just highlighted like vim

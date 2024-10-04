@@ -31,6 +31,9 @@
 #define SIZE_STR_BUF 16
 #define MOD_STR_BUF 24
 
+#define TRUE 1
+#define FALSE 0
+
 enum { SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
 
 #define RESIZE(x) ((x+1)*2)
@@ -54,6 +57,13 @@ CVEC_NEW_DECLS2(file)
 
 CVEC_NEW_DEFS2(file, RESIZE)
 
+void free_file(void* f)
+{
+	free(((file*)f)->path);
+}
+
+
+#define FILE_LIST_SZ 20
 #define MAX_PATH_LEN 512
 // TODO name? file_explorer? selector?
 typedef struct file_browser
@@ -68,6 +78,9 @@ typedef struct file_browser
 	// list of files in cur directory
 	cvector_file files;
 	int up_to_date;
+
+	int begin;
+	int end;
 
 } file_browser;
 
@@ -135,11 +148,103 @@ int main(void)
 void print_browser(file_browser* fb)
 {
 	cvector_file* f = &fb->files;
-	printf("There are %ld files\n", fb->files.size);
 
-	for (int i=0; i<f->size; i++) {
-		printf("%-40s%20s%30s\n", f->a[i].name, f->a[i].size_str, f->a[i].mod_str);
+	printf("H. home = %s\n", fb->home);
+	printf("D. desktop = %s\n", fb->desktop);
+	printf("P. To parent directory\n");
+
+	printf("dir = %s\n", fb->dir);
+	
+	printf("There are %ld files\n", f->size);
+
+	static int pos;
+
+	for (int i=fb.begin, j=0; j<fb.end; i++, j++) {
+		printf("%2d %-40s%20s%30s\n", j, f->a[i].name, f->a[i].size_str, f->a[i].mod_str);
 	}
+
+	printf("S. down\nW. up\nF. choose file");
+	printf("Enter selection: ");
+
+	char choice = read_char(stdin, SPACE_SET, 0, 1);
+	if (choice == 'f' || choice == 'F') {
+		int fn = 0;
+		do {
+			printf("Enter file number: ");
+			// TODO properly
+		} while (scanf("%d", &fn) != 1 || fn < 0 || fn >= fb.end - fb.begin);
+
+		int idx = fb.begin + fn;
+		printf("fn = %d, idx = %d\n", fn, idx);
+
+
+		// it's a directory, switch to it
+		if (f->a[idx].size == -1) {
+			printf("switching to '%s'\n", f->a[idx].path);
+			strncpy(fb->dir, f->a[idx].path, MAX_PATH_LEN);
+			myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
+		} else {
+			strncpy(fb->file, f->a[idx].path, MAX_PATH_LEN);
+		}
+		return;
+	}
+
+	int len;
+	char* c;
+	switch (choice) {
+		case 'H':
+		case 'h':
+			if (strncmp(fb->dir, fb->home, MAX_PATH_LEN)) {
+				strcpy(fb->dir, fb->home);
+				myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
+			}
+			break;
+		case 'D':
+		case 'd':
+			if (strncmp(fb->dir, fb->desktop, MAX_PATH_LEN)) {
+				strcpy(fb->dir, fb->desktop);
+				myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
+			}
+			break;
+		case 'P':
+		case 'p':
+				len = strlen(fb->dir);
+				fb->dir[len-1] = 0; // erase trailing '/'
+
+				// find next '/'
+				c = strrchr(fb->dir, '/');
+				c[1] = 0;   // erase everything after last /
+				myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
+			break;
+		case 'S':
+		case 's':
+			fb->begin += FILE_LIST_SZ;
+			if (fb->begin >= fb->files.size) {
+				fb->begin = 0;
+			}
+			fb->end = fb->begin + FILE_LIST_SZ;
+			if (fb->end > fb->files.size) {
+				fb->end = fb->files.size;
+			}
+			break;
+		case 'W':
+		case 'w':
+			// TODO should I wrap around the top like I do the bottom?
+			fb->begin -= FILE_LIST_SZ;
+			if (fb->begin < 0) {
+				fb->begin = fb->files.size - FILE_LIST_SZ;
+			}
+			fb->end = fb->begin + FILE_LIST_SZ;
+			if (fb->end > fb->files.size) {
+				fb->end = fb->files.size;
+			}
+			break;
+
+		default:
+			puts("Invalid choice.");
+	}
+
+
 }
 
 
@@ -160,7 +265,8 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 	// or I could just pass NULLs
 	int x, y, n;
 
-	int start_size = files->size;
+	// empty files
+	cvec_clear_file(files);
 
 	puts("testing");
 
@@ -268,7 +374,7 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 		cvec_push_file(files, &f);
 	}
 
-	printf("Found %"PRIcv_sz" images in %s\n", files->size-start_size, dirpath);
+	printf("Found %"PRIcv_sz" images in %s\n", files->size, dirpath);
 
 	closedir(dir);
 	return 1;
@@ -410,6 +516,8 @@ int init_file_browser(file_browser* browser)
 {
 	//if (fb->up_to_date) return
 	
+	memset(browser, 0, sizeof(file_browser));
+	
 	const char* home = get_homedir();
 
 	size_t l;
@@ -422,6 +530,10 @@ int init_file_browser(file_browser* browser)
 	strcpy(browser->desktop, browser->home);
 	l = strlen(browser->desktop);
 	strcpy(browser->desktop + l, "desktop/");
+
+	browser->files.elem_free = free_file;
+
+	browser->end = 20;
 
 	myscandir(&browser->files, browser->home, NULL, 0, 0);
 
