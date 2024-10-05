@@ -7109,8 +7109,11 @@ STBIDEF stbi_uc *stbi_xload(char const *filename, int *x, int *y, int* comp, int
             *y = g.h;
             stride = g.w * g.h * 4;
 
-            // rarely changes, just use the last delay I guess
-            *delay = g.delay;
+            // rarely changes, just use the first delay
+            // I would use the last except that some gifs pause on the last frame which
+            // makes the whole thing super slow
+            if (!layers)
+               *delay = g.delay;
 
             ++layers;
 
