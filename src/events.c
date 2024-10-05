@@ -1078,7 +1078,7 @@ int handle_events_normally()
 
 #ifndef _WIN32
 			case SDL_SCANCODE_S:
-				do_save();
+				do_save(mod_state & (KMOD_LCTRL | KMOD_RCTRL));
 			break;
 #endif
 

@@ -255,7 +255,7 @@ typedef struct img_state
 	int paused;
 	int edited;
 	int rotdegs;
-	
+
 	SDL_Texture** tex;
 
 	SDL_Rect scr_rect;  // rect describing available space (ie clip space)
@@ -550,7 +550,7 @@ void set_rect_bestfit(img_state* img, int fill_screen)
 {
 	float aspect = img->w/(float)img->h;
 	int h, w;
-	
+
 	float w_aspect = img->scr_rect.w/aspect;
 	int tmp = MIN(img->scr_rect.h, w_aspect);
 	if (fill_screen)
@@ -567,7 +567,7 @@ void set_rect_zoom(img_state* img, int zoom, int use_mouse)
 {
 	float aspect = img->w/(float)img->h;
 	int h, w;
-	
+
 	h = img->disp_rect.h * (1.0 + zoom*ZOOM_RATE);
 	if (zoom > 0 && h == img->disp_rect.h) {
 		h = img->disp_rect.h + 10; // 10 is arbitrary
@@ -701,6 +701,8 @@ void clear_img(img_state* img)
 
 void cleanup(int ret, int called_setup)
 {
+	char buf[STRBUF_SZ] = { 0 };
+
 	if (g->logfile) {
 		SDL_Log("In cleanup()");
 		fclose(g->logfile);
@@ -725,11 +727,25 @@ void cleanup(int ret, int called_setup)
 		SDL_DestroyRenderer(g->ren);
 		SDL_DestroyWindow(g->win);
 		SDL_Quit();
+
+		if (g->favs.size) {
+			snprintf(buf, STRBUF_SZ, "%sfavorites.txt", g->prefpath);
+			FILE* f = fopen(buf, "w");
+			if (!f) {
+				SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to create %s: %s\nAborting save\n", buf, strerror(errno));
+			} else {
+				for (int i=0; i<g->favs.size; i++) {
+					fprintf(f, "%s\n", g->favs.a[i]);
+				}
+				fclose(f);
+			}
+		}
 	}
 
 	free(g->prefpath);
 	cvec_free_thumb_state(&g->thumbs);
 	cvec_free_file(&g->files);
+	cvec_free_str(&g->favs);
 	curl_global_cleanup();
 	exit(ret);
 }
@@ -1363,7 +1379,7 @@ int load_new_images(void* data)
 	char title_buf[STRBUF_SZ];
 	int load_what;
 	int last;
-	
+
 	while (1) {
 		SDL_LockMutex(g->mtx);
 		while (g->loading < 2) {
@@ -1385,7 +1401,7 @@ int load_new_images(void* data)
 
 			for (int i=0; i<g->n_imgs; ++i)
 				img[i].scr_rect = g->img[i].scr_rect;
-			
+
 			// TODO possible (very unlikely) infinite loop if there
 			// are allocation failures for every valid image in the list
 			if (!g->img_focus) {
@@ -1429,7 +1445,7 @@ int load_new_images(void* data)
 				img[0].index = last;
 				img[0].scr_rect = g->img_focus->scr_rect;
 				set_rect_bestfit(&img[0], g->fullscreen | g->slideshow | g->fill_mode);
-				
+
 				int index = (g->state & VIEW_RESULTS) ? g->search_results.a[img[0].index] : img[0].index;
 				SDL_SetWindowTitle(g->win, mybasename(g->files.a[index].path, title_buf));
 			}
@@ -1520,12 +1536,85 @@ int load_config()
 		g->bg = nk_rgb(0,0,0);
 		g->thumb_rows = MAX_THUMB_ROWS;
 		g->thumb_cols = MAX_THUMB_COLS;
-		
+
 		return nk_false;
 	}
 	SDL_Log("Successfully loaded config file\n");
 
 	return nk_true;
+}
+
+// simple way to handle both cases.  Will remove paths when/if I switch to
+// some other format for favorites, sqlite maybe?
+void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
+{
+	char* s;
+	char line[STRBUF_SZ] = { 0 };
+	int len;
+	file f = { 0 }; // 0 out time and size since we don't stat lists
+	struct tm* tmp_tm;
+	char* sep;
+
+	struct stat file_stat;
+
+	while ((s = fgets(line, STRBUF_SZ, list_file))) {
+		// ignore comments in gqview/gthumb collection format useful
+		// when combined with findimagedupes collection output
+		if (s[0] == '#')
+			continue;
+
+		len = strlen(s);
+		if (s[len-1] == '\n') {
+			len--;
+			s[len] = 0;
+		}
+		if (!len)
+			continue;
+
+		// handle quoted paths
+		if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
+			s[len-2] = 0;
+			memmove(s, &s[1], len-2);
+		}
+		normalize_path(s);
+
+		if (files) {
+			if (stat(s, &file_stat)) {
+				// assume it's a valid url, it will just skip over if it isn't
+				f.path = CVEC_STRDUP(s);
+				f.size = 0;
+				f.modified = 0;
+
+				// leave whole url as name so user knows why size and modified are unknown
+				f.name = f.path;
+				strncpy(f.size_str, "unknown", SIZE_STR_BUF);
+				strncpy(f.mod_str, "unknown", MOD_STR_BUF);
+				cvec_push_file(&g->files, &f);
+			} else if (S_ISDIR(file_stat.st_mode)) {
+				// Should I allow directories in a list?  Or make the user
+				// do the expansion so the list only has files/urls?
+				//
+				//// TODO warning not info?
+				SDL_Log("Skipping directory found in list, only files and urls allowed.\n%s\n", s);
+			} else if(S_ISREG(file_stat.st_mode)) {
+				f.path = CVEC_STRDUP(s);
+				f.size = file_stat.st_size;
+				f.modified = file_stat.st_mtime;
+
+				bytes2str(f.size, f.size_str, SIZE_STR_BUF);
+				tmp_tm = localtime(&f.modified);
+				strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp_tm); // %F %T
+				sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
+				f.name = (sep) ? sep+1 : f.path;
+
+				cvec_push_file(&g->files, &f);
+			}
+		}
+
+		if (paths) {
+			cvec_push_str(paths, s);
+		}
+	}
 }
 
 void setup(int start_idx, int got_config)
@@ -1534,6 +1623,7 @@ void setup(int start_idx, int got_config)
 	g->ren = NULL;
 	char error_str[STRBUF_SZ] = { 0 };
 	char title_buf[STRBUF_SZ] = { 0 };
+	char buf[STRBUF_SZ] = { 0 };
 
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 
@@ -1556,6 +1646,17 @@ void setup(int start_idx, int got_config)
 	g->has_bad_paths = SDL_FALSE;
 
 	setup_dirs();
+
+	// read favorites
+	snprintf(buf, STRBUF_SZ, "%sfavorites.txt", g->prefpath);
+	FILE* f = NULL;
+	if (!(f = fopen(buf, "r"))) {
+		SDL_Log("%s does not exist, will try creating it on exit\n", buf);
+	} else {
+		read_list(NULL, &g->favs, f);
+		SDL_Log("Read %ld favorites from %s\n", g->favs.size, buf);
+		fclose(f);
+	}
 
 	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Couldn't allocate tex array: %s\n", strerror(errno));
@@ -1612,7 +1713,7 @@ void setup(int start_idx, int got_config)
 	// TODO do I need to update scr_w and src_h if it's fullscreen?  is there an initial window event?
 
 	mybasename(img_name, title_buf);
-	
+
 	g->win = SDL_CreateWindow(title_buf, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, g->scr_w, g->scr_h, win_flags);
 	if (!g->win) {
 		snprintf(error_str, STRBUF_SZ, "Couldn't create window: %s; exiting.", SDL_GetError());
@@ -1866,7 +1967,7 @@ void rotate_img(img_state* img)
 	}
 
 	u8* pix = g->orig_pix;
-	
+
 	u32* outu32;
 	u32* inu32;
 
@@ -2366,134 +2467,64 @@ void do_actual_size()
 	}
 }
 
-// simple way to handle both cases.  Will remove paths when/if I switch to
-// some other format for favorites, sqlite maybe?
-void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
-{
-	char* s;
-	char line[STRBUF_SZ] = { 0 };
-	int len;
-	file f = { 0 }; // 0 out time and size since we don't stat lists
-	struct tm* tmp_tm;
-	char* sep;
-
-	struct stat file_stat;
-
-	while ((s = fgets(line, STRBUF_SZ, list_file))) {
-		// ignore comments in gqview/gthumb collection format useful
-		// when combined with findimagedupes collection output
-		if (s[0] == '#')
-			continue;
-
-		len = strlen(s);
-		if (s[len-1] == '\n') {
-			len--;
-			s[len] = 0;
-		}
-		if (!len)
-			continue;
-
-		// handle quoted paths
-		if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
-			s[len-2] = 0;
-			memmove(s, &s[1], len-2);
-		}
-		normalize_path(s);
-
-		if (files) {
-			if (stat(s, &file_stat)) {
-				// assume it's a valid url, it will just skip over if it isn't
-				f.path = CVEC_STRDUP(s);
-				f.size = 0;
-				f.modified = 0;
-
-				// leave whole url as name so user knows why size and modified are unknown
-				f.name = f.path;
-				strncpy(f.size_str, "unknown", SIZE_STR_BUF);
-				strncpy(f.mod_str, "unknown", MOD_STR_BUF);
-				cvec_push_file(&g->files, &f);
-			} else if (S_ISDIR(file_stat.st_mode)) {
-				// Should I allow directories in a list?  Or make the user
-				// do the expansion so the list only has files/urls?
-				//
-				//// TODO warning not info?
-				SDL_Log("Skipping directory found in list, only files and urls allowed.\n%s\n", s);
-			} else if(S_ISREG(file_stat.st_mode)) {
-				f.path = CVEC_STRDUP(s);
-				f.size = file_stat.st_size;
-				f.modified = file_stat.st_mtime;
-				
-				bytes2str(f.size, f.size_str, SIZE_STR_BUF);
-				tmp_tm = localtime(&f.modified);
-				strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp_tm); // %F %T
-				sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
-				f.name = (sep) ? sep+1 : f.path;
-
-				cvec_push_file(&g->files, &f);
-			}
-		}
-
-		if (paths) {
-			cvec_push_str(paths, s);
-		}
-	}
-}
-
 #ifndef _WIN32
 
 int cvec_contains_str(cvector_str* list, char* s)
 {
 	for (int i=0; i<list->size; ++i) {
 		if (!strcmp(list->a[i], s)) {
-			return 1;
+			return i;
 		}
 	}
-	return 0;
+	return -1;
 }
 
 // TODO simple cross platform realpath
-void do_save()
+void do_save(int removing)
 {
 	if (g->loading)
 		return;
 
-	char buf[STRBUF_SZ];
-	snprintf(buf, STRBUF_SZ, "%sfavorites.txt", g->prefpath);
-
-	FILE* f = NULL;
-	if (!g->favs.size) {
-		if (!(f = fopen(buf, "r"))) {
-			SDL_Log("%s does not exist, will try creating it\n", buf);
+	i64 loc;
+	if (removing) {
+		if (g->img_focus) {
+			if ((loc = cvec_contains_str(&g->favs, g->img_focus->fullpath)) < 0) {
+				SDL_Log("%s not in favorites\n", g->img_focus->fullpath);
+			} else {
+				SDL_Log("%ld removing %s\n", g->favs.size, g->img_focus->fullpath);
+				cvec_erase_str(&g->favs, loc, loc);
+				SDL_Log("%ld removed\n", g->favs.size);
+			}
 		} else {
-			read_list(NULL, &g->favs, f);
-			fclose(f);
-		}
-	}
-
-	if (!(f = fopen(buf, "a"))) {
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to open %s: %s\nAborting save\n", buf, strerror(errno));
-		return;
-	}
-	SDL_Log("saving to %s\n", buf);
-	if (g->img_focus) {
-		if (cvec_contains_str(&g->favs, g->img_focus->fullpath)) {
-			SDL_Log("%s already in favorites\n", g->img_focus->fullpath);
-		} else {
-			fprintf(f, "%s\n", g->img_focus->fullpath);
-			cvec_push_str(&g->favs, g->img_focus->fullpath);
+			for (int i=0; i<g->n_imgs; ++i) {
+				if ((loc = cvec_contains_str(&g->favs, g->img[i].fullpath)) < 0) {
+					SDL_Log("%s not in favorites\n", g->img[i].fullpath);
+				} else {
+					SDL_Log("%ld %ld removing %s\n", g->favs.size, loc, g->img[i].fullpath);
+					cvec_erase_str(&g->favs, loc, loc);
+					SDL_Log("%ld removed\n", g->favs.size);
+				}
+			}
 		}
 	} else {
-		for (int i=0; i<g->n_imgs; ++i) {
-			if (cvec_contains_str(&g->favs, g->img[i].fullpath)) {
-				SDL_Log("%s already in favorites\n", g->img[i].fullpath);
+		if (g->img_focus) {
+			if (cvec_contains_str(&g->favs, g->img_focus->fullpath) >= 0) {
+				SDL_Log("%s already in favorites\n", g->img_focus->fullpath);
 			} else {
-				fprintf(f, "%s\n", g->img[i].fullpath);
-				cvec_push_str(&g->favs, g->img[i].fullpath);
+				SDL_Log("saving %s\n", g->img_focus->fullpath);
+				cvec_push_str(&g->favs, g->img_focus->fullpath);
+			}
+		} else {
+			for (int i=0; i<g->n_imgs; ++i) {
+				if (cvec_contains_str(&g->favs, g->img[i].fullpath) >= 0) {
+					SDL_Log("%s already in favorites\n", g->img[i].fullpath);
+				} else {
+					SDL_Log("saving %s\n", g->img[i].fullpath);
+					cvec_push_str(&g->favs, g->img[i].fullpath);
+				}
 			}
 		}
 	}
-
-	fclose(f);
 }
 #endif
 
@@ -2826,7 +2857,7 @@ int main(int argc, char** argv)
 	g->prefpath = SDL_GetPrefPath("", "sdl_img");
 	//SDL_Log("%s\n%s\n\n", exepath, g->prefpath);
 	// SDL_free(exepath);
-	
+
 	// have to set these before load_config
 	// just point these at a buffer that will live forever
 	g->cachedir = cachedir;
@@ -2962,7 +2993,7 @@ int main(int argc, char** argv)
 				f.size = file_stat.st_size;
 				f.modified = file_stat.st_mtime;
 				// TODO list cache members
-				
+
 				bytes2str(f.size, f.size_str, SIZE_STR_BUF);
 				struct tm* tmp = localtime(&f.modified);
 				strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp); // %F %T
@@ -3036,7 +3067,7 @@ int main(int argc, char** argv)
 	}
 
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "start_index = %d\n", start_index);
-	
+
 	setup(start_index, got_config);
 
 
@@ -3120,7 +3151,7 @@ int main(int argc, char** argv)
 						SDL_RenderFillRect(g->ren, &r);
 					}
 				} else if (g->state & SEARCH_RESULTS) {
-					
+
 					// TODO optimize since results are in order
 					for (int k = 0; k<g->search_results.size; ++k) {
 						if (g->search_results.a[k] == i) {
