@@ -707,14 +707,34 @@ void draw_gui(struct nk_context* ctx)
 			return;
 		}
 
+		static int lbutton_pressed_time = 0;
+		static int rbutton_pressed_time = 0;
+		int ticks = SDL_GetTicks();
 		nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
 		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_LEFT, "prev", NK_TEXT_RIGHT)) {
-			event.user.code = PREV;
-			SDL_PushEvent(&event);
+			if (!lbutton_pressed_time) {
+				lbutton_pressed_time = SDL_GetTicks();
+				event.user.code = PREV;
+				SDL_PushEvent(&event);
+			} else if (ticks - lbutton_pressed_time >= BUTTON_REPEAT_DELAY) {
+				event.user.code = PREV;
+				SDL_PushEvent(&event);
+			}
+		} else {
+			lbutton_pressed_time = 0;
 		}
+
 		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_RIGHT, "next", NK_TEXT_LEFT)) {
-			event.user.code = NEXT;
-			SDL_PushEvent(&event);
+			if (!rbutton_pressed_time) {
+				rbutton_pressed_time = SDL_GetTicks();
+				event.user.code = NEXT;
+				SDL_PushEvent(&event);
+			} else if (ticks - rbutton_pressed_time >= BUTTON_REPEAT_DELAY) {
+				event.user.code = NEXT;
+				SDL_PushEvent(&event);
+			}
+		} else {
+			rbutton_pressed_time = 0;
 		}
 
 
