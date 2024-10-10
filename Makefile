@@ -118,6 +118,6 @@ install: sdl_img
 
 clean:
 	rm -f sdl_img *.o *.exe
-	rm package/*.dll
 	$(MAKE) -C lua-5.4.6/ clean
+	rm package/*.dll
 

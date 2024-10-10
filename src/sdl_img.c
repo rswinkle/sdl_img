@@ -615,6 +615,7 @@ int create_textures(img_state* img)
 
 	for (int i=0; i<img->frames; ++i) {
 		img->tex[i] = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, img->w, img->h);
+		SDL_SetTextureBlendMode(img->tex[i], SDL_BLENDMODE_BLEND);
 		if (!img->tex[i]) {
 			SDL_Log("Error creating texture: %s\n", SDL_GetError());
 			return 0;
