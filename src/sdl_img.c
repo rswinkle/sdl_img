@@ -112,7 +112,7 @@ enum {
 #define DFLT_GIF_FPS 20
 #define DFLT_GIF_DELAY (1000/DFLT_GIF_FPS)
 #define DFLT_GUI_DELAY 2
-#define BUTTON_REPEAT_DELAY 1000
+#define DFLT_BUTTON_REPEAT_DELAY 1
 #define SLEEP_TIME 50
 #define STRBUF_SZ 1024
 #define START_WIDTH 1200
@@ -319,6 +319,7 @@ typedef struct global_state
 	int fullscreen;
 	int fill_mode;
 	int gui_delay;
+	int button_rpt_delay;
 	int gui_timer;
 	int show_gui;
 	int thumb_x_deletes;
@@ -1530,6 +1531,7 @@ int load_config()
 	if (!read_config_file(config_path)) {
 		g->slide_delay = 3;
 		g->gui_delay = DFLT_GUI_DELAY;
+		g->button_rpt_delay = DFLT_BUTTON_REPEAT_DELAY;
 		g->show_infobar = nk_true;
 		g->fullscreen_gui = DELAY;
 		g->thumb_x_deletes = nk_false;

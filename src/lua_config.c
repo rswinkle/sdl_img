@@ -15,6 +15,7 @@ enum {
 	BACKGROUND,
 	SLIDE_DELAY,
 	HIDE_GUI_DELAY,
+	BUTTON_REPEAT_DELAY,
 	FULLSCREEN_GUI,
 	THUMB_ROWS,
 	THUMB_COLS,
@@ -33,6 +34,7 @@ char* keys[] =
 	"background",
 	"slide_delay",
 	"hide_gui_delay",
+	"button_repeat_delay",
 	"fullscreen_gui",
 	"thumb_rows",
 	"thumb_cols",
@@ -103,6 +105,7 @@ int read_config_file(char* filename)
 
 	g->slide_delay = get_global_int_clamp(L, "slide_delay", 1, MAX_SLIDE_DELAY);
 	g->gui_delay = get_global_int_clamp(L, "hide_gui_delay", 1, MAX_GUI_DELAY);
+	g->button_rpt_delay = get_global_int_clamp(L, "button_repeat_delay", 1, MAX_BUTTON_RPT_DELAY);
 	g->thumb_rows = get_global_int_clamp(L, "thumb_rows", 2, 8);
 	g->thumb_cols = get_global_int_clamp(L, "thumb_cols", 4, 15);
 
@@ -185,6 +188,9 @@ void write_config(FILE* cfg_file)
 			break;
 		case HIDE_GUI_DELAY:
 			fprintf(cfg_file, "%d\n", g->gui_delay);
+			break;
+		case BUTTON_REPEAT_DELAY:
+			fprintf(cfg_file, "%d\n", g->button_rpt_delay);
 			break;
 		case FULLSCREEN_GUI:
 			fprintf(cfg_file, "\"%s\"\n", fullscreen_gui_str[g->fullscreen_gui]);

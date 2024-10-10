@@ -34,7 +34,7 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 #define GUI_MENU_WIN_W 550
 #define GUI_MENU_WIN_H 600
 #define GUI_PREFS_W 860
-#define GUI_PREFS_H 530
+#define GUI_PREFS_H 580
 
 // button widths
 #define GUI_MENU_W 80
@@ -43,6 +43,7 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 
 #define MAX_SLIDE_DELAY 10
 #define MAX_GUI_DELAY 60
+#define MAX_BUTTON_RPT_DELAY 5
 
 void search_filenames(int is_vimmode)
 {
@@ -712,11 +713,12 @@ void draw_gui(struct nk_context* ctx)
 		int ticks = SDL_GetTicks();
 		nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
 		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_LEFT, "prev", NK_TEXT_RIGHT)) {
+			g->gui_timer = ticks;
 			if (!lbutton_pressed_time) {
 				lbutton_pressed_time = SDL_GetTicks();
 				event.user.code = PREV;
 				SDL_PushEvent(&event);
-			} else if (ticks - lbutton_pressed_time >= BUTTON_REPEAT_DELAY) {
+			} else if (ticks - lbutton_pressed_time >= g->button_rpt_delay*1000) {
 				event.user.code = PREV;
 				SDL_PushEvent(&event);
 			}
@@ -725,11 +727,12 @@ void draw_gui(struct nk_context* ctx)
 		}
 
 		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_RIGHT, "next", NK_TEXT_LEFT)) {
+			g->gui_timer = ticks;
 			if (!rbutton_pressed_time) {
 				rbutton_pressed_time = SDL_GetTicks();
 				event.user.code = NEXT;
 				SDL_PushEvent(&event);
-			} else if (ticks - rbutton_pressed_time >= BUTTON_REPEAT_DELAY) {
+			} else if (ticks - rbutton_pressed_time >= g->button_rpt_delay*1000) {
 				event.user.code = NEXT;
 				SDL_PushEvent(&event);
 			}
@@ -807,6 +810,9 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 
 		nk_label(ctx, "Hide GUI delay:", NK_TEXT_LEFT);
 		nk_property_int(ctx, "#", 1, &g->gui_delay, MAX_GUI_DELAY, 1, 0.3);
+
+		nk_label(ctx, "Button repeat delay:", NK_TEXT_LEFT);
+		nk_property_int(ctx, "#", 1, &g->button_rpt_delay, MAX_BUTTON_RPT_DELAY, 1, 0.3);
 
 		nk_label(ctx, "GUI in Fullscreen mode:", NK_TEXT_LEFT);
 		static const char* gui_options[] = { "Delay", "Always", "Never" };
