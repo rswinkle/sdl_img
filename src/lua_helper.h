@@ -24,8 +24,12 @@ void error(lua_State* L, const char *fmt, ...)
 	va_start(argp, fmt);
 	vfprintf(stderr, fmt, argp);
 	va_end(argp);
+
+	// TODO make this compile time configurable, think of good macro name
+#if 0
 	lua_close(L);
 	exit(EXIT_FAILURE);
+#endif
 }
 
 int get_global_int_clamp(lua_State* L, const char* var, int min, int max)
@@ -63,6 +67,18 @@ double get_global_number(lua_State* L, const char* var)
 	}
 	lua_pop(L, 1);  // remove result from stack
 	return result;
+}
+
+double get_global_number_clamp(lua_State* L, const char* var, double min, double max)
+{
+	double ret = get_global_number(L, var);
+	if (ret < min) {
+		ret = min;
+	}
+	if (ret > max) {
+		ret = max;
+	}
+	return ret;
 }
 
 int get_global_bool(lua_State* L, const char* var)

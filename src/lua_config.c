@@ -92,10 +92,8 @@ int read_config_file(char* filename)
 		return 0;
 	}
 
-	float scale = get_global_number(L, "gui_scale");
-	if (scale < 1.0f) {
-		scale = 1.0f;
-	}
+	float scale = get_global_number_clamp(L, "gui_scale", 1.0, 5.0);
+
 	// make sure only 0.5 increments
 	float tmp = floor(scale);
 	if (tmp != scale) {
@@ -105,7 +103,7 @@ int read_config_file(char* filename)
 
 	g->slide_delay = get_global_int_clamp(L, "slide_delay", 1, MAX_SLIDE_DELAY);
 	g->gui_delay = get_global_int_clamp(L, "hide_gui_delay", 1, MAX_GUI_DELAY);
-	g->button_rpt_delay = get_global_int_clamp(L, "button_repeat_delay", 1, MAX_BUTTON_RPT_DELAY);
+	g->button_rpt_delay = get_global_number_clamp(L, "button_repeat_delay", 0.25, MAX_BUTTON_RPT_DELAY);
 	g->thumb_rows = get_global_int_clamp(L, "thumb_rows", 2, 8);
 	g->thumb_cols = get_global_int_clamp(L, "thumb_cols", 4, 15);
 
@@ -190,7 +188,7 @@ void write_config(FILE* cfg_file)
 			fprintf(cfg_file, "%d\n", g->gui_delay);
 			break;
 		case BUTTON_REPEAT_DELAY:
-			fprintf(cfg_file, "%d\n", g->button_rpt_delay);
+			fprintf(cfg_file, "%f\n", g->button_rpt_delay);
 			break;
 		case FULLSCREEN_GUI:
 			fprintf(cfg_file, "\"%s\"\n", fullscreen_gui_str[g->fullscreen_gui]);

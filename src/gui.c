@@ -43,7 +43,7 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 
 #define MAX_SLIDE_DELAY 10
 #define MAX_GUI_DELAY 60
-#define MAX_BUTTON_RPT_DELAY 5
+#define MAX_BUTTON_RPT_DELAY 3.0f
 
 void search_filenames(int is_vimmode)
 {
@@ -812,7 +812,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		nk_property_int(ctx, "#", 1, &g->gui_delay, MAX_GUI_DELAY, 1, 0.3);
 
 		nk_label(ctx, "Button repeat delay:", NK_TEXT_LEFT);
-		nk_property_int(ctx, "#", 1, &g->button_rpt_delay, MAX_BUTTON_RPT_DELAY, 1, 0.3);
+		nk_property_float(ctx, "#", 0.25f, &g->button_rpt_delay, MAX_BUTTON_RPT_DELAY, 0.25, 0.08333);
 
 		nk_label(ctx, "GUI in Fullscreen mode:", NK_TEXT_LEFT);
 		static const char* gui_options[] = { "Delay", "Always", "Never" };
