@@ -1260,7 +1260,7 @@ static void stbiw__jpg_writeBits(stbi__write_context *s, int *bitBufP, int *bitC
       if(c == 255) {
          stbiw__putc(s, 0);
       }
-      bitBuf <<= 8;
+      bitBuf <<= 8;  // TODO triggered error left shift of 16646144 by 8 places cannot be represented in type 'int' 
       bitCnt -= 8;
    }
    *bitBufP = bitBuf;

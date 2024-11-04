@@ -1042,6 +1042,15 @@ int gen_thumbs(void* data)
 	g->generating_thumbs = SDL_FALSE;
 	g->thumbs_done = SDL_TRUE;
 	g->thumbs_loaded = do_load;
+
+	if (do_load) {
+		// same as in load_thumbs, generating and loading can take even longer
+		g->thumb_sel = g->img[0].index;
+		g->thumb_sel_end = g->img[0].index;
+		g->thumb_start_row = g->thumb_sel / g->thumb_cols;
+	}
+
+
 	SDL_Log("Done generating thumbs in %.2f seconds, exiting thread.\n", (SDL_GetTicks()-start)/1000.0f);
 	return 0;
 }
@@ -1099,6 +1108,12 @@ int load_thumbs(void* data)
 		make_thumb_tex(i, w, h, outpix);
 		free(outpix);
 	}
+
+	// make sure we are on current image after we're done loading
+	// since loading can take a while if there are 1000's of images
+	g->thumb_sel = g->img[0].index;
+	g->thumb_sel_end = g->img[0].index;
+	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 
 	g->thumbs_loaded = SDL_TRUE;
 	SDL_Log("Done loading thumbs in %.2f seconds, exiting thread.\n", (SDL_GetTicks()-start)/1000.0f);
@@ -2495,18 +2510,18 @@ void do_save(int removing)
 			if ((loc = cvec_contains_str(&g->favs, g->img_focus->fullpath)) < 0) {
 				SDL_Log("%s not in favorites\n", g->img_focus->fullpath);
 			} else {
-				SDL_Log("%ld removing %s\n", g->favs.size, g->img_focus->fullpath);
+				SDL_Log("removing %s\n", g->img_focus->fullpath);
 				cvec_erase_str(&g->favs, loc, loc);
-				SDL_Log("%ld removed\n", g->favs.size);
+				SDL_Log("%ld left after removal\n", g->favs.size);
 			}
 		} else {
 			for (int i=0; i<g->n_imgs; ++i) {
 				if ((loc = cvec_contains_str(&g->favs, g->img[i].fullpath)) < 0) {
 					SDL_Log("%s not in favorites\n", g->img[i].fullpath);
 				} else {
-					SDL_Log("%ld %ld removing %s\n", g->favs.size, loc, g->img[i].fullpath);
+					SDL_Log("removing %s\n", g->img[i].fullpath);
 					cvec_erase_str(&g->favs, loc, loc);
-					SDL_Log("%ld removed\n", g->favs.size);
+					SDL_Log("%ld after removal\n", g->favs.size);
 				}
 			}
 		}
