@@ -1,5 +1,6 @@
 
 #include "myinttypes.h"
+#include "c_utils.h"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -133,10 +134,11 @@ int main(void)
 	file_browser browser = { 0 };
 	init_file_browser(&browser);
 
-	while (1) {
+	while (!browser.file[0]) {
 		print_browser(&browser);
-		getchar();
 	}
+
+	printf("You selected %s\n", browser.file);
 
 
 
@@ -157,24 +159,29 @@ void print_browser(file_browser* fb)
 	
 	printf("There are %ld files\n", f->size);
 
+	int invalid = 0;
 	static int pos;
 
-	for (int i=fb.begin, j=0; j<fb.end; i++, j++) {
+	for (int i=fb->begin, j=0; i<fb->end; i++, j++) {
 		printf("%2d %-40s%20s%30s\n", j, f->a[i].name, f->a[i].size_str, f->a[i].mod_str);
 	}
 
-	printf("S. down\nW. up\nF. choose file");
+	printf("S. down\nW. up\nF. choose file\n");
 	printf("Enter selection: ");
+
+	char line_buf[STRBUF_SZ];
 
 	char choice = read_char(stdin, SPACE_SET, 0, 1);
 	if (choice == 'f' || choice == 'F') {
 		int fn = 0;
 		do {
 			printf("Enter file number: ");
+			
 			// TODO properly
-		} while (scanf("%d", &fn) != 1 || fn < 0 || fn >= fb.end - fb.begin);
+			freadstring_into_str(stdin, '\n', line_buf, STRBUF_SZ);
+		} while (sscanf(line_buf, "%d", &fn) != 1 || fn < 0 || fn >= fb->end - fb->begin);
 
-		int idx = fb.begin + fn;
+		int idx = fb->begin + fn;
 		printf("fn = %d, idx = %d\n", fn, idx);
 
 
@@ -183,65 +190,74 @@ void print_browser(file_browser* fb)
 			printf("switching to '%s'\n", f->a[idx].path);
 			strncpy(fb->dir, f->a[idx].path, MAX_PATH_LEN);
 			myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
+			fb->begin = 0;
 		} else {
 			strncpy(fb->file, f->a[idx].path, MAX_PATH_LEN);
 		}
-		return;
+	} else {
+		int len;
+		char* c;
+		invalid = 0;
+		switch (choice) {
+			case 'H':
+			case 'h':
+				if (strncmp(fb->dir, fb->home, MAX_PATH_LEN)) {
+					strcpy(fb->dir, fb->home);
+					myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
+					fb->begin = 0;
+				}
+				break;
+			case 'D':
+			case 'd':
+				if (strncmp(fb->dir, fb->desktop, MAX_PATH_LEN)) {
+					strcpy(fb->dir, fb->desktop);
+					myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
+					fb->begin = 0;
+				}
+				break;
+			case 'P':
+			case 'p':
+					len = strlen(fb->dir);
+					fb->dir[len-1] = 0; // erase trailing '/'
+
+					// find next '/'
+					c = strrchr(fb->dir, '/');
+					c[1] = 0;   // erase everything after last /
+					myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
+					fb->begin = 0;
+				break;
+			case 'S':
+			case 's':
+				fb->begin += FILE_LIST_SZ;
+				if (fb->begin >= fb->files.size) {
+					fb->begin = 0;
+				}
+				break;
+			case 'W':
+			case 'w':
+				// TODO should I wrap around the top like I do the bottom?
+				fb->begin -= FILE_LIST_SZ;
+				if (fb->begin < 0) {
+					// wrap if you were already at the top
+					if (fb->begin == -FILE_LIST_SZ && fb->files.size > FILE_LIST_SZ) {
+						fb->begin = fb->files.size - FILE_LIST_SZ;
+					} else {
+						fb->begin = 0;  // just go all the way to the top
+					}
+				}
+				break;
+
+			default:
+				invalid = 1;
+				puts("Invalid choice.");
+		}
 	}
 
-	int len;
-	char* c;
-	switch (choice) {
-		case 'H':
-		case 'h':
-			if (strncmp(fb->dir, fb->home, MAX_PATH_LEN)) {
-				strcpy(fb->dir, fb->home);
-				myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
-			}
-			break;
-		case 'D':
-		case 'd':
-			if (strncmp(fb->dir, fb->desktop, MAX_PATH_LEN)) {
-				strcpy(fb->dir, fb->desktop);
-				myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
-			}
-			break;
-		case 'P':
-		case 'p':
-				len = strlen(fb->dir);
-				fb->dir[len-1] = 0; // erase trailing '/'
-
-				// find next '/'
-				c = strrchr(fb->dir, '/');
-				c[1] = 0;   // erase everything after last /
-				myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
-			break;
-		case 'S':
-		case 's':
-			fb->begin += FILE_LIST_SZ;
-			if (fb->begin >= fb->files.size) {
-				fb->begin = 0;
-			}
-			fb->end = fb->begin + FILE_LIST_SZ;
-			if (fb->end > fb->files.size) {
-				fb->end = fb->files.size;
-			}
-			break;
-		case 'W':
-		case 'w':
-			// TODO should I wrap around the top like I do the bottom?
-			fb->begin -= FILE_LIST_SZ;
-			if (fb->begin < 0) {
-				fb->begin = fb->files.size - FILE_LIST_SZ;
-			}
-			fb->end = fb->begin + FILE_LIST_SZ;
-			if (fb->end > fb->files.size) {
-				fb->end = fb->files.size;
-			}
-			break;
-
-		default:
-			puts("Invalid choice.");
+	if (!invalid) {
+		fb->end = fb->begin + FILE_LIST_SZ;
+		if (fb->end > fb->files.size) {
+			fb->end = fb->files.size;
+		}
 	}
 
 
