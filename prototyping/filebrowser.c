@@ -97,7 +97,7 @@ cvector_file files;
 
 void print_browser(file_browser* fb);
 void search_filenames(cvector_i* search_results, cvector_file* files, char* text);
-int init_file_browser(file_browser* fb);
+int init_file_browser(file_browser* fb, const char* start_dir);
 
 const char* get_homedir();
 int myscandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts, int recurse);
@@ -107,7 +107,7 @@ void normalize_path(char* path);
 int bytes2str(int bytes, char* buf, int len);
 
 
-int main(void)
+int main(int argc, char** argv)
 {
 	printf("sizeof(file) == %d\n", (int)sizeof(file));
 	printf("sizeof(time_t) == %d\n", (int)sizeof(time_t));
@@ -132,7 +132,13 @@ int main(void)
 	running = 1;
 
 	file_browser browser = { 0 };
-	init_file_browser(&browser);
+
+	char* start_dir = NULL;
+	if (argc == 2) {
+		start_dir = argv[1];
+	}
+
+	init_file_browser(&browser, start_dir);
 
 	while (!browser.file[0]) {
 		print_browser(&browser);
@@ -281,10 +287,12 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 	// or I could just pass NULLs
 	int x, y, n;
 
-	// empty files
-	cvec_clear_file(files);
-
-	puts("testing");
+	// empty files if not recursing, otherwise assume user knows what they're doing and
+	// emptied it before top level call if they wanted to
+	if (!recurse) {
+		cvec_clear_file(files);
+	}
+	int start_size = files->size;
 
 	dir = opendir(dirpath);
 	if (!dir) {
@@ -297,7 +305,6 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 	char* ext = NULL;
 	file f;
 
-	printf("Scanning %s for images...\n", dirpath);
 	while ((entry = readdir(dir))) {
 
 		// faster than 2 strcmp calls? ignore "." and ".."
@@ -370,15 +377,6 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 		f.path = CVEC_STRDUP(fullpath);
 #endif
 
-/*
-#ifdef CHECK_IF_NO_EXTENSION
-		if (!ext && !stbi_info(f.path, &x, &y, &n)) {
-			free(f.path);
-			continue;
-		}
-#endif
-*/
-
 		f.size = file_stat.st_size;
 		f.modified = file_stat.st_mtime;
 
@@ -390,7 +388,7 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 		cvec_push_file(files, &f);
 	}
 
-	printf("Found %"PRIcv_sz" images in %s\n", files->size, dirpath);
+	printf("Found %"PRIcv_sz" files in %s\n", files->size-start_size, dirpath);
 
 	closedir(dir);
 	return 1;
@@ -528,7 +526,7 @@ const char* get_homedir()
 }
 
 // TODO pass extensions?
-int init_file_browser(file_browser* browser)
+int init_file_browser(file_browser* browser, const char* start_dir)
 {
 	//if (fb->up_to_date) return
 	
@@ -541,7 +539,18 @@ int init_file_browser(file_browser* browser)
 	browser->home[MAX_PATH_LEN - 1] = 0;
 	l = strlen(browser->home);
 	strcpy(browser->home + l, "/");
-	strcpy(browser->dir, browser->home);
+
+	const char* sd = home;
+	if (start_dir) {
+		struct stat file_stat;
+		if (stat(start_dir, &file_stat)) {
+			perror("Could not stat start_dir, will use home directory");
+		} else {
+			sd = start_dir;
+		}
+	}
+	strcpy(browser->dir, sd);
+
 
 	strcpy(browser->desktop, browser->home);
 	l = strlen(browser->desktop);
@@ -551,7 +560,7 @@ int init_file_browser(file_browser* browser)
 
 	browser->end = 20;
 
-	myscandir(&browser->files, browser->home, NULL, 0, 0);
+	myscandir(&browser->files, browser->dir, NULL, 0, 0);
 
 	return 1;
 }

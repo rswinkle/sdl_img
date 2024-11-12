@@ -386,173 +386,6 @@ void draw_simple_gui(struct nk_context* ctx)
 
 
 
-/*
-void draw_gui(struct nk_context* ctx)
-{
-	char info_buf[STRBUF_SZ];
-	int len;
-	int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
-
-	// closable gives the x, if you use it it won't come back (probably have to call show() or
-	// something...
-	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
-	SDL_Event event = { 0 };
-
-	int win_w, win_h;
-	int scr_w, scr_h;
-	int out_w, out_h;
-	SDL_GetWindowSize(win, &win_w, &win_h);
-	//SDL_RenderGetLogicalSize(ren, &scr_w, &scr_h);
-	SDL_GetRendererOutputSize(ren, &out_w, &out_h);
-
-	float scale_x, scale_y;
-	SDL_RenderGetScale(ren, &scale_x, &scale_y);
-	//scale_y = 2;
-	//printf("scale = %.2f x %.2f\n", scale_x, scale_y);
-
-	scr_w = out_w/scale_x;
-	scr_h = out_h/scale_y;
-
-	//printf("win %d x %d\nlog %d x %d\nout %d x %d\n", win_w, win_h, scr_w, scr_h, out_w, out_h);
-
-	struct nk_rect bounds;
-	const struct nk_input* in = &ctx->input;
-
-	static int fill = nk_false;
-	static int fullscreen = nk_false;
-	static int hovering = 0;
-	static int what_hover = 0;
-
-	int total_width = 0;
-	int do_zoom = 0, do_toggles = 0, do_rotates = 0;
-	what_hover = 0;
-
-
-
-
-	if (show_rotate) {
-		int w = 400, h = 300; ///scale_x, h = 400/scale_y;
-		struct nk_rect s;
-		s.x = scr_w/2-w/2;
-		s.y = scr_h/2-h/2;
-		s.w = w;
-		s.h = h;
-		static int slider_degs = 0;
-
-		if (nk_begin(ctx, "Rotation", s, popup_flags)) {
-
-			//nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
-			//nk_layout_row_dynamic(ctx, 0, 2);
-			nk_layout_row_dynamic(ctx, 0, 1);
-
-			nk_label_wrap(ctx, "Click and drag, type, or use the arrows to select the desired degree of rotation");
-
-			//nk_label(ctx, "Degrees:", NK_TEXT_LEFT);
-			slider_degs = nk_propertyi(ctx, "Degrees:", -180, slider_degs, 180, 1, 0.5);
-			//nk_slider_int(ctx, -180, &slider_degs, 180, 1);
-
-			//nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
-			nk_layout_row_dynamic(ctx, 0, 2);
-			if (nk_button_label(ctx, "Preview")) {
-				;
-			}
-			if (nk_button_label(ctx, "Ok")) {
-				show_rotate = 0;;
-			}
-		}
-		nk_end(ctx);
-	}
-
-
-
-
-
-	if (!what_hover)
-		hovering = 0;
-}
-*/
-
-/*
-void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
-{
-#define PREFS_W 860
-#define PREFS_H 530
-	int w = PREFS_W, h = PREFS_H; ///scale_x, h = 400/scale_y;
-	struct nk_rect bounds;
-	struct nk_rect s;
-	s.x = scr_w/2-w/2;
-	s.y = scr_h/2-h/2;
-	s.w = w;
-	s.h = h;
-	char cache[] = "/home/someone/really/long/path_that_goes_forever/blahblahblah/.local/share/sdl_img";
-
-	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
-
-	if (nk_begin(ctx, "Preferences", s, popup_flags)) {
-		nk_layout_row_dynamic(ctx, 0, 2);
-		nk_label(ctx, "background:", NK_TEXT_LEFT);
-		if (nk_combo_begin_color(ctx, nk_rgb_cf(bg), nk_vec2(nk_widget_width(ctx), PREFS_W/2))) {
-			nk_layout_row_dynamic(ctx, 240, 1);
-			bg = nk_color_picker(ctx, bg, NK_RGB);
-			nk_layout_row_dynamic(ctx, 0, 1);
-			bg.r = nk_propertyf(ctx, "#R:", 0, bg.r, 1.0f, 0.01f,0.005f);
-			bg.g = nk_propertyf(ctx, "#G:", 0, bg.g, 1.0f, 0.01f,0.005f);
-			bg.b = nk_propertyf(ctx, "#B:", 0, bg.b, 1.0f, 0.01f,0.005f);
-			//bg.a = nk_propertyf(ctx, "#A:", 0, bg.a, 1.0f, 0.01f,0.005f);
-			bg2 = nk_rgb_cf(bg);
-			nk_combo_end(ctx);
-		}
-
-		nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
-		nk_property_int(ctx, "#", 1, &slide_delay, 10, 1, 0.05);
-
-		nk_label(ctx, "Hide GUI delay:", NK_TEXT_LEFT);
-		nk_property_int(ctx, "#", 1, &gui_delay, 60, 1, 0.3);
-
-
-		nk_label(ctx, "GUI in Fullscreen mode:", NK_TEXT_LEFT);
-		static int fullscreen_gui = DELAY;
-		static const char* gui_options[] = { "Delay", "Always", "Never" };
-		bounds = nk_widget_bounds(ctx);
-		//printf("bounds %f %f %f %f\n", bounds.x, bounds.y, bounds.w, bounds.h);
-		fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), fullscreen_gui, 12, nk_vec2(bounds.w, 300));
-		// if (nk_option_label(ctx, "Delay", (fullscreen_gui == DELAY))) fullscreen_gui = DELAY;
-		// if (nk_option_label(ctx, "Always", (fullscreen_gui == ALWAYS))) fullscreen_gui = ALWAYS;
-		// if (nk_option_label(ctx, "Never", (fullscreen_gui == NEVER))) fullscreen_gui = NEVER;
-
-		nk_property_int(ctx, "Thumb rows", 2, &thumb_rows, 8, 1, 0.05);
-		nk_property_int(ctx, "Thumb cols", 4, &thumb_cols, 15, 1, 0.05);
-
-		nk_checkbox_label(ctx, "Show info bar", &show_infobar);
-		nk_checkbox_label(ctx, "x deletes in Thumb mode", &thumb_x_deletes);
-
-		nk_layout_row_dynamic(ctx, 0, 1);
-		nk_checkbox_label(ctx, "Preserve relative offsets in multimode movement", &independent_multimode);
-
-
-		float ratios[] = { 0.25, 0.75 };
-		nk_layout_row(ctx, NK_DYNAMIC, 60, 2, ratios);
-		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
-		int cache_len = strlen(cache);
-		nk_edit_string(ctx, NK_EDIT_SELECTABLE|NK_EDIT_CLIPBOARD, cache, &cache_len, cache_len+1, nk_filter_default);
-
-		nk_layout_row_dynamic(ctx, 0, 1);
-		if (nk_button_label(ctx, "Clear thumbnail cache")) {
-			puts("Clearing thumbnails");
-		}
-
-#define OK_WIDTH 200
-		nk_layout_space_begin(ctx, NK_STATIC, 60, 1);
-		nk_layout_space_push(ctx, nk_rect(PREFS_W-OK_WIDTH-12, 20, OK_WIDTH, 40));
-		if (nk_button_label(ctx, "Ok")) {
-			show_prefs = 0;;
-		}
-		nk_layout_space_end(ctx);
-#undef OK_WIDTH
-	}
-	nk_end(ctx);
-}
-*/
 
 
 int handle_events(struct nk_context* ctx)
@@ -599,15 +432,17 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 	// or I could just pass NULLs
 	int x, y, n;
 
+	// empty files if not recursing, otherwise assume user knows what they're doing and
+	// emptied it before top level call if they wanted to
+	if (!recurse) {
+		cvec_clear_file(files);
+	}
 	int start_size = files->size;
-
-	puts("testing");
 
 	dir = opendir(dirpath);
 	if (!dir) {
 		perror("opendir");
 		return 0;
-		//cleanup(1, 1);
 	}
 
 	char* tmp;
@@ -615,7 +450,6 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 	char* ext = NULL;
 	file f;
 
-	//SDL_Log("Scanning %s for images...\n", dirpath);
 	while ((entry = readdir(dir))) {
 
 		// faster than 2 strcmp calls? ignore "." and ".."
@@ -625,9 +459,9 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 
 		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, entry->d_name);
 		if (ret >= STRBUF_SZ) {
-			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "path too long\n");
+			// path too long
+			assert(ret >= STRBUF_SZ);
 			return 0;
-			//cleanup(0, 1);
 		}
 		if (stat(fullpath, &file_stat)) {
 			perror("stat");
@@ -688,15 +522,6 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 		f.path = CVEC_STRDUP(fullpath);
 #endif
 
-/*
-#ifdef CHECK_IF_NO_EXTENSION
-		if (!ext && !stbi_info(f.path, &x, &y, &n)) {
-			free(f.path);
-			continue;
-		}
-#endif
-*/
-
 		f.size = file_stat.st_size;
 		f.modified = file_stat.st_mtime;
 
@@ -708,7 +533,7 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 		cvec_push_file(files, &f);
 	}
 
-	SDL_Log("Found %"PRIcv_sz" images in %s\n", files->size-start_size, dirpath);
+	printf("Found %"PRIcv_sz" files in %s\n", files->size-start_size, dirpath);
 
 	closedir(dir);
 	return 1;
