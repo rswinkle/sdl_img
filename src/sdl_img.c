@@ -218,24 +218,9 @@ CVEC_NEW_DECLS2(thumb_state)
 
 CVEC_NEW_DEFS2(thumb_state, RESIZE)
 
-// TODO struct packing?  save a few bytes?
-typedef struct file
-{
-	char* path;   // could be url;
-
-	// time_t is a long int ...
-	time_t modified;
-	int size;     // in bytes (hard to believe it'd be bigger than ~2.1 GB)
-
-	//  caching for list mode
-	char mod_str[MOD_STR_BUF];
-	char size_str[SIZE_STR_BUF];
-	char* name;  // pointing at filename in path
-} file;
-
-CVEC_NEW_DECLS2(file)
-
-CVEC_NEW_DEFS2(file, RESIZE)
+// maybe I should just include the former in the latter...
+#include "string_compare.c"
+#include "file.c"
 
 typedef struct img_state
 {
@@ -1484,11 +1469,6 @@ int load_new_images(void* data)
 	}
 
 	return 0;
-}
-
-void free_file(void* f)
-{
-	free(((file*)f)->path);
 }
 
 void setup_dirs()

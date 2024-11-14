@@ -63,6 +63,8 @@ void free_file(void* f)
 	free(((file*)f)->path);
 }
 
+#include "sorting.c"
+
 
 #define FILE_LIST_SZ 20
 #define MAX_PATH_LEN 512
@@ -83,6 +85,8 @@ typedef struct file_browser
 	int begin;
 	int end;
 
+	int sorted_state;
+
 } file_browser;
 
 enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
@@ -100,7 +104,7 @@ void search_filenames(cvector_i* search_results, cvector_file* files, char* text
 int init_file_browser(file_browser* fb, const char* start_dir);
 
 const char* get_homedir();
-int myscandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts, int recurse);
+int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts);
 char* mydirname(const char* path, char* dirpath);
 char* mybasename(const char* path, char* base);
 void normalize_path(char* path);
@@ -116,10 +120,10 @@ int main(int argc, char** argv)
 	printf("homedir = '%s'\n", get_homedir());
 
 	const char* exts[] = { ".jpg" };
-	//myscandir(&files, "/home/robert/", NULL, 0, 0);
-	//myscandir(&files, "/home/robert/Pictures/Monica/", NULL, 0, 0);
+	//fb_scandir(&files, "/home/robert/", NULL, 0);
+	//fb_scandir(&files, "/home/robert/Pictures/Monica/", NULL, 0);
 	/*
-	myscandir(&files, "/home/robert/Pictures/Monica", exts, 1, 0);
+	fb_scandir(&files, "/home/robert/Pictures/Monica", exts, 1);
 
 	printf("n_results = %ld\n", files.size);
 	for (int i=0; i<files.size; i++) {
@@ -195,7 +199,8 @@ void print_browser(file_browser* fb)
 		if (f->a[idx].size == -1) {
 			printf("switching to '%s'\n", f->a[idx].path);
 			strncpy(fb->dir, f->a[idx].path, MAX_PATH_LEN);
-			myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
+			fb_scandir(&fb->files, fb->dir, NULL, 0);
+			qsort(fb->files.a, fb->files.size, sizeof(file), filename_cmp_lt);
 			fb->begin = 0;
 		} else {
 			strncpy(fb->file, f->a[idx].path, MAX_PATH_LEN);
@@ -209,7 +214,7 @@ void print_browser(file_browser* fb)
 			case 'h':
 				if (strncmp(fb->dir, fb->home, MAX_PATH_LEN)) {
 					strcpy(fb->dir, fb->home);
-					myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
+					fb_scandir(&fb->files, fb->dir, NULL, 0);
 					fb->begin = 0;
 				}
 				break;
@@ -217,7 +222,7 @@ void print_browser(file_browser* fb)
 			case 'd':
 				if (strncmp(fb->dir, fb->desktop, MAX_PATH_LEN)) {
 					strcpy(fb->dir, fb->desktop);
-					myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
+					fb_scandir(&fb->files, fb->dir, NULL, 0);
 					fb->begin = 0;
 				}
 				break;
@@ -229,7 +234,7 @@ void print_browser(file_browser* fb)
 					// find next '/'
 					c = strrchr(fb->dir, '/');
 					c[1] = 0;   // erase everything after last /
-					myscandir(&fb->files, fb->dir, NULL, 0, FALSE);
+					fb_scandir(&fb->files, fb->dir, NULL, 0);
 					fb->begin = 0;
 				break;
 			case 'S':
@@ -271,10 +276,9 @@ void print_browser(file_browser* fb)
 
 
 
-
-// renamed to not conflict with <dirent.h>'s scandir
-// which I could probably use to accomplish  most of this...
-int myscandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts, int recurse)
+// TODO would it be better to just use scandir + an extra pass to fill cvector of files?
+// How portable would that be?  Windows? etc.
+int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts)
 {
 	char fullpath[STRBUF_SZ] = { 0 };
 	struct stat file_stat;
@@ -287,12 +291,7 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 	// or I could just pass NULLs
 	int x, y, n;
 
-	// empty files if not recursing, otherwise assume user knows what they're doing and
-	// emptied it before top level call if they wanted to
-	if (!recurse) {
-		cvec_clear_file(files);
-	}
-	int start_size = files->size;
+	cvec_clear_file(files);
 
 	dir = opendir(dirpath);
 	if (!dir) {
@@ -323,46 +322,27 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 			continue;
 		}
 
+		if (!S_ISREG(file_stat.st_mode) && !S_ISDIR(file_stat.st_mode)) {
+			continue;
+		}
 
-		// S_ISLNK() doesn't seem to work but d_type works, though the man page
-		// says it's not supported on all filesystems... or windows TODO?
-		// aggh I hate windows
-#ifndef _WIN32
-		if (S_ISDIR(file_stat.st_mode) && entry->d_type != DT_LNK)
-#else
-		if (S_ISDIR(file_stat.st_mode))
-#endif
-		{
-			if (recurse) {
-				myscandir(files, fullpath, exts, num_exts, recurse);
-				continue;
+		if (S_ISREG(file_stat.st_mode)) {
+			f.size = file_stat.st_size;
+
+			ext = strrchr(entry->d_name, '.');
+
+			// TODO
+			if (ext && num_exts)
+			{
+				for (i=0; i<num_exts; ++i) {
+					if (!strcasecmp(ext, exts[i]))
+						break;
+				}
+				if (i == num_exts)
+					continue;
 			}
-
-			memset(&f, 0, sizeof(file));
-			tmp = realpath(fullpath, NULL);
-			f.path = realloc(tmp, strlen(tmp)+1);
-			sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
-			f.name = (sep) ? sep+1 : f.path;
+		} else {
 			f.size = -1;
-			cvec_push_file(files, &f);
-			continue;
-		}
-
-		if (!S_ISREG(file_stat.st_mode)) {
-			continue;
-		}
-
-		ext = strrchr(entry->d_name, '.');
-
-		// TODO
-		if (ext && num_exts)
-		{
-			for (i=0; i<num_exts; ++i) {
-				if (!strcasecmp(ext, exts[i]))
-					break;
-			}
-			if (i == num_exts)
-				continue;
 		}
 
 		// have to use fullpath not d_name in case we're in a recursive call
@@ -377,9 +357,9 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 		f.path = CVEC_STRDUP(fullpath);
 #endif
 
-		f.size = file_stat.st_size;
 		f.modified = file_stat.st_mtime;
 
+		// f.size set above separately for files vs directories
 		bytes2str(f.size, f.size_str, SIZE_STR_BUF);
 		tmp_tm = localtime(&f.modified);
 		strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp_tm); // %F %T
@@ -388,7 +368,7 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 		cvec_push_file(files, &f);
 	}
 
-	printf("Found %"PRIcv_sz" files in %s\n", files->size-start_size, dirpath);
+	printf("Found %"PRIcv_sz" files in %s\n", files->size, dirpath);
 
 	closedir(dir);
 	return 1;
@@ -455,6 +435,12 @@ void normalize_path(char* path)
 
 int bytes2str(int bytes, char* buf, int len)
 {
+	// empty string for negative numbers
+	if (bytes < 0) {
+		buf[0] = 0;
+		return 1;
+	}
+
 	// MiB KiB? 2^10, 2^20?
 	// char* iec_sizes[3] = { "bytes", "KiB", "MiB" };
 	char* si_sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
@@ -560,7 +546,10 @@ int init_file_browser(file_browser* browser, const char* start_dir)
 
 	browser->end = 20;
 
-	myscandir(&browser->files, browser->dir, NULL, 0, 0);
+	fb_scandir(&browser->files, browser->dir, NULL, 0);
+
+	qsort(browser->files.a, browser->files.size, sizeof(file), filename_cmp_lt);
+	browser->sorted_state = SORT_NAME;
 
 	return 1;
 }
