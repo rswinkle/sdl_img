@@ -35,35 +35,13 @@
 #define TRUE 1
 #define FALSE 0
 
-enum { SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
-
+enum { NAME_UP, NAME_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 #define RESIZE(x) ((x+1)*2)
 
-// TODO struct packing?  save a few bytes?
-typedef struct file
-{
-	char* path;   // could be url;
+#include "string_compare.c"
+#include "file.c"
 
-	// time_t is a long int ...
-	time_t modified;
-	int size;     // in bytes (hard to believe it'd be bigger than ~2.1 GB)
-
-	//  caching for list mode
-	char mod_str[MOD_STR_BUF];
-	char size_str[SIZE_STR_BUF];
-	char* name;  // pointing at filename in path
-} file;
-
-CVEC_NEW_DECLS2(file)
-
-CVEC_NEW_DEFS2(file, RESIZE)
-
-void free_file(void* f)
-{
-	free(((file*)f)->path);
-}
-
-#include "sorting.c"
+//#include "sorting.c"
 
 
 #define FILE_LIST_SZ 20
@@ -88,8 +66,6 @@ typedef struct file_browser
 	int sorted_state;
 
 } file_browser;
-
-enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 
 int running;
 
@@ -157,9 +133,14 @@ int main(int argc, char** argv)
 	return 0;
 }
 
+typedef int (*cmp_func)(const void* a, const void* b);
+
 void print_browser(file_browser* fb)
 {
 	cvector_file* f = &fb->files;
+
+	cmp_func compare_funcs[] = { filename_cmp_lt, filename_cmp_gt, filesize_cmp_lt, filesize_cmp_gt, filemodified_cmp_lt, filemodified_cmp_gt };
+	cmp_func c_func = compare_funcs[fb->sorted_state];
 
 	printf("H. home = %s\n", fb->home);
 	printf("D. desktop = %s\n", fb->desktop);
@@ -168,6 +149,9 @@ void print_browser(file_browser* fb)
 	printf("dir = %s\n", fb->dir);
 	
 	printf("There are %ld files\n", f->size);
+	puts("N. Sort by name");
+	puts("Z. Sort by size");
+	puts("M. Sort by last modified\n");
 
 	int invalid = 0;
 	static int pos;
@@ -176,7 +160,7 @@ void print_browser(file_browser* fb)
 		printf("%2d %-40s%20s%30s\n", j, f->a[i].name, f->a[i].size_str, f->a[i].mod_str);
 	}
 
-	printf("S. down\nW. up\nF. choose file\n");
+	printf("\nS. down\nW. up\nF. choose file\n");
 	printf("Enter selection: ");
 
 	char line_buf[STRBUF_SZ];
@@ -200,7 +184,7 @@ void print_browser(file_browser* fb)
 			printf("switching to '%s'\n", f->a[idx].path);
 			strncpy(fb->dir, f->a[idx].path, MAX_PATH_LEN);
 			fb_scandir(&fb->files, fb->dir, NULL, 0);
-			qsort(fb->files.a, fb->files.size, sizeof(file), filename_cmp_lt);
+			qsort(fb->files.a, fb->files.size, sizeof(file), c_func);
 			fb->begin = 0;
 		} else {
 			strncpy(fb->file, f->a[idx].path, MAX_PATH_LEN);
@@ -215,6 +199,7 @@ void print_browser(file_browser* fb)
 				if (strncmp(fb->dir, fb->home, MAX_PATH_LEN)) {
 					strcpy(fb->dir, fb->home);
 					fb_scandir(&fb->files, fb->dir, NULL, 0);
+					qsort(fb->files.a, fb->files.size, sizeof(file), c_func);
 					fb->begin = 0;
 				}
 				break;
@@ -223,6 +208,7 @@ void print_browser(file_browser* fb)
 				if (strncmp(fb->dir, fb->desktop, MAX_PATH_LEN)) {
 					strcpy(fb->dir, fb->desktop);
 					fb_scandir(&fb->files, fb->dir, NULL, 0);
+					qsort(fb->files.a, fb->files.size, sizeof(file), c_func);
 					fb->begin = 0;
 				}
 				break;
@@ -235,6 +221,7 @@ void print_browser(file_browser* fb)
 					c = strrchr(fb->dir, '/');
 					c[1] = 0;   // erase everything after last /
 					fb_scandir(&fb->files, fb->dir, NULL, 0);
+					qsort(fb->files.a, fb->files.size, sizeof(file), c_func);
 					fb->begin = 0;
 				break;
 			case 'S':
@@ -257,6 +244,35 @@ void print_browser(file_browser* fb)
 					}
 				}
 				break;
+			case 'N':
+			case 'n':
+				if (fb->sorted_state == NAME_UP) {
+					qsort(fb->files.a, fb->files.size, sizeof(file), filename_cmp_gt);
+					fb->sorted_state = NAME_DOWN;
+				} else {
+					qsort(fb->files.a, fb->files.size, sizeof(file), filename_cmp_lt);
+					fb->sorted_state = NAME_UP;
+				}
+				break;
+			case 'Z':
+			case 'z':
+				if (fb->sorted_state == SIZE_UP) {
+					qsort(fb->files.a, fb->files.size, sizeof(file), filesize_cmp_gt);
+					fb->sorted_state = SIZE_DOWN;
+				} else {
+					qsort(fb->files.a, fb->files.size, sizeof(file), filesize_cmp_lt);
+					fb->sorted_state = SIZE_UP;
+				}
+				break;
+			case 'M':
+			case 'm':
+				if (fb->sorted_state == MODIFIED_UP) {
+					qsort(fb->files.a, fb->files.size, sizeof(file), filemodified_cmp_gt);
+					fb->sorted_state = MODIFIED_DOWN;
+				} else {
+					qsort(fb->files.a, fb->files.size, sizeof(file), filemodified_cmp_lt);
+					fb->sorted_state = MODIFIED_UP;
+				}
 
 			default:
 				invalid = 1;
@@ -549,7 +565,7 @@ int init_file_browser(file_browser* browser, const char* start_dir)
 	fb_scandir(&browser->files, browser->dir, NULL, 0);
 
 	qsort(browser->files.a, browser->files.size, sizeof(file), filename_cmp_lt);
-	browser->sorted_state = SORT_NAME;
+	browser->sorted_state = NAME_UP;
 
 	return 1;
 }
