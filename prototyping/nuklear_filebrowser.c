@@ -417,9 +417,9 @@ int handle_events(struct nk_context* ctx)
 }
 
 
-// renamed to not conflict with <dirent.h>'s scandir
-// which I could probably use to accomplish  most of this...
-int myscandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts, int recurse)
+// TODO would it be better to just use scandir + an extra pass to fill cvector of files?
+// How portable would that be?  Windows? etc.
+int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts)
 {
 	char fullpath[STRBUF_SZ] = { 0 };
 	struct stat file_stat;
@@ -432,12 +432,7 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 	// or I could just pass NULLs
 	int x, y, n;
 
-	// empty files if not recursing, otherwise assume user knows what they're doing and
-	// emptied it before top level call if they wanted to
-	if (!recurse) {
-		cvec_clear_file(files);
-	}
-	int start_size = files->size;
+	cvec_clear_file(files);
 
 	dir = opendir(dirpath);
 	if (!dir) {
@@ -468,46 +463,27 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 			continue;
 		}
 
+		if (!S_ISREG(file_stat.st_mode) && !S_ISDIR(file_stat.st_mode)) {
+			continue;
+		}
 
-		// S_ISLNK() doesn't seem to work but d_type works, though the man page
-		// says it's not supported on all filesystems... or windows TODO?
-		// aggh I hate windows
-#ifndef _WIN32
-		if (S_ISDIR(file_stat.st_mode) && entry->d_type != DT_LNK)
-#else
-		if (S_ISDIR(file_stat.st_mode))
-#endif
-		{
-			if (recurse) {
-				myscandir(files, fullpath, exts, num_exts, recurse);
-				continue;
+		if (S_ISREG(file_stat.st_mode)) {
+			f.size = file_stat.st_size;
+
+			ext = strrchr(entry->d_name, '.');
+
+			// TODO
+			if (ext && num_exts)
+			{
+				for (i=0; i<num_exts; ++i) {
+					if (!strcasecmp(ext, exts[i]))
+						break;
+				}
+				if (i == num_exts)
+					continue;
 			}
-
-			memset(&f, 0, sizeof(file));
-			tmp = realpath(fullpath, NULL);
-			f.path = realloc(tmp, strlen(tmp)+1);
-			sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
-			f.name = (sep) ? sep+1 : f.path;
+		} else {
 			f.size = -1;
-			cvec_push_file(files, &f);
-			continue;
-		}
-
-		if (!S_ISREG(file_stat.st_mode)) {
-			continue;
-		}
-
-		ext = strrchr(entry->d_name, '.');
-
-		// TODO
-		if (ext && num_exts)
-		{
-			for (i=0; i<num_exts; ++i) {
-				if (!strcasecmp(ext, exts[i]))
-					break;
-			}
-			if (i == num_exts)
-				continue;
 		}
 
 		// have to use fullpath not d_name in case we're in a recursive call
@@ -522,9 +498,9 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 		f.path = CVEC_STRDUP(fullpath);
 #endif
 
-		f.size = file_stat.st_size;
 		f.modified = file_stat.st_mtime;
 
+		// f.size set above separately for files vs directories
 		bytes2str(f.size, f.size_str, SIZE_STR_BUF);
 		tmp_tm = localtime(&f.modified);
 		strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp_tm); // %F %T
@@ -533,7 +509,7 @@ int myscandir(cvector_file* files, const char* dirpath, const char** exts, int n
 		cvec_push_file(files, &f);
 	}
 
-	printf("Found %"PRIcv_sz" files in %s\n", files->size-start_size, dirpath);
+	printf("Found %"PRIcv_sz" files in %s\n", files->size, dirpath);
 
 	closedir(dir);
 	return 1;

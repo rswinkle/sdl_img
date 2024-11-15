@@ -43,6 +43,7 @@ enum { NAME_UP, NAME_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 
 //#include "sorting.c"
 
+#define NUM_DFLT_EXTS 11
 
 #define FILE_LIST_SZ 20
 #define MAX_PATH_LEN 512
@@ -55,6 +56,10 @@ typedef struct file_browser
 	// special bookmarked locations
 	char home[MAX_PATH_LEN];
 	char desktop[MAX_PATH_LEN];
+
+	// does not own memory
+	const char** exts;
+	int num_exts;
 
 	// list of files in cur directory
 	cvector_file files;
@@ -77,7 +82,7 @@ cvector_file files;
 
 void print_browser(file_browser* fb);
 void search_filenames(cvector_i* search_results, cvector_file* files, char* text);
-int init_file_browser(file_browser* fb, const char* start_dir);
+int init_file_browser(file_browser* fb, const char** exts, int num_exts, const char* start_dir);
 
 const char* get_homedir();
 int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts);
@@ -95,19 +100,22 @@ int main(int argc, char** argv)
 
 	printf("homedir = '%s'\n", get_homedir());
 
-	const char* exts[] = { ".jpg" };
-	//fb_scandir(&files, "/home/robert/", NULL, 0);
-	//fb_scandir(&files, "/home/robert/Pictures/Monica/", NULL, 0);
-	/*
-	fb_scandir(&files, "/home/robert/Pictures/Monica", exts, 1);
+	const char* default_exts[NUM_DFLT_EXTS] =
+	{
+		".jpg",
+		".jpeg",
+		".gif",
+		".png",
+		".bmp",
 
-	printf("n_results = %ld\n", files.size);
-	for (int i=0; i<files.size; i++) {
-		printf("%-20s%20s%30s\n", files.a[i].name, files.a[i].size_str, files.a[i].mod_str);
-	}
+		".ppm",
+		".pgm",
 
-	*/
-
+		".tga",
+		".hdr",
+		".pic",
+		".psd"
+	};
 
 	running = 1;
 
@@ -118,7 +126,7 @@ int main(int argc, char** argv)
 		start_dir = argv[1];
 	}
 
-	init_file_browser(&browser, start_dir);
+	init_file_browser(&browser, default_exts, NUM_DFLT_EXTS, start_dir);
 
 	while (!browser.file[0]) {
 		print_browser(&browser);
@@ -183,7 +191,7 @@ void print_browser(file_browser* fb)
 		if (f->a[idx].size == -1) {
 			printf("switching to '%s'\n", f->a[idx].path);
 			strncpy(fb->dir, f->a[idx].path, MAX_PATH_LEN);
-			fb_scandir(&fb->files, fb->dir, NULL, 0);
+			fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts);
 			qsort(fb->files.a, fb->files.size, sizeof(file), c_func);
 			fb->begin = 0;
 		} else {
@@ -198,7 +206,7 @@ void print_browser(file_browser* fb)
 			case 'h':
 				if (strncmp(fb->dir, fb->home, MAX_PATH_LEN)) {
 					strcpy(fb->dir, fb->home);
-					fb_scandir(&fb->files, fb->dir, NULL, 0);
+					fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts);
 					qsort(fb->files.a, fb->files.size, sizeof(file), c_func);
 					fb->begin = 0;
 				}
@@ -207,7 +215,7 @@ void print_browser(file_browser* fb)
 			case 'd':
 				if (strncmp(fb->dir, fb->desktop, MAX_PATH_LEN)) {
 					strcpy(fb->dir, fb->desktop);
-					fb_scandir(&fb->files, fb->dir, NULL, 0);
+					fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts);
 					qsort(fb->files.a, fb->files.size, sizeof(file), c_func);
 					fb->begin = 0;
 				}
@@ -220,7 +228,7 @@ void print_browser(file_browser* fb)
 					// find next '/'
 					c = strrchr(fb->dir, '/');
 					c[1] = 0;   // erase everything after last /
-					fb_scandir(&fb->files, fb->dir, NULL, 0);
+					fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts);
 					qsort(fb->files.a, fb->files.size, sizeof(file), c_func);
 					fb->begin = 0;
 				break;
@@ -528,7 +536,7 @@ const char* get_homedir()
 }
 
 // TODO pass extensions?
-int init_file_browser(file_browser* browser, const char* start_dir)
+int init_file_browser(file_browser* browser, const char** exts, int num_exts, const char* start_dir)
 {
 	//if (fb->up_to_date) return
 	
@@ -562,7 +570,10 @@ int init_file_browser(file_browser* browser, const char* start_dir)
 
 	browser->end = 20;
 
-	fb_scandir(&browser->files, browser->dir, NULL, 0);
+	browser->exts = exts;
+	browser->num_exts = num_exts;
+
+	fb_scandir(&browser->files, browser->dir, exts, num_exts);
 
 	qsort(browser->files.a, browser->files.size, sizeof(file), filename_cmp_lt);
 	browser->sorted_state = NAME_UP;
