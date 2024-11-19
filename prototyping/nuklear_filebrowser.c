@@ -55,41 +55,44 @@
 #define SIZE_STR_BUF 16
 #define MOD_STR_BUF 24
 
+#define NUM_DFLT_EXTS 11
+
+#define TRUE 1
+#define FALSE 0
+
 enum { MENU_NONE, MENU_MISC, MENU_SORT, MENU_EDIT, MENU_VIEW };
 enum { DELAY, ALWAYS, NEVER };
 enum { SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
 
 #define RESIZE(x) ((x+1)*2)
 
-// TODO struct packing?  save a few bytes?
-typedef struct file
-{
-	char* path;   // could be url;
+#include "string_compare.c"
+#include "file.c"
 
-	// time_t is a long int ...
-	time_t modified;
-	int size;     // in bytes (hard to believe it'd be bigger than ~2.1 GB)
-
-	//  caching for list mode
-	char mod_str[MOD_STR_BUF];
-	char size_str[SIZE_STR_BUF];
-	char* name;  // pointing at filename in path
-} file;
-
-CVEC_NEW_DECLS2(file)
-
-CVEC_NEW_DEFS2(file, RESIZE)
-
+#define FILE_LIST_SZ 20
 #define MAX_PATH_LEN 512
 // TODO name? file_explorer? selector?
 typedef struct file_browser
 {
+	char dir[MAX_PATH_LEN];   // cur location
+	char file[MAX_PATH_LEN];  // return "value" ie file selected 
+
+	// special bookmarked locations
 	char home[MAX_PATH_LEN];
-	char dir[MAX_PATH_LEN];
-	char file[MAX_PATH_LEN];
-	//char desktop[MAX_PATH_LEN];
+	char desktop[MAX_PATH_LEN];
+
+	// does not own memory
+	const char** exts;
+	int num_exts;
+
+	// list of files in cur directory
 	cvector_file files;
-	int up_to_date;
+	//int selection;
+
+	int begin;
+	int end;
+
+	int sorted_state;
 
 } file_browser;
 
@@ -105,43 +108,53 @@ enum {
 	VIEWED_RESULTS   = 0x80
 };
 
-enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
+enum { NAME_UP, NAME_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 
-SDL_Window* win;
-SDL_Renderer* ren;
-int running;
+typedef int (*cmp_func)(const void* a, const void* b);
+
+typedef struct global_state
+{
+	SDL_Window* win;
+	SDL_Renderer* ren;
+	struct nk_context *ctx;
+
+	int scr_w;
+	int scr_h;
 
 
-u32 userevent;
+	int selection;
+	int list_setscroll;
+	u32 userevent;
 
-struct nk_colorf bg;
-struct nk_color bg2;
+	struct nk_color bg;
 
-float x_scale;
-float y_scale;
+	float x_scale;
+	float y_scale;
 
-cvector_str list1;
-//cvector_i selected;
-cvector_file files;
+} global_state;
 
-void search_filenames(cvector_i* search_results, cvector_file* files, char* text);
-void do_filebrowser(struct nk_context* ctx, int scr_w, int scr_h);
+global_state g_state;
+global_state* g = &g_state;
+
+void do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h);
+
+int init_file_browser(file_browser* fb, const char** exts, int num_exts, const char* start_dir);
 
 const char* get_homedir();
-int myscandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts, int recurse);
+int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts);
 char* mydirname(const char* path, char* dirpath);
 char* mybasename(const char* path, char* base);
 void normalize_path(char* path);
 int bytes2str(int bytes, char* buf, int len);
 
-int handle_events(struct nk_context* ctx);
+//int handle_events(struct nk_context* ctx);
+int handle_events(file_browser* fb, struct nk_context* ctx);
 void draw_gui(struct nk_context* ctx);
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_simple_gui(struct nk_context* ctx);
 
-int main(void)
+int main(int argc, char** argv)
 {
-	struct nk_context *ctx;
 	/* float bg[4]; */
 
 	printf("sizeof(file) == %d\n", (int)sizeof(file));
@@ -156,35 +169,40 @@ int main(void)
 		return 1;
 	}
 
-	const char* exts[] = { ".jpg" };
-	//myscandir(&files, "/home/robert/", NULL, 0, 0);
-	//myscandir(&files, "/home/robert/Pictures/Monica/", NULL, 0, 0);
-	myscandir(&files, "/home/robert/Pictures/Monica", exts, 1, 0);
+	const char* default_exts[NUM_DFLT_EXTS] =
+	{
+		".jpg",
+		".jpeg",
+		".gif",
+		".png",
+		".bmp",
 
-	printf("n_results = %ld\n", files.size);
-	for (int i=0; i<files.size; i++) {
-		printf("%-20s%20s%30s\n", files.a[i].name, files.a[i].size_str, files.a[i].mod_str);
-	}
+		".ppm",
+		".pgm",
 
-	return 0;
+		".tga",
+		".hdr",
+		".pic",
+		".psd"
+	};
 
 
-	running = 1;
+	int running = 1;
 
 	int win_flags = SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_RESIZABLE;
 
-	win = SDL_CreateWindow("sdl_img gui",
+	g->win = SDL_CreateWindow("File Selector",
 	                       SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 	                       WINDOW_WIDTH, WINDOW_HEIGHT,
 	                       win_flags);
 
-	if (!win) {
+	if (!g->win) {
 		printf("Can't create window: %s\n", SDL_GetError());
 		return 1;
 	}
 	/* try VSYNC and ACCELERATED */
-	ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_SOFTWARE);
-	if (!ren) {
+	g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_SOFTWARE);
+	if (!g->ren) {
 		printf("Can't create ren: %s\n", SDL_GetError());
 		return 1;
 	}
@@ -197,33 +215,23 @@ int main(void)
 	SDL_GetDisplayBounds(0, &r);
 	printf("display bounds: %d %d %d %d\n", r.x, r.y, r.w, r.h);
 
-	x_scale = 1; //hdpi/72;  // adjust for dpi, then go from 8pt font to 12pt
-	y_scale = 1; //vdpi/72;
+	g->x_scale = 1; //hdpi/72;  // adjust for dpi, then go from 8pt font to 12pt
+	g->y_scale = 1; //vdpi/72;
 
-	userevent = SDL_RegisterEvents(1);
-	if (userevent == (u32)-1) {
+	g->userevent = SDL_RegisterEvents(1);
+	if (g->userevent == (u32)-1) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Error: %s\n", SDL_GetError());
 		return 0;
 	}
 
 	/*
-	if (SDL_RenderSetLogicalSize(ren, WINDOW_WIDTH*x_scale, WINDOW_HEIGHT*y_scale)) {
+	if (SDL_RenderSetLogicalSize(g->ren, WINDOW_WIDTH*g->x_scale, WINDOW_HEIGHT*g->y_scale)) {
 		printf("logical size failure: %s\n", SDL_GetError());
 		return 1;
 	}
 	*/
 
-	char buffer[256];
-
-	cvec_str(&list1, 0, 100);
-	//cvec_i(&selected, 50, 100);
-	//cvec_set_val_sz_i(&selected, 0);
-	for (int i=0; i<50; i++) {
-		sprintf(buffer, "hello %d", i);
-		cvec_push_str(&list1, buffer);
-	}
-
-	if (!(ctx = nk_sdl_init(win, ren))) {
+	if (!(g->ctx = nk_sdl_init(g->win, g->ren))) {
 		printf("nk_sdl_init() failed!");
 		return 1;
 	}
@@ -231,18 +239,18 @@ int main(void)
 	// TODO Font stuff, refactor/reorganize
 	int render_w, render_h;
 	int window_w, window_h;
-	SDL_GetRendererOutputSize(ren, &render_w, &render_h);
-	SDL_GetWindowSize(win, &window_w, &window_h);
-	x_scale = (float)(render_w) / (float)(window_w);
-	y_scale = (float)(render_h) / (float)(window_h);
+	SDL_GetRendererOutputSize(g->ren, &render_w, &render_h);
+	SDL_GetWindowSize(g->win, &window_w, &window_h);
+	g->x_scale = (float)(render_w) / (float)(window_w);
+	g->y_scale = (float)(render_h) / (float)(window_h);
 	// could adjust for dpi, then adjust for font size if necessary
 	//g->x_scale = 2; //hdpi/72;
 	//g->y_scale = 2; //vdpi/72;
 	//SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
-	float font_scale = y_scale;
+	float font_scale = g->y_scale;
 
-	printf("scale %f %f\n", x_scale, y_scale);
-	SDL_RenderSetScale(ren, x_scale, y_scale);
+	printf("scale %f %f\n", g->x_scale, g->y_scale);
+	SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
 
 	struct nk_font_atlas* atlas;
 	struct nk_font_config config = nk_font_config(0);
@@ -254,9 +262,9 @@ int main(void)
 	nk_sdl_font_stash_end();
 
 	font->handle.height /= font_scale;
-	nk_style_set_font(ctx, &font->handle);
+	nk_style_set_font(g->ctx, &font->handle);
 
-	struct nk_style_toggle* tog = &ctx->style.option;
+	struct nk_style_toggle* tog = &g->ctx->style.option;
 	printf("padding = %f %f border = %f\n", tog->padding.x, tog->padding.y, tog->border);
 	//tog->padding.x = 2;
 	//tog->padding.y = 2;
@@ -271,9 +279,8 @@ int main(void)
 	} else {
 		SDL_Log("Usable Bounds: %d %d %d %d\n", r.x, r.y, r.w, r.h);
 	}
-    int scr_w, scr_h;
-    scr_w = WINDOW_WIDTH;
-    scr_h = WINDOW_HEIGHT;
+    g->scr_w = WINDOW_WIDTH;
+    g->scr_h = WINDOW_HEIGHT;
     /*
 	scr_w = MIN(g->scr_w, r.w - 20);  // to account for window borders/titlebar on non-X11 platforms
 	scr_h = MIN(g->scr_h, r.h - 40);
@@ -282,57 +289,52 @@ int main(void)
 	int show_filebrowser = 1;
 	file_browser browser = { 0 };
 
-	bg2 = nk_rgb(28,48,62);
-	bg = nk_color_cf(bg2);
+	char* start_dir = NULL;
+	if (argc == 2) {
+		start_dir = argv[1];
+	}
+	init_file_browser(&browser, default_exts, NUM_DFLT_EXTS, start_dir);
+
+	//struct nk_colorf bg2 = nk_rgb(28,48,62);
+	g->bg = nk_rgb(0,0,0);
 	int start_time = SDL_GetTicks();
 	int time;
 	int mx, my;
 	Uint32 mstate;
-	while (running)
-	{
-		/*
-		time = SDL_GetTicks();
-		mstate = SDL_GetMouseState(&mx, &my);
-		if (!(SDL_BUTTON_LMASK & mstate) && time - start_time > 50) {
-			gif_prog++;
-			gif_prog %= 112;
-			printf("gif_prog = %lu\n", gif_prog);
-			start_time = SDL_GetTicks();
-		}
-		*/
+	while (running) {
 		//SDL_RenderSetScale(ren, x_scale, y_scale);
 
-		if (handle_events(ctx))
+		if (handle_events(&browser, g->ctx))
 			break;
 
 		/* GUI */
-		if (show_filebrowser) {
-			show_filebrowser = do_filebrowser(ctx, scr_w, scr_h);
+		if (!browser.file[0]) {
+			do_filebrowser(&browser, g->ctx, g->scr_w, g->scr_h);
+		} else {
+			running = FALSE;
 		}
-		//draw_gui(ctx);
-		//draw_simple_gui(ctx);
 
-		//style_configurator(ctx, color_table);
 
-		SDL_SetRenderDrawColor(ren, bg2.r, bg2.g, bg2.b, bg2.a);
-		SDL_RenderSetClipRect(ren, NULL);
-		SDL_RenderClear(ren);
+		SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
+		SDL_RenderSetClipRect(g->ren, NULL);
+		SDL_RenderClear(g->ren);
 		nk_sdl_render(NK_ANTI_ALIASING_ON);
-		SDL_RenderPresent(ren);
+		SDL_RenderPresent(g->ren);
 		SDL_Delay(15);
-
 	}
+
+	printf("Selected: %s\n", browser.file);
 
 cleanup:
 	nk_sdl_shutdown();
-	SDL_DestroyRenderer(ren);
-	SDL_DestroyWindow(win);
+	SDL_DestroyRenderer(g->ren);
+	SDL_DestroyWindow(g->win);
 	SDL_Quit();
 	return 0;
 }
 
 
-
+/*
 void draw_simple_gui(struct nk_context* ctx)
 {
 	int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
@@ -340,12 +342,12 @@ void draw_simple_gui(struct nk_context* ctx)
 	int win_w, win_h;
 	int scr_w, scr_h;
 	int out_w, out_h;
-	SDL_GetWindowSize(win, &win_w, &win_h);
-	SDL_RenderGetLogicalSize(ren, &scr_w, &scr_h);
-	SDL_GetRendererOutputSize(ren, &out_w, &out_h);
+	SDL_GetWindowSize(g->win, &win_w, &win_h);
+	SDL_RenderGetLogicalSize(g->ren, &scr_w, &scr_h);
+	SDL_GetRendererOutputSize(g->ren, &out_w, &out_h);
 
 	float cur_x_scale, cur_y_scale;
-	SDL_RenderGetScale(ren, &cur_x_scale, &cur_y_scale);
+	SDL_RenderGetScale(g->ren, &cur_x_scale, &cur_y_scale);
 	//printf("scale = %.2f x %.2f\n", cur_x_scale, cur_y_scale);
 
 	int fill = 0, slideshow = 0;
@@ -367,51 +369,164 @@ void draw_simple_gui(struct nk_context* ctx)
 	}
 	nk_end(ctx);
 
-	/*
-	if (nk_begin(ctx, "demo2", nk_rect(400/cur_x_scale, 100/cur_y_scale, 200, 400), gui_flags)) {
-		nk_layout_row_static(ctx, 0, 80, 2);
-		if (nk_button_label(ctx, "hello")) {
-			;
-		}
-		if (nk_button_label(ctx, "goodbye")) {
-			;
-		}
-		nk_checkbox_label(ctx, "Best Fit", &fill);
-		nk_checkbox_label(ctx, "Slideshow", &slideshow);
-	}
-	nk_end(ctx);
-	*/
+//	if (nk_begin(ctx, "demo2", nk_rect(400/cur_x_scale, 100/cur_y_scale, 200, 400), gui_flags)) {
+//		nk_layout_row_static(ctx, 0, 80, 2);
+//		if (nk_button_label(ctx, "hello")) {
+//			;
+//		}
+//		if (nk_button_label(ctx, "goodbye")) {
+//			;
+//		}
+//		nk_checkbox_label(ctx, "Best Fit", &fill);
+//		nk_checkbox_label(ctx, "Slideshow", &slideshow);
+//	}
+//	nk_end(ctx);
 
 }
+*/
 
 
 
 
 
-int handle_events(struct nk_context* ctx)
+int handle_events(file_browser* fb, struct nk_context* ctx)
 {
-	SDL_Event evt;
-	int sc;
+	SDL_Event e;
+	int sym;
+	int code, sort_timer;
+	//SDL_Keymod mod_state = SDL_GetModState();
+	
+	cvector_file* f = &fb->files;
+
+	cmp_func compare_funcs[] = { filename_cmp_lt, filename_cmp_gt, filesize_cmp_lt, filesize_cmp_gt, filemodified_cmp_lt, filemodified_cmp_gt };
+	cmp_func c_func = compare_funcs[fb->sorted_state];
+
+	//g->status = NOCHANGE;
 	nk_input_begin(ctx);
-
-
-	while (SDL_PollEvent(&evt)) {
-		sc = evt.key.keysym.scancode;
-		if (evt.type == SDL_QUIT)
-			return 1;
-
-		if (evt.type == SDL_KEYUP) {
-			if (sc == SDL_SCANCODE_ESCAPE) {
-					return 1;
+	while (SDL_PollEvent(&e)) {
+		// TODO edit menu/GUI as appropriate for list mode, see which
+		// actions make sense or are worth supporting (re-evaluate if I
+		// have some sort of preview)
+		if (e.type == g->userevent) {
+			code = e.user.code;
+			switch (code) {
+			case SORT_NAME:
+				SDL_Log("Starting sort by name\n");
+				sort_timer = SDL_GetTicks();
+				if (fb->sorted_state != NAME_UP) {
+					qsort(f->a, f->size, sizeof(file), filename_cmp_lt);
+					fb->sorted_state = NAME_UP;
+				} else {
+					qsort(f->a, f->size, sizeof(file), filename_cmp_gt);
+					fb->sorted_state = NAME_DOWN;
+				}
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
+				break;
+			case SORT_SIZE:
+				SDL_Log("Starting sort by size\n");
+				sort_timer = SDL_GetTicks();
+				if (fb->sorted_state != SIZE_UP) {
+					qsort(f->a, f->size, sizeof(file), filesize_cmp_lt);
+					fb->sorted_state = SIZE_UP;
+				} else {
+					qsort(f->a, f->size, sizeof(file), filesize_cmp_gt);
+					fb->sorted_state = SIZE_DOWN;
+				}
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
+				break;
+			case SORT_MODIFIED:
+				SDL_Log("Starting sort by modified\n");
+				sort_timer = SDL_GetTicks();
+				if (fb->sorted_state != MODIFIED_UP) {
+					qsort(f->a, f->size, sizeof(file), filemodified_cmp_lt);
+					fb->sorted_state = MODIFIED_UP;
+				} else {
+					qsort(f->a, f->size, sizeof(file), filemodified_cmp_gt);
+					fb->sorted_state = MODIFIED_DOWN;
+				}
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
+				break;
+			default:
+				SDL_Log("Unknown user event!");
 			}
-		} else if (evt.type == SDL_WINDOWEVENT) {
-			if (evt.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-				//SDL_RenderSetLogicalSize(ren, evt.window.data1*x_scale, evt.window.data2*y_scale);
-			}
+			continue;
 		}
-		nk_sdl_handle_event(&evt);
+		switch (e.type) {
+		case SDL_QUIT:
+			// don't think I really need these since we'll be exiting anyway
+			nk_input_end(ctx);
+			return 1;
+		case SDL_KEYUP:
+			sym = e.key.keysym.sym;
+			switch (sym) {
+			case SDLK_ESCAPE:
+				nk_input_end(ctx);
+				return 1;
+				break;
+
+			// switch to normal mode on that image
+			case SDLK_RETURN:
+				if (g->selection >= 0) {
+					if (f->a[g->selection].size == -1) {
+						printf("switching to '%s'\n", f->a[g->selection].path);
+						strncpy(fb->dir, f->a[g->selection].path, MAX_PATH_LEN);
+						fb_scandir(f, fb->dir, fb->exts, fb->num_exts);
+						qsort(f->a, f->size, sizeof(file), c_func);
+						g->list_setscroll = SDL_TRUE;
+						g->selection = 0;
+					} else {
+						strncpy(fb->file, f->a[g->selection].path, MAX_PATH_LEN);
+					}
+				}
+				break;
+			}
+			break;
+
+		case SDL_KEYDOWN:
+			sym = e.key.keysym.sym;
+			switch (sym) {
+			// TODO navigate through the list mode like thumb mode ie vim?
+			case SDLK_UP:
+			case SDLK_DOWN:
+			case SDLK_k:
+			case SDLK_j:
+				//puts("arrow up/down");
+				g->selection += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
+				if (g->selection < 0)
+					g->selection += f->size;
+				else
+					g->selection %= f->size;
+				// TODO don't set unless necessary
+				g->list_setscroll = SDL_TRUE;
+				break;
+			}
+
+		case SDL_WINDOWEVENT: {
+			//g->status = REDRAW;
+			int x, y;
+			SDL_GetWindowSize(g->win, &x, &y);
+			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
+			switch (e.window.event) {
+			case SDL_WINDOWEVENT_RESIZED:
+				g->scr_w = e.window.data1;
+				g->scr_h = e.window.data2;
+				break;
+			case SDL_WINDOWEVENT_SIZE_CHANGED:
+				g->scr_w = e.window.data1;
+				g->scr_h = e.window.data2;
+
+				break;
+			}
+		} break;
+
+		// all other event types
+		default:
+			break;
+		}
+
+		nk_sdl_handle_event(&e);
 	}
-	nk_input_end(ctx);
+	nk_input_end(g->ctx);
 
 	return 0;
 }
@@ -576,6 +691,12 @@ void normalize_path(char* path)
 
 int bytes2str(int bytes, char* buf, int len)
 {
+	// empty string for negative numbers
+	if (bytes < 0) {
+		buf[0] = 0;
+		return 1;
+	}
+
 	// MiB KiB? 2^10, 2^20?
 	// char* iec_sizes[3] = { "bytes", "KiB", "MiB" };
 	char* si_sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
@@ -601,7 +722,7 @@ int bytes2str(int bytes, char* buf, int len)
 }
 
 //scr_w and scr_h are logical dimensions not raw pixels
-void do_filebrowser(file_browser* browser, struct nk_context* ctx, int scr_w, int scr_h)
+void do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h)
 {
 	int is_selected = SDL_FALSE;
 	int symbol;
@@ -618,50 +739,26 @@ void do_filebrowser(file_browser* browser, struct nk_context* ctx, int scr_w, in
 	static float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
 	static int splitter_down = 0;
 
-	static int state = LIST_DFLT;
-	static int selection;
-	static char text_buf[STRBUF_SZ];
-	static int text_len;
-	static sorted_state = NAME_UP;
-	static int list_setscroll;
+	SDL_Event event = { .type = g->userevent };
 
-	SDL_Event event = { .type = userevent };
-
-	static cvector_i search_results;
 	int cur_result;
+	cvector_file* f = &fb->files;
 
-	int search_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
+	cmp_func compare_funcs[] = { filename_cmp_lt, filename_cmp_gt, filesize_cmp_lt, filesize_cmp_gt, filemodified_cmp_lt, filemodified_cmp_gt };
+	cmp_func c_func = compare_funcs[fb->sorted_state];
 
 	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
 		splitter_down = 0;
 
 	if (nk_begin(ctx, "List", nk_rect(0, GUI_BAR_HEIGHT, scr_w, scr_h-GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR)) {
 
-		// TODO With Enter to search, should I even have the Search button?  It's more of a label now... maybe put it on
-		// the left?  and make it smaller?
-		// TODO How to automatically focus on the search box if they start typing?
-		nk_layout_row(ctx, NK_DYNAMIC, 0, 2, search_ratio);
-		search_height = nk_widget_bounds(ctx).h;
-		nk_label(ctx, "Search Filenames:", NK_TEXT_LEFT);
-		active = nk_edit_string(ctx, search_flags, text_buf, &text_len, STRBUF_SZ, nk_filter_default);
-		if (active & NK_EDIT_COMMITED) {
-			text_buf[text_len] = 0;
-			search_filenames(&search_results, &files, text_buf);
-			memset(&rview, 0, sizeof(rview));
-			state |= SEARCH_RESULTS;
-
-			// use no selection to ignore the "Enter" in events so we don't exit
-			// list mode.  Could add state to handle keeping the selection but meh
-			selection = -1;  // no selection among search
-		}
-
 		// main list column headers and splitters
 		nk_layout_row(ctx, NK_DYNAMIC, 0, 5, header_ratios);
 
 		symbol = NK_SYMBOL_NONE; // 0
-		if (sorted_state == NAME_UP)
+		if (fb->sorted_state == NAME_UP)
 			symbol = NK_SYMBOL_TRIANGLE_UP;
-		else if (sorted_state == NAME_DOWN)
+		else if (fb->sorted_state == NAME_DOWN)
 			symbol = NK_SYMBOL_TRIANGLE_DOWN;
 
 		// TODO name or path?
@@ -690,9 +787,9 @@ void do_filebrowser(file_browser* browser, struct nk_context* ctx, int scr_w, in
 		// I hate redundant logic but the alternative is repeated gui code
 		// TODO think of a better way
 		symbol = NK_SYMBOL_NONE; // 0
-		if (sorted_state == SIZE_UP)
+		if (fb->sorted_state == SIZE_UP)
 			symbol = NK_SYMBOL_TRIANGLE_UP;
-		else if (sorted_state == SIZE_DOWN)
+		else if (fb->sorted_state == SIZE_DOWN)
 			symbol = NK_SYMBOL_TRIANGLE_DOWN;
 
 		if (nk_button_symbol_label(ctx, symbol, "Size", NK_TEXT_LEFT)) {
@@ -718,9 +815,9 @@ void do_filebrowser(file_browser* browser, struct nk_context* ctx, int scr_w, in
 		}
 
 		symbol = NK_SYMBOL_NONE; // 0
-		if (sorted_state == MODIFIED_UP)
+		if (fb->sorted_state == MODIFIED_UP)
 			symbol = NK_SYMBOL_TRIANGLE_UP;
-		else if (sorted_state == MODIFIED_DOWN)
+		else if (fb->sorted_state == MODIFIED_DOWN)
 			symbol = NK_SYMBOL_TRIANGLE_DOWN;
 
 		if (nk_button_symbol_label(ctx, symbol, "Modified", NK_TEXT_LEFT)) {
@@ -732,132 +829,49 @@ void do_filebrowser(file_browser* browser, struct nk_context* ctx, int scr_w, in
 		
 		nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-2*search_height, 1);
 
-		if (state & SEARCH_RESULTS) {
-			if (!search_results.size) {
-				if (nk_button_label(ctx, "No matching results")) {
-					state = LIST_DFLT;
-					text_buf[0] = 0;
-					text_len = 0;
-					selection = 0;
-					list_setscroll = SDL_TRUE;
-					// redundant since we clear before doing the search atm
-					search_results.size = 0;
-				}
-			} else {
-				if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, FONT_SIZE+16, search_results.size)) {
-					nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
-					int i;
-					for (int j=rview.begin; j<rview.end; ++j) {
-						i = search_results.a[j];
-						// TODO Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
-						// also thumb_sel serves the same/similar purpose
-						is_selected = selection == j;
-						if (nk_selectable_label(ctx, files.a[i].name, NK_TEXT_LEFT, &is_selected)) {
-							if (is_selected) {
-								selection = j;
-							} else {
-								// could support unselecting, esp. with CTRL somehow if I ever allow
-								// multiple selection
-								// g->selection = -1;
-
-								// for now, treat clicking a selection as a "double click" ie same as return
-								//int tmp = g->search_results.a[g->selection];
-								//g->selection = (tmp) ? tmp - 1 : g->files.size-1;
-								selection = (selection) ? selection - 1 : search_results.size-1;
-							}
-						}
-						nk_label(ctx, files.a[i].size_str, NK_TEXT_RIGHT);
-						nk_label(ctx, files.a[i].mod_str, NK_TEXT_RIGHT);
-					}
-					nk_list_view_end(&rview);
-				}
-			}
-		} else {
-			if (nk_list_view_begin(ctx, &lview, "File List", NK_WINDOW_BORDER, FONT_SIZE+16, files.size)) {
-				// TODO ratio layout 0.5 0.2 0.3 ? give or take
-				//nk_layout_row_dynamic(ctx, 0, 3);
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
-				for (int i=lview.begin; i<lview.end; ++i) {
-					// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
-					// also thumb_sel serves the same/similar purpose
-					is_selected = selection == i;
-					if (nk_selectable_label(ctx, files.a[i].name, NK_TEXT_LEFT, &is_selected)) {
-						if (is_selected) {
-							selection = i;
+		if (nk_list_view_begin(ctx, &lview, "File List", NK_WINDOW_BORDER, FONT_SIZE+16, f->size)) {
+			// TODO ratio layout 0.5 0.2 0.3 ? give or take
+			//nk_layout_row_dynamic(ctx, 0, 3);
+			nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
+			for (int i=lview.begin; i<lview.end; ++i) {
+				// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
+				// also thumb_sel serves the same/similar purpose
+				is_selected = g->selection == i;
+				if (nk_selectable_label(ctx, f->a[i].name, NK_TEXT_LEFT, &is_selected)) {
+					if (is_selected) {
+						g->selection = i;
+					} else {
+						if (f->a[i].size == -1) {
+							printf("switching to '%s'\n", f->a[i].path);
+							strncpy(fb->dir, f->a[i].path, MAX_PATH_LEN);
+							fb_scandir(f, fb->dir, fb->exts, fb->num_exts);
+							qsort(f->a, f->size, sizeof(file), c_func);
+							g->list_setscroll = SDL_TRUE;
+							g->selection = 0;
 						} else {
-							// could support unselecting, esp. with CTRL somehow if I ever allow
-							// multiple selection
-							// selection = -1;
-
-							// for now, treat clicking a selection as a "double click" ie same as return
-							selection = (selection) ? selection - 1 : files.size-1;
-
-							/*
-							g->state = NORMAL;
-							SDL_ShowCursor(SDL_ENABLE);
-							g->gui_timer = SDL_GetTicks();
-							g->show_gui = SDL_TRUE;
-							g->status = REDRAW;
-							try_move(SELECTION);
-							*/
+							strncpy(fb->file, f->a[i].path, MAX_PATH_LEN);
 						}
 					}
-					nk_label(ctx, files.a[i].size_str, NK_TEXT_RIGHT);
-					nk_label(ctx, files.a[i].mod_str, NK_TEXT_RIGHT);
 				}
-				list_height = ctx->current->layout->clip.h; // ->bounds.h?
-				nk_list_view_end(&lview);
+				nk_label(ctx, f->a[i].size_str, NK_TEXT_RIGHT);
+				nk_label(ctx, f->a[i].mod_str, NK_TEXT_RIGHT);
 			}
+			list_height = ctx->current->layout->clip.h; // ->bounds.h?
+			nk_list_view_end(&lview);
+		}
 
-			if (list_setscroll) {
-				nk_uint x = 0, y;
-				int scroll_limit = lview.total_height - list_height; // little off
-				y = (selection/(float)(files.size-1) * scroll_limit) + 0.999f;
-				//nk_group_get_scroll(ctx, "Image List", &x, &y);
-				nk_group_set_scroll(ctx, "File List", x, y);
-				list_setscroll = SDL_FALSE;
-			}
-			//printf("scroll %u %u\n", x, y);
-		} // end main list
+		if (g->list_setscroll) {
+			nk_uint x = 0, y;
+			int scroll_limit = lview.total_height - list_height; // little off
+			y = (g->selection/(float)(f->size-1) * scroll_limit) + 0.999f;
+			//nk_group_get_scroll(ctx, "Image List", &x, &y);
+			nk_group_set_scroll(ctx, "File List", x, y);
+			g->list_setscroll = SDL_FALSE;
+		}
 	}
 	nk_end(ctx);
 }
 
-void search_filenames(cvector_i* search_results, cvector_file* files, char* text)
-{
-	SDL_Log("Final text = \"%s\"\n", text);
-
-	// strcasestr is causing problems on windows
-	// so just convert to lower before using strstr
-	char lowertext[STRBUF_SZ] = { 0 };
-	char lowername[STRBUF_SZ] = { 0 };
-
-	// start at 1 to cut off '/'
-	for (int i=0; text[i]; ++i) {
-		lowertext[i] = tolower(text[i]);
-	}
-
-	// it'd be kind of cool to add results of multiple searches together if we leave this out
-	// of course there might be duplicates.  Or we could make it search within the existing
-	// search results, so consecutive searches are && together...
-	search_results->size = 0;
-	
-	int j;
-	for (int i=0; i<files->size; ++i) {
-
-		for (j=0; files->a[i].name[j]; ++j) {
-			lowername[j] = tolower(files->a[i].name[j]);
-		}
-		lowername[j] = 0;
-
-		// searching name since I'm showing names not paths in the list
-		if (strstr(lowername, lowertext)) {
-			SDL_Log("Adding %s\n", files->a[i].path);
-			cvec_push_i(search_results, i);
-		}
-	}
-	SDL_Log("found %d matches\n", (int)search_results->size);
-}
 
 const char* get_homedir()
 {
@@ -871,27 +885,49 @@ const char* get_homedir()
 }
 
 // TODO pass extensions?
-int init_file_browser(file_browser* fb)
+int init_file_browser(file_browser* browser, const char** exts, int num_exts, const char* start_dir)
 {
-	//if (fb->up_to_date) return
+	memset(browser, 0, sizeof(file_browser));
 	
-	char* home = get_homedir();
+	const char* home = get_homedir();
 
 	size_t l;
 	strncpy(browser->home, home, MAX_PATH_LEN);
 	browser->home[MAX_PATH_LEN - 1] = 0;
 	l = strlen(browser->home);
 	strcpy(browser->home + l, "/");
-	strcpy(browser->directory, browser->home);
+
+	const char* sd = home;
+	if (start_dir) {
+		struct stat file_stat;
+		if (stat(start_dir, &file_stat)) {
+			perror("Could not stat start_dir, will use home directory");
+		} else {
+			sd = start_dir;
+		}
+	}
+	strcpy(browser->dir, sd);
+
 
 	strcpy(browser->desktop, browser->home);
 	l = strlen(browser->desktop);
 	strcpy(browser->desktop + l, "desktop/");
 
-	myscandir(&fb->files, fb->home, NULL, 0, 0);
+	browser->files.elem_free = free_file;
+
+	browser->end = 20;
+
+	browser->exts = exts;
+	browser->num_exts = num_exts;
+
+	fb_scandir(&browser->files, browser->dir, exts, num_exts);
+
+	qsort(browser->files.a, browser->files.size, sizeof(file), filename_cmp_lt);
+	browser->sorted_state = NAME_UP;
+
+	return 1;
 }
 
-int update_file_browser
 
 
 
