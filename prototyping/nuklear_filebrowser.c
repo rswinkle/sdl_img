@@ -136,7 +136,7 @@ typedef struct global_state
 global_state g_state;
 global_state* g = &g_state;
 
-void do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h);
+int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h);
 
 int init_file_browser(file_browser* fb, const char** exts, int num_exts, const char* start_dir);
 
@@ -251,6 +251,7 @@ int main(int argc, char** argv)
 
 	printf("scale %f %f\n", g->x_scale, g->y_scale);
 	SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
+	nk_sdl_scale(g->x_scale, g->y_scale);
 
 	struct nk_font_atlas* atlas;
 	struct nk_font_config config = nk_font_config(0);
@@ -281,10 +282,6 @@ int main(int argc, char** argv)
 	}
     g->scr_w = WINDOW_WIDTH;
     g->scr_h = WINDOW_HEIGHT;
-    /*
-	scr_w = MIN(g->scr_w, r.w - 20);  // to account for window borders/titlebar on non-X11 platforms
-	scr_h = MIN(g->scr_h, r.h - 40);
-	*/
 
 	int show_filebrowser = 1;
 	file_browser browser = { 0 };
@@ -294,6 +291,9 @@ int main(int argc, char** argv)
 		start_dir = argv[1];
 	}
 	init_file_browser(&browser, default_exts, NUM_DFLT_EXTS, start_dir);
+
+	// default no no selection
+	g->selection = -1;
 
 	//struct nk_colorf bg2 = nk_rgb(28,48,62);
 	g->bg = nk_rgb(0,0,0);
@@ -308,9 +308,7 @@ int main(int argc, char** argv)
 			break;
 
 		/* GUI */
-		if (!browser.file[0]) {
-			do_filebrowser(&browser, g->ctx, g->scr_w, g->scr_h);
-		} else {
+		if (!do_filebrowser(&browser, g->ctx, g->scr_w, g->scr_h)) {
 			running = FALSE;
 		}
 
@@ -318,12 +316,20 @@ int main(int argc, char** argv)
 		SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
 		SDL_RenderSetClipRect(g->ren, NULL);
 		SDL_RenderClear(g->ren);
+
+		SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
 		nk_sdl_render(NK_ANTI_ALIASING_ON);
+		SDL_RenderSetScale(g->ren, 1, 1);
+
 		SDL_RenderPresent(g->ren);
 		SDL_Delay(15);
 	}
 
-	printf("Selected: %s\n", browser.file);
+	if (browser.file[0]) {
+		printf("Selected: %s\n", browser.file);
+	} else {
+		printf("No file selected\n");
+	}
 
 cleanup:
 	nk_sdl_shutdown();
@@ -394,6 +400,7 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 	SDL_Event e;
 	int sym;
 	int code, sort_timer;
+	int ret = 0;
 	//SDL_Keymod mod_state = SDL_GetModState();
 	
 	cvector_file* f = &fb->files;
@@ -476,6 +483,7 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 						g->selection = 0;
 					} else {
 						strncpy(fb->file, f->a[g->selection].path, MAX_PATH_LEN);
+						ret = 1;
 					}
 				}
 				break;
@@ -519,6 +527,11 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 			}
 		} break;
 
+		case SDL_MOUSEBUTTONUP:
+			printf("mouse click: %d, %d\n", e.button.x, e.button.y);
+
+		break;
+
 		// all other event types
 		default:
 			break;
@@ -528,7 +541,7 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 	}
 	nk_input_end(g->ctx);
 
-	return 0;
+	return ret;
 }
 
 
@@ -574,6 +587,7 @@ int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int 
 			return 0;
 		}
 		if (stat(fullpath, &file_stat)) {
+			printf("%s\n", fullpath);
 			perror("stat");
 			continue;
 		}
@@ -721,15 +735,19 @@ int bytes2str(int bytes, char* buf, int len)
 	return 1;
 }
 
+
+#define SIDEBAR_W 200
+
 //scr_w and scr_h are logical dimensions not raw pixels
-void do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h)
+int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h)
 {
 	int is_selected = SDL_FALSE;
 	int symbol;
 	float search_ratio[] = { 0.25f, 0.75f };
 	int list_height;
 	int active;
-	float search_height;
+	float search_height = 0;
+	int ret = 1;
 
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
@@ -750,126 +768,189 @@ void do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr
 	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
 		splitter_down = 0;
 
-	if (nk_begin(ctx, "List", nk_rect(0, GUI_BAR_HEIGHT, scr_w, scr_h-GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR)) {
+	if (nk_begin(ctx, "File Selector", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
+		//search_height = nk_widget_bounds(ctx).h;
 
-		// main list column headers and splitters
-		nk_layout_row(ctx, NK_DYNAMIC, 0, 5, header_ratios);
-
-		symbol = NK_SYMBOL_NONE; // 0
-		if (fb->sorted_state == NAME_UP)
-			symbol = NK_SYMBOL_TRIANGLE_UP;
-		else if (fb->sorted_state == NAME_DOWN)
-			symbol = NK_SYMBOL_TRIANGLE_DOWN;
-
-		// TODO name or path?
-		if (nk_button_symbol_label(ctx, symbol, "Name", NK_TEXT_LEFT)) {
-			event.user.code = SORT_NAME;
-			SDL_PushEvent(&event);
+		nk_layout_row_template_begin(ctx, 0);
+		nk_layout_row_template_push_static(ctx, 100);
+		nk_layout_row_template_push_dynamic(ctx);
+		nk_layout_row_template_push_static(ctx, 100);
+		nk_layout_row_template_end(ctx);
+		if (nk_button_label(ctx, "Cancel")) {
+			// TODO maybe just have a done flag in file browser?
+			ret = 0;
 		}
+		nk_button_label(ctx, "Search");
 
-		bounds = nk_widget_bounds(ctx);
-		nk_spacing(ctx, 1);
-		if ((splitter_down == 1 || (nk_input_is_mouse_hovering_rect(in, bounds) && !splitter_down)) &&
-			nk_input_is_mouse_down(in, NK_BUTTON_LEFT)) {
-			float change = in->mouse.delta.x/(ctx->current->layout->bounds.w-8);
-			header_ratios[0] += change;
-			header_ratios[2] -= change;
-			if (header_ratios[2] < 0.05f) {
-				header_ratios[2] = 0.05f;
-				header_ratios[0] = 0.93f - header_ratios[4];
-			} else if (header_ratios[0] < 0.05f) {
-				header_ratios[0] = 0.05f;
-				header_ratios[2] = 0.93f - header_ratios[4];
+		// only enable "Open" button if you have a selection
+		if (g->selection < 0) {
+			nk_widget_disable_begin(ctx);
+		}
+		if (nk_button_label(ctx, "Open")) {
+			if (f->a[g->selection].size == -1) {
+				printf("switching to '%s'\n", f->a[g->selection].path);
+				strncpy(fb->dir, f->a[g->selection].path, MAX_PATH_LEN);
+				fb_scandir(f, fb->dir, fb->exts, fb->num_exts);
+				qsort(f->a, f->size, sizeof(file), c_func);
+				g->list_setscroll = SDL_TRUE;
+				g->selection = 0;
+			} else {
+				strncpy(fb->file, f->a[g->selection].path, MAX_PATH_LEN);
+				ret = 0;
 			}
-			splitter_down = 1;
 		}
+		nk_widget_disable_end(ctx);
 
-		// I hate redundant logic but the alternative is repeated gui code
-		// TODO think of a better way
-		symbol = NK_SYMBOL_NONE; // 0
-		if (fb->sorted_state == SIZE_UP)
-			symbol = NK_SYMBOL_TRIANGLE_UP;
-		else if (fb->sorted_state == SIZE_DOWN)
-			symbol = NK_SYMBOL_TRIANGLE_DOWN;
+		const float group_szs[] = { SIDEBAR_W, scr_w-SIDEBAR_W };
 
-		if (nk_button_symbol_label(ctx, symbol, "Size", NK_TEXT_LEFT)) {
-			event.user.code = SORT_SIZE;
-			SDL_PushEvent(&event);
-		}
+		nk_layout_row(ctx, NK_STATIC, scr_h, 2, group_szs);
 
-		bounds = nk_widget_bounds(ctx);
-		nk_spacing(ctx, 1);
-		if ((splitter_down == 2 || (nk_input_is_mouse_hovering_rect(in, bounds) && !splitter_down)) &&
-			nk_input_is_mouse_down(in, NK_BUTTON_LEFT)) {
-			float change = in->mouse.delta.x/(ctx->current->layout->bounds.w-8);
-			header_ratios[2] += change;
-			header_ratios[4] -= change;
-			if (header_ratios[2] < 0.05f) {
-				header_ratios[2] = 0.05f;
-				header_ratios[4] = 0.93f - header_ratios[0];
-			} else if (header_ratios[4] < 0.05f) {
-				header_ratios[4] = 0.05f;
-				header_ratios[2] = 0.93f - header_ratios[0];
+		if (nk_group_begin(ctx, "Sidebar", 0)) {
+			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_button_label(ctx, "Home")) {
+				if (strncmp(fb->dir, fb->home, MAX_PATH_LEN)) {
+					strcpy(fb->dir, fb->home);
+					fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts);
+					qsort(fb->files.a, fb->files.size, sizeof(file), c_func);
+					g->list_setscroll = SDL_TRUE;
+					g->selection = 0;
+				}
 			}
-			splitter_down = 2;
+			if (nk_button_label(ctx, "Desktop")) {
+				//TODO
+			}
+			if (nk_button_label(ctx, "Computer")) {
+				//TODO
+			}
+
+			nk_group_end(ctx);
 		}
 
-		symbol = NK_SYMBOL_NONE; // 0
-		if (fb->sorted_state == MODIFIED_UP)
-			symbol = NK_SYMBOL_TRIANGLE_UP;
-		else if (fb->sorted_state == MODIFIED_DOWN)
-			symbol = NK_SYMBOL_TRIANGLE_DOWN;
+		if (nk_group_begin(ctx, "List", 0)) {
 
-		if (nk_button_symbol_label(ctx, symbol, "Modified", NK_TEXT_LEFT)) {
-			event.user.code = SORT_MODIFIED;
-			SDL_PushEvent(&event);
-		}
+			// main list column headers and splitters
+			nk_layout_row(ctx, NK_DYNAMIC, 0, 5, header_ratios);
 
-		float ratios[] = { header_ratios[0]+0.01f, header_ratios[2], header_ratios[4]+0.01f };
-		
-		nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-2*search_height, 1);
+			symbol = NK_SYMBOL_NONE; // 0
+			if (fb->sorted_state == NAME_UP)
+				symbol = NK_SYMBOL_TRIANGLE_UP;
+			else if (fb->sorted_state == NAME_DOWN)
+				symbol = NK_SYMBOL_TRIANGLE_DOWN;
 
-		if (nk_list_view_begin(ctx, &lview, "File List", NK_WINDOW_BORDER, FONT_SIZE+16, f->size)) {
-			// TODO ratio layout 0.5 0.2 0.3 ? give or take
-			//nk_layout_row_dynamic(ctx, 0, 3);
-			nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
-			for (int i=lview.begin; i<lview.end; ++i) {
-				// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
-				// also thumb_sel serves the same/similar purpose
-				is_selected = g->selection == i;
-				if (nk_selectable_label(ctx, f->a[i].name, NK_TEXT_LEFT, &is_selected)) {
-					if (is_selected) {
-						g->selection = i;
-					} else {
-						if (f->a[i].size == -1) {
-							printf("switching to '%s'\n", f->a[i].path);
-							strncpy(fb->dir, f->a[i].path, MAX_PATH_LEN);
-							fb_scandir(f, fb->dir, fb->exts, fb->num_exts);
-							qsort(f->a, f->size, sizeof(file), c_func);
-							g->list_setscroll = SDL_TRUE;
-							g->selection = 0;
+			// TODO name or path?
+			if (nk_button_symbol_label(ctx, symbol, "Name", NK_TEXT_LEFT)) {
+				event.user.code = SORT_NAME;
+				SDL_PushEvent(&event);
+			}
+
+			bounds = nk_widget_bounds(ctx);
+			nk_spacing(ctx, 1);
+			if ((splitter_down == 1 || (nk_input_is_mouse_hovering_rect(in, bounds) && !splitter_down)) &&
+				nk_input_is_mouse_down(in, NK_BUTTON_LEFT)) {
+				float change = in->mouse.delta.x/(ctx->current->layout->bounds.w-8);
+				header_ratios[0] += change;
+				header_ratios[2] -= change;
+				if (header_ratios[2] < 0.05f) {
+					header_ratios[2] = 0.05f;
+					header_ratios[0] = 0.93f - header_ratios[4];
+				} else if (header_ratios[0] < 0.05f) {
+					header_ratios[0] = 0.05f;
+					header_ratios[2] = 0.93f - header_ratios[4];
+				}
+				splitter_down = 1;
+			}
+
+			// I hate redundant logic but the alternative is repeated gui code
+			// TODO think of a better way
+			symbol = NK_SYMBOL_NONE; // 0
+			if (fb->sorted_state == SIZE_UP)
+				symbol = NK_SYMBOL_TRIANGLE_UP;
+			else if (fb->sorted_state == SIZE_DOWN)
+				symbol = NK_SYMBOL_TRIANGLE_DOWN;
+
+			if (nk_button_symbol_label(ctx, symbol, "Size", NK_TEXT_LEFT)) {
+				event.user.code = SORT_SIZE;
+				SDL_PushEvent(&event);
+			}
+
+			bounds = nk_widget_bounds(ctx);
+			nk_spacing(ctx, 1);
+			if ((splitter_down == 2 || (nk_input_is_mouse_hovering_rect(in, bounds) && !splitter_down)) &&
+				nk_input_is_mouse_down(in, NK_BUTTON_LEFT)) {
+				float change = in->mouse.delta.x/(ctx->current->layout->bounds.w-8);
+				header_ratios[2] += change;
+				header_ratios[4] -= change;
+				if (header_ratios[2] < 0.05f) {
+					header_ratios[2] = 0.05f;
+					header_ratios[4] = 0.93f - header_ratios[0];
+				} else if (header_ratios[4] < 0.05f) {
+					header_ratios[4] = 0.05f;
+					header_ratios[2] = 0.93f - header_ratios[0];
+				}
+				splitter_down = 2;
+			}
+
+			symbol = NK_SYMBOL_NONE; // 0
+			if (fb->sorted_state == MODIFIED_UP)
+				symbol = NK_SYMBOL_TRIANGLE_UP;
+			else if (fb->sorted_state == MODIFIED_DOWN)
+				symbol = NK_SYMBOL_TRIANGLE_DOWN;
+
+			if (nk_button_symbol_label(ctx, symbol, "Modified", NK_TEXT_LEFT)) {
+				event.user.code = SORT_MODIFIED;
+				SDL_PushEvent(&event);
+			}
+
+			float ratios[] = { header_ratios[0]+0.01f, header_ratios[2], header_ratios[4]+0.01f };
+			
+			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-2*search_height, 1);
+
+			if (nk_list_view_begin(ctx, &lview, "File List", NK_WINDOW_BORDER, FONT_SIZE+16, f->size)) {
+				// TODO ratio layout 0.5 0.2 0.3 ? give or take
+				//nk_layout_row_dynamic(ctx, 0, 3);
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
+				for (int i=lview.begin; i<lview.end; ++i) {
+					// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
+					// also thumb_sel serves the same/similar purpose
+					is_selected = g->selection == i;
+					if (nk_selectable_label(ctx, f->a[i].name, NK_TEXT_LEFT, &is_selected)) {
+						if (is_selected) {
+							g->selection = i;
 						} else {
-							strncpy(fb->file, f->a[i].path, MAX_PATH_LEN);
+							if (f->a[i].size == -1) {
+								printf("switching to '%s'\n", f->a[i].path);
+								strncpy(fb->dir, f->a[i].path, MAX_PATH_LEN);
+								fb_scandir(f, fb->dir, fb->exts, fb->num_exts);
+								qsort(f->a, f->size, sizeof(file), c_func);
+								g->list_setscroll = SDL_TRUE;
+								g->selection = 0;
+							} else {
+								strncpy(fb->file, f->a[i].path, MAX_PATH_LEN);
+								ret = 0;
+							}
 						}
 					}
+					nk_label(ctx, f->a[i].size_str, NK_TEXT_RIGHT);
+					nk_label(ctx, f->a[i].mod_str, NK_TEXT_RIGHT);
 				}
-				nk_label(ctx, f->a[i].size_str, NK_TEXT_RIGHT);
-				nk_label(ctx, f->a[i].mod_str, NK_TEXT_RIGHT);
+				list_height = ctx->current->layout->clip.h; // ->bounds.h?
+				nk_list_view_end(&lview);
 			}
-			list_height = ctx->current->layout->clip.h; // ->bounds.h?
-			nk_list_view_end(&lview);
-		}
 
-		if (g->list_setscroll) {
-			nk_uint x = 0, y;
-			int scroll_limit = lview.total_height - list_height; // little off
-			y = (g->selection/(float)(f->size-1) * scroll_limit) + 0.999f;
-			//nk_group_get_scroll(ctx, "Image List", &x, &y);
-			nk_group_set_scroll(ctx, "File List", x, y);
-			g->list_setscroll = SDL_FALSE;
+			if (g->list_setscroll && (lview.end-lview.begin < f->size)) {
+				nk_uint x = 0, y;
+				int scroll_limit = lview.total_height - list_height; // little off
+				y = (g->selection/(float)(f->size-1) * scroll_limit) + 0.999f;
+				//nk_group_get_scroll(ctx, "Image List", &x, &y);
+				nk_group_set_scroll(ctx, "File List", x, y);
+				g->list_setscroll = SDL_FALSE;
+			}
+			nk_group_end(ctx);
 		}
 	}
 	nk_end(ctx);
+
+	return ret;
 }
 
 
