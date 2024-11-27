@@ -27,6 +27,7 @@ lua-5.4.6/src/luac
 *.gif
 *.jpg
 *.png
+*.tar
 *.kate-swp
 CMakeFiles/*
 CMakeCache.txt
@@ -40,6 +41,7 @@ scratch/*
 
 package/LICENSE*
 package/README.md
+package_linux/*
 
 prototyping/sdl_img
 prototyping/gui_test
@@ -48,3 +50,5 @@ prototyping/thumbnails
 prototyping/testlconfig
 prototyping/scandir
 prototyping/fb_test
+prototyping/nuklear_fb_test
+

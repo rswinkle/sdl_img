@@ -71,6 +71,10 @@ enum { SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
 
 #define FILE_LIST_SZ 20
 #define MAX_PATH_LEN 512
+
+typedef int (*cmp_func)(const void* a, const void* b);
+enum { NAME_UP, NAME_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
+
 // TODO name? file_explorer? selector?
 typedef struct file_browser
 {
@@ -93,6 +97,7 @@ typedef struct file_browser
 	int end;
 
 	int sorted_state;
+	cmp_func c_func;
 
 } file_browser;
 
@@ -108,9 +113,7 @@ enum {
 	VIEWED_RESULTS   = 0x80
 };
 
-enum { NAME_UP, NAME_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 
-typedef int (*cmp_func)(const void* a, const void* b);
 
 typedef struct global_state
 {
@@ -423,9 +426,11 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 				if (fb->sorted_state != NAME_UP) {
 					qsort(f->a, f->size, sizeof(file), filename_cmp_lt);
 					fb->sorted_state = NAME_UP;
+					fb->c_func = filename_cmp_lt;
 				} else {
 					qsort(f->a, f->size, sizeof(file), filename_cmp_gt);
 					fb->sorted_state = NAME_DOWN;
+					fb->c_func = filename_cmp_gt;
 				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
@@ -435,9 +440,11 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 				if (fb->sorted_state != SIZE_UP) {
 					qsort(f->a, f->size, sizeof(file), filesize_cmp_lt);
 					fb->sorted_state = SIZE_UP;
+					fb->c_func = filesize_cmp_lt;
 				} else {
 					qsort(f->a, f->size, sizeof(file), filesize_cmp_gt);
 					fb->sorted_state = SIZE_DOWN;
+					fb->c_func = filesize_cmp_gt;
 				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
@@ -447,9 +454,11 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 				if (fb->sorted_state != MODIFIED_UP) {
 					qsort(f->a, f->size, sizeof(file), filemodified_cmp_lt);
 					fb->sorted_state = MODIFIED_UP;
+					fb->c_func = filemodified_cmp_lt;
 				} else {
 					qsort(f->a, f->size, sizeof(file), filemodified_cmp_gt);
 					fb->sorted_state = MODIFIED_DOWN;
+					fb->c_func = filemodified_cmp_gt;
 				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
@@ -478,7 +487,7 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 						printf("switching to '%s'\n", f->a[g->selection].path);
 						strncpy(fb->dir, f->a[g->selection].path, MAX_PATH_LEN);
 						fb_scandir(f, fb->dir, fb->exts, fb->num_exts);
-						qsort(f->a, f->size, sizeof(file), c_func);
+						qsort(f->a, f->size, sizeof(file), fb->c_func);
 						g->list_setscroll = SDL_TRUE;
 						g->selection = 0;
 					} else {
@@ -736,6 +745,21 @@ int bytes2str(int bytes, char* buf, int len)
 }
 
 
+void switch_dir(file_browser* fb, const char* dir)
+{
+	if (dir) {
+		if (!strncmp(fb->dir, dir, MAX_PATH_LEN)) {
+			return;
+		}
+		strncpy(fb->dir, dir, MAX_PATH_LEN);
+	}
+	printf("switching to '%s'\n", fb->dir);
+	fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts);
+	qsort(fb->files.a, fb->files.size, sizeof(file), fb->c_func);
+	g->list_setscroll = SDL_TRUE;
+	g->selection = 0;
+}
+
 #define SIDEBAR_W 200
 
 //scr_w and scr_h are logical dimensions not raw pixels
@@ -762,8 +786,8 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 	int cur_result;
 	cvector_file* f = &fb->files;
 
-	cmp_func compare_funcs[] = { filename_cmp_lt, filename_cmp_gt, filesize_cmp_lt, filesize_cmp_gt, filemodified_cmp_lt, filemodified_cmp_gt };
-	cmp_func c_func = compare_funcs[fb->sorted_state];
+	//cmp_func compare_funcs[] = { filename_cmp_lt, filename_cmp_gt, filesize_cmp_lt, filesize_cmp_gt, filemodified_cmp_lt, filemodified_cmp_gt };
+	//cmp_func c_func = compare_funcs[fb->sorted_state];
 
 	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
 		splitter_down = 0;
@@ -788,18 +812,35 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 		}
 		if (nk_button_label(ctx, "Open")) {
 			if (f->a[g->selection].size == -1) {
-				printf("switching to '%s'\n", f->a[g->selection].path);
-				strncpy(fb->dir, f->a[g->selection].path, MAX_PATH_LEN);
-				fb_scandir(f, fb->dir, fb->exts, fb->num_exts);
-				qsort(f->a, f->size, sizeof(file), c_func);
-				g->list_setscroll = SDL_TRUE;
-				g->selection = 0;
+				switch_dir(fb, f->a[g->selection].path);
 			} else {
 				strncpy(fb->file, f->a[g->selection].path, MAX_PATH_LEN);
 				ret = 0;
 			}
 		}
 		nk_widget_disable_end(ctx);
+
+		//nk_layout_row_dynamic(ctx, 0, 2);
+		
+		//const float path_szs[] = { scr_w-110, 110 };
+		//nk_layout_row(ctx, NK_STATIC, 0, 2, path_szs);
+		
+		nk_layout_row_template_begin(ctx, 0);
+		nk_layout_row_template_push_dynamic(ctx);
+		nk_layout_row_template_push_static(ctx, 100);
+		nk_layout_row_template_end(ctx);
+		
+		int dir_len = strlen(fb->dir);
+		nk_edit_string(ctx, NK_EDIT_SELECTABLE|NK_EDIT_CLIPBOARD, fb->dir, &dir_len, MAX_PATH_LEN, nk_filter_default);
+		if (nk_button_label(ctx, "Up")) {
+			char* s = strrchr(fb->dir, '/');
+			if (s != fb->dir) {
+				*s = 0;
+				switch_dir(fb, NULL);
+			} else {
+				switch_dir(fb, "/");
+			}
+		}
 
 		const float group_szs[] = { SIDEBAR_W, scr_w-SIDEBAR_W };
 
@@ -808,19 +849,13 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 		if (nk_group_begin(ctx, "Sidebar", 0)) {
 			nk_layout_row_dynamic(ctx, 0, 1);
 			if (nk_button_label(ctx, "Home")) {
-				if (strncmp(fb->dir, fb->home, MAX_PATH_LEN)) {
-					strcpy(fb->dir, fb->home);
-					fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts);
-					qsort(fb->files.a, fb->files.size, sizeof(file), c_func);
-					g->list_setscroll = SDL_TRUE;
-					g->selection = 0;
-				}
+				switch_dir(fb, fb->home);
 			}
 			if (nk_button_label(ctx, "Desktop")) {
-				//TODO
+				switch_dir(fb, fb->desktop);
 			}
 			if (nk_button_label(ctx, "Computer")) {
-				//TODO
+				switch_dir(fb, "/");
 			}
 
 			nk_group_end(ctx);
@@ -918,12 +953,7 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 							g->selection = i;
 						} else {
 							if (f->a[i].size == -1) {
-								printf("switching to '%s'\n", f->a[i].path);
-								strncpy(fb->dir, f->a[i].path, MAX_PATH_LEN);
-								fb_scandir(f, fb->dir, fb->exts, fb->num_exts);
-								qsort(f->a, f->size, sizeof(file), c_func);
-								g->list_setscroll = SDL_TRUE;
-								g->selection = 0;
+								switch_dir(fb, f->a[i].path);
 							} else {
 								strncpy(fb->file, f->a[i].path, MAX_PATH_LEN);
 								ret = 0;
@@ -975,24 +1005,29 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 	size_t l;
 	strncpy(browser->home, home, MAX_PATH_LEN);
 	browser->home[MAX_PATH_LEN - 1] = 0;
-	l = strlen(browser->home);
-	strcpy(browser->home + l, "/");
 
 	const char* sd = home;
 	if (start_dir) {
+		l = strlen(start_dir);
 		struct stat file_stat;
 		if (stat(start_dir, &file_stat)) {
 			perror("Could not stat start_dir, will use home directory");
+		} else if (l >= MAX_PATH_LEN) {
+			fprintf(stderr, "start_dir path too long, will use home directory\n");
 		} else {
 			sd = start_dir;
 		}
 	}
-	strcpy(browser->dir, sd);
+	snprintf(browser->dir, MAX_PATH_LEN, "%s", sd);
+	// cut off trailing '/'
+	if (l > 1 && sd[l-1] == '/') {
+		browser->dir[l-1] = 0;
+	}
 
-
+	// TODO snprintf instead of strncpy everywhere?
 	strcpy(browser->desktop, browser->home);
 	l = strlen(browser->desktop);
-	strcpy(browser->desktop + l, "desktop/");
+	strcpy(browser->desktop + l, "/Desktop");
 
 	browser->files.elem_free = free_file;
 
@@ -1005,6 +1040,7 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 
 	qsort(browser->files.a, browser->files.size, sizeof(file), filename_cmp_lt);
 	browser->sorted_state = NAME_UP;
+	browser->c_func = filename_cmp_lt;
 
 	return 1;
 }
