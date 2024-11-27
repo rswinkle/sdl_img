@@ -793,6 +793,12 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 		splitter_down = 0;
 
 	if (nk_begin(ctx, "File Selector", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
+
+		struct nk_rect win_content_rect = nk_window_get_content_region(ctx);
+		struct nk_vec2 win_spacing = ctx->style.window.spacing;
+
+
+		//printf("scr_w,scr_h = %d, %d\n%f %f\n", scr_w, scr_h, win_content_rect.w, win_content_rect.h);
 		//search_height = nk_widget_bounds(ctx).h;
 
 		nk_layout_row_template_begin(ctx, 0);
@@ -804,6 +810,8 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 			// TODO maybe just have a done flag in file browser?
 			ret = 0;
 		}
+
+		// TODO
 		nk_button_label(ctx, "Search");
 
 		// only enable "Open" button if you have a selection
@@ -820,18 +828,49 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 		}
 		nk_widget_disable_end(ctx);
 
-		//nk_layout_row_dynamic(ctx, 0, 2);
-		
-		//const float path_szs[] = { scr_w-110, 110 };
+		// method 1
+		// breadcrumb buttons
+		{
+			ctx->style.window.spacing.x = 0;
+			char *d = fb->dir;
+			char *begin = d + 1;
+			char tmp;
+			nk_layout_row_dynamic(ctx, 0, 6);
+			while (*d++) {
+				tmp = *d;
+				if (tmp == '/' || !tmp) {
+					*d = '\0';
+					if (nk_button_label(ctx, begin)) {
+						switch_dir(fb, NULL);
+						break;
+					}
+					if (tmp) *d = '/';
+					begin = d + 1;
+				}
+			}
+			ctx->style.window.spacing.x = win_spacing.x;
+		}
+
+
+		// method 2
+		// TODO how to make this look like method 3, submit issue/documentation
+		//const float path_szs[] = { win_content_rect.w-win_spacing.x-100, 100 };
 		//nk_layout_row(ctx, NK_STATIC, 0, 2, path_szs);
 		
+		// method 3
+		/*
 		nk_layout_row_template_begin(ctx, 0);
 		nk_layout_row_template_push_dynamic(ctx);
 		nk_layout_row_template_push_static(ctx, 100);
 		nk_layout_row_template_end(ctx);
+		*/
 		
+		// Only for methods 2/3
+		/*
 		int dir_len = strlen(fb->dir);
 		nk_edit_string(ctx, NK_EDIT_SELECTABLE|NK_EDIT_CLIPBOARD, fb->dir, &dir_len, MAX_PATH_LEN, nk_filter_default);
+
+
 		if (nk_button_label(ctx, "Up")) {
 			char* s = strrchr(fb->dir, '/');
 			if (s != fb->dir) {
@@ -841,6 +880,7 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 				switch_dir(fb, "/");
 			}
 		}
+		*/
 
 		const float group_szs[] = { SIDEBAR_W, scr_w-SIDEBAR_W };
 
@@ -948,6 +988,7 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 					// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
 					// also thumb_sel serves the same/similar purpose
 					is_selected = g->selection == i;
+					assert(i < f->size);
 					if (nk_selectable_label(ctx, f->a[i].name, NK_TEXT_LEFT, &is_selected)) {
 						if (is_selected) {
 							g->selection = i;
@@ -1002,7 +1043,7 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 	
 	const char* home = get_homedir();
 
-	size_t l;
+	size_t l = 0;
 	strncpy(browser->home, home, MAX_PATH_LEN);
 	browser->home[MAX_PATH_LEN - 1] = 0;
 
