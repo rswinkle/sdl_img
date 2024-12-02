@@ -88,6 +88,7 @@ typedef struct file_browser
 	// does not own memory
 	const char** exts;
 	int num_exts;
+	int ignore_exts; // if true, show all files, not just matching exts
 
 	// list of files in cur directory
 	cvector_file files;
@@ -536,8 +537,8 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 			}
 		} break;
 
-		case SDL_MOUSEBUTTONUP:
-			printf("mouse click: %d, %d\n", e.button.x, e.button.y);
+		//case SDL_MOUSEBUTTONUP:
+			//printf("mouse click: %d, %d\n", e.button.x, e.button.y);
 
 		break;
 
@@ -753,8 +754,9 @@ void switch_dir(file_browser* fb, const char* dir)
 		}
 		strncpy(fb->dir, dir, MAX_PATH_LEN);
 	}
+
 	printf("switching to '%s'\n", fb->dir);
-	fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts);
+	fb_scandir(&fb->files, fb->dir, fb->exts, (fb->ignore_exts) ? 0 : fb->num_exts);
 	qsort(fb->files.a, fb->files.size, sizeof(file), fb->c_func);
 	g->list_setscroll = SDL_TRUE;
 	g->selection = 0;
@@ -887,6 +889,9 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 		nk_layout_row(ctx, NK_STATIC, scr_h, 2, group_szs);
 
 		if (nk_group_begin(ctx, "Sidebar", 0)) {
+
+			// Make dynamic array to add saved bookmarked locations
+			// Also Recent files?
 			nk_layout_row_dynamic(ctx, 0, 1);
 			if (nk_button_label(ctx, "Home")) {
 				switch_dir(fb, fb->home);
@@ -896,6 +901,15 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 			}
 			if (nk_button_label(ctx, "Computer")) {
 				switch_dir(fb, "/");
+			}
+
+			//nk_checkbox_label(ctx, "All Files", &fb->ignore_exts);
+			static const char* ext_opts[] = { "Images", "All Files" };
+			struct nk_rect bounds = nk_widget_bounds(ctx);
+			int old = fb->ignore_exts;
+			fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, FONT_SIZE, nk_vec2(bounds.w, 300));
+			if (fb->ignore_exts != old) {
+				switch_dir(fb, NULL);
 			}
 
 			nk_group_end(ctx);
@@ -985,16 +999,17 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 				//nk_layout_row_dynamic(ctx, 0, 3);
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 				for (int i=lview.begin; i<lview.end; ++i) {
+					assert(i < f->size);
 					// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
 					// also thumb_sel serves the same/similar purpose
 					is_selected = g->selection == i;
-					assert(i < f->size);
 					if (nk_selectable_label(ctx, f->a[i].name, NK_TEXT_LEFT, &is_selected)) {
 						if (is_selected) {
 							g->selection = i;
 						} else {
 							if (f->a[i].size == -1) {
 								switch_dir(fb, f->a[i].path);
+								break;
 							} else {
 								strncpy(fb->file, f->a[i].path, MAX_PATH_LEN);
 								ret = 0;

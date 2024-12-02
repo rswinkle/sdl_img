@@ -401,6 +401,7 @@ void draw_gui(struct nk_context* ctx)
 					//nk_layout_row_dynamic(ctx, 0, 3);
 					nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 					for (int i=lview.begin; i<lview.end; ++i) {
+						assert(i < g->files.size);
 						// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
 						// also thumb_sel serves the same/similar purpose
 						is_selected = g->selection == i;
