@@ -151,6 +151,7 @@ global_state* g = &g_state;
 int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h);
 
 int init_file_browser(file_browser* browser, const char** exts, int num_exts, const char* start_dir, recents_func r_func, void* userdata);
+void free_file_browser(file_browser* fb);
 
 int gnome_recents(file_browser* fb, void* userdata);
 const char* get_homedir();
@@ -343,6 +344,8 @@ int main(int argc, char** argv)
 	} else {
 		printf("No file selected\n");
 	}
+
+	free_file_browser(&browser);
 
 cleanup:
 	nk_sdl_shutdown();
@@ -1117,6 +1120,12 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 	return 1;
 }
 
+void free_file_browser(file_browser* fb)
+{
+	cvec_free_file(&fb->files);
+	memset(fb, 0, sizeof(file_browser));
+}
+
 char* uri_decode(const char* str)
 {
 	int len = strlen(str);
@@ -1182,12 +1191,13 @@ int gnome_recents(file_browser* fb, void* userdata)
 	int needle_len = strlen(needle);
 
 	text = out.data;
+	char* start_search = text;
 
 	char* result = NULL;
 	char* end;
 	char* dst;
 	int i = 0;
-	while ((result = strstr(text, needle))) {
+	while ((result = strstr(start_search, needle))) {
 		result += needle_len;
 		end = strchr(result, '\"');
 
@@ -1207,9 +1217,11 @@ int gnome_recents(file_browser* fb, void* userdata)
 		free(dst);
 
 		// continue search just past the end of last result
-		text = end+1;
+		start_search = end+1;
 		i++;
 	}
+
+	free(text);
 	return i;
 }
 
