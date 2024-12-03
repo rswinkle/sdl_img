@@ -1,5 +1,6 @@
 
 #include "myinttypes.h"
+#include "c_utils.h"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -72,6 +73,9 @@ enum { SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
 #define FILE_LIST_SZ 20
 #define MAX_PATH_LEN 512
 
+struct file_browser;
+
+typedef int (*recents_func)(struct file_browser* fb, void * userdata);
 typedef int (*cmp_func)(const void* a, const void* b);
 enum { NAME_UP, NAME_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 
@@ -84,6 +88,10 @@ typedef struct file_browser
 	// special bookmarked locations
 	char home[MAX_PATH_LEN];
 	char desktop[MAX_PATH_LEN];
+
+	recents_func get_recents;
+	void* userdata;
+	int is_recents; // bool
 
 	// does not own memory
 	const char** exts;
@@ -142,8 +150,9 @@ global_state* g = &g_state;
 
 int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h);
 
-int init_file_browser(file_browser* fb, const char** exts, int num_exts, const char* start_dir);
+int init_file_browser(file_browser* browser, const char** exts, int num_exts, const char* start_dir, recents_func r_func, void* userdata);
 
+int gnome_recents(file_browser* fb, void* userdata);
 const char* get_homedir();
 int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts);
 char* mydirname(const char* path, char* dirpath);
@@ -294,7 +303,7 @@ int main(int argc, char** argv)
 	if (argc == 2) {
 		start_dir = argv[1];
 	}
-	init_file_browser(&browser, default_exts, NUM_DFLT_EXTS, start_dir);
+	init_file_browser(&browser, default_exts, NUM_DFLT_EXTS, start_dir, gnome_recents, NULL);
 
 	// default no no selection
 	g->selection = -1;
@@ -893,6 +902,10 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 			// Make dynamic array to add saved bookmarked locations
 			// Also Recent files?
 			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_button_label(ctx, "Recents")) {
+				fb->get_recents(fb, fb->userdata);
+				//switch_dir(fb, fb->home);
+			}
 			if (nk_button_label(ctx, "Home")) {
 				switch_dir(fb, fb->home);
 			}
@@ -1052,7 +1065,7 @@ const char* get_homedir()
 }
 
 // TODO pass extensions?
-int init_file_browser(file_browser* browser, const char** exts, int num_exts, const char* start_dir)
+int init_file_browser(file_browser* browser, const char** exts, int num_exts, const char* start_dir, recents_func r_func, void* userdata)
 {
 	memset(browser, 0, sizeof(file_browser));
 	
@@ -1098,9 +1111,107 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 	browser->sorted_state = NAME_UP;
 	browser->c_func = filename_cmp_lt;
 
+	browser->get_recents = r_func;
+	browser->userdata = userdata;
+
 	return 1;
 }
 
+char* uri_decode(const char* str)
+{
+	int len = strlen(str);
+	char* dst = malloc(len+1);
+	int x, a, b;
+	char hex[3] = {0};
+	int j = 0;
+	
+	for (int i=0; str[i]; ++i) {
+		if (str[i] == '%') {
+			a = str[i+1];
+			b = str[i+2];
+			if (!a) {
+				// copy %?
+				return dst;
+			}
+			if (isxdigit(a) && isxdigit(b)) {
+				hex[0] = a;
+				hex[1] = b;
+				x = strtol(hex, NULL, 16);
+				dst[j++] = x;
+				i += 2;
+			}
+		} else if (str[i] == '&') {
+			if (!strncmp(str+i+1, "apos;", 5)) {
+				dst[j++] = '\'';
+				i += 5;
+			} else if (!strncmp(str+i+1, "amp;", 4)) {
+				dst[j++] = '&';
+				i += 4;
+			} else {
+				dst[j++] = str[i];
+			}
+		} else {
+			dst[j++] = str[i];
+		}
+	}
+	dst = realloc(dst, j+1);
+	dst[j] = 0;
+
+	return dst;
+}
+
+int gnome_recents(file_browser* fb, void* userdata)
+{
+	char path[MAX_PATH_LEN];
+	snprintf(path, MAX_PATH_LEN, "%s/.local/share/recently-used.xbel", fb->home);
+	FILE* file = fopen(path, "r");
+	if (!file) {
+		perror("Could not open recents file");
+		return 0;
+	}
+	char* text = NULL;
+	c_array out = {0};
+	int file_len = 0;
+	if (!(file_len = file_read(file, &out))) {
+	//if (!(file_len = file_read(file, &text))) {
+		// empty file
+		return 0;
+	}
+
+	const char needle[] = "bookmark href=\"file://";
+	int needle_len = strlen(needle);
+
+	text = out.data;
+
+	char* result = NULL;
+	char* end;
+	char* dst;
+	int i = 0;
+	while ((result = strstr(text, needle))) {
+		result += needle_len;
+		end = strchr(result, '\"');
+
+		*end = 0;
+
+		dst = uri_decode(result);
+		printf("%d %s\n%d %s\n", i, result, i, dst);
+
+		if (i == 160) {
+			FILE* f = fopen(dst, "r");
+			if (!f) {
+				perror("Couldn't open recent file");
+			} else {
+				fclose(f);
+			}
+		}
+		free(dst);
+
+		// continue search just past the end of last result
+		text = end+1;
+		i++;
+	}
+	return i;
+}
 
 
 
