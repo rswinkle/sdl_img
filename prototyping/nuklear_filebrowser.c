@@ -73,9 +73,7 @@ enum { SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
 #define FILE_LIST_SZ 20
 #define MAX_PATH_LEN 512
 
-struct file_browser;
-
-typedef int (*recents_func)(struct file_browser* fb, void * userdata);
+typedef int (*recents_func)(cvector_str* recents, void * userdata);
 typedef int (*cmp_func)(const void* a, const void* b);
 enum { NAME_UP, NAME_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 
@@ -152,8 +150,9 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 
 int init_file_browser(file_browser* browser, const char** exts, int num_exts, const char* start_dir, recents_func r_func, void* userdata);
 void free_file_browser(file_browser* fb);
+void handle_recents(file_browser* fb);
 
-int gnome_recents(file_browser* fb, void* userdata);
+int gnome_recents(cvector_str* recents, void* userdata);
 const char* get_homedir();
 int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts);
 char* mydirname(const char* path, char* dirpath);
@@ -571,6 +570,8 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 // How portable would that be?  Windows? etc.
 int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts)
 {
+	assert(!num_exts || exts);
+
 	char fullpath[STRBUF_SZ] = { 0 };
 	struct stat file_stat;
 	struct dirent* entry;
@@ -767,6 +768,7 @@ void switch_dir(file_browser* fb, const char* dir)
 		strncpy(fb->dir, dir, MAX_PATH_LEN);
 	}
 
+	fb->is_recents = FALSE;
 	printf("switching to '%s'\n", fb->dir);
 	fb_scandir(&fb->files, fb->dir, fb->exts, (fb->ignore_exts) ? 0 : fb->num_exts);
 	qsort(fb->files.a, fb->files.size, sizeof(file), fb->c_func);
@@ -842,59 +844,61 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 		}
 		nk_widget_disable_end(ctx);
 
-		// method 1
-		// breadcrumb buttons
-		{
-			ctx->style.window.spacing.x = 0;
-			char *d = fb->dir;
-			char *begin = d + 1;
-			char tmp;
-			nk_layout_row_dynamic(ctx, 0, 6);
-			while (*d++) {
-				tmp = *d;
-				if (tmp == '/' || !tmp) {
-					*d = '\0';
-					if (nk_button_label(ctx, begin)) {
-						switch_dir(fb, NULL);
-						break;
+		if (!fb->is_recents) {
+			// method 1
+			// breadcrumb buttons
+			{
+				ctx->style.window.spacing.x = 0;
+				char *d = fb->dir;
+				char *begin = d + 1;
+				char tmp;
+				nk_layout_row_dynamic(ctx, 0, 6);
+				while (*d++) {
+					tmp = *d;
+					if (tmp == '/' || !tmp) {
+						*d = '\0';
+						if (nk_button_label(ctx, begin)) {
+							switch_dir(fb, NULL);
+							break;
+						}
+						if (tmp) *d = '/';
+						begin = d + 1;
 					}
-					if (tmp) *d = '/';
-					begin = d + 1;
+				}
+				ctx->style.window.spacing.x = win_spacing.x;
+			}
+
+
+			// method 2
+			// TODO how to make this look like method 3, submit issue/documentation
+			//const float path_szs[] = { win_content_rect.w-win_spacing.x-100, 100 };
+			//nk_layout_row(ctx, NK_STATIC, 0, 2, path_szs);
+			
+			// method 3
+			/*
+			nk_layout_row_template_begin(ctx, 0);
+			nk_layout_row_template_push_dynamic(ctx);
+			nk_layout_row_template_push_static(ctx, 100);
+			nk_layout_row_template_end(ctx);
+			*/
+			
+			// Only for methods 2/3
+			/*
+			int dir_len = strlen(fb->dir);
+			nk_edit_string(ctx, NK_EDIT_SELECTABLE|NK_EDIT_CLIPBOARD, fb->dir, &dir_len, MAX_PATH_LEN, nk_filter_default);
+
+
+			if (nk_button_label(ctx, "Up")) {
+				char* s = strrchr(fb->dir, '/');
+				if (s != fb->dir) {
+					*s = 0;
+					switch_dir(fb, NULL);
+				} else {
+					switch_dir(fb, "/");
 				}
 			}
-			ctx->style.window.spacing.x = win_spacing.x;
+			*/
 		}
-
-
-		// method 2
-		// TODO how to make this look like method 3, submit issue/documentation
-		//const float path_szs[] = { win_content_rect.w-win_spacing.x-100, 100 };
-		//nk_layout_row(ctx, NK_STATIC, 0, 2, path_szs);
-		
-		// method 3
-		/*
-		nk_layout_row_template_begin(ctx, 0);
-		nk_layout_row_template_push_dynamic(ctx);
-		nk_layout_row_template_push_static(ctx, 100);
-		nk_layout_row_template_end(ctx);
-		*/
-		
-		// Only for methods 2/3
-		/*
-		int dir_len = strlen(fb->dir);
-		nk_edit_string(ctx, NK_EDIT_SELECTABLE|NK_EDIT_CLIPBOARD, fb->dir, &dir_len, MAX_PATH_LEN, nk_filter_default);
-
-
-		if (nk_button_label(ctx, "Up")) {
-			char* s = strrchr(fb->dir, '/');
-			if (s != fb->dir) {
-				*s = 0;
-				switch_dir(fb, NULL);
-			} else {
-				switch_dir(fb, "/");
-			}
-		}
-		*/
 
 		const float group_szs[] = { SIDEBAR_W, scr_w-SIDEBAR_W };
 
@@ -905,9 +909,10 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 			// Make dynamic array to add saved bookmarked locations
 			// Also Recent files?
 			nk_layout_row_dynamic(ctx, 0, 1);
-			if (nk_button_label(ctx, "Recents")) {
-				fb->get_recents(fb, fb->userdata);
-				//switch_dir(fb, fb->home);
+			if (fb->get_recents) {
+				if (nk_button_label(ctx, "Recents")) {
+					handle_recents(fb);
+				}
 			}
 			if (nk_button_label(ctx, "Home")) {
 				switch_dir(fb, fb->home);
@@ -925,7 +930,12 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 			int old = fb->ignore_exts;
 			fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, FONT_SIZE, nk_vec2(bounds.w, 300));
 			if (fb->ignore_exts != old) {
-				switch_dir(fb, NULL);
+				if (!fb->is_recents) {
+					switch_dir(fb, NULL);
+				} else {
+					handle_recents(fb);
+					//fb->get_recents(fb, fb->userdata);
+				}
 			}
 
 			nk_group_end(ctx);
@@ -1126,6 +1136,74 @@ void free_file_browser(file_browser* fb)
 	memset(fb, 0, sizeof(file_browser));
 }
 
+void handle_recents(file_browser* fb)
+{
+	file f;
+	struct stat file_stat;
+	struct tm* tmp_tm;
+	char* sep;
+	char* ext = NULL;
+
+	cvector_str recents = {0};
+	int n = fb->get_recents(&recents, fb->userdata);
+
+	fb->is_recents = TRUE;
+	fb->dir[0] = 0;
+	cvec_clear_file(&fb->files);
+	g->selection = 0;
+
+	const char** exts = fb->exts;
+	const int num_exts = fb->num_exts;
+
+	char* p;
+	int i, j;
+	for (i=0; i<n; i++) {
+		p = recents.a[i];
+
+		if (!fb->ignore_exts && num_exts) {
+			if ((ext = strrchr(p, '.'))) {
+				for (j=0; j<num_exts; ++j) {
+					if (!strcasecmp(ext, exts[j]))
+						break;
+				}
+				if (j == num_exts) {
+					//free(p);
+					continue;
+				}
+			}
+		}
+		if (stat(p, &file_stat)) {
+			perror("stat");
+			//free(p);
+		} else {
+			f.size = S_ISREG(file_stat.st_mode) ? file_stat.st_size : -1;
+			f.path = p;
+			f.modified = file_stat.st_mtime;
+
+			bytes2str(f.size, f.size_str, SIZE_STR_BUF);
+			tmp_tm = localtime(&f.modified);
+			strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp_tm); // %F %T
+
+
+			sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
+			f.name = (sep) ? sep+1 : f.path;
+
+			cvec_pushm_file(&fb->files, &f);
+
+			// NULL out pointer in recents string since we moved ownership of
+			// the path string to fb->files and don't want a heap use after free
+			recents.a[i] = 0;
+		}
+	}
+
+	qsort(fb->files.a, fb->files.size, sizeof(file), fb->c_func);
+	g->list_setscroll = SDL_TRUE;
+
+	printf("Found %"PRIcv_sz" recent files\n", fb->files.size);
+
+	cvec_free_str(&recents);
+}
+
 char* uri_decode(const char* str)
 {
 	int len = strlen(str);
@@ -1169,20 +1247,28 @@ char* uri_decode(const char* str)
 	return dst;
 }
 
-int gnome_recents(file_browser* fb, void* userdata)
+int gnome_recents(cvector_str* recents, void* userdata)
 {
+	assert(recents);
+
 	char path[MAX_PATH_LEN];
-	snprintf(path, MAX_PATH_LEN, "%s/.local/share/recently-used.xbel", fb->home);
-	FILE* file = fopen(path, "r");
-	if (!file) {
+	snprintf(path, MAX_PATH_LEN, "%s/.local/share/recently-used.xbel", get_homedir());
+	FILE* recents_file = fopen(path, "r");
+	if (!recents_file) {
 		perror("Could not open recents file");
 		return 0;
 	}
+
+	// TODO cvector_str* or char***, obviously leaning toward former
+	cvec_reserve_str(recents, 200);
+
 	char* text = NULL;
-	c_array out = {0};
 	int file_len = 0;
-	if (!(file_len = file_read(file, &out))) {
-	//if (!(file_len = file_read(file, &text))) {
+
+	// TODO file_read is only thing from c_utils.., replace with text version
+	c_array out = {0};
+	if (!(file_len = file_read(recents_file, &out))) {
+	//if (!(file_len = file_read(recents_file, &text))) {
 		// empty file
 		return 0;
 	}
@@ -1192,6 +1278,8 @@ int gnome_recents(file_browser* fb, void* userdata)
 
 	text = out.data;
 	char* start_search = text;
+
+	char* sep;
 
 	char* result = NULL;
 	char* end;
@@ -1204,17 +1292,8 @@ int gnome_recents(file_browser* fb, void* userdata)
 		*end = 0;
 
 		dst = uri_decode(result);
-		printf("%d %s\n%d %s\n", i, result, i, dst);
-
-		if (i == 160) {
-			FILE* f = fopen(dst, "r");
-			if (!f) {
-				perror("Couldn't open recent file");
-			} else {
-				fclose(f);
-			}
-		}
-		free(dst);
+		//printf("%d %s\n%d %s\n", i, result, i, dst);
+		cvec_pushm_str(recents, dst);
 
 		// continue search just past the end of last result
 		start_search = end+1;
@@ -1222,6 +1301,8 @@ int gnome_recents(file_browser* fb, void* userdata)
 	}
 
 	free(text);
+
+	// unnecessary with size included in cvector_str...
 	return i;
 }
 
