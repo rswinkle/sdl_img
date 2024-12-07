@@ -39,8 +39,6 @@
 #define PRIcv_sz PRIiMAX
 #include "cvector.h"
 
-//#include "style_configurator.c"
-
 #define WINDOW_WIDTH 1200
 #define WINDOW_HEIGHT 800
 
@@ -96,6 +94,7 @@ typedef struct file_browser
 	// bools
 	int is_recents;
 	int is_search_results;
+	int is_text_path; // could change to flag if I add a third option
 
 	// does not own memory
 	const char** exts;
@@ -307,7 +306,6 @@ int main(int argc, char** argv)
     g->scr_w = WINDOW_WIDTH;
     g->scr_h = WINDOW_HEIGHT;
 
-	int show_filebrowser = 1;
 	file_browser browser = { 0 };
 
 	char* start_dir = NULL;
@@ -321,10 +319,6 @@ int main(int argc, char** argv)
 
 	//struct nk_colorf bg2 = nk_rgb(28,48,62);
 	g->bg = nk_rgb(0,0,0);
-	int start_time = SDL_GetTicks();
-	int time;
-	int mx, my;
-	Uint32 mstate;
 	while (running) {
 		//SDL_RenderSetScale(ren, x_scale, y_scale);
 
@@ -357,68 +351,12 @@ int main(int argc, char** argv)
 
 	free_file_browser(&browser);
 
-cleanup:
 	nk_sdl_shutdown();
 	SDL_DestroyRenderer(g->ren);
 	SDL_DestroyWindow(g->win);
 	SDL_Quit();
 	return 0;
 }
-
-
-/*
-void draw_simple_gui(struct nk_context* ctx)
-{
-	int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
-
-	int win_w, win_h;
-	int scr_w, scr_h;
-	int out_w, out_h;
-	SDL_GetWindowSize(g->win, &win_w, &win_h);
-	SDL_RenderGetLogicalSize(g->ren, &scr_w, &scr_h);
-	SDL_GetRendererOutputSize(g->ren, &out_w, &out_h);
-
-	float cur_x_scale, cur_y_scale;
-	SDL_RenderGetScale(g->ren, &cur_x_scale, &cur_y_scale);
-	//printf("scale = %.2f x %.2f\n", cur_x_scale, cur_y_scale);
-
-	int fill = 0, slideshow = 0;
-
-	if (nk_begin(ctx, "demo", nk_rect(100/cur_x_scale, 100/cur_y_scale, 200, 400), gui_flags)) {
-		nk_layout_row_static(ctx, 0, 80, 2);
-		if (nk_button_label(ctx, "hello")) {
-			puts("down");
-			x_scale -= 0.25;
-			y_scale -= 0.25;
-		}
-		if (nk_button_label(ctx, "goodbye")) {
-			puts("up");
-			x_scale += 0.25;
-			y_scale += 0.25;
-		}
-		nk_checkbox_label(ctx, "Best Fit", &fill);
-		nk_checkbox_label(ctx, "Slideshow", &slideshow);
-	}
-	nk_end(ctx);
-
-//	if (nk_begin(ctx, "demo2", nk_rect(400/cur_x_scale, 100/cur_y_scale, 200, 400), gui_flags)) {
-//		nk_layout_row_static(ctx, 0, 80, 2);
-//		if (nk_button_label(ctx, "hello")) {
-//			;
-//		}
-//		if (nk_button_label(ctx, "goodbye")) {
-//			;
-//		}
-//		nk_checkbox_label(ctx, "Best Fit", &fill);
-//		nk_checkbox_label(ctx, "Slideshow", &slideshow);
-//	}
-//	nk_end(ctx);
-
-}
-*/
-
-
-
 
 
 int handle_events(file_browser* fb, struct nk_context* ctx)
@@ -432,10 +370,6 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 	
 	cvector_file* f = &fb->files;
 
-	cmp_func compare_funcs[] = { filename_cmp_lt, filename_cmp_gt, filesize_cmp_lt, filesize_cmp_gt, filemodified_cmp_lt, filemodified_cmp_gt };
-	cmp_func c_func = compare_funcs[fb->sorted_state];
-
-	//g->status = NOCHANGE;
 	nk_input_begin(ctx);
 	while (SDL_PollEvent(&e)) {
 		// TODO edit menu/GUI as appropriate for list mode, see which
@@ -592,10 +526,6 @@ int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int 
 	int ret, i=0;
 	DIR* dir;
 	struct tm* tmp_tm;
-
-	// can be used if I call stbi_info for files without extensions
-	// or I could just pass NULLs
-	int x, y, n;
 
 	cvec_clear_file(files);
 
@@ -801,7 +731,6 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 {
 	int is_selected = SDL_FALSE;
 	int symbol;
-	float search_ratio[] = { 0.25f, 0.75f };
 	int list_height;
 	int active;
 	float search_height = 0;
@@ -820,7 +749,6 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 
 	SDL_Event event = { .type = g->userevent };
 
-	int cur_result;
 	cvector_file* f = &fb->files;
 
 	if (fb->file[0]) {
@@ -884,7 +812,7 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 		if (!fb->is_recents && fb->dir[1]) {
 			// method 1
 			// breadcrumb buttons
-			{
+			if (!fb->is_text_path) {
 				ctx->style.window.spacing.x = 0;
 				char *d = fb->dir;
 				char *begin = d + 1;
@@ -903,38 +831,37 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 					}
 				}
 				ctx->style.window.spacing.x = win_spacing.x;
-			}
+			} else {
+
+				// 2 Methods of text path mode
+
+				// method 2
+				// TODO how to make this look like method 3, submit issue/documentation
+				const float path_szs[] = { win_content_rect.w-win_spacing.x-100, 100 };
+				nk_layout_row(ctx, NK_STATIC, 0, 2, path_szs);
+				
+				// method 3
+				/*
+				nk_layout_row_template_begin(ctx, 0);
+				nk_layout_row_template_push_dynamic(ctx);
+				nk_layout_row_template_push_static(ctx, 100);
+				nk_layout_row_template_end(ctx);
+				*/
+				
+				int dir_len = strlen(fb->dir);
+				nk_edit_string(ctx, NK_EDIT_SELECTABLE|NK_EDIT_CLIPBOARD, fb->dir, &dir_len, MAX_PATH_LEN, nk_filter_default);
 
 
-			// method 2
-			// TODO how to make this look like method 3, submit issue/documentation
-			//const float path_szs[] = { win_content_rect.w-win_spacing.x-100, 100 };
-			//nk_layout_row(ctx, NK_STATIC, 0, 2, path_szs);
-			
-			// method 3
-			/*
-			nk_layout_row_template_begin(ctx, 0);
-			nk_layout_row_template_push_dynamic(ctx);
-			nk_layout_row_template_push_static(ctx, 100);
-			nk_layout_row_template_end(ctx);
-			*/
-			
-			// Only for methods 2/3
-			/*
-			int dir_len = strlen(fb->dir);
-			nk_edit_string(ctx, NK_EDIT_SELECTABLE|NK_EDIT_CLIPBOARD, fb->dir, &dir_len, MAX_PATH_LEN, nk_filter_default);
-
-
-			if (nk_button_label(ctx, "Up")) {
-				char* s = strrchr(fb->dir, '/');
-				if (s != fb->dir) {
-					*s = 0;
-					switch_dir(fb, NULL);
-				} else {
-					switch_dir(fb, "/");
+				if (nk_button_label(ctx, "Up")) {
+					char* s = strrchr(fb->dir, '/');
+					if (s != fb->dir) {
+						*s = 0;
+						switch_dir(fb, NULL);
+					} else {
+						switch_dir(fb, "/");
+					}
 				}
 			}
-			*/
 		}
 
 		const float group_szs[] = { SIDEBAR_W, scr_w-SIDEBAR_W };
@@ -944,8 +871,27 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 		if (nk_group_begin(ctx, "Sidebar", 0)) {
 
 			// Make dynamic array to add saved bookmarked locations
-			// Also Recent files?
 			nk_layout_row_dynamic(ctx, 0, 1);
+
+			nk_label(ctx, "Settings", NK_TEXT_CENTERED);
+
+			//nk_checkbox_label(ctx, "All Files", &fb->ignore_exts);
+			static const char* ext_opts[] = { "Images", "All Files" };
+			struct nk_rect bounds = nk_widget_bounds(ctx);
+			int old = fb->ignore_exts;
+			fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, FONT_SIZE, nk_vec2(bounds.w, 300));
+			if (fb->ignore_exts != old) {
+				if (!fb->is_recents) {
+					switch_dir(fb, NULL);
+				} else {
+					handle_recents(fb);
+					//fb->get_recents(fb, fb->userdata);
+				}
+			}
+			static const char* path_opts[] = { "Breadcrumbs", "Text" };
+			fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, FONT_SIZE, nk_vec2(bounds.w, 300));
+
+			nk_label(ctx, "Bookmarks", NK_TEXT_CENTERED);
 			if (fb->get_recents) {
 				if (nk_button_label(ctx, "Recents")) {
 					handle_recents(fb);
@@ -961,19 +907,6 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 				switch_dir(fb, "/");
 			}
 
-			//nk_checkbox_label(ctx, "All Files", &fb->ignore_exts);
-			static const char* ext_opts[] = { "Images", "All Files" };
-			struct nk_rect bounds = nk_widget_bounds(ctx);
-			int old = fb->ignore_exts;
-			fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, FONT_SIZE, nk_vec2(bounds.w, 300));
-			if (fb->ignore_exts != old) {
-				if (!fb->is_recents) {
-					switch_dir(fb, NULL);
-				} else {
-					handle_recents(fb);
-					//fb->get_recents(fb, fb->userdata);
-				}
-			}
 
 			nk_group_end(ctx);
 		}
@@ -1348,7 +1281,7 @@ int file_read(FILE* file, char** out)
 	assert(file);
 	assert(out);
 
-	u8* data = NULL;
+	char* data = NULL;
 	long size;
 
 	fseek(file, 0, SEEK_END);
@@ -1360,7 +1293,7 @@ int file_read(FILE* file, char** out)
 		return 0;
 	}
 
-	data = (u8*)malloc(size+1);
+	data = (char*)malloc(size+1);
 	if (!data) {
 		fclose(file);
 		return 0;
@@ -1409,7 +1342,6 @@ int gnome_recents(cvector_str* recents, void* userdata)
 	int needle_len = strlen(needle);
 
 	char* start_search = text;
-	char* sep;
 
 	char* result = NULL;
 	char* end;
