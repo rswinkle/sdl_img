@@ -1,6 +1,5 @@
 
 #include "myinttypes.h"
-#include "c_utils.h"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -40,12 +39,12 @@
 #define PRIcv_sz PRIiMAX
 #include "cvector.h"
 
-#include "style_configurator.c"
+//#include "style_configurator.c"
 
 #define WINDOW_WIDTH 1200
 #define WINDOW_HEIGHT 800
 
-#define STRBUF_SZ 1024
+#define STRBUF_SZ 512
 
 #define GUI_BAR_HEIGHT 50
 #define GUI_MENU_WIN_W 550
@@ -71,7 +70,7 @@ enum { SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
 #include "file.c"
 
 #define FILE_LIST_SZ 20
-#define MAX_PATH_LEN 512
+#define MAX_PATH_LEN STRBUF_SZ
 
 typedef int (*recents_func)(cvector_str* recents, void * userdata);
 typedef int (*cmp_func)(const void* a, const void* b);
@@ -87,9 +86,16 @@ typedef struct file_browser
 	char home[MAX_PATH_LEN];
 	char desktop[MAX_PATH_LEN];
 
+	// searching
+	char text_buf[STRBUF_SZ];
+	int text_len;
+
 	recents_func get_recents;
 	void* userdata;
-	int is_recents; // bool
+
+	// bools
+	int is_recents;
+	int is_search_results;
 
 	// does not own memory
 	const char** exts;
@@ -98,6 +104,9 @@ typedef struct file_browser
 
 	// list of files in cur directory
 	cvector_file files;
+
+	
+	cvector_i search_results;
 	//int selection;
 
 	int begin;
@@ -131,7 +140,7 @@ typedef struct global_state
 	int scr_w;
 	int scr_h;
 
-
+	// do these belong here or in file_browser?
 	int selection;
 	int list_setscroll;
 	u32 userevent;
@@ -150,8 +159,10 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 
 int init_file_browser(file_browser* browser, const char** exts, int num_exts, const char* start_dir, recents_func r_func, void* userdata);
 void free_file_browser(file_browser* fb);
+void switch_dir(file_browser* fb, const char* dir);
 void handle_recents(file_browser* fb);
 
+void search_filenames(file_browser* fb);
 int gnome_recents(cvector_str* recents, void* userdata);
 const char* get_homedir();
 int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts);
@@ -416,6 +427,7 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 	int sym;
 	int code, sort_timer;
 	int ret = 0;
+	int did_sort = 0;
 	//SDL_Keymod mod_state = SDL_GetModState();
 	
 	cvector_file* f = &fb->files;
@@ -444,6 +456,7 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 					fb->sorted_state = NAME_DOWN;
 					fb->c_func = filename_cmp_gt;
 				}
+				did_sort = TRUE;
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_SIZE:
@@ -458,6 +471,7 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 					fb->sorted_state = SIZE_DOWN;
 					fb->c_func = filesize_cmp_gt;
 				}
+				did_sort = TRUE;
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_MODIFIED:
@@ -472,10 +486,14 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 					fb->sorted_state = MODIFIED_DOWN;
 					fb->c_func = filemodified_cmp_gt;
 				}
+				did_sort = TRUE;
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			default:
 				SDL_Log("Unknown user event!");
+			}
+			if (did_sort && fb->is_search_results) {
+				search_filenames(fb);
 			}
 			continue;
 		}
@@ -495,15 +513,11 @@ int handle_events(file_browser* fb, struct nk_context* ctx)
 			// switch to normal mode on that image
 			case SDLK_RETURN:
 				if (g->selection >= 0) {
-					if (f->a[g->selection].size == -1) {
-						printf("switching to '%s'\n", f->a[g->selection].path);
-						strncpy(fb->dir, f->a[g->selection].path, MAX_PATH_LEN);
-						fb_scandir(f, fb->dir, fb->exts, fb->num_exts);
-						qsort(f->a, f->size, sizeof(file), fb->c_func);
-						g->list_setscroll = SDL_TRUE;
-						g->selection = 0;
+					int sel = (fb->is_search_results) ? fb->search_results.a[g->selection] : g->selection;
+					if (f->a[sel].size == -1) {
+						switch_dir(fb, f->a[sel].path);
 					} else {
-						strncpy(fb->file, f->a[g->selection].path, MAX_PATH_LEN);
+						strncpy(fb->file, f->a[sel].path, MAX_PATH_LEN);
 						ret = 1;
 					}
 				}
@@ -769,6 +783,10 @@ void switch_dir(file_browser* fb, const char* dir)
 	}
 
 	fb->is_recents = FALSE;
+	fb->is_search_results = FALSE;
+	fb->text_buf[0] = 0;
+	fb->text_len = 0;
+
 	printf("switching to '%s'\n", fb->dir);
 	fb_scandir(&fb->files, fb->dir, fb->exts, (fb->ignore_exts) ? 0 : fb->num_exts);
 	qsort(fb->files.a, fb->files.size, sizeof(file), fb->c_func);
@@ -797,13 +815,18 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 	static float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
 	static int splitter_down = 0;
 
+
+	int search_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
+
 	SDL_Event event = { .type = g->userevent };
 
 	int cur_result;
 	cvector_file* f = &fb->files;
 
-	//cmp_func compare_funcs[] = { filename_cmp_lt, filename_cmp_gt, filesize_cmp_lt, filesize_cmp_gt, filemodified_cmp_lt, filemodified_cmp_gt };
-	//cmp_func c_func = compare_funcs[fb->sorted_state];
+	if (fb->file[0]) {
+		// You've already selected a file why are you calling do_filebrowser?
+		return 0;
+	}
 
 	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
 		splitter_down = 0;
@@ -827,8 +850,21 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 			ret = 0;
 		}
 
+		// Search field
 		// TODO
-		nk_button_label(ctx, "Search");
+		//nk_button_label(ctx, "Search");
+		active = nk_edit_string(ctx, search_flags, fb->text_buf, &fb->text_len, STRBUF_SZ, nk_filter_default);
+		if (active & NK_EDIT_COMMITED && fb->text_len) {
+
+			search_filenames(fb);
+			memset(&rview, 0, sizeof(rview));
+			fb->is_search_results = TRUE;
+
+			// use no selection to ignore the "Enter" in events so we don't exit
+			// list mode.  Could add state to handle keeping the selection but meh
+			g->selection = -1;  // no selection among search
+			//nk_edit_unfocus(ctx);
+		}
 
 		// only enable "Open" button if you have a selection
 		if (g->selection < 0) {
@@ -844,7 +880,8 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 		}
 		nk_widget_disable_end(ctx);
 
-		if (!fb->is_recents) {
+		// don't show path if recents or in root directory "/"
+		if (!fb->is_recents && fb->dir[1]) {
 			// method 1
 			// breadcrumb buttons
 			{
@@ -1020,42 +1057,97 @@ int do_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_
 			
 			nk_layout_row_dynamic(ctx, scr_h-GUI_BAR_HEIGHT-2*search_height, 1);
 
-			if (nk_list_view_begin(ctx, &lview, "File List", NK_WINDOW_BORDER, FONT_SIZE+16, f->size)) {
-				// TODO ratio layout 0.5 0.2 0.3 ? give or take
-				//nk_layout_row_dynamic(ctx, 0, 3);
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
-				for (int i=lview.begin; i<lview.end; ++i) {
-					assert(i < f->size);
-					// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
-					// also thumb_sel serves the same/similar purpose
-					is_selected = g->selection == i;
-					if (nk_selectable_label(ctx, f->a[i].name, NK_TEXT_LEFT, &is_selected)) {
-						if (is_selected) {
-							g->selection = i;
-						} else {
-							if (f->a[i].size == -1) {
-								switch_dir(fb, f->a[i].path);
-								break;
+
+			if (fb->is_search_results) {
+				if (!fb->search_results.size) {
+					if (nk_button_label(ctx, "No matching results")) {
+						fb->is_search_results = FALSE;
+						fb->text_buf[0] = 0;
+						fb->text_len = 0;
+						g->selection = -1;
+						g->list_setscroll = SDL_TRUE;
+					}
+				} else {
+					if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, FONT_SIZE+16, fb->search_results.size)) {
+						nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
+						int i;
+						for (int j=rview.begin; j<rview.end; ++j) {
+							i = fb->search_results.a[j];
+							// TODO Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
+							// also thumb_sel serves the same/similar purpose
+							is_selected = g->selection == j;
+							if (nk_selectable_label(ctx, f->a[i].name, NK_TEXT_LEFT, &is_selected)) {
+								if (is_selected) {
+									g->selection = j;
+								} else {
+									// could support unselecting, esp. with CTRL somehow if I ever allow
+									// multiple selection
+									// g->selection = -1;
+
+									// for now, treat clicking a selection as a "double click" ie same as return
+									if (f->a[i].size == -1) {
+										switch_dir(fb, f->a[i].path);
+										break;
+									} else {
+										strncpy(fb->file, f->a[i].path, MAX_PATH_LEN);
+										ret = 0;
+									}
+									//break; //?
+								}
+							}
+							nk_label(ctx, f->a[i].size_str, NK_TEXT_RIGHT);
+							nk_label(ctx, f->a[i].mod_str, NK_TEXT_RIGHT);
+						}
+						list_height = ctx->current->layout->clip.h; // ->bounds.h?
+						nk_list_view_end(&rview);
+					}
+				}
+				if (g->list_setscroll && (rview.end-rview.begin < f->size)) {
+					nk_uint x = 0, y;
+					int scroll_limit = rview.total_height - list_height; // little off
+					y = (g->selection/(float)(f->size-1) * scroll_limit) + 0.999f;
+					//nk_group_get_scroll(ctx, "Image List", &x, &y);
+					nk_group_set_scroll(ctx, "Result List", x, y);
+					g->list_setscroll = SDL_FALSE;
+				}
+			} else {
+				if (nk_list_view_begin(ctx, &lview, "File List", NK_WINDOW_BORDER, FONT_SIZE+16, f->size)) {
+					// TODO ratio layout 0.5 0.2 0.3 ? give or take
+					//nk_layout_row_dynamic(ctx, 0, 3);
+					nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
+					for (int i=lview.begin; i<lview.end; ++i) {
+						assert(i < f->size);
+						// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
+						// also thumb_sel serves the same/similar purpose
+						is_selected = g->selection == i;
+						if (nk_selectable_label(ctx, f->a[i].name, NK_TEXT_LEFT, &is_selected)) {
+							if (is_selected) {
+								g->selection = i;
 							} else {
-								strncpy(fb->file, f->a[i].path, MAX_PATH_LEN);
-								ret = 0;
+								if (f->a[i].size == -1) {
+									switch_dir(fb, f->a[i].path);
+									break;
+								} else {
+									strncpy(fb->file, f->a[i].path, MAX_PATH_LEN);
+									ret = 0;
+								}
 							}
 						}
+						nk_label(ctx, f->a[i].size_str, NK_TEXT_RIGHT);
+						nk_label(ctx, f->a[i].mod_str, NK_TEXT_RIGHT);
 					}
-					nk_label(ctx, f->a[i].size_str, NK_TEXT_RIGHT);
-					nk_label(ctx, f->a[i].mod_str, NK_TEXT_RIGHT);
+					list_height = ctx->current->layout->clip.h; // ->bounds.h?
+					nk_list_view_end(&lview);
 				}
-				list_height = ctx->current->layout->clip.h; // ->bounds.h?
-				nk_list_view_end(&lview);
-			}
 
-			if (g->list_setscroll && (lview.end-lview.begin < f->size)) {
-				nk_uint x = 0, y;
-				int scroll_limit = lview.total_height - list_height; // little off
-				y = (g->selection/(float)(f->size-1) * scroll_limit) + 0.999f;
-				//nk_group_get_scroll(ctx, "Image List", &x, &y);
-				nk_group_set_scroll(ctx, "File List", x, y);
-				g->list_setscroll = SDL_FALSE;
+				if (g->list_setscroll && (lview.end-lview.begin < f->size)) {
+					nk_uint x = 0, y;
+					int scroll_limit = lview.total_height - list_height; // little off
+					y = (g->selection/(float)(f->size-1) * scroll_limit) + 0.999f;
+					//nk_group_get_scroll(ctx, "Image List", &x, &y);
+					nk_group_set_scroll(ctx, "File List", x, y);
+					g->list_setscroll = SDL_FALSE;
+				}
 			}
 			nk_group_end(ctx);
 		}
@@ -1133,6 +1225,7 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 void free_file_browser(file_browser* fb)
 {
 	cvec_free_file(&fb->files);
+	cvec_free_i(&fb->search_results);
 	memset(fb, 0, sizeof(file_browser));
 }
 
@@ -1247,6 +1340,48 @@ char* uri_decode(const char* str)
 	return dst;
 }
 
+/** Read file into into allocated string, return in *out
+ * Data is NULL terminated.  file is closed before returning (since you
+ * just read the entire file ...). */
+int file_read(FILE* file, char** out)
+{
+	assert(file);
+	assert(out);
+
+	u8* data = NULL;
+	long size;
+
+	fseek(file, 0, SEEK_END);
+	size = ftell(file);
+	if (size <= 0) {
+		if (size == -1)
+			perror("ftell failure");
+		fclose(file);
+		return 0;
+	}
+
+	data = (u8*)malloc(size+1);
+	if (!data) {
+		fclose(file);
+		return 0;
+	}
+
+	rewind(file);
+	if (!fread(data, size, 1, file)) {
+		perror("fread failure");
+		fclose(file);
+		free(data);
+		return 0;
+	}
+
+	data[size] = 0; /* null terminate in all cases even if reading binary data */
+
+	*out = data;
+
+	fclose(file);
+	return size;
+}
+
 int gnome_recents(cvector_str* recents, void* userdata)
 {
 	assert(recents);
@@ -1265,10 +1400,7 @@ int gnome_recents(cvector_str* recents, void* userdata)
 	char* text = NULL;
 	int file_len = 0;
 
-	// TODO file_read is only thing from c_utils.., replace with text version
-	c_array out = {0};
-	if (!(file_len = file_read(recents_file, &out))) {
-	//if (!(file_len = file_read(recents_file, &text))) {
+	if (!(file_len = file_read(recents_file, &text))) {
 		// empty file
 		return 0;
 	}
@@ -1276,9 +1408,7 @@ int gnome_recents(cvector_str* recents, void* userdata)
 	const char needle[] = "bookmark href=\"file://";
 	int needle_len = strlen(needle);
 
-	text = out.data;
 	char* start_search = text;
-
 	char* sep;
 
 	char* result = NULL;
@@ -1307,6 +1437,47 @@ int gnome_recents(cvector_str* recents, void* userdata)
 }
 
 
+void search_filenames(file_browser* fb)
+{
+	// fast enough to do here?  I do it in events?
+	char* text = fb->text_buf;
+	text[fb->text_len] = 0;
+	
+	SDL_Log("Final text = \"%s\"\n", text);
+
+	// strcasestr is causing problems on windows
+	// so just convert to lower before using strstr
+	char lowertext[STRBUF_SZ] = { 0 };
+	char lowername[STRBUF_SZ] = { 0 };
+
+	// start at 1 to cut off '/'
+	for (int i=0; text[i]; ++i) {
+		lowertext[i] = tolower(text[i]);
+	}
+
+	cvector_file* files = &fb->files;
+
+	// it'd be kind of cool to add results of multiple searches together if we leave this out
+	// of course there might be duplicates.  Or we could make it search within the existing
+	// search results, so consecutive searches are && together...
+	fb->search_results.size = 0;
+	
+	int j;
+	for (int i=0; i<files->size; ++i) {
+
+		for (j=0; files->a[i].name[j]; ++j) {
+			lowername[j] = tolower(files->a[i].name[j]);
+		}
+		lowername[j] = 0;
+
+		// searching name since I'm showing names not paths in the list
+		if (strstr(lowername, lowertext)) {
+			SDL_Log("Adding %s\n", files->a[i].path);
+			cvec_push_i(&fb->search_results, i);
+		}
+	}
+	SDL_Log("found %d matches\n", (int)fb->search_results.size);
+}
 
 
 
