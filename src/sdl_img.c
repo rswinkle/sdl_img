@@ -967,6 +967,7 @@ int gen_thumbs(void* data)
 				SDL_Log("Couldn't curl %d\n", i);
 				free(g->files.a[i].path);
 				g->files.a[i].path = NULL;
+				g->files.a[i].name = NULL;
 				g->has_bad_paths = SDL_TRUE;
 				continue;
 			}
@@ -1370,6 +1371,7 @@ int attempt_image_load(int last, img_state* img)
 		if (!ret) {
 			free(g->files.a[i].path);
 			g->files.a[i].path = NULL;
+			g->files.a[i].name = NULL;
 			g->has_bad_paths = SDL_TRUE;
 		}
 	}

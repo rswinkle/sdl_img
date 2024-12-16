@@ -229,6 +229,9 @@ void draw_gui(struct nk_context* ctx)
 	int active;
 	float search_height;
 
+	char* name;
+
+	static const char invalid_img[] = "Could Not Load";
 	static struct nk_list_view lview, rview;
 	static float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
 	static int splitter_down = 0;
@@ -360,7 +363,9 @@ void draw_gui(struct nk_context* ctx)
 							// TODO Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
 							// also thumb_sel serves the same/similar purpose
 							is_selected = g->selection == j;
-							if (nk_selectable_label(ctx, g->files.a[i].name, NK_TEXT_LEFT, &is_selected)) {
+							name = g->files.a[i].name;
+							if (!name) name = (char*)invalid_img;
+							if (nk_selectable_label(ctx, name, NK_TEXT_LEFT, &is_selected)) {
 								if (is_selected) {
 									g->selection = j;
 								} else {
@@ -405,7 +410,9 @@ void draw_gui(struct nk_context* ctx)
 						// Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
 						// also thumb_sel serves the same/similar purpose
 						is_selected = g->selection == i;
-						if (nk_selectable_label(ctx, g->files.a[i].name, NK_TEXT_LEFT, &is_selected)) {
+						name = g->files.a[i].name;
+						if (!name) name = (char*)invalid_img;
+						if (nk_selectable_label(ctx, name, NK_TEXT_LEFT, &is_selected)) {
 							if (is_selected) {
 								g->selection = i;
 							} else {
@@ -530,7 +537,7 @@ void draw_gui(struct nk_context* ctx)
 				if (nk_selectable_label(ctx, "Fullscreen", NK_TEXT_LEFT, &g->fullscreen)) {
 					set_fullscreen();
 				}
-				nk_label(ctx, "CTRL+F or F11", NK_TEXT_RIGHT);
+				nk_label(ctx, "CTRL+F/F11", NK_TEXT_RIGHT);
 
 				if (nk_selectable_label(ctx, "Best fit", NK_TEXT_LEFT, &g->fill_mode)) {
 					if (!g->img_focus) {

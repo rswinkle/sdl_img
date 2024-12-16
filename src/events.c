@@ -1073,6 +1073,8 @@ int handle_events_normally()
 					// no input for the current frame after CTRL+V? can I do
 					// that without breaking the GUI?
 					copy_escape = do_copy();
+				} else {
+					remove_bad_paths();
 				}
 			break;
 
