@@ -1269,14 +1269,20 @@ int handle_events_normally()
 				if (!(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					do_zoom(-KEY_ZOOM, SDL_FALSE);
 				} else {
+					// Should MINUS slow it down or decrease the delay amount?
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							if (g->img[i].frames > 1)
-								g->img[i].delay += 10;
+								for (int j=0; j<g->img[i].frames; ++j) {
+									g->img[i].delays[j] += 10;
+								}
 						}
 					} else {
-						if (g->img_focus->frames > 1)
-							g->img_focus->delay += 10;
+						if (g->img_focus->frames > 1) {
+							for (int j=0; j<g->img_focus->frames; ++j) {
+								g->img_focus->delays[j] += 10;
+							}
+						}
 					}
 				}
 				break;
@@ -1288,14 +1294,18 @@ int handle_events_normally()
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							if (g->img[i].frames > 1) {
-								g->img[i].delay -= 10;
-								g->img[i].delay = MAX(MIN_GIF_DELAY, g->img[i].delay);
+								for (int j=0; j<g->img[i].frames; ++j) {
+									g->img[i].delays[j] -= 10;
+									g->img[i].delays[j] = MAX(MIN_GIF_DELAY, g->img[i].delays[j]);
+								}
 							}
 						}
 					} else {
 						if (g->img_focus->frames > 1) {
-							g->img_focus->delay -= 10;
-							g->img_focus->delay = MAX(MIN_GIF_DELAY, g->img_focus->delay);
+							for (int j=0; j<g->img_focus->frames; ++j) {
+								g->img_focus->delays[j] -= 10;
+								g->img_focus->delays[j] = MAX(MIN_GIF_DELAY, g->img_focus->delays[j]);
+							}
 						}
 					}
 				}
@@ -1333,20 +1343,26 @@ int handle_events_normally()
 			if (e.wheel.direction != SDL_MOUSEWHEEL_NORMAL)
 				scroll_y = -scroll_y;
 
+			int amt = scroll_y*10;
 			if (!g->progress_hovered) {
 				if (!(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
 					do_zoom(scroll_y*SCROLL_ZOOM, SDL_TRUE);
 				} else if (!g->img_focus) {
 					for (int i=0; i<g->n_imgs; ++i) {
 						if (g->img[i].frames > 1) {
-							g->img[i].delay -= scroll_y*10;
-							g->img[i].delay = MAX(MIN_GIF_DELAY, g->img[i].delay);
+							for (int j=0; j<g->img[i].frames; ++j) {
+								g->img[i].delays[j] -= amt;
+								g->img[i].delays[j] = MAX(MIN_GIF_DELAY, g->img[i].delays[j]);
+							}
+							printf("new delays[0]: %d\n", g->img[i].delays[0]);
 						}
 					}
 				} else {
 					if (g->img_focus->frames > 1) {
-						g->img_focus->delay -= scroll_y*10;
-						g->img_focus->delay = MAX(MIN_GIF_DELAY, g->img_focus->delay);
+						for (int j=0; j<g->img_focus->frames; ++j) {
+							g->img_focus->delays[j] -= amt;
+							g->img_focus->delays[j] = MAX(MIN_GIF_DELAY, g->img_focus->delays[j]);
+						}
 					}
 				}
 			} else {

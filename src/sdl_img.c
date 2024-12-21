@@ -107,7 +107,7 @@ enum {
 
 #define PATH_SEPARATOR '/'
 #define PAN_RATE 0.05
-#define MAX_GIF_FPS 120
+#define MAX_GIF_FPS 100
 #define MIN_GIF_DELAY (1000/MAX_GIF_FPS)
 #define DFLT_GIF_FPS 20
 #define DFLT_GIF_DELAY (1000/DFLT_GIF_FPS)
@@ -233,7 +233,7 @@ typedef struct img_state
 	int index;
 
 	nk_size frame_i;
-	int delay; // just use the same delay for every frame
+	u16* delays;
 	int frames;
 	int frame_capacity;
 	int frame_timer;
@@ -679,8 +679,11 @@ void clear_img(img_state* img)
 	//ones logic is based on
 	//stbi_image_free(img->pixels);
 	free(img->pixels);
+	free(img->delays); // NULL or valid
+
 	img->fullpath = NULL; // now just points to file.path so don't free
 	img->pixels = NULL;
+	img->delays = NULL;
 	img->frames = 0;
 	img->rotdegs = 0;
 	img->edited = NOT_EDITED;
@@ -1115,7 +1118,7 @@ void print_img_state(img_state* img)
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "WxH = %dx%d\n", img->w, img->h);
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "index = %d\n", img->index);
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "rotdegs = %d\n", img->rotdegs);
-	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "frame_i = %d\ndelay = %d\nframes = %d\nframe_cap = %d\n", img->frame_i, img->delay, img->frames, img->frame_capacity);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "frame_i = %d\ndelay = %d\nframes = %d\nframe_cap = %d\n", img->frame_i, (img->delays) ? img->delays[0] : 0, img->frames, img->frame_capacity);
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "frame_timer = %d\nlooped = %d\n", img->frame_timer, img->looped);
 
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "tex = %p\n", img->tex);
@@ -1166,13 +1169,14 @@ int mkdir_p(const char* path, mode_t mode)
 
 int load_image(const char* fullpath, img_state* img, int make_textures)
 {
-	int frames, n, delay;
+	int frames, n;
+	u16* delays = NULL;
 
 	// img->frames should always be 0 and there should be no allocated textures
 	// in tex because clear_img(img) should always have been called before
 
 	SDL_Log("loading %s\n", fullpath);
-	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, STBI_rgb_alpha, &frames, &delay);
+	img->pixels = stbi_xload(fullpath, &img->w, &img->h, &n, STBI_rgb_alpha, &frames, &delays);
 	if (!img->pixels) {
 		SDL_Log("failed to load %s: %s\n", fullpath, stbi_failure_reason());
 		return 0;
@@ -1195,16 +1199,20 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 		img->frame_capacity = frames;
 	}
 
-	//gif delay is in 100ths, ticks are 1000ths, but newer stb_image converts for us
-	//assume that the delay is the same for all frames (never seen anything else anyway)
+	//gif delays is in 100ths, ticks are 1000ths, but newer stb_image converts for us
 	//and if delay is 0, default to DFLT_GIF_FPS fps
 	img->looped = 1;
 	img->paused = 0;
 	if (frames > 1) {
 		img->looped = 0;
-		img->delay = (delay) ? delay : DFLT_GIF_DELAY;
-		img->delay = MAX(MIN_GIF_DELAY, img->delay);
-		SDL_Log("%d frames %d delay\n", frames, img->delay);
+		for (int i=0; i<frames; i++) {
+			if (!delays[i]) {
+				delays[i] = DFLT_GIF_DELAY;
+			}
+			delays[i] = MAX(MIN_GIF_DELAY, delays[i]);
+		}
+		img->delays = delays;
+		SDL_Log("%d frames, delays[0] = %d\n", frames, img->delays[0]);
 	}
 
 	img->frames = frames;
@@ -3181,9 +3189,10 @@ int main(int argc, char** argv)
 			// normal mode
 			for (int i=0; i<g->n_imgs; ++i) {
 				if (g->img[i].frames > 1) {
+					int frame = g->img[i].frame_i;
 					if (!g->progress_hovered && !g->img[i].paused) {
-						if (ticks - g->img[i].frame_timer >= g->img[i].delay) {
-							g->img[i].frame_i = (g->img[i].frame_i + 1) % g->img[i].frames;
+						if (ticks - g->img[i].frame_timer >= g->img[i].delays[frame]) {
+							g->img[i].frame_i = (frame + 1) % g->img[i].frames;
 							if (g->img[i].frame_i == 0)
 								g->img[i].looped = 1;
 							g->img[i].frame_timer = ticks; // should be set after present ...

@@ -7080,11 +7080,13 @@ static int stbi__gif_info(stbi__context *s, int *x, int *y, int *comp)
 }
 
 // animated gif
-STBIDEF stbi_uc *stbi_xload(char const *filename, int *x, int *y, int* comp, int req_comp, int *frames, int* delay)
+STBIDEF stbi_uc *stbi_xload(char const *filename, int *x, int *y, int* comp, int req_comp, int *frames, stbi__uint16** delays)
 {
    FILE *f;
    stbi__context s;
    stbi_uc *result = 0;
+   int delays_cap = 0;
+   stbi__uint16* l_delays = NULL;
 
    if (!(f = stbi__fopen(filename, "rb")))
       return stbi__errpuc("can't fopen", "Unable to open file");
@@ -7100,6 +7102,9 @@ STBIDEF stbi_uc *stbi_xload(char const *filename, int *x, int *y, int* comp, int
       stbi__gif g = { 0 };
       int stride;
 
+      delays_cap = 500;
+      l_delays = (stbi__uint16*)STBI_REALLOC(l_delays, delays_cap*sizeof(stbi__uint16));
+
       do {
          u = stbi__gif_load_next(&s, &g, comp, req_comp, two_back);
          if (u == (stbi_uc *)&s) u = 0;  // end of animated gif marker
@@ -7110,14 +7115,14 @@ STBIDEF stbi_uc *stbi_xload(char const *filename, int *x, int *y, int* comp, int
             *y = g.h;
             stride = g.w * g.h * 4;
 
-            // rarely changes, just use the first delay
-            // I would use the last except that some gifs pause on the last frame which
-            // makes the whole thing super slow
-            if (!layers)
-               *delay = g.delay;
+            if (layers == delays_cap) {
+               delays_cap *= 2;
+               l_delays = (stbi__uint16*)STBI_REALLOC(l_delays, delays_cap*sizeof(stbi__uint16));
+            }
+            l_delays[layers] = g.delay;
+
 
             ++layers;
-
             //out = (stbi_uc*) STBI_REALLOC(out, layers * (stride+2));
             out = (stbi_uc*) STBI_REALLOC(out, layers * stride);
 
@@ -7148,6 +7153,13 @@ STBIDEF stbi_uc *stbi_xload(char const *filename, int *x, int *y, int* comp, int
       if (req_comp && req_comp != 4)
          out = stbi__convert_format(out, 4, req_comp, layers * g.w, g.h);
 
+
+      if (delays) {
+         *delays = (stbi__uint16*)STBI_REALLOC(l_delays, layers*sizeof(stbi__uint16));
+      } else {
+          free(l_delays);
+      }
+
       *frames = layers;
       result = out;
 
@@ -7155,7 +7167,9 @@ STBIDEF stbi_uc *stbi_xload(char const *filename, int *x, int *y, int* comp, int
       stbi__result_info ri;
       result = (stbi_uc*)stbi__load_main(&s, x, y, comp, req_comp, &ri, 8);
       *frames = !!result;
-      *delay = 0;
+      if (delays) {
+        *delays = NULL;
+      }
    }
 
    fclose(f);
