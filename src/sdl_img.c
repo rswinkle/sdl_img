@@ -1211,10 +1211,10 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 			}
 			delays[i] = MAX(MIN_GIF_DELAY, delays[i]);
 		}
-		img->delays = delays;
-		SDL_Log("%d frames, delays[0] = %d\n", frames, img->delays[0]);
+		SDL_Log("%d frames, delays[0] = %d\n", frames, delays[0]);
 	}
 
+	img->delays = delays; // should be NULL or valid
 	img->frames = frames;
 	img->frame_i = 0;
 
@@ -3190,7 +3190,7 @@ int main(int argc, char** argv)
 			for (int i=0; i<g->n_imgs; ++i) {
 				if (g->img[i].frames > 1) {
 					int frame = g->img[i].frame_i;
-					if (!g->progress_hovered && !g->img[i].paused) {
+					if (!g->img[i].paused && (!g->progress_hovered || g->img_focus != &g->img[i])) {
 						if (ticks - g->img[i].frame_timer >= g->img[i].delays[frame]) {
 							g->img[i].frame_i = (frame + 1) % g->img[i].frames;
 							if (g->img[i].frame_i == 0)

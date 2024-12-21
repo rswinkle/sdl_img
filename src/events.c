@@ -977,6 +977,9 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_0:
 				g->img_focus = NULL;
+				if (g->n_imgs > 1) {
+					g->progress_hovered = SDL_FALSE;
+				}
 				if (IS_VIEW_RESULTS())
 					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->search_results.a[g->img[0].index]].path, title_buf));
 				else
@@ -1366,14 +1369,20 @@ int handle_events_normally()
 					}
 				}
 			} else {
-				int f = g->img[0].frame_i;
+				int f;
+				img = g->img_focus;
+				if (g->n_imgs == 1) {
+					img = &g->img[0];
+				}
+
+				f = img->frame_i;
 				f += scroll_y;
 				if (f < 0) {
-					f += g->img[0].frames;
+					f += img->frames;
 				}
-				f %= g->img[0].frames;
+				f %= img->frames;
 
-				g->img[0].frame_i = f;
+				img->frame_i = f;
 			}
 			break;
 

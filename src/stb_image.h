@@ -7155,7 +7155,12 @@ STBIDEF stbi_uc *stbi_xload(char const *filename, int *x, int *y, int* comp, int
 
 
       if (delays) {
-         *delays = (stbi__uint16*)STBI_REALLOC(l_delays, layers*sizeof(stbi__uint16));
+         if (layers > 1) {
+            *delays = (stbi__uint16*)STBI_REALLOC(l_delays, layers*sizeof(stbi__uint16));
+         } else {
+            *delays = NULL;
+            free(l_delays);
+         }
       } else {
           free(l_delays);
       }

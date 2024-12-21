@@ -875,9 +875,13 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 
 	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR))
 	{
-		if (g->n_imgs == 1) {
-			img_state* img = &g->img[0];
+		img_state* img = g->img_focus;
 
+		if (g->n_imgs == 1) {
+			img = &g->img[0];
+		}
+
+		if (img) {
 			size_str = g->files.a[img->index].size_str;
 
 			// 2 options when viewing results, showing n/total like normal (so it'd jump between matches)
