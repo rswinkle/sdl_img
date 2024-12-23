@@ -28,8 +28,11 @@ else
 	#OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall -DSDL_DISABLE_IMMINTRIN_H
 endif
 
+#CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.7/src
+#LIBS=`pkg-config sdl2 libcurl --libs` -lm -Llua-5.4.7/src -llua
+
 CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.7/src
-LIBS=`pkg-config sdl2 libcurl --libs` -lm -Llua-5.4.7/src -llua
+LIBS=`pkg-config sdl2 libcurl --libs` -lm 
 
 DESTDIR=/usr/local
 
@@ -39,8 +42,8 @@ PKG_DIR=$(PKGDIR)$(DESTDIR)
 
 all: $(PLAT)
 
-linux: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear.o lua
-	$(CC) $(OPTS) src/sdl_img.c nuklear.o -o sdl_img $(CFLAGS) $(LIBS)
+linux: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear.o minilua.o
+	$(CC) $(OPTS) src/sdl_img.c minilua.o nuklear.o -o sdl_img $(CFLAGS) $(LIBS)
 
 linux_package: sdl_img
 	mkdir -p $(PKG_DIR)/bin
@@ -70,10 +73,10 @@ nuklear.o: src/nuklear.h src/nuklear_sdl_renderer.h
 	$(CC) $(OPTS) -c src/nuklear.c `sdl2-config --cflags`
 
 minilua.o: src/minilua.c
-	$(CC) -c src/minilua.c -o minilua.o -lm
+	$(CC) $(OPTS) -c src/minilua.c -lm
 
-windows: nuklear.o lua_win
-	$(CC) $(OPTS) src/sdl_img.c nuklear.o -o sdl_img.exe $(CFLAGS) $(LIBS)
+windows: nuklear.o minilua.o
+	$(CC) $(OPTS) src/sdl_img.c nuklear.o minilua.o -o sdl_img.exe $(CFLAGS) $(LIBS)
 
 windows_package: windows
 	ldd sdl_img.exe | grep mingw64 | cut -d' ' -f3 | xargs -I{} cp {} package/
@@ -96,8 +99,8 @@ lua_win:
 lua_cross_win:
 	cd lua-5.4.7/src && $(MAKE) CC=win-clang PLAT=generic
 
-cross_win: nuklear.o lua_cross_win
-	win-clang $(OPTS) src/sdl_img.c nuklear.o -o sdl_img.exe $(CFLAGS) $(LIBS)
+cross_win: nuklear.o minilua.o
+	win-clang $(OPTS) src/sdl_img.c nuklear.o minilua.o -o sdl_img.exe $(CFLAGS) $(LIBS)
 
 cross_win_package: cross_win
 	#cat mingw_dll_list.txt | xargs -I{} cp {} package/
