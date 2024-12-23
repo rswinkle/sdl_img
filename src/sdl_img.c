@@ -2639,6 +2639,8 @@ void fix_thumb_sel(int dir)
 		g->thumb_sel = 0;
 	if (g->thumb_sel >= g->files.size)
 		g->thumb_sel = g->files.size-1;
+
+	// TODO redundant with bottom of handle_thumb_events()?
 	dir = (dir < 0) ? -1 : 1; // don't want to skip
 	// This can happen while thumbs are still being generated
 	// TODO think about this logic
@@ -3190,7 +3192,7 @@ int main(int argc, char** argv)
 			for (int i=0; i<g->n_imgs; ++i) {
 				if (g->img[i].frames > 1) {
 					int frame = g->img[i].frame_i;
-					if (!g->img[i].paused && (!g->progress_hovered || g->img_focus != &g->img[i])) {
+					if (!g->img[i].paused && (!g->progress_hovered || (g->n_imgs > 1 && g->img_focus != &g->img[i]))) {
 						if (ticks - g->img[i].frame_timer >= g->img[i].delays[frame]) {
 							g->img[i].frame_i = (frame + 1) % g->img[i].frames;
 							if (g->img[i].frame_i == 0)
