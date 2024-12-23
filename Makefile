@@ -28,8 +28,8 @@ else
 	#OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall -DSDL_DISABLE_IMMINTRIN_H
 endif
 
-CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.6/src
-LIBS=`pkg-config sdl2 libcurl --libs` -lm -Llua-5.4.6/src -llua
+CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.7/src
+LIBS=`pkg-config sdl2 libcurl --libs` -lm -Llua-5.4.7/src -llua
 
 DESTDIR=/usr/local
 
@@ -69,6 +69,9 @@ linux_package: sdl_img
 nuklear.o: src/nuklear.h src/nuklear_sdl_renderer.h
 	$(CC) $(OPTS) -c src/nuklear.c `sdl2-config --cflags`
 
+minilua.o: src/minilua.c
+	$(CC) -c src/minilua.c -o minilua.o -lm
+
 windows: nuklear.o lua_win
 	$(CC) $(OPTS) src/sdl_img.c nuklear.o -o sdl_img.exe $(CFLAGS) $(LIBS)
 
@@ -81,15 +84,17 @@ windows_package: windows
 	cp sdl_img.exe package/
 	makensis.exe make_installer.nsi
 
+
+
 lua:
-	$(MAKE) -C lua-5.4.6/
+	$(MAKE) -C lua-5.4.7/
 
 lua_win:
-	cd lua-5.4.6/src && $(MAKE) PLAT=mingw
+	cd lua-5.4.7/src && $(MAKE) PLAT=mingw
 
 # These are using github.com/Alexpux/MSYS2-Cross
 lua_cross_win:
-	cd lua-5.4.6/src && $(MAKE) CC=win-clang PLAT=generic
+	cd lua-5.4.7/src && $(MAKE) CC=win-clang PLAT=generic
 
 cross_win: nuklear.o lua_cross_win
 	win-clang $(OPTS) src/sdl_img.c nuklear.o -o sdl_img.exe $(CFLAGS) $(LIBS)
@@ -118,6 +123,6 @@ install: sdl_img
 
 clean:
 	rm -f sdl_img *.o *.exe
-	$(MAKE) -C lua-5.4.6/ clean
+	$(MAKE) -C lua-5.4.7/ clean
 	rm package/*.dll
 
