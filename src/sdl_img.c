@@ -77,6 +77,9 @@ enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
        MODE_CHANGE, THUMB_MODE, LIST_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, REMOVE_BAD,
        SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
 
+// return values for handle_selection(), says what the arg was
+enum { URL, DIRECTORY, IMAGE };
+
 // Better names/macros
 enum {
 	NORMAL           = 0x1,
@@ -1229,6 +1232,9 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 	return 1;
 }
 
+#define GET_EXT(s) strrchr(s, '.')
+
+
 // renamed to not conflict with <dirent.h>'s scandir
 // which I could probably use to accomplish  most of this...
 int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
@@ -1293,7 +1299,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 			continue;
 		}
 
-		ext = strrchr(entry->d_name, '.');
+		ext = GET_EXT(entry->d_name);
 
 #ifndef CHECK_IF_NO_EXTENSION
 		// only add supported extensions
@@ -1553,6 +1559,53 @@ int load_config()
 	return nk_true;
 }
 
+int handle_selection(char* path, int recurse)
+{
+	file f;
+	struct stat file_stat;
+	int len;
+	int ret = 0;
+
+	if (stat(path, &file_stat)) {
+		// assume it's a valid url, it will just skip over if it isn't
+		f.path = CVEC_STRDUP(path);
+		f.size = 0;
+		f.modified = 0;
+
+		// leave name as url so user knows why the other 2 are unknown
+		f.name = f.path;
+		strncpy(f.size_str, "unknown", SIZE_STR_BUF);
+		strncpy(f.mod_str, "unknown", MOD_STR_BUF);
+
+		cvec_push_file(&g->files, &f);
+
+		ret = URL;
+	} else if (S_ISDIR(file_stat.st_mode)) {
+		len = strlen(path);
+		if (path[len-1] == '/')
+			path[len-1] = 0;
+		myscandir(path, g->img_exts, g->n_exts, recurse);
+
+		ret = DIRECTORY;
+	} else if(S_ISREG(file_stat.st_mode)) {
+		f.path = CVEC_STRDUP(path);
+		f.size = file_stat.st_size;
+		f.modified = file_stat.st_mtime;
+		// TODO list cache members
+
+		bytes2str(f.size, f.size_str, SIZE_STR_BUF);
+		struct tm* tmp = localtime(&f.modified);
+		strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp); // %F %T
+		char* sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
+		f.name = (sep) ? sep+1 : f.path;
+
+		cvec_push_file(&g->files, &f);
+		ret = IMAGE;
+	}
+
+	return ret;
+}
+
 // simple way to handle both cases.  Will remove paths when/if I switch to
 // some other format for favorites, sqlite maybe?
 void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
@@ -1573,17 +1626,23 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 			continue;
 
 		len = strlen(s);
+		if (len < 2)
+			continue;
+
 		if (s[len-1] == '\n') {
 			len--;
 			s[len] = 0;
 		}
-		if (!len)
+
+		if (len < 2)
 			continue;
 
+		// TODO why did I do len-2 instead of len-1?
 		// handle quoted paths
 		if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
 			s[len-2] = 0;
 			memmove(s, &s[1], len-2);
+			if (len < 4) continue;
 		}
 		normalize_path(s);
 
@@ -2909,6 +2968,17 @@ int main(int argc, char** argv)
 				puts("Error missing list file following -l");
 				break;
 			}
+			// sanity check extension
+			char* ext = GET_EXT(argv[i+1]);
+			if (ext) {
+				for (int j=0; j<g->n_exts; ++j) {
+					if (!strcasecmp(ext, g->img_exts[j])) {
+						SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Trying to load a list with a recognized image extension (%s): %s\n", ext, argv[++i]);
+						cleanup(1, 0);
+					}
+				}
+			}
+
 			FILE* file = fopen(argv[++i], "r");
 			if (!file) {
 				SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to open %s: %s\n", argv[i], strerror(errno));
@@ -2980,39 +3050,9 @@ int main(int argc, char** argv)
 
 		} else {
 			normalize_path(argv[i]);
-			if (stat(argv[i], &file_stat)) {
-				// assume it's a valid url, it will just skip over if it isn't
-				f.path = CVEC_STRDUP(argv[i]);
-				f.size = 0;
-				f.modified = 0;
-
-				// leave name as url so user knows why the other 2 are unknown
-				f.name = f.path;
-				strncpy(f.size_str, "unknown", SIZE_STR_BUF);
-				strncpy(f.mod_str, "unknown", MOD_STR_BUF);
-
-				cvec_push_file(&g->files, &f);
-			} else if (S_ISDIR(file_stat.st_mode)) {
-				given_dir = 1;
-				len = strlen(argv[i]);
-				if (argv[i][len-1] == '/')
-					argv[i][len-1] = 0;
-				myscandir(argv[i], g->img_exts, g->n_exts, recurse);
-			} else if(S_ISREG(file_stat.st_mode)) {
-				img_args++;
-				f.path = CVEC_STRDUP(argv[i]);
-				f.size = file_stat.st_size;
-				f.modified = file_stat.st_mtime;
-				// TODO list cache members
-
-				bytes2str(f.size, f.size_str, SIZE_STR_BUF);
-				struct tm* tmp = localtime(&f.modified);
-				strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp); // %F %T
-				char* sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
-				f.name = (sep) ? sep+1 : f.path;
-
-				cvec_push_file(&g->files, &f);
-			}
+			int r = handle_selection(argv[i], recurse);
+			given_dir = r == DIRECTORY;
+			img_args += r == IMAGE;
 		}
 	}
 	if (!g->files.size) {
