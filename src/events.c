@@ -269,6 +269,24 @@ int handle_thumb_events()
 					}
 				}
 				break;
+			case SDLK_f:
+			case SDLK_b:
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					// TODO match vim behavior, doesn't jump a full page,
+					// jumps so the top row is the first row below the page
+					// so the amount depends on which row on the screen thumb_sel is on
+					int rows = g->thumb_rows;
+					g->thumb_start_row += (sym == SDLK_f) ? rows : -rows;
+					int tmp = g->thumb_sel % g->thumb_cols;
+					g->thumb_sel = g->thumb_start_row * g->thumb_cols + tmp;
+					g->thumb_sel += (sym == SDLK_b) ? (rows-1)*g->thumb_cols : 0;
+					fix_thumb_sel((sym == SDLK_f) ? 1 : -1);
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = SDL_TRUE;
+				}
+
+				break;
 			case SDLK_n:
 				if (g->state & SEARCH_RESULTS) {
 					if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
@@ -422,10 +440,12 @@ int handle_thumb_events()
 	}
 	nk_input_end(g->ctx);
 
-	if (g->thumb_start_row*g->thumb_cols + g->thumb_rows*g->thumb_cols >= g->files.size+g->thumb_cols)
-		g->thumb_start_row = (g->files.size / g->thumb_cols - g->thumb_rows+1);
-	if (g->thumb_start_row < 0)
+	if (g->thumb_start_row*g->thumb_cols + g->thumb_rows*g->thumb_cols >= g->files.size+g->thumb_cols) {
+		g->thumb_start_row = g->files.size / g->thumb_cols - g->thumb_rows+1;
+	}
+	if (g->thumb_start_row < 0) {
 		g->thumb_start_row = 0;
+	}
 
 	// can happen while thumbs are being generated/loaded
 	if (!g->thumbs.a[g->thumb_sel].tex) {
