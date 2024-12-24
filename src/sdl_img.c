@@ -225,6 +225,10 @@ CVEC_NEW_DEFS2(thumb_state, RESIZE)
 #include "string_compare.c"
 #include "file.c"
 
+#define FILE_TYPE_STR "Images"
+#define FB_LOG(A, ...) SDL_Log(A, __VA_ARGS__)
+#include "filebrowser.c"
+
 typedef struct img_state
 {
 	u8* pixels;
@@ -361,92 +365,6 @@ int text_len;
 char* composition;
 Sint32 cursor;
 Sint32 selection_len;
-
-// works same as SUSv2 libgen.h dirname except that
-// dirpath is user provided output buffer, assumed large
-// enough, return value is dirpath
-char* mydirname(const char* path, char* dirpath)
-{
-	if (!path || !path[0]) {
-		dirpath[0] = '.';
-		dirpath[1] = 0;
-		return dirpath;
-	}
-
-	char* last_slash = strrchr(path, PATH_SEPARATOR);
-	if (last_slash) {
-		strncpy(dirpath, path, last_slash-path);
-		dirpath[last_slash-path] = 0;
-	} else {
-		dirpath[0] = '.';
-		dirpath[1] = 0;
-	}
-
-	return dirpath;
-}
-
-// same as SUSv2 basename in libgen.h except base is output
-// buffer
-char* mybasename(const char* path, char* base)
-{
-	if (!path || !path[0]) {
-		base[0] = '.';
-		base[1] = 0;
-		return base;
-	}
-
-	int end = strlen(path) - 1;
-
-	if (path[end] == PATH_SEPARATOR)
-		end--;
-
-	int start = end;
-	while (path[start] != PATH_SEPARATOR && start != 0)
-		start--;
-	if (path[start] == PATH_SEPARATOR)
-		start++;
-
-	memcpy(base, &path[start], end-start+1);
-	base[end-start+1] = 0;
-
-	return base;
-}
-
-//stupid windows
-void normalize_path(char* path)
-{
-	for (int i=0; path[i]; ++i) {
-		if (path[i] == '\\')
-			path[i] = '/';
-	}
-}
-
-int bytes2str(int bytes, char* buf, int len)
-{
-	// MiB KiB? 2^10, 2^20?
-	// char* iec_sizes[3] = { "bytes", "KiB", "MiB" };
-	char* si_sizes[3] = { "bytes", "KB", "MB" }; // GB?  no way
-
-	char** sizes = si_sizes;
-	int i = 0;
-	double sz = bytes;
-	if (sz >= 1000000) {
-		sz /= 1000000;
-		i = 2;
-	} else if (sz >= 1000) {
-		sz /= 1000;
-		i = 1;
-	} else {
-		i = 0;
-	}
-
-	int ret = snprintf(buf, len, ((i) ? "%.1f %s" : "%.0f %s") , sz, sizes[i]);
-	if (ret >= len)
-		return 0;
-
-	return 1;
-}
-
 
 // has to come after all the enums/macros/struct defs and bytes2str 
 #include "gui.c"
@@ -3056,6 +2974,7 @@ int main(int argc, char** argv)
 		}
 	}
 	if (!g->files.size) {
+		// TODO open file_browser to allow user to select an image/folder
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "No images provided, exiting (empty list perhaps?)\n");
 		cleanup(1, 0);
 	}
