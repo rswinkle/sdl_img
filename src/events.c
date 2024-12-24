@@ -50,6 +50,171 @@ void discard_rotation(img_state* img)
 		SET_MODE8_SCR_RECTS();
 }
 
+int handle_fb_events(file_browser* fb, struct nk_context* ctx)
+{
+	SDL_Event e;
+	int sym;
+	int code, sort_timer;
+	int ret = 0;
+	int did_sort = 0;
+	//SDL_Keymod mod_state = SDL_GetModState();
+	
+	cvector_file* f = &fb->files;
+
+	nk_input_begin(ctx);
+	while (SDL_PollEvent(&e)) {
+		// TODO edit menu/GUI as appropriate for list mode, see which
+		// actions make sense or are worth supporting (re-evaluate if I
+		// have some sort of preview)
+		if (e.type == g->userevent) {
+			code = e.user.code;
+			switch (code) {
+			case SORT_NAME:
+				SDL_Log("Starting sort by name\n");
+				sort_timer = SDL_GetTicks();
+				if (fb->sorted_state != NAME_UP) {
+					qsort(f->a, f->size, sizeof(file), filename_cmp_lt);
+					fb->sorted_state = NAME_UP;
+					fb->c_func = filename_cmp_lt;
+				} else {
+					qsort(f->a, f->size, sizeof(file), filename_cmp_gt);
+					fb->sorted_state = NAME_DOWN;
+					fb->c_func = filename_cmp_gt;
+				}
+				did_sort = TRUE;
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
+				break;
+			case SORT_SIZE:
+				SDL_Log("Starting sort by size\n");
+				sort_timer = SDL_GetTicks();
+				if (fb->sorted_state != SIZE_UP) {
+					qsort(f->a, f->size, sizeof(file), filesize_cmp_lt);
+					fb->sorted_state = SIZE_UP;
+					fb->c_func = filesize_cmp_lt;
+				} else {
+					qsort(f->a, f->size, sizeof(file), filesize_cmp_gt);
+					fb->sorted_state = SIZE_DOWN;
+					fb->c_func = filesize_cmp_gt;
+				}
+				did_sort = TRUE;
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
+				break;
+			case SORT_MODIFIED:
+				SDL_Log("Starting sort by modified\n");
+				sort_timer = SDL_GetTicks();
+				if (fb->sorted_state != MODIFIED_UP) {
+					qsort(f->a, f->size, sizeof(file), filemodified_cmp_lt);
+					fb->sorted_state = MODIFIED_UP;
+					fb->c_func = filemodified_cmp_lt;
+				} else {
+					qsort(f->a, f->size, sizeof(file), filemodified_cmp_gt);
+					fb->sorted_state = MODIFIED_DOWN;
+					fb->c_func = filemodified_cmp_gt;
+				}
+				did_sort = TRUE;
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
+				break;
+			default:
+				SDL_Log("Unknown user event!");
+			}
+			if (did_sort && fb->is_search_results) {
+				fb_search_filenames(fb);
+			}
+			continue;
+		}
+		switch (e.type) {
+		case SDL_QUIT:
+			// don't think I really need these since we'll be exiting anyway
+			nk_input_end(ctx);
+			return 1;
+		case SDL_KEYUP:
+			sym = e.key.keysym.sym;
+			switch (sym) {
+			case SDLK_ESCAPE:
+				if (fb->is_search_results) {
+					fb->text_buf[0] = 0;
+					fb->text_len = 0;
+					fb->is_search_results = FALSE;
+					if (fb->selection >= 0) {
+						fb->selection = fb->search_results.a[fb->selection];
+					}
+					fb->list_setscroll = TRUE;
+				} else {
+					nk_input_end(ctx);
+					return 1;
+				}
+				break;
+
+			// switch to normal mode on that image
+			case SDLK_RETURN:
+				if (fb->selection >= 0) {
+					int sel = (fb->is_search_results) ? fb->search_results.a[fb->selection] : fb->selection;
+					if (f->a[sel].size == -1) {
+						switch_dir(fb, f->a[sel].path);
+					} else {
+						strncpy(fb->file, f->a[sel].path, MAX_PATH_LEN);
+						ret = 1;
+					}
+				}
+				break;
+			}
+			break;
+
+		case SDL_KEYDOWN:
+			sym = e.key.keysym.sym;
+			switch (sym) {
+			// TODO navigate through the list mode like thumb mode ie vim?
+			case SDLK_UP:
+			case SDLK_DOWN:
+			case SDLK_k:
+			case SDLK_j:
+				//puts("arrow up/down");
+				fb->selection += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
+				if (fb->selection < 0)
+					fb->selection += f->size;
+				else
+					fb->selection %= f->size;
+				// TODO don't set unless necessary
+				fb->list_setscroll = TRUE;
+				break;
+			}
+
+		case SDL_WINDOWEVENT: {
+			//g->status = REDRAW;
+			int x, y;
+			SDL_GetWindowSize(g->win, &x, &y);
+			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
+			switch (e.window.event) {
+			case SDL_WINDOWEVENT_RESIZED:
+				g->scr_w = e.window.data1;
+				g->scr_h = e.window.data2;
+				break;
+			case SDL_WINDOWEVENT_SIZE_CHANGED:
+				g->scr_w = e.window.data1;
+				g->scr_h = e.window.data2;
+
+				break;
+			}
+		} break;
+
+		//case SDL_MOUSEBUTTONUP:
+			//printf("mouse click: %d, %d\n", e.button.x, e.button.y);
+
+		break;
+
+		// all other event types
+		default:
+			break;
+		}
+
+		nk_sdl_handle_event(&e);
+	}
+	nk_input_end(g->ctx);
+
+	return ret;
+}
+
+
 void handle_mouse_selection(SDL_Keymod mod_state)
 {
 	int i;
@@ -577,6 +742,7 @@ int handle_list_events()
 			case SDLK_ESCAPE:
 				if (g->state & SEARCH_RESULTS) {
 					text_buf[0] = 0;
+
 					//memset(text_buf, 0, text_len+1);
 					text_len = 0;
 
@@ -1482,11 +1648,17 @@ int handle_events_normally()
 
 int handle_events()
 {
-	if (g->state & (NORMAL | VIEW_RESULTS))
-		return handle_events_normally();
+	if (g->state & FILE_SELECTION) {
+		return handle_fb_events(&g->filebrowser, g->ctx);
+	}
 
-	if (IS_LIST_MODE())
+	if (g->state & (NORMAL | VIEW_RESULTS)) {
+		return handle_events_normally();
+	}
+
+	if (IS_LIST_MODE()) {
 		return handle_list_events();
+	}
 
 	return handle_thumb_events();
 

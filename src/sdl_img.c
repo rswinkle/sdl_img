@@ -75,7 +75,8 @@ enum { DELAY, ALWAYS, NEVER };
 enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
        MODE_CHANGE, THUMB_MODE, LIST_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, REMOVE_BAD,
-       SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, NUM_USEREVENTS };
+       SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, PROCESS_SELECTION,
+       NUM_USEREVENTS };
 
 // return values for handle_selection(), says what the arg was
 enum { URL, DIRECTORY, IMAGE };
@@ -89,6 +90,7 @@ enum {
 	LIST_DFLT        = 0x10,
 	SEARCH_RESULTS   = 0x20,
 	VIEW_RESULTS     = 0x40,
+	FILE_SELECTION   = 0x80,
 };
 
 #define THUMB_MASK (THUMB_DFLT | THUMB_VISUAL | THUMB_SEARCH)
@@ -100,6 +102,7 @@ enum {
 #define IS_LIST_MODE() (g->state & LIST_MASK)
 #define IS_RESULTS() (g->state & RESULT_MASK)
 #define IS_VIEW_RESULTS() (g->state & VIEW_RESULTS)
+#define IS_FS_MODE() (g->state == FILE_SELECTION)
 
 #ifdef _WIN32
 #define mkdir(A, B) mkdir(A)
@@ -294,6 +297,9 @@ typedef struct global_state
 
 	cvector_file files;
 	cvector_str favs;
+
+	// for file selection
+	file_browser filebrowser;
 
 	const char** img_exts;
 	int n_exts;
@@ -1610,6 +1616,7 @@ void setup(int start_idx, int got_config)
 	char error_str[STRBUF_SZ] = { 0 };
 	char title_buf[STRBUF_SZ] = { 0 };
 	char buf[STRBUF_SZ] = { 0 };
+	char* img_name = NULL;
 
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 
@@ -1628,7 +1635,7 @@ void setup(int start_idx, int got_config)
 	g->progress_hovered = nk_false;
 	g->fill_mode = 0;
 	g->sorted_state = NAME_UP;  // ie by name ascending
-	g->state = NORMAL;
+	g->state = (start_idx >= 0) ? NORMAL : FILE_SELECTION;
 	g->has_bad_paths = SDL_FALSE;
 
 	setup_dirs();
@@ -1644,30 +1651,6 @@ void setup(int start_idx, int got_config)
 		fclose(f);
 	}
 
-	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Couldn't allocate tex array: %s\n", strerror(errno));
-		cleanup(0, 1);
-	}
-	g->img[0].frame_capacity = 100;
-
-	// TODO handle when first image (say in a list that's out of date) is gone/invalid
-	// loop through till valid
-	i64 last = start_idx;
-	int ret;
-	img_state* img = &g->img[0];
-	img->index = last;
-	do {
-		ret = attempt_image_load(last, img);
-		last = wrap(last+1);
-	} while (!ret && last != start_idx);
-
-	if (!ret) {
-		cleanup(0, 1);
-	}
-
-	img->index = wrap(last-1);
-	char* img_name = g->files.a[img->index].path;
-
 	SDL_Rect r;
 	if (SDL_GetDisplayUsableBounds(0, &r)) {
 		SDL_Log("Error getting usable bounds: %s\n", SDL_GetError());
@@ -1676,8 +1659,39 @@ void setup(int start_idx, int got_config)
 	} else {
 		SDL_Log("Usable Bounds: %d %d %d %d\n", r.x, r.y, r.w, r.h);
 	}
-	g->scr_w = MAX(g->img[0].w, START_WIDTH);
-	g->scr_h = MAX(g->img[0].h, START_HEIGHT);
+
+	if (!(g->img[0].tex = malloc(100*sizeof(SDL_Texture*)))) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Couldn't allocate tex array: %s\n", strerror(errno));
+		cleanup(0, 1);
+	}
+	g->img[0].frame_capacity = 100;
+
+	if (start_idx >= 0) {
+		// TODO handle when first image (say in a list that's out of date) is gone/invalid
+		// loop through till valid
+		i64 last = start_idx;
+		int ret;
+		img_state* img = &g->img[0];
+		img->index = last;
+		do {
+			ret = attempt_image_load(last, img);
+			last = wrap(last+1);
+		} while (!ret && last != start_idx);
+
+		if (!ret) {
+			cleanup(0, 1);
+		}
+
+		img->index = wrap(last-1);
+		img_name = g->files.a[img->index].path;
+
+		g->scr_w = MAX(g->img[0].w, START_WIDTH);
+		g->scr_h = MAX(g->img[0].h, START_HEIGHT);
+	} else {
+		g->scr_w = START_WIDTH;
+		g->scr_h = START_HEIGHT;
+	}
+
 	g->scr_w = MIN(g->scr_w, r.w - 20);  // to account for window borders/titlebar on non-X11 platforms
 	g->scr_h = MIN(g->scr_h, r.h - 40);
 
@@ -1698,7 +1712,11 @@ void setup(int start_idx, int got_config)
 
 	// TODO do I need to update scr_w and src_h if it's fullscreen?  is there an initial window event?
 
-	mybasename(img_name, title_buf);
+	if (start_idx >= 0) {
+		mybasename(img_name, title_buf);
+	} else {
+		snprintf(title_buf, STRBUF_SZ, "Select File/Folder");
+	}
 
 	g->win = SDL_CreateWindow(title_buf, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, g->scr_w, g->scr_h, win_flags);
 	if (!g->win) {
@@ -1787,13 +1805,16 @@ void setup(int start_idx, int got_config)
 
 	// can't create textures till after we have a renderer (otherwise we'd pass SDL_TRUE)
 	// to load_image above
-	if (!create_textures(&g->img[0]))
-		cleanup(1, 1);
+	if (start_idx >= 0) {
+		if (!create_textures(&g->img[0])) {
+			cleanup(1, 1);
+		}
 
-	SET_MODE1_SCR_RECT();
-	SDL_RenderClear(g->ren);
-	SDL_RenderCopy(g->ren, g->img[0].tex[g->img[0].frame_i], NULL, &g->img[0].disp_rect);
-	SDL_RenderPresent(g->ren);
+		SET_MODE1_SCR_RECT();
+		SDL_RenderClear(g->ren);
+		SDL_RenderCopy(g->ren, g->img[0].tex[g->img[0].frame_i], NULL, &g->img[0].disp_rect);
+		SDL_RenderPresent(g->ren);
+	}
 
 	if (!(g->cnd = SDL_CreateCond())) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR,"Error: %s\n", SDL_GetError());
@@ -2973,13 +2994,21 @@ int main(int argc, char** argv)
 			img_args += r == IMAGE;
 		}
 	}
-	if (!g->files.size) {
-		// TODO open file_browser to allow user to select an image/folder
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "No images provided, exiting (empty list perhaps?)\n");
-		cleanup(1, 0);
-	}
 
 	int start_index = 0;
+
+	if (!g->files.size) {
+		g->state = FILE_SELECTION;
+		start_index = -1;
+		init_file_browser(&g->filebrowser, default_exts, NUM_DFLT_EXTS, NULL, NULL, NULL);
+		g->filebrowser.selection = -1; // default to no selection
+		// TODO handle different recents functions for linux/windows
+		//init_file_browser(&g->filebrowser, default_exts, NUM_DFLT_EXTS, NULL, gnome_recents, NULL);
+
+		//SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "No images provided, exiting (empty list perhaps?)\n");
+		//cleanup(1, 0);
+	}
+
 
 	// if given a single local image, scan all the files in the same directory
 	// don't do this if a list and/or directory was given even if they were empty
@@ -3049,7 +3078,8 @@ int main(int argc, char** argv)
 		is_a_gif = 0;
 		ticks = SDL_GetTicks();
 
-		if ((!IS_LIST_MODE() || IS_VIEW_RESULTS()) && g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
+		// TODO this whole GUI logic system needs to be simplified a lot
+		if (!IS_FS_MODE() && (!IS_LIST_MODE() || IS_VIEW_RESULTS()) && g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
 			SDL_ShowCursor(SDL_DISABLE);
 			g->show_gui = nk_false;
 			g->progress_hovered = nk_false;
@@ -3057,74 +3087,60 @@ int main(int argc, char** argv)
 		}
 
 		// TODO testing, naming/organization of showing/hiding GUI vs mouse
-		if ((IS_LIST_MODE() && !IS_VIEW_RESULTS()) || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
+		if (IS_FS_MODE() || (IS_LIST_MODE() && !IS_VIEW_RESULTS()) || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			draw_gui(g->ctx);
 			g->status = REDRAW;
 		}
 
-		if (IS_THUMB_MODE() && !IS_VIEW_RESULTS()) {
-			SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
-			SDL_RenderSetClipRect(g->ren, NULL);
-			SDL_RenderClear(g->ren);
+		if (!IS_FS_MODE()) {
+			if (IS_THUMB_MODE() && !IS_VIEW_RESULTS()) {
+				SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
+				SDL_RenderSetClipRect(g->ren, NULL);
+				SDL_RenderClear(g->ren);
 
-			int start = g->thumb_start_row * g->thumb_cols;
-			int end = start + g->thumb_cols*g->thumb_rows;
-			int w = g->scr_w/(float)g->thumb_cols;
-			int h = g->scr_h/(float)g->thumb_rows;
-			SDL_Rect r = { 0, 0, w, h };
-			for (int i = start; i < end && i<g->files.size; ++i) {
-				// We create tex's in sequence and exit if any fail and
-				// erase them when the source image is deleted so
-				// we can break rather than continue here
-				//
-				// EDIT: with bad paths in list we could fail to create
-				// a thumb but we also have never removed bad paths/non-images
-				// so we have to continue
-				if (!g->thumbs.a[i].tex) {
-					//break;
-					continue;
-				}
-
-				// to fill screen use these rather than following 4 lines
-				//r.x = ((i-start) % g->thumb_cols) * w;
-				//r.y = ((i-start) / g->thumb_cols) * h;
-
-				// scales and centers thumbs appropriately
-				r.w = g->thumbs.a[i].w/(float)THUMBSIZE * w;
-				r.h = g->thumbs.a[i].h/(float)THUMBSIZE * h;
-				r.x = (((i-start) % g->thumb_cols) * w) + (w-r.w)/2;
-				r.y = (((i-start) / g->thumb_cols) * h) + (h-r.h)/2;
-
-				SDL_RenderCopy(g->ren, g->thumbs.a[i].tex, NULL, &r);
-				if (g->state & THUMB_DFLT) {
-					if (i == g->thumb_sel) {
-						SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
-						// have selection box take up whole screen space, easier to see
-						r.x = ((i-start) % g->thumb_cols) * w;
-						r.y = ((i-start) / g->thumb_cols) * h;
-						r.w = w;
-						r.h = h;
-						SDL_RenderDrawRect(g->ren, &r);
+				int start = g->thumb_start_row * g->thumb_cols;
+				int end = start + g->thumb_cols*g->thumb_rows;
+				int w = g->scr_w/(float)g->thumb_cols;
+				int h = g->scr_h/(float)g->thumb_rows;
+				SDL_Rect r = { 0, 0, w, h };
+				for (int i = start; i < end && i<g->files.size; ++i) {
+					// We create tex's in sequence and exit if any fail and
+					// erase them when the source image is deleted so
+					// we can break rather than continue here
+					//
+					// EDIT: with bad paths in list we could fail to create
+					// a thumb but we also have never removed bad paths/non-images
+					// so we have to continue
+					if (!g->thumbs.a[i].tex) {
+						//break;
+						continue;
 					}
-				} else if (g->state & THUMB_VISUAL) {
-					if ((i >= g->thumb_sel && i <= g->thumb_sel_end) ||
-					    (i <= g->thumb_sel && i >= g->thumb_sel_end)) {
-						// TODO why doesn't setting this in setup work?  Where else is it changed?
-						SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
 
-						SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
-						// have selection box take up whole screen space, easier to see
-						r.x = ((i-start) % g->thumb_cols) * w;
-						r.y = ((i-start) / g->thumb_cols) * h;
-						r.w = w;
-						r.h = h;
-						SDL_RenderFillRect(g->ren, &r);
-					}
-				} else if (g->state & SEARCH_RESULTS) {
+					// to fill screen use these rather than following 4 lines
+					//r.x = ((i-start) % g->thumb_cols) * w;
+					//r.y = ((i-start) / g->thumb_cols) * h;
 
-					// TODO optimize since results are in order
-					for (int k = 0; k<g->search_results.size; ++k) {
-						if (g->search_results.a[k] == i) {
+					// scales and centers thumbs appropriately
+					r.w = g->thumbs.a[i].w/(float)THUMBSIZE * w;
+					r.h = g->thumbs.a[i].h/(float)THUMBSIZE * h;
+					r.x = (((i-start) % g->thumb_cols) * w) + (w-r.w)/2;
+					r.y = (((i-start) / g->thumb_cols) * h) + (h-r.h)/2;
+
+					SDL_RenderCopy(g->ren, g->thumbs.a[i].tex, NULL, &r);
+					if (g->state & THUMB_DFLT) {
+						if (i == g->thumb_sel) {
+							SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
+							// have selection box take up whole screen space, easier to see
+							r.x = ((i-start) % g->thumb_cols) * w;
+							r.y = ((i-start) / g->thumb_cols) * h;
+							r.w = w;
+							r.h = h;
+							SDL_RenderDrawRect(g->ren, &r);
+						}
+					} else if (g->state & THUMB_VISUAL) {
+						if ((i >= g->thumb_sel && i <= g->thumb_sel_end) ||
+					    	(i <= g->thumb_sel && i >= g->thumb_sel_end)) {
+							// TODO why doesn't setting this in setup work?  Where else is it changed?
 							SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
 
 							SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
@@ -3134,51 +3150,68 @@ int main(int argc, char** argv)
 							r.w = w;
 							r.h = h;
 							SDL_RenderFillRect(g->ren, &r);
-							break;
 						}
-					}
-					if (g->thumb_sel == i) {
-						SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
-						SDL_RenderDrawRect(g->ren, &r);
-					}
+					} else if (g->state & SEARCH_RESULTS) {
 
-				}
-			}
+						// TODO optimize since results are in order
+						for (int k = 0; k<g->search_results.size; ++k) {
+							if (g->search_results.a[k] == i) {
+								SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
 
-		} else if (!IS_LIST_MODE() || IS_VIEW_RESULTS()) {
-			// make above plain else to do transparently show image beneath list, could work as a preview...
-			// normal mode
-			for (int i=0; i<g->n_imgs; ++i) {
-				if (g->img[i].frames > 1) {
-					int frame = g->img[i].frame_i;
-					if (!g->img[i].paused && (!g->progress_hovered || (g->n_imgs > 1 && g->img_focus != &g->img[i]))) {
-						if (ticks - g->img[i].frame_timer >= g->img[i].delays[frame]) {
-							g->img[i].frame_i = (frame + 1) % g->img[i].frames;
-							if (g->img[i].frame_i == 0)
-								g->img[i].looped = 1;
-							g->img[i].frame_timer = ticks; // should be set after present ...
-							g->status = REDRAW;
+								SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
+								// have selection box take up whole screen space, easier to see
+								r.x = ((i-start) % g->thumb_cols) * w;
+								r.y = ((i-start) / g->thumb_cols) * h;
+								r.w = w;
+								r.h = h;
+								SDL_RenderFillRect(g->ren, &r);
+								break;
+							}
 						}
-					}
-					is_a_gif = 1;
-				}
-			}
+						if (g->thumb_sel == i) {
+							SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
+							SDL_RenderDrawRect(g->ren, &r);
+						}
 
-			if (g->show_gui || g->status == REDRAW) {
-				// gui drawing changes draw color so have to reset to black every time
-				SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
-				SDL_RenderSetClipRect(g->ren, NULL);
-				SDL_RenderClear(g->ren);
+					}
+				}
+
+			} else if (!IS_LIST_MODE() || IS_VIEW_RESULTS()) {
+				// make above plain else to do transparently show image beneath list, could work as a preview...
+				// normal mode
 				for (int i=0; i<g->n_imgs; ++i) {
-					SDL_RenderSetClipRect(g->ren, &g->img[i].scr_rect);
-					SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
-					print_img_state(&g->img[i]);
+					if (g->img[i].frames > 1) {
+						int frame = g->img[i].frame_i;
+						if (!g->img[i].paused && (!g->progress_hovered || (g->n_imgs > 1 && g->img_focus != &g->img[i]))) {
+							if (ticks - g->img[i].frame_timer >= g->img[i].delays[frame]) {
+								g->img[i].frame_i = (frame + 1) % g->img[i].frames;
+								if (g->img[i].frame_i == 0)
+									g->img[i].looped = 1;
+								g->img[i].frame_timer = ticks; // should be set after present ...
+								g->status = REDRAW;
+							}
+						}
+						is_a_gif = 1;
+					}
 				}
-				SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
+
+				if (g->show_gui || g->status == REDRAW) {
+					// gui drawing changes draw color so have to reset to black every time
+					SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
+					SDL_RenderSetClipRect(g->ren, NULL);
+					SDL_RenderClear(g->ren);
+					for (int i=0; i<g->n_imgs; ++i) {
+						SDL_RenderSetClipRect(g->ren, &g->img[i].scr_rect);
+						SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
+						print_img_state(&g->img[i]);
+					}
+					SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
+				}
 			}
 		}
+
 		// TODO ?
-		if ((IS_LIST_MODE() && !IS_VIEW_RESULTS()) || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
+		if (IS_FS_MODE() || (IS_LIST_MODE() && !IS_VIEW_RESULTS()) || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
 			nk_sdl_render(NK_ANTI_ALIASING_ON);
 			SDL_RenderSetScale(g->ren, 1, 1);
