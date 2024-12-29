@@ -91,6 +91,7 @@ enum {
 	SEARCH_RESULTS   = 0x20,
 	VIEW_RESULTS     = 0x40,
 	FILE_SELECTION   = 0x80,
+	SCANNING         = 0x100,
 };
 
 #define THUMB_MASK (THUMB_DFLT | THUMB_VISUAL | THUMB_SEARCH)
@@ -298,6 +299,8 @@ typedef struct global_state
 	cvector_file files;
 	cvector_str favs;
 
+	cvector_str sources;  // files/directories to scan etc.
+
 	// for file selection
 	file_browser filebrowser;
 
@@ -353,8 +356,11 @@ typedef struct global_state
 	int generating_thumbs;
 	int loading;
 	int done_loading;
-	SDL_cond* cnd;
-	SDL_mutex* mtx;
+	SDL_cond* img_loading_cnd;
+	SDL_mutex* img_loading_mtx;
+
+	SDL_cond* scanning_cnd;
+	SDL_mutex* scanning_mtx;
 
 	// debugging
 	FILE* logfile;
@@ -632,10 +638,10 @@ void cleanup(int ret, int called_setup)
 
 		// not really necessary to exit thread but
 		// valgrind reports it as possibly lost if not
-		SDL_LockMutex(g->mtx);
+		SDL_LockMutex(g->img_loading_mtx);
 		g->loading = EXIT;
-		SDL_CondSignal(g->cnd);
-		SDL_UnlockMutex(g->mtx);
+		SDL_CondSignal(g->img_loading_cnd);
+		SDL_UnlockMutex(g->img_loading_mtx);
 
 		for (int i=0; i<g->n_imgs; ++i) {
 			clear_img(&g->img[i]);
@@ -1324,12 +1330,12 @@ int load_new_images(void* data)
 	int last;
 
 	while (1) {
-		SDL_LockMutex(g->mtx);
+		SDL_LockMutex(g->img_loading_mtx);
 		while (g->loading < 2) {
-			SDL_CondWait(g->cnd, g->mtx);
+			SDL_CondWait(g->img_loading_cnd, g->img_loading_mtx);
 		}
 		load_what = g->loading;
-		SDL_UnlockMutex(g->mtx);
+		SDL_UnlockMutex(g->img_loading_mtx);
 
 		if (load_what == EXIT)
 			break;
@@ -1402,10 +1408,140 @@ int load_new_images(void* data)
 			}
 		}
 
-		SDL_LockMutex(g->mtx);
+		SDL_LockMutex(g->img_loading_mtx);
 		g->done_loading = load_what;
 		g->loading = 0;
-		SDL_UnlockMutex(g->mtx);
+		SDL_UnlockMutex(g->img_loading_mtx);
+	}
+
+	return 0;
+}
+
+int scan_sources(void* data)
+{
+	char dirpath[STRBUF_SZ] = { 0 };
+	char img_name[STRBUF_SZ] = { 0 };
+	char fullpath[STRBUF_SZ] = { 0 };
+
+	int given_list = 0;
+	int given_dir = 0;
+	int recurse = 0;
+	int img_args = 0;
+	file f;
+
+
+	cvector_str* srcs = &g->sources;
+	while (1) {
+		SDL_LockMutex(g->scanning_mtx);
+		while (!srcs->size) {
+			SDL_CondWait(g->scanning_cnd, g->scanning_mtx);
+		}
+		// anything here?
+		SDL_UnlockMutex(g->scanning_mtx);
+
+		given_list = 0;
+		given_dir = 0;
+		recurse = 0;
+		img_args = 0;
+
+		const char** a = srcs->a;
+		for (int i=0; i<srcs->size; ++i) {
+			if (!strcmp(a[i], "-l")) {
+
+				// sanity check extension
+				char* ext = GET_EXT(a[i+1]);
+				if (ext) {
+					for (int j=0; j<g->n_exts; ++j) {
+						if (!strcasecmp(ext, g->img_exts[j])) {
+							SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Trying to load a list with a recognized image extension (%s): %s\n", ext, a[++i]);
+							// TODO
+							cleanup(1, 0);
+						}
+					}
+				}
+
+				FILE* file = fopen(a[++i], "r");
+				if (!file) {
+					SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to open %s: %s\n", a[i], strerror(errno));
+					cleanup(1, 0);
+				}
+				given_list = 1;
+				read_list(&g->files, NULL, file);
+				fclose(file);
+			} else if (!strcmp(a[i], "-R")) {
+				recurse = 1;
+			} else if (!strcmp(a[i], "-r") || !strcmp(a[i], "--recursive")) {
+				myscandir(a[++i], g->img_exts, g->n_exts, SDL_TRUE);
+			} else {
+				int r = handle_selection(a[i], recurse);
+				given_dir = r == DIRECTORY;
+				img_args += r == IMAGE;
+			}
+		}
+
+		cvec_clear_str(srcs);
+
+
+		// if given a single local image, scan all the files in the same directory
+		// don't do this if a list and/or directory was given even if they were empty
+		if (g->files.size == 1 && img_args == 1 && !given_list && !given_dir) {
+			mydirname(g->files.a[0].path, dirpath);
+			mybasename(g->files.a[0].path, img_name);
+
+			// popm to not free the string and keep the file in case
+			// the start image is not added in the scan
+			cvec_popm_file(&g->files, &f);
+
+			myscandir(dirpath, g->img_exts, g->n_exts, recurse); // allow recurse for base case?
+
+			SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
+
+			snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, img_name);
+
+			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
+
+			SDL_Log("finding current image to update index\n");
+			// this is fine because it's only used when given a single image, which then scans
+			// only that directory, hence no duplicate filenames are possible
+			//
+			// in all other cases (list, multiple files/urls, directory(ies) or some
+			// combination of those) there is no "starting image", we just sort and
+			// start at the beginning of the g->files in those cases
+			file* res;
+			res = bsearch(&f, g->files.a, g->files.size, sizeof(file), filename_cmp_lt);
+			if (!res) {
+				SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not find starting image '%s' when scanning containing directory\n", img_name);
+				SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "This means it did not have a searched-for extension; adding to list and attempting load anyway\n");
+				int i;
+				for (i=0; i<g->files.size; i++) {
+					if (filename_cmp_lt(&f, &g->files.a[i]) <= 0) {
+						cvec_insert_file(&g->files, i, &f);
+						res = &g->files.a[i];
+						break;
+					}
+				}
+				if (i == g->files.size) {
+					cvec_push_file(&g->files, &f);
+					res = &g->files.a[i];
+				}
+			} else {
+				// no longer need this, it was found in the scan
+				free(f.path);
+			}
+			// I could change all indexes to i64 but but no one will
+			// ever open over 2^31-1 images so just explicitly convert
+			// from ptrdiff_t (i64) to int here and use ints everywhere
+			start_index =(int)(res - g->files.a);
+		} else {
+			SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
+			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
+		}
+
+
+		SDL_LockMutex(g->scanning_mtx);
+		//g->done_load;
+		//g->loading = 0;
+		SDL_UnlockMutex(g->scanning_mtx);
 	}
 
 	return 0;
@@ -1609,6 +1745,45 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 	}
 }
 
+void setup_initial_image(int start_idx)
+{
+	// TODO handle when first image (say in a list that's out of date) is gone/invalid
+	// loop through till valid
+	i64 last = start_idx;
+	int ret;
+	img_state* img = &g->img[0];
+	img->index = last;
+	do {
+		ret = attempt_image_load(last, img);
+		last = wrap(last+1);
+	} while (!ret && last != start_idx);
+
+	if (!ret) {
+		cleanup(0, 1);
+	}
+
+	img->index = wrap(last-1);
+	img_name = g->files.a[img->index].path;
+
+	g->scr_w = MAX(g->img[0].w, START_WIDTH);
+	g->scr_h = MAX(g->img[0].h, START_HEIGHT);
+
+	// can't create textures till after we have a renderer (otherwise we'd pass SDL_TRUE)
+	// to load_image above
+	if (!create_textures(&g->img[0])) {
+		cleanup(1, 1);
+	}
+
+	SET_MODE1_SCR_RECT();
+	SDL_RenderClear(g->ren);
+	SDL_RenderCopy(g->ren, g->img[0].tex[g->img[0].frame_i], NULL, &g->img[0].disp_rect);
+	SDL_RenderPresent(g->ren);
+
+	mybasename(img_name, title_buf);
+
+	SDL_Log("Starting with %s\n", img_name);
+}
+
 void setup(int start_idx, int got_config)
 {
 	g->win = NULL;
@@ -1635,7 +1810,7 @@ void setup(int start_idx, int got_config)
 	g->progress_hovered = nk_false;
 	g->fill_mode = 0;
 	g->sorted_state = NAME_UP;  // ie by name ascending
-	g->state = (start_idx >= 0) ? NORMAL : FILE_SELECTION;
+	g->state = FILE_SELECTION;
 	g->has_bad_paths = SDL_FALSE;
 
 	setup_dirs();
@@ -1666,31 +1841,8 @@ void setup(int start_idx, int got_config)
 	}
 	g->img[0].frame_capacity = 100;
 
-	if (start_idx >= 0) {
-		// TODO handle when first image (say in a list that's out of date) is gone/invalid
-		// loop through till valid
-		i64 last = start_idx;
-		int ret;
-		img_state* img = &g->img[0];
-		img->index = last;
-		do {
-			ret = attempt_image_load(last, img);
-			last = wrap(last+1);
-		} while (!ret && last != start_idx);
-
-		if (!ret) {
-			cleanup(0, 1);
-		}
-
-		img->index = wrap(last-1);
-		img_name = g->files.a[img->index].path;
-
-		g->scr_w = MAX(g->img[0].w, START_WIDTH);
-		g->scr_h = MAX(g->img[0].h, START_HEIGHT);
-	} else {
-		g->scr_w = START_WIDTH;
-		g->scr_h = START_HEIGHT;
-	}
+	g->scr_w = START_WIDTH;
+	g->scr_h = START_HEIGHT;
 
 	g->scr_w = MIN(g->scr_w, r.w - 20);  // to account for window borders/titlebar on non-X11 platforms
 	g->scr_h = MIN(g->scr_h, r.h - 40);
@@ -1712,11 +1864,7 @@ void setup(int start_idx, int got_config)
 
 	// TODO do I need to update scr_w and src_h if it's fullscreen?  is there an initial window event?
 
-	if (start_idx >= 0) {
-		mybasename(img_name, title_buf);
-	} else {
-		snprintf(title_buf, STRBUF_SZ, "Select File/Folder");
-	}
+	snprintf(title_buf, STRBUF_SZ, "Select File/Folder");
 
 	g->win = SDL_CreateWindow(title_buf, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, g->scr_w, g->scr_h, win_flags);
 	if (!g->win) {
@@ -1795,33 +1943,19 @@ void setup(int start_idx, int got_config)
 	//g->ctx->style.selectable.padding = nk_vec2(4.0f,4.0f);
 	//g->ctx->style.selectable.touch_padding = nk_vec2(4.0f,4.0f);
 
-	// TODO
-	// next and prev events?
+	// type of event for all GUI initiated events
 	g->userevent = SDL_RegisterEvents(1);
 	if (g->userevent == (u32)-1) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
 
-	// can't create textures till after we have a renderer (otherwise we'd pass SDL_TRUE)
-	// to load_image above
-	if (start_idx >= 0) {
-		if (!create_textures(&g->img[0])) {
-			cleanup(1, 1);
-		}
-
-		SET_MODE1_SCR_RECT();
-		SDL_RenderClear(g->ren);
-		SDL_RenderCopy(g->ren, g->img[0].tex[g->img[0].frame_i], NULL, &g->img[0].disp_rect);
-		SDL_RenderPresent(g->ren);
-	}
-
-	if (!(g->cnd = SDL_CreateCond())) {
+	if (!(g->img_loading_cnd = SDL_CreateCond())) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR,"Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
 
-	if (!(g->mtx = SDL_CreateMutex())) {
+	if (!(g->img_loading_mtx = SDL_CreateMutex())) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
@@ -1833,7 +1967,14 @@ void setup(int start_idx, int got_config)
 	}
 	SDL_DetachThread(loading_thrd);
 
-	SDL_Log("Starting with %s\n", img_name);
+
+	SDL_Thread* scanning_thrd;
+	if (!(scanning_thrd = SDL_CreateThread(scan_sources, "scanning_thrd", NULL))) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "couldn't create scanner thread: %s\n", SDL_GetError());
+		cleanup(0, 1);
+	}
+	SDL_DetachThread(scanning_thrd);
+
 
 	// Setting both of these last to maximize time/accuracy
 	g->gui_timer = SDL_GetTicks();
@@ -2035,6 +2176,21 @@ void rotate_img(img_state* img)
 	}
 }
 
+int start_scanning(void)
+{
+	if (g->sources.size) {
+		SDL_LockMutex(g->scanning_mtx);
+		// anything to do here?
+		// g->loading = direction;
+
+		g->state = SCANNING;
+		SDL_CondSignal(g->scanning_cnd);
+		SDL_UnlockMutex(g->scanning_mtx);
+		
+	}
+	return 0;
+}
+
 int try_move(int direction)
 {
 	// TODO prevent moves and some other
@@ -2042,10 +2198,10 @@ int try_move(int direction)
 	// hide the GUI while the popup's up, we really just have
 	// to worry about keyboard actions.
 	if (!g->loading && !g->done_loading) {
-		SDL_LockMutex(g->mtx);
+		SDL_LockMutex(g->img_loading_mtx);
 		g->loading = direction;
-		SDL_CondSignal(g->cnd);
-		SDL_UnlockMutex(g->mtx);
+		SDL_CondSignal(g->img_loading_cnd);
+		SDL_UnlockMutex(g->img_loading_mtx);
 		return 1;
 	}
 	return 0;
@@ -2316,10 +2472,10 @@ void do_mode_change(intptr_t mode)
 		g->slide_timer =  SDL_GetTicks();
 
 		if (g->n_imgs < mode) {
-			SDL_LockMutex(g->mtx);
+			SDL_LockMutex(g->img_loading_mtx);
 			g->loading = mode;
-			SDL_CondSignal(g->cnd);
-			SDL_UnlockMutex(g->mtx);
+			SDL_CondSignal(g->img_loading_cnd);
+			SDL_UnlockMutex(g->img_loading_mtx);
 			//g->n_imgs gets updated in handle_events() once loading finishes
 		} else {
 			if (mode != MODE1 || !g->img_focus || g->img_focus == &g->img[0]) {
@@ -2859,6 +3015,11 @@ int main(int argc, char** argv)
 	g->img_exts = default_exts;
 	g->n_exts = NUM_DFLT_EXTS;
 
+	if (argc < 2) {
+		print_help(argv[0], SDL_FALSE);
+		exit(0);
+	}
+
 	// Not currently used
 	// char* exepath = SDL_GetBasePath();
 
@@ -2874,10 +3035,6 @@ int main(int argc, char** argv)
 
 	int got_config = load_config();
 
-	if (argc < 2) {
-		print_help(argv[0], SDL_FALSE);
-		exit(0);
-	}
 
 	if (curl_global_init(CURL_GLOBAL_ALL)) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to initialize libcurl\n");
@@ -2907,6 +3064,10 @@ int main(int argc, char** argv)
 				puts("Error missing list file following -l");
 				break;
 			}
+			cvec_push_str(&g->sources, "-l");
+			cvec_push_str(&g->sources, argv[i+1]);
+
+
 			// sanity check extension
 			char* ext = GET_EXT(argv[i+1]);
 			if (ext) {
@@ -2985,13 +3146,20 @@ int main(int argc, char** argv)
 			if (argv[i][len-1] == '/')
 				argv[i][len-1] = 0;
 
-			myscandir(argv[i], g->img_exts, g->n_exts, SDL_TRUE);
+			cvec_push_str(&g->sources, argv[i-1]);
+			cvec_push_str(&g->sources, argv[i]);
+
+			//myscandir(argv[i], g->img_exts, g->n_exts, SDL_TRUE);
 
 		} else {
 			normalize_path(argv[i]);
+			cvec_push_str(&g->sources, argv[i]);
+
+			/*
 			int r = handle_selection(argv[i], recurse);
 			given_dir = r == DIRECTORY;
 			img_args += r == IMAGE;
+			*/
 		}
 	}
 

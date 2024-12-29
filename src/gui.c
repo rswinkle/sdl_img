@@ -103,6 +103,11 @@ void draw_gui(struct nk_context* ctx)
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
 
+	if (IS_SCANNING_MODE()) {
+		draw_scanning(g->ctx, scr_w, scr_h);
+		return;
+	}
+
 	if (IS_FS_MODE()) {
 		if (!draw_filebrowser(&g->filebrowser, g->ctx, scr_w, scr_h)) {
 			// TODO
@@ -1167,6 +1172,17 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 	return ret;
 }
 
+void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h)
+{
+	char scan_buf[STRBUF_SZ] = {0};
+
+	snprintf(scan_buf, STRBUF_SZ, "Collected %d files...", g->files.size);
+	if (nk_begin(ctx, "Scanning", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
+		
+		nk_layout_row_dynamic(ctx, 0, 1);
+		nk_label(ctx, scan_buf, NK_TEXT_CENTERED);
+	}
+}
 
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 {

@@ -921,7 +921,7 @@ int handle_events_normally()
 
 	int ticks = SDL_GetTicks();
 
-	SDL_LockMutex(g->mtx);
+	SDL_LockMutex(g->img_loading_mtx);
 	if (g->done_loading) {
 		if (g->done_loading >= LEFT) {
 			img = (g->img == g->img1) ? g->img2 : g->img1;
@@ -959,7 +959,7 @@ int handle_events_normally()
 		if (g->slideshow)
 			g->slide_timer =  SDL_GetTicks();
 	}
-	SDL_UnlockMutex(g->mtx);
+	SDL_UnlockMutex(g->img_loading_mtx);
 
 	if (g->slideshow) {
 		// pause slideshow if popup is up
@@ -1649,7 +1649,15 @@ int handle_events_normally()
 int handle_events()
 {
 	if (g->state & FILE_SELECTION) {
-		return handle_fb_events(&g->filebrowser, g->ctx);
+		// TODO multipl return codes?
+		if (handle_fb_events(&g->filebrowser, g->ctx)) {
+			if (g->filebrowser.file[0]) {
+				//start_scanning();
+				return 0;
+			} else {
+				return 1;
+			}
+		}
 	}
 
 	if (g->state & (NORMAL | VIEW_RESULTS)) {
