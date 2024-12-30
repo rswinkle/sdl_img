@@ -921,6 +921,15 @@ int handle_events_normally()
 
 	int ticks = SDL_GetTicks();
 
+	// do I need this variable or even to lock the mutex?
+	// can I just check g->sources.size?
+	SDL_LockMutex(g->scanning_mtx);
+	if (g->done_scanning) {
+		g->status = REDRAW;
+		g->done_scanning = 0;
+	}
+	SDL_UnlockMutex(g->scanning_mtx);
+
 	SDL_LockMutex(g->img_loading_mtx);
 	if (g->done_loading) {
 		if (g->done_loading >= LEFT) {
@@ -1652,12 +1661,14 @@ int handle_events()
 		// TODO multipl return codes?
 		if (handle_fb_events(&g->filebrowser, g->ctx)) {
 			if (g->filebrowser.file[0]) {
-				//start_scanning();
+				cvec_push_str(&g->sources, g->filebrowser.file);
+				start_scanning();
 				return 0;
 			} else {
 				return 1;
 			}
 		}
+		return 0;
 	}
 
 	if (g->state & (NORMAL | VIEW_RESULTS)) {

@@ -29,6 +29,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h);
+void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h);
 
 // window dimensions
 #define GUI_BAR_HEIGHT 50
@@ -70,10 +71,15 @@ void search_filenames(int is_vimmode)
 	g->search_results.size = 0;
 
 	int j;
+	char* name;
 	for (int i=0; i<g->files.size; ++i) {
+		name = g->files.a[i].name;
+		if (!name) {
+			continue;
+		}
 
-		for (j=0; g->files.a[i].name[j]; ++j) {
-			lowername[j] = tolower(g->files.a[i].name[j]);
+		for (j=0; name[j]; ++j) {
+			lowername[j] = tolower(name[j]);
 		}
 		lowername[j] = 0;
 
@@ -1176,7 +1182,7 @@ void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	char scan_buf[STRBUF_SZ] = {0};
 
-	snprintf(scan_buf, STRBUF_SZ, "Collected %d files...", g->files.size);
+	snprintf(scan_buf, STRBUF_SZ, "Collected %"PRIcv_sz" files...", g->files.size);
 	if (nk_begin(ctx, "Scanning", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
 		
 		nk_layout_row_dynamic(ctx, 0, 1);
