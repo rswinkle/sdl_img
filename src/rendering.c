@@ -1,0 +1,124 @@
+
+
+
+void render_thumbs()
+{
+	SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
+	SDL_RenderSetClipRect(g->ren, NULL);
+	SDL_RenderClear(g->ren);
+
+	int start = g->thumb_start_row * g->thumb_cols;
+	int end = start + g->thumb_cols*g->thumb_rows;
+	int w = g->scr_w/(float)g->thumb_cols;
+	int h = g->scr_h/(float)g->thumb_rows;
+	SDL_Rect r = { 0, 0, w, h };
+	for (int i = start; i < end && i<g->files.size; ++i) {
+		// We create tex's in sequence and exit if any fail and
+		// erase them when the source image is deleted so
+		// we can break rather than continue here
+		//
+		// EDIT: with bad paths in list we could fail to create
+		// a thumb but we also have never removed bad paths/non-images
+		// so we have to continue
+		if (!g->thumbs.a[i].tex) {
+			//break;
+			continue;
+		}
+
+		// to fill screen use these rather than following 4 lines
+		//r.x = ((i-start) % g->thumb_cols) * w;
+		//r.y = ((i-start) / g->thumb_cols) * h;
+
+		// scales and centers thumbs appropriately
+		r.w = g->thumbs.a[i].w/(float)THUMBSIZE * w;
+		r.h = g->thumbs.a[i].h/(float)THUMBSIZE * h;
+		r.x = (((i-start) % g->thumb_cols) * w) + (w-r.w)/2;
+		r.y = (((i-start) / g->thumb_cols) * h) + (h-r.h)/2;
+
+		SDL_RenderCopy(g->ren, g->thumbs.a[i].tex, NULL, &r);
+		if (g->state & THUMB_DFLT) {
+			if (i == g->thumb_sel) {
+				SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
+				// have selection box take up whole screen space, easier to see
+				r.x = ((i-start) % g->thumb_cols) * w;
+				r.y = ((i-start) / g->thumb_cols) * h;
+				r.w = w;
+				r.h = h;
+				SDL_RenderDrawRect(g->ren, &r);
+			}
+		} else if (g->state & THUMB_VISUAL) {
+			if ((i >= g->thumb_sel && i <= g->thumb_sel_end) ||
+				(i <= g->thumb_sel && i >= g->thumb_sel_end)) {
+				// TODO why doesn't setting this in setup work?  Where else is it changed?
+				SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
+
+				SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
+				// have selection box take up whole screen space, easier to see
+				r.x = ((i-start) % g->thumb_cols) * w;
+				r.y = ((i-start) / g->thumb_cols) * h;
+				r.w = w;
+				r.h = h;
+				SDL_RenderFillRect(g->ren, &r);
+			}
+		} else if (g->state & SEARCH_RESULTS) {
+
+			// TODO optimize since results are in order
+			for (int k = 0; k<g->search_results.size; ++k) {
+				if (g->search_results.a[k] == i) {
+					SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
+
+					SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
+					// have selection box take up whole screen space, easier to see
+					r.x = ((i-start) % g->thumb_cols) * w;
+					r.y = ((i-start) / g->thumb_cols) * h;
+					r.w = w;
+					r.h = h;
+					SDL_RenderFillRect(g->ren, &r);
+					break;
+				}
+			}
+			if (g->thumb_sel == i) {
+				SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
+				SDL_RenderDrawRect(g->ren, &r);
+			}
+
+		}
+	}
+}
+
+int render_normal(int ticks)
+{
+	int is_a_gif = 0;
+
+	// normal mode
+	for (int i=0; i<g->n_imgs; ++i) {
+		if (g->img[i].frames > 1) {
+			int frame = g->img[i].frame_i;
+			if (!g->img[i].paused && (!g->progress_hovered || (g->n_imgs > 1 && g->img_focus != &g->img[i]))) {
+				if (ticks - g->img[i].frame_timer >= g->img[i].delays[frame]) {
+					g->img[i].frame_i = (frame + 1) % g->img[i].frames;
+					if (g->img[i].frame_i == 0)
+						g->img[i].looped = 1;
+					g->img[i].frame_timer = ticks; // should be set after present ...
+					g->status = REDRAW;
+				}
+			}
+			is_a_gif = 1;
+		}
+	}
+
+	if (g->show_gui || g->status == REDRAW) {
+		// gui drawing changes draw color so have to reset to black every time
+		SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
+		SDL_RenderSetClipRect(g->ren, NULL);
+		SDL_RenderClear(g->ren);
+		for (int i=0; i<g->n_imgs; ++i) {
+			SDL_RenderSetClipRect(g->ren, &g->img[i].scr_rect);
+			SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
+		}
+		SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
+	}
+	
+	return is_a_gif;
+}
+

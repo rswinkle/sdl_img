@@ -89,20 +89,19 @@ enum {
 	THUMB_SEARCH     = 0x8,
 	LIST_DFLT        = 0x10,
 	SEARCH_RESULTS   = 0x20,
-	VIEW_RESULTS     = 0x40,
-	FILE_SELECTION   = 0x80,
-	SCANNING         = 0x100,
+	FILE_SELECTION   = 0x40,
+	SCANNING         = 0x80,
 };
 
 #define THUMB_MASK (THUMB_DFLT | THUMB_VISUAL | THUMB_SEARCH)
 #define LIST_MASK (LIST_DFLT)
-#define RESULT_MASK (SEARCH_RESULTS | VIEW_RESULTS)
-#define VIEW_MASK (VIEW_RESULTS)
+#define RESULT_MASK (SEARCH_RESULTS)
+//#define VIEW_MASK (NORMAL)
 
 #define IS_THUMB_MODE() (g->state & THUMB_MASK)
 #define IS_LIST_MODE() (g->state & LIST_MASK)
 #define IS_RESULTS() (g->state & RESULT_MASK)
-#define IS_VIEW_RESULTS() (g->state & VIEW_RESULTS)
+#define IS_VIEW_RESULTS() (g->state & NORMAL && g->state != NORMAL)
 #define IS_FS_MODE() (g->state == FILE_SELECTION)
 #define IS_SCANNING_MODE() (g->state == SCANNING)
 
@@ -412,6 +411,7 @@ size_t write_data(void* buf, size_t size, size_t num, void* userp)
 //need to think about best way to organize following 4 functions' functionality
 void adjust_rect(img_state* img, int w, int h, int use_mouse)
 {
+	assert(w > 0 && h > 0);
 	// default is just zoom in/out with the image centered in it screen space
 	int final_x = img->scr_rect.x + (img->scr_rect.w-w)/2;
 	int final_y = img->scr_rect.y + (img->scr_rect.h-h)/2;
@@ -1045,15 +1045,16 @@ int load_thumbs(void* data)
 }
 
 // debug
-#if 0
+#if 1
 void print_img_state(img_state* img)
 {
+	puts("here");
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "{\nimg = %p\n", img);
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "pixels = %p\n", img->pixels);
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "WxH = %dx%d\n", img->w, img->h);
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "index = %d\n", img->index);
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "rotdegs = %d\n", img->rotdegs);
-	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "frame_i = %d\ndelay = %d\nframes = %d\nframe_cap = %d\n", img->frame_i, (img->delays) ? img->delays[0] : 0, img->frames, img->frame_capacity);
+	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "frame_i = %ld\ndelay = %d\nframes = %d\nframe_cap = %d\n", img->frame_i, (img->delays) ? img->delays[0] : 0, img->frames, img->frame_capacity);
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "frame_timer = %d\nlooped = %d\n", img->frame_timer, img->looped);
 
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "tex = %p\n", img->tex);
@@ -1384,7 +1385,7 @@ int load_new_images(void* data)
 
 				// just set title to upper left image when !img_focus
 				// TODO use file.name for all of these
-				int index = (g->state & VIEW_RESULTS) ? g->search_results.a[img[0].index] : img[0].index;
+				int index = (IS_VIEW_RESULTS()) ? g->search_results.a[img[0].index] : img[0].index;
 				SDL_SetWindowTitle(g->win, g->files.a[index].name);
 			} else {
 				tmp = (load_what >= RIGHT) ? 1 : -1;
@@ -1396,7 +1397,7 @@ int load_new_images(void* data)
 				img[0].scr_rect = g->img_focus->scr_rect;
 				set_rect_bestfit(&img[0], g->fullscreen | g->slideshow | g->fill_mode);
 
-				int index = (g->state & VIEW_RESULTS) ? g->search_results.a[img[0].index] : img[0].index;
+				int index = (IS_VIEW_RESULTS()) ? g->search_results.a[img[0].index] : img[0].index;
 				SDL_SetWindowTitle(g->win, g->files.a[index].name);
 			}
 		} else {
@@ -1553,7 +1554,7 @@ void setup_initial_image(int start_idx)
 	}
 	g->n_imgs = 1;
 	g->img_focus = NULL;
-	g->state = MODE1;
+	g->state = NORMAL;
 
 	// handle when first image (say in a list that's out of date) is gone/invalid
 	// loop through till valid
@@ -1567,6 +1568,7 @@ void setup_initial_image(int start_idx)
 	} while (!ret && last != start_idx);
 
 	if (!ret) {
+		g->state = FILE_SELECTION;
 		cleanup(0, 1);
 	}
 
@@ -1602,6 +1604,7 @@ int scan_sources(void* data)
 	int given_dir = 0;
 	int recurse = 0;
 	int img_args = 0;
+	int start_index = 0;
 	file f;
 
 
@@ -1709,15 +1712,19 @@ int scan_sources(void* data)
 			// ever open over 2^31-1 images so just explicitly convert
 			// from ptrdiff_t (i64) to int here and use ints everywhere
 			int start_index =(int)(res - g->files.a);
-			setup_initial_image(start_index);
+			//setup_initial_image(start_index);
+			g->selection = (start_index) ? start_index-1 : g->files.size-1;
+			try_move(SELECTION);
 		} else {
 			SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
 			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
-			setup_initial_image(0);
+			g->selection = g->files.size-1;
+			try_move(SELECTION);
 		}
 
 
 		SDL_LockMutex(g->scanning_mtx);
+		puts("done scanning = 1");
 		g->done_scanning = 1;
 		SDL_UnlockMutex(g->scanning_mtx);
 	}
@@ -1823,7 +1830,8 @@ void setup(int start_idx, int got_config)
 	g->progress_hovered = nk_false;
 	g->fill_mode = 0;
 	g->sorted_state = NAME_UP;  // ie by name ascending
-	g->state = FILE_SELECTION;
+	//g->state = FILE_SELECTION;
+	g->state = SCANNING;
 	g->has_bad_paths = SDL_FALSE;
 
 	setup_dirs();
@@ -1895,6 +1903,14 @@ void setup(int start_idx, int got_config)
 		SDL_SetWindowSize(g->win, g->scr_w, g->scr_h);
 		SDL_SetWindowPosition(g->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 	}
+
+	// first load will switch and copy img[0].scr_rect
+	g->img = g->img2;
+	// Should be a way to use existing code for this but there isn't without changes/additions
+	//g->img[0].scr_rect.x = 0;
+	//g->img[0].scr_rect.y = 0;
+	g->img[0].scr_rect.w = g->scr_w;
+	g->img[0].scr_rect.h = g->scr_h;
 
 	// No real reason for hardware acceleration and especially on older and/or mobile gpu's you can
 	// run into images larger than the max texture size which will then fail to load/display
@@ -1980,6 +1996,15 @@ void setup(int start_idx, int got_config)
 	}
 	SDL_DetachThread(loading_thrd);
 
+	if (!(g->scanning_cnd = SDL_CreateCond())) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR,"Error: %s\n", SDL_GetError());
+		cleanup(0, 1);
+	}
+
+	if (!(g->scanning_mtx = SDL_CreateMutex())) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Error: %s\n", SDL_GetError());
+		cleanup(0, 1);
+	}
 
 	SDL_Thread* scanning_thrd;
 	if (!(scanning_thrd = SDL_CreateThread(scan_sources, "scanning_thrd", NULL))) {
@@ -2977,6 +3002,7 @@ void do_thumb_rem_del(int do_delete, int invert)
 	g->state = THUMB_DFLT;
 }
 
+#include "rendering.c"
 #include "events.c"
 
 void print_help(char* prog_name, int verbose)
@@ -3027,6 +3053,11 @@ int main(int argc, char** argv)
 	};
 	g->img_exts = default_exts;
 	g->n_exts = NUM_DFLT_EXTS;
+
+#ifndef NDEBUG
+	puts("does this work");
+	SDL_LogSetAllPriority(SDL_LOG_PRIORITY_DEBUG);
+#endif
 
 	if (argc < 2) {
 		print_help(argv[0], SDL_FALSE);
@@ -3081,6 +3112,7 @@ int main(int argc, char** argv)
 			cvec_push_str(&g->sources, argv[i+1]);
 
 
+			/*
 			// sanity check extension
 			char* ext = GET_EXT(argv[i+1]);
 			if (ext) {
@@ -3100,6 +3132,7 @@ int main(int argc, char** argv)
 			given_list = 1;
 			read_list(&g->files, NULL, file);
 			fclose(file);
+			*/
 		} else if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {
 			int delay;
 			if (i+1 == argc) {
@@ -3178,7 +3211,11 @@ int main(int argc, char** argv)
 
 	int start_index = 0;
 
-	if (!g->files.size) {
+	setup(start_index, got_config);
+
+	/*
+	if (!g->sources.size && !g->files.size) {
+		puts("Shouldn't be here");
 		g->state = FILE_SELECTION;
 		start_index = -1;
 		init_file_browser(&g->filebrowser, default_exts, NUM_DFLT_EXTS, NULL, NULL, NULL);
@@ -3189,6 +3226,7 @@ int main(int argc, char** argv)
 		//SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "No images provided, exiting (empty list perhaps?)\n");
 		//cleanup(1, 0);
 	}
+	*/
 
 /*
 	// if given a single local image, scan all the files in the same directory
@@ -3249,7 +3287,6 @@ int main(int argc, char** argv)
 
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "start_index = %d\n", start_index);
 
-	setup(start_index, got_config);
 
 
 	int is_a_gif;
@@ -3257,6 +3294,7 @@ int main(int argc, char** argv)
 		if (handle_events())
 			break;
 
+		//printf("g->state = %d\n", g->state);
 		is_a_gif = 0;
 		ticks = SDL_GetTicks();
 
@@ -3276,120 +3314,10 @@ int main(int argc, char** argv)
 
 		if (!IS_FS_MODE() && !IS_SCANNING_MODE()) {
 			if (IS_THUMB_MODE() && !IS_VIEW_RESULTS()) {
-				SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
-				SDL_RenderSetClipRect(g->ren, NULL);
-				SDL_RenderClear(g->ren);
-
-				int start = g->thumb_start_row * g->thumb_cols;
-				int end = start + g->thumb_cols*g->thumb_rows;
-				int w = g->scr_w/(float)g->thumb_cols;
-				int h = g->scr_h/(float)g->thumb_rows;
-				SDL_Rect r = { 0, 0, w, h };
-				for (int i = start; i < end && i<g->files.size; ++i) {
-					// We create tex's in sequence and exit if any fail and
-					// erase them when the source image is deleted so
-					// we can break rather than continue here
-					//
-					// EDIT: with bad paths in list we could fail to create
-					// a thumb but we also have never removed bad paths/non-images
-					// so we have to continue
-					if (!g->thumbs.a[i].tex) {
-						//break;
-						continue;
-					}
-
-					// to fill screen use these rather than following 4 lines
-					//r.x = ((i-start) % g->thumb_cols) * w;
-					//r.y = ((i-start) / g->thumb_cols) * h;
-
-					// scales and centers thumbs appropriately
-					r.w = g->thumbs.a[i].w/(float)THUMBSIZE * w;
-					r.h = g->thumbs.a[i].h/(float)THUMBSIZE * h;
-					r.x = (((i-start) % g->thumb_cols) * w) + (w-r.w)/2;
-					r.y = (((i-start) / g->thumb_cols) * h) + (h-r.h)/2;
-
-					SDL_RenderCopy(g->ren, g->thumbs.a[i].tex, NULL, &r);
-					if (g->state & THUMB_DFLT) {
-						if (i == g->thumb_sel) {
-							SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
-							// have selection box take up whole screen space, easier to see
-							r.x = ((i-start) % g->thumb_cols) * w;
-							r.y = ((i-start) / g->thumb_cols) * h;
-							r.w = w;
-							r.h = h;
-							SDL_RenderDrawRect(g->ren, &r);
-						}
-					} else if (g->state & THUMB_VISUAL) {
-						if ((i >= g->thumb_sel && i <= g->thumb_sel_end) ||
-					    	(i <= g->thumb_sel && i >= g->thumb_sel_end)) {
-							// TODO why doesn't setting this in setup work?  Where else is it changed?
-							SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
-
-							SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
-							// have selection box take up whole screen space, easier to see
-							r.x = ((i-start) % g->thumb_cols) * w;
-							r.y = ((i-start) / g->thumb_cols) * h;
-							r.w = w;
-							r.h = h;
-							SDL_RenderFillRect(g->ren, &r);
-						}
-					} else if (g->state & SEARCH_RESULTS) {
-
-						// TODO optimize since results are in order
-						for (int k = 0; k<g->search_results.size; ++k) {
-							if (g->search_results.a[k] == i) {
-								SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
-
-								SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
-								// have selection box take up whole screen space, easier to see
-								r.x = ((i-start) % g->thumb_cols) * w;
-								r.y = ((i-start) / g->thumb_cols) * h;
-								r.w = w;
-								r.h = h;
-								SDL_RenderFillRect(g->ren, &r);
-								break;
-							}
-						}
-						if (g->thumb_sel == i) {
-							SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
-							SDL_RenderDrawRect(g->ren, &r);
-						}
-
-					}
-				}
-
+				render_thumbs();
 			} else if (!IS_LIST_MODE() || IS_VIEW_RESULTS()) {
 				// make above plain else to do transparently show image beneath list, could work as a preview...
-				// normal mode
-				for (int i=0; i<g->n_imgs; ++i) {
-					if (g->img[i].frames > 1) {
-						int frame = g->img[i].frame_i;
-						if (!g->img[i].paused && (!g->progress_hovered || (g->n_imgs > 1 && g->img_focus != &g->img[i]))) {
-							if (ticks - g->img[i].frame_timer >= g->img[i].delays[frame]) {
-								g->img[i].frame_i = (frame + 1) % g->img[i].frames;
-								if (g->img[i].frame_i == 0)
-									g->img[i].looped = 1;
-								g->img[i].frame_timer = ticks; // should be set after present ...
-								g->status = REDRAW;
-							}
-						}
-						is_a_gif = 1;
-					}
-				}
-
-				if (g->show_gui || g->status == REDRAW) {
-					// gui drawing changes draw color so have to reset to black every time
-					SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
-					SDL_RenderSetClipRect(g->ren, NULL);
-					SDL_RenderClear(g->ren);
-					for (int i=0; i<g->n_imgs; ++i) {
-						SDL_RenderSetClipRect(g->ren, &g->img[i].scr_rect);
-
-						SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
-						print_img_state(&g->img[i]);
-					}
-					SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
-				}
+				is_a_gif = render_normal(ticks);
 			}
 		}
 

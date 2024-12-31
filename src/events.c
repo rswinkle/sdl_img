@@ -359,10 +359,11 @@ int handle_thumb_events()
 				}
 				break;
 			case SDLK_RETURN:
+				// TODO why am I or'ing with THUMB_DFLT?
 				if (g->state & (THUMB_DFLT | SEARCH_RESULTS)) {
 					// TODO document this behavior
 					if (g->state & SEARCH_RESULTS && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
-						g->state |= VIEW_MASK;
+						g->state |= NORMAL;
 
 						// Just going to go to last result they were on
 						// not necessarily the closest one
@@ -754,6 +755,8 @@ int handle_list_events()
 						// convert selection
 						g->selection = g->search_results.a[g->selection];
 
+						// TODO this can never happen ... right?  otherwise we'd
+						// be in handle_events_normally
 						if (IS_VIEW_RESULTS()) {
 							// TODO alternative, force switch to single mode?
 							for (int i=0; i<g->n_imgs; ++i) {
@@ -788,7 +791,7 @@ int handle_list_events()
 			case SDLK_RETURN:
 				if (g->selection >= 0) {
 					if (g->state & SEARCH_RESULTS) {
-						g->state |= VIEW_MASK;
+						g->state |= NORMAL;
 						g->selection = (g->selection) ? g->selection - 1 : g->search_results.size-1;
 					} else {
 						g->state = NORMAL;
@@ -870,6 +873,68 @@ int handle_list_events()
 	return 0;
 }
 
+int handle_scanning_events()
+{
+	SDL_Event e;
+	int sym;
+	int code, sort_timer;
+	//SDL_Keymod mod_state = SDL_GetModState();
+	
+	// TODO make sure loading is done before setting state to NORMAL
+	// can either do the loading mtx lock here or load and setup manually
+	SDL_LockMutex(g->scanning_mtx);
+	if (g->done_scanning) {
+		SDL_LockMutex(g->img_loading_mtx);
+		if (g->done_loading) {
+		
+
+			g->status = REDRAW;
+			g->done_scanning = 0;
+			if (g->files.size) {
+				g->state = NORMAL;
+			} else {
+				g->state = FILE_SELECTION;
+				init_file_browser(&g->filebrowser, g->img_exts, g->n_exts, NULL, NULL, NULL);
+				g->filebrowser.selection = -1; // default to no selection
+				// TODO handle different recents functions for linux/windows
+				//init_file_browser(&g->filebrowser, default_exts, NUM_DFLT_EXTS, NULL, gnome_recents, NULL);
+			}
+		}
+		SDL_UnlockMutex(g->img_loading_mtx);
+	}
+	SDL_UnlockMutex(g->scanning_mtx);
+	return 0;
+
+	g->status = NOCHANGE;
+	nk_input_begin(g->ctx);
+	while (SDL_PollEvent(&e)) {
+		if (e.type == g->userevent) {
+			code = e.user.code;
+			switch (code) {
+			default:
+				SDL_Log("Unknown user event!");
+			}
+			continue;
+		}
+		switch (e.type) {
+		case SDL_QUIT:
+			// don't think I really need these since we'll be exiting anyway
+			nk_input_end(g->ctx);
+			return 1;
+		case SDL_KEYUP:
+			sym = e.key.keysym.sym;
+			switch (sym) {
+			case SDLK_ESCAPE:
+				nk_input_end(g->ctx);
+				return 1;
+				break;
+			}
+		}
+	}
+	nk_input_end(g->ctx);
+	return 0;
+}
+
 // TODO macro?
 void mode_focus_change(intptr_t mode, SDL_Keymod mod_state, char* title_buf)
 {
@@ -921,14 +986,17 @@ int handle_events_normally()
 
 	int ticks = SDL_GetTicks();
 
+	/*
 	// do I need this variable or even to lock the mutex?
 	// can I just check g->sources.size?
 	SDL_LockMutex(g->scanning_mtx);
 	if (g->done_scanning) {
 		g->status = REDRAW;
 		g->done_scanning = 0;
+		g->state = NORMAL;
 	}
 	SDL_UnlockMutex(g->scanning_mtx);
+	*/
 
 	SDL_LockMutex(g->img_loading_mtx);
 	if (g->done_loading) {
@@ -1111,7 +1179,7 @@ int handle_events_normally()
 						SDL_SetWindowFullscreen(g->win, 0);
 						g->fullscreen = 0;
 					} else if (IS_VIEW_RESULTS()) {
-						g->state ^= VIEW_RESULTS;
+						g->state ^= NORMAL;
 
 						// selection is used in listmode results, = index in results
 						g->selection = g->img[0].index;
@@ -1657,7 +1725,14 @@ int handle_events_normally()
 
 int handle_events()
 {
-	if (g->state & FILE_SELECTION) {
+	if (IS_SCANNING_MODE()) {
+		int ret = handle_scanning_events();
+		if (IS_SCANNING_MODE()) {
+			return ret;
+		}
+	}
+
+	if (IS_FS_MODE()) {
 		// TODO multipl return codes?
 		if (handle_fb_events(&g->filebrowser, g->ctx)) {
 			if (g->filebrowser.file[0]) {
@@ -1671,7 +1746,7 @@ int handle_events()
 		return 0;
 	}
 
-	if (g->state & (NORMAL | VIEW_RESULTS)) {
+	if (g->state & NORMAL) {
 		return handle_events_normally();
 	}
 
