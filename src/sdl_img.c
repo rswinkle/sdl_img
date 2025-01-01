@@ -1361,6 +1361,8 @@ int load_new_images(void* data)
 
 			// TODO possible (very unlikely) infinite loop if there
 			// are allocation failures for every valid image in the list
+			// TODO wrap all loading loops to "goto error/exit" if no valid images
+			// and triger a switch to FILE_SELECTION
 			if (!g->img_focus) {
 				if (load_what >= RIGHT) {
 					last = (load_what == RIGHT) ? g->img[g->n_imgs-1].index : g->selection;
@@ -1816,7 +1818,7 @@ int load_config()
 	return nk_true;
 }
 
-void setup()
+void setup(int was_given_args)
 {
 	static char cachedir[STRBUF_SZ] = { 0 };
 	static char thumbdir[STRBUF_SZ] = { 0 };
@@ -1905,8 +1907,7 @@ void setup()
 	g->progress_hovered = nk_false;
 	g->fill_mode = 0;
 	g->sorted_state = NAME_UP;  // ie by name ascending
-	//g->state = FILE_SELECTION;
-	g->state = SCANNING;
+	g->state = (was_given_args) ? SCANNING : FILE_SELECTION;
 	g->has_bad_paths = SDL_FALSE;
 
 	setup_dirs();
@@ -3113,12 +3114,14 @@ int main(int argc, char** argv)
 	int ticks, len;
 	struct stat file_stat;
 
+	/*
 	if (argc < 2) {
 		print_help(argv[0], SDL_FALSE);
 		exit(0);
 	}
+	*/
 
-	setup();
+	setup(argc >= 2);
 
 	file f;
 	int img_args = 0;
@@ -3133,29 +3136,6 @@ int main(int argc, char** argv)
 			}
 			cvec_push_str(&g->sources, "-l");
 			cvec_push_str(&g->sources, argv[++i]);
-
-
-			/*
-			// sanity check extension
-			char* ext = GET_EXT(argv[i+1]);
-			if (ext) {
-				for (int j=0; j<g->n_exts; ++j) {
-					if (!strcasecmp(ext, g->img_exts[j])) {
-						SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Trying to load a list with a recognized image extension (%s): %s\n", ext, argv[++i]);
-						cleanup(1, 0);
-					}
-				}
-			}
-
-			FILE* file = fopen(argv[++i], "r");
-			if (!file) {
-				SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to open %s: %s\n", argv[i], strerror(errno));
-				cleanup(1, 0);
-			}
-			given_list = 1;
-			read_list(&g->files, NULL, file);
-			fclose(file);
-			*/
 		} else if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {
 			int delay;
 			if (i+1 == argc) {
@@ -3217,102 +3197,18 @@ int main(int argc, char** argv)
 
 			cvec_push_str(&g->sources, argv[i-1]);
 			cvec_push_str(&g->sources, argv[i]);
-
-			//myscandir(argv[i], g->img_exts, g->n_exts, SDL_TRUE);
-
 		} else {
 			normalize_path(argv[i]);
 			cvec_push_str(&g->sources, argv[i]);
-
-			/*
-			int r = handle_selection(argv[i], recurse);
-			given_dir = r == DIRECTORY;
-			img_args += r == IMAGE;
-			*/
 		}
 	}
-
-
-
-	/*
-	if (!g->sources.size && !g->files.size) {
-		puts("Shouldn't be here");
-		g->state = FILE_SELECTION;
-		start_index = -1;
-		init_file_browser(&g->filebrowser, default_exts, NUM_DFLT_EXTS, NULL, NULL, NULL);
-		g->filebrowser.selection = -1; // default to no selection
-		// TODO handle different recents functions for linux/windows
-		//init_file_browser(&g->filebrowser, default_exts, NUM_DFLT_EXTS, NULL, gnome_recents, NULL);
-
-		//SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "No images provided, exiting (empty list perhaps?)\n");
-		//cleanup(1, 0);
-	}
-	*/
-
-/*
-	// if given a single local image, scan all the files in the same directory
-	// don't do this if a list and/or directory was given even if they were empty
-	if (g->files.size == 1 && img_args == 1 && !given_list && !given_dir) {
-		mydirname(g->files.a[0].path, dirpath);
-		mybasename(g->files.a[0].path, img_name);
-
-		// popm to not free the string and keep the file in case
-		// the start image is not added in the scan
-		cvec_popm_file(&g->files, &f);
-
-		myscandir(dirpath, g->img_exts, g->n_exts, recurse); // allow recurse for base case?
-
-		SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
-
-		snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, img_name);
-
-		mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
-
-		SDL_Log("finding current image to update index\n");
-		// this is fine because it's only used when given a single image, which then scans
-		// only that directory, hence no duplicate filenames are possible
-		//
-		// in all other cases (list, multiple files/urls, directory(ies) or some
-		// combination of those) there is no "starting image", we just sort and
-		// start at the beginning of the g->files in those cases
-		file* res;
-		res = bsearch(&f, g->files.a, g->files.size, sizeof(file), filename_cmp_lt);
-		if (!res) {
-			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not find starting image '%s' when scanning containing directory\n", img_name);
-			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "This means it did not have a searched-for extension; adding to list and attempting load anyway\n");
-			int i;
-			for (i=0; i<g->files.size; i++) {
-				if (filename_cmp_lt(&f, &g->files.a[i]) <= 0) {
-					cvec_insert_file(&g->files, i, &f);
-					res = &g->files.a[i];
-					break;
-				}
-			}
-			if (i == g->files.size) {
-				cvec_push_file(&g->files, &f);
-				res = &g->files.a[i];
-			}
-		} else {
-			// no longer need this, it was found in the scan
-			free(f.path);
-		}
-		// I could change all indexes to i64 but but no one will
-		// ever open over 2^31-1 images so just explicitly convert
-		// from ptrdiff_t (i64) to int here and use ints everywhere
-		start_index =(int)(res - g->files.a);
-	} else {
-		SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
-		mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
-	}
-	*/
-
 
 	int is_a_gif;
 	while (1) {
 		if (handle_events())
 			break;
 
-		printf("g->state = %d\n", g->state);
+		//printf("g->state = %d\n", g->state);
 		is_a_gif = 0;
 		ticks = SDL_GetTicks();
 
