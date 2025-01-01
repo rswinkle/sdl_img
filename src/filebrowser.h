@@ -69,6 +69,7 @@ typedef struct file_browser
 } file_browser;
 
 int init_file_browser(file_browser* browser, const char** exts, int num_exts, const char* start_dir, recents_func r_func, void* userdata);
+void reset_file_browser(file_browser* browser);
 void free_file_browser(file_browser* fb);
 void switch_dir(file_browser* fb, const char* dir);
 void handle_recents(file_browser* fb);

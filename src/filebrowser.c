@@ -76,6 +76,7 @@ typedef struct file_browser
 
 	int begin;
 	int end;
+	//int done; // true if a selection was made ie file[0] != 0
 
 	int sorted_state;
 	cmp_func c_func;
@@ -161,6 +162,41 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 	browser->userdata = userdata;
 
 	return 1;
+}
+
+void reset_file_browser(file_browser* fb, char* start_dir)
+{
+	// clear vectors and prior selection
+	cvec_clear_file(&fb->files);
+	cvec_clear_i(&fb->search_results);
+	fb->file[0] = 0;
+
+    // set start dir 
+	size_t l = 0;
+	const char* sd = fb->home;
+	if (start_dir) {
+		l = strlen(start_dir);
+		struct stat file_stat;
+		if (stat(start_dir, &file_stat)) {
+			perror("Could not stat start_dir, will use home directory");
+		} else if (l >= MAX_PATH_LEN) {
+			fprintf(stderr, "start_dir path too long, will use home directory\n");
+		} else {
+			sd = start_dir;
+		}
+	}
+	snprintf(fb->dir, MAX_PATH_LEN, "%s", sd);
+	// cut off trailing '/'
+	if (l > 1 && sd[l-1] == '/') {
+		fb->dir[l-1] = 0;
+	}
+
+    // scan and sort
+	fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts);
+
+	qsort(fb->files.a, fb->files.size, sizeof(file), filename_cmp_lt);
+	fb->sorted_state = NAME_UP;
+	fb->c_func = filename_cmp_lt;
 }
 
 void free_file_browser(file_browser* fb)

@@ -19,6 +19,7 @@ void cleanup(int ret, int called_setup);
 void set_rect_bestfit(img_state* img, int fill_screen);
 void set_fullscreen();
 int try_move(int direction);
+int start_scanning(void);
 
 // TODO better name? cleardir?
 int empty_dir(const char* dirpath);
@@ -117,8 +118,17 @@ void draw_gui(struct nk_context* ctx)
 	if (IS_FS_MODE()) {
 		if (!draw_filebrowser(&g->filebrowser, g->ctx, scr_w, scr_h)) {
 			// TODO
-			event.user.code = PROCESS_SELECTION;
-			SDL_PushEvent(&event);
+			if (g->filebrowser.file[0]) {
+				cvec_push_str(&g->sources, g->filebrowser.file);
+				start_scanning();
+			}
+			/*
+			if (g->filebrowser.file[0]) {
+				start_scanning();
+				event.user.code = PROCESS_SELECTION;
+				SDL_PushEvent(&event);
+			} 
+			*/
 		}
 		return;
 	}

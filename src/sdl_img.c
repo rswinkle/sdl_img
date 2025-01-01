@@ -1289,6 +1289,8 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 
 int wrap(int z)
 {
+	assert(g->files.size);
+
 	int n = g->files.size;
 	if (IS_VIEW_RESULTS()) {
 		n = g->search_results.size;
@@ -1332,9 +1334,12 @@ int load_new_images(void* data)
 	int last;
 
 	while (1) {
+		puts("top of load_new_images");
 		SDL_LockMutex(g->img_loading_mtx);
+		puts("locked img_loading_mtx");
 		while (g->loading < 2) {
 			SDL_CondWait(g->img_loading_cnd, g->img_loading_mtx);
+			printf("loading thread woke with load: %d\n", g->loading);
 		}
 		load_what = g->loading;
 		SDL_UnlockMutex(g->img_loading_mtx);
@@ -1342,6 +1347,7 @@ int load_new_images(void* data)
 		if (load_what == EXIT)
 			break;
 
+		printf("loading thread received a load: %d\n", load_what);
 		//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "loading %p = %d\n", &g->loading, g->loading);
 		if (load_what >= LEFT) {
 			img_state* img;
@@ -1545,6 +1551,7 @@ int handle_selection(char* path, int recurse)
 	return ret;
 }
 
+/*
 void setup_initial_image(int start_idx)
 {
 	// TODO Handle clearing out images if opening a fresh set
@@ -1593,6 +1600,7 @@ void setup_initial_image(int start_idx)
 
 	SDL_Log("Starting with %s\n", img_name);
 }
+*/
 
 int scan_sources(void* data)
 {
@@ -1622,10 +1630,11 @@ int scan_sources(void* data)
 		recurse = 0;
 		img_args = 0;
 
-		puts("scanning");
+		printf("scanning files.size = %ld", g->files.size);
 
 		char** a = srcs->a;
 		for (int i=0; i<srcs->size; ++i) {
+			printf("Scanning source: %s\n", a[i]);
 			if (!strcmp(a[i], "-l")) {
 
 				// sanity check extension
@@ -1715,11 +1724,14 @@ int scan_sources(void* data)
 			//setup_initial_image(start_index);
 			g->selection = (start_index) ? start_index-1 : g->files.size-1;
 			try_move(SELECTION);
-		} else {
+		} else if (g->files.size) {
 			SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
+			printf("%s\n", g->files.a[0].path);
 			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 			g->selection = g->files.size-1;
 			try_move(SELECTION);
+		} else {
+			SDL_Log("Found 0 images, switching to File Browser...");
 		}
 
 
@@ -1804,14 +1816,44 @@ int load_config()
 	return nk_true;
 }
 
-void setup(int start_idx, int got_config)
+void setup()
 {
-	g->win = NULL;
-	g->ren = NULL;
+	static char cachedir[STRBUF_SZ] = { 0 };
+	static char thumbdir[STRBUF_SZ] = { 0 };
+
 	char error_str[STRBUF_SZ] = { 0 };
 	char title_buf[STRBUF_SZ] = { 0 };
 	char buf[STRBUF_SZ] = { 0 };
 	char* img_name = NULL;
+
+	static const char* default_exts[NUM_DFLT_EXTS] =
+	{
+		".jpg",
+		".jpeg",
+		".gif",
+		".png",
+		".bmp",
+
+		".ppm",
+		".pgm",
+
+		".tga",
+		".hdr",
+		".pic",
+		".psd"
+	};
+
+	g->img_exts = default_exts;
+	g->n_exts = NUM_DFLT_EXTS;
+
+#ifndef NDEBUG
+	puts("does this work");
+	SDL_LogSetAllPriority(SDL_LOG_PRIORITY_DEBUG);
+#endif
+
+	// already NULL from static initialization
+	g->win = NULL;
+	g->ren = NULL;
 
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 
@@ -1822,6 +1864,39 @@ void setup(int start_idx, int got_config)
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "%s\n", error_str);
 		exit(1);
 	}
+
+	// Not currently used
+	// char* exepath = SDL_GetBasePath();
+
+	// TODO think of a company/org name
+	g->prefpath = SDL_GetPrefPath("", "sdl_img");
+	//SDL_Log("%s\n%s\n\n", exepath, g->prefpath);
+	// SDL_free(exepath);
+
+	// have to set these before load_config
+	// just point these at a buffer that will live forever
+	g->cachedir = cachedir;
+	g->thumbdir = thumbdir;
+
+	int got_config = load_config();
+
+	if (curl_global_init(CURL_GLOBAL_ALL)) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to initialize libcurl\n");
+		cleanup(1, 0);
+	}
+	cvec_file(&g->files, 0, 100, free_file, NULL);
+	cvec_str(&g->favs, 0, 50);
+	// g->thumbs initialized if needed in generate_thumbs()
+
+
+
+#ifdef USE_LOGFILE
+	char log_path[STRBUF_SZ];
+	snprintf(log_path, sizeof(log_path), "%slog.txt", g->prefpath);
+	g->logfile = fopen(log_path, "w");
+	SDL_LogSetOutputFunction(log_output_func, g->logfile);
+#endif
+
 
 	// TODO some of these could be stored preferences?
 	g->n_imgs = 1;
@@ -1927,6 +2002,12 @@ void setup(int start_idx, int got_config)
 
 	SDL_GetWindowMaximumSize(g->win, &max_w, &max_h);
 	SDL_Log("Window Max dimensions: %d %d\n", max_w, max_h);
+
+	// init file browser
+	init_file_browser(&g->filebrowser, g->img_exts, g->n_exts, NULL, NULL, NULL);
+	g->filebrowser.selection = -1; // default to no selection
+	// TODO handle different recents functions for linux/windows
+	//init_file_browser(&g->filebrowser, default_exts, NUM_DFLT_EXTS, NULL, gnome_recents, NULL);
 
 	if (!(g->ctx = nk_sdl_init(g->win, g->ren))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "nk_sdl_init() failed!\n");
@@ -2220,11 +2301,12 @@ int start_scanning(void)
 		SDL_LockMutex(g->scanning_mtx);
 		// anything to do here?
 		g->done_scanning = 0;
+		puts("start scanning");
 
 		g->state = SCANNING;
 		SDL_CondSignal(g->scanning_cnd);
 		SDL_UnlockMutex(g->scanning_mtx);
-		
+		return 1;
 	}
 	return 0;
 }
@@ -2236,6 +2318,7 @@ int try_move(int direction)
 	// hide the GUI while the popup's up, we really just have
 	// to worry about keyboard actions.
 	if (!g->loading && !g->done_loading) {
+		puts("signaling a load");
 		SDL_LockMutex(g->img_loading_mtx);
 		g->loading = direction;
 		SDL_CondSignal(g->img_loading_cnd);
@@ -3027,75 +3110,15 @@ void print_help(char* prog_name, int verbose)
 
 int main(int argc, char** argv)
 {
-	char dirpath[STRBUF_SZ] = { 0 };
-	char img_name[STRBUF_SZ] = { 0 };
-	char fullpath[STRBUF_SZ] = { 0 };
-	char cachedir[STRBUF_SZ] = { 0 };
-	char thumbdir[STRBUF_SZ] = { 0 };
 	int ticks, len;
 	struct stat file_stat;
-
-	const char* default_exts[NUM_DFLT_EXTS] =
-	{
-		".jpg",
-		".jpeg",
-		".gif",
-		".png",
-		".bmp",
-
-		".ppm",
-		".pgm",
-
-		".tga",
-		".hdr",
-		".pic",
-		".psd"
-	};
-	g->img_exts = default_exts;
-	g->n_exts = NUM_DFLT_EXTS;
-
-#ifndef NDEBUG
-	puts("does this work");
-	SDL_LogSetAllPriority(SDL_LOG_PRIORITY_DEBUG);
-#endif
 
 	if (argc < 2) {
 		print_help(argv[0], SDL_FALSE);
 		exit(0);
 	}
 
-	// Not currently used
-	// char* exepath = SDL_GetBasePath();
-
-	// TODO think of a company/org name
-	g->prefpath = SDL_GetPrefPath("", "sdl_img");
-	//SDL_Log("%s\n%s\n\n", exepath, g->prefpath);
-	// SDL_free(exepath);
-
-	// have to set these before load_config
-	// just point these at a buffer that will live forever
-	g->cachedir = cachedir;
-	g->thumbdir = thumbdir;
-
-	int got_config = load_config();
-
-
-	if (curl_global_init(CURL_GLOBAL_ALL)) {
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to initialize libcurl\n");
-		cleanup(1, 0);
-	}
-	cvec_file(&g->files, 0, 100, free_file, NULL);
-	cvec_str(&g->favs, 0, 50);
-	// g->thumbs initialized if needed in generate_thumbs()
-
-
-
-#ifdef USE_LOGFILE
-	char log_path[STRBUF_SZ];
-	snprintf(log_path, sizeof(log_path), "%slog.txt", g->prefpath);
-	g->logfile = fopen(log_path, "w");
-	SDL_LogSetOutputFunction(log_output_func, g->logfile);
-#endif
+	setup();
 
 	file f;
 	int img_args = 0;
@@ -3109,7 +3132,7 @@ int main(int argc, char** argv)
 				break;
 			}
 			cvec_push_str(&g->sources, "-l");
-			cvec_push_str(&g->sources, argv[i+1]);
+			cvec_push_str(&g->sources, argv[++i]);
 
 
 			/*
@@ -3209,9 +3232,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	int start_index = 0;
 
-	setup(start_index, got_config);
 
 	/*
 	if (!g->sources.size && !g->files.size) {
@@ -3285,16 +3306,13 @@ int main(int argc, char** argv)
 	}
 	*/
 
-	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "start_index = %d\n", start_index);
-
-
 
 	int is_a_gif;
 	while (1) {
 		if (handle_events())
 			break;
 
-		//printf("g->state = %d\n", g->state);
+		printf("g->state = %d\n", g->state);
 		is_a_gif = 0;
 		ticks = SDL_GetTicks();
 

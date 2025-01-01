@@ -115,7 +115,7 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			default:
-				SDL_Log("Unknown user event!");
+				SDL_Log("Unknown user event! %d", code);
 			}
 			if (did_sort && fb->is_search_results) {
 				fb_search_filenames(fb);
@@ -884,26 +884,32 @@ int handle_scanning_events()
 	// can either do the loading mtx lock here or load and setup manually
 	SDL_LockMutex(g->scanning_mtx);
 	if (g->done_scanning) {
-		SDL_LockMutex(g->img_loading_mtx);
-		if (g->done_loading) {
-		
+		puts("done scanning");
 
-			g->status = REDRAW;
-			g->done_scanning = 0;
-			if (g->files.size) {
-				g->state = NORMAL;
-			} else {
-				g->state = FILE_SELECTION;
-				init_file_browser(&g->filebrowser, g->img_exts, g->n_exts, NULL, NULL, NULL);
-				g->filebrowser.selection = -1; // default to no selection
-				// TODO handle different recents functions for linux/windows
-				//init_file_browser(&g->filebrowser, default_exts, NUM_DFLT_EXTS, NULL, gnome_recents, NULL);
+		g->status = REDRAW;
+		if (g->files.size) {
+			//SDL_LockMutex(g->img_loading_mtx);
+			if (g->loading) {
+				puts("loading");
 			}
+			if (g->done_loading) {
+				puts("done loading");
+
+				g->state = NORMAL;
+				puts("switching to normal");
+			}
+			//SDL_UnlockMutex(g->img_loading_mtx);
+		} else {
+			puts("switching to file selection");
+			g->state = FILE_SELECTION;
+			reset_file_browser(&g->filebrowser, NULL);
+			g->filebrowser.selection = -1; // default to no selection
 		}
-		SDL_UnlockMutex(g->img_loading_mtx);
+
+		//SDL_UnlockMutex(g->scanning_mtx);
+		//return 0;
 	}
 	SDL_UnlockMutex(g->scanning_mtx);
-	return 0;
 
 	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
