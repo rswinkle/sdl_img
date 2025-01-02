@@ -1632,7 +1632,7 @@ int scan_sources(void* data)
 		recurse = 0;
 		img_args = 0;
 
-		printf("scanning files.size = %ld", g->files.size);
+		printf("scanning files.size = %ld\n", g->files.size);
 
 		char** a = srcs->a;
 		for (int i=0; i<srcs->size; ++i) {
@@ -1663,9 +1663,10 @@ int scan_sources(void* data)
 				recurse = 1;
 			} else if (!strcmp(a[i], "-r") || !strcmp(a[i], "--recursive")) {
 				myscandir(a[++i], g->img_exts, g->n_exts, SDL_TRUE);
+				given_dir |= 1;
 			} else {
 				int r = handle_selection(a[i], recurse);
-				given_dir = r == DIRECTORY;
+				given_dir |= r == DIRECTORY;
 				img_args += r == IMAGE;
 			}
 		}
@@ -1818,7 +1819,27 @@ int load_config()
 	return nk_true;
 }
 
-void setup(int was_given_args)
+void print_help(char* prog_name, int verbose)
+{
+	puts("Usage:");
+	printf("  %s image_name\n", prog_name);
+	printf("  %s -l text_list_of_image_paths/urls\n", prog_name);
+	puts("\nOr any combination of those uses, ie:");
+	printf("  %s image.jpg -l list1 example.com/image.jpg -l list3 image4.gif\n", prog_name);
+
+	if (verbose) {
+		puts("\nApplication Options:");
+		puts("  -f, --fullscreen                   Start in fullscreen mode");
+		puts("  -s, --slide-show [delay=3]         Start in slideshow mode");
+		puts("  -r, --recursive dir                Scan dir recursively for images to add to the list");
+		puts("  -R                                 Scan all directories that come after recursively (-r after -R is redundant)");
+		puts("  -c, --cache ./your_cache_loc       Use specified directory as cache");
+		puts("  -v, --version                      Show the version");
+		puts("  -h, --help                         Show this help");
+	}
+}
+
+void setup(int argc, char** argv)
 {
 	static char cachedir[STRBUF_SZ] = { 0 };
 	static char thumbdir[STRBUF_SZ] = { 0 };
@@ -1844,6 +1865,48 @@ void setup(int was_given_args)
 		".pic",
 		".psd"
 	};
+
+	for (int i=1; i<argc; ++i) {
+		if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {
+			int delay;
+			if (i+1 == argc) {
+				SDL_Log("No delay following -s, defaulting to 3 second delay.");
+				delay = 3;
+			} else {
+				char* end;
+				delay = strtol(argv[++i], &end, 10);
+				if (delay <= 0 || delay > 10) {
+					if (delay == 0 && end == argv[i]) {
+						SDL_Log("No time given for -s, defaulting to 3 seconds\n");
+						i--;
+					} else {
+						SDL_Log("Invalid slideshow time given %d (should be 1-10), defaulting to 3 seconds\n", delay);
+					}
+					delay = 3;
+				}
+			}
+			g->slideshow = delay*1000;
+		} else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--cache")) {
+			if (i+1 == argc) {
+				SDL_Log("no cache directory provieded, using default cache location.\n");
+			} else {
+				if (mkdir_p(argv[++i], S_IRWXU) && errno != EEXIST) {
+					SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make cache directory %s: %s\n", argv[i], strerror(errno));
+					cleanup(1, 0);
+				}
+				g->cachedir = argv[i];
+			}
+		} else if (!strcmp(argv[i], "-f") || !strcmp(argv[i], "--fullscreen")) {
+			g->fullscreen = 1;
+		} else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--version")) {
+			puts(VERSION_STR);
+			cleanup(1, 0);
+		} else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
+			print_help(argv[0], SDL_TRUE);
+			cleanup(1, 0);
+		}
+
+	}
 
 	g->img_exts = default_exts;
 	g->n_exts = NUM_DFLT_EXTS;
@@ -1907,7 +1970,7 @@ void setup(int was_given_args)
 	g->progress_hovered = nk_false;
 	g->fill_mode = 0;
 	g->sorted_state = NAME_UP;  // ie by name ascending
-	g->state = (was_given_args) ? SCANNING : FILE_SELECTION;
+	g->state = (g->sources.size) ? SCANNING : FILE_SELECTION; // setup is called after sources is filled
 	g->has_bad_paths = SDL_FALSE;
 
 	setup_dirs();
@@ -1985,8 +2048,13 @@ void setup(int was_given_args)
 	// Should be a way to use existing code for this but there isn't without changes/additions
 	//g->img[0].scr_rect.x = 0;
 	//g->img[0].scr_rect.y = 0;
-	g->img[0].scr_rect.w = g->scr_w;
-	g->img[0].scr_rect.h = g->scr_h;
+	if (!g->fullscreen) {
+		g->img[0].scr_rect.w = g->scr_w;
+		g->img[0].scr_rect.h = g->scr_h;
+	} else {
+		g->img[0].scr_rect.w = r.w;
+		g->img[0].scr_rect.h = r.h;
+	}
 
 	// No real reason for hardware acceleration and especially on older and/or mobile gpu's you can
 	// run into images larger than the max texture size which will then fail to load/display
@@ -2102,7 +2170,7 @@ void setup(int was_given_args)
 }
 
 // probably now worth having a 2 line function used 3 places?
-void set_fullscreen()
+inline void set_fullscreen()
 {
 	g->status = REDRAW;
 	SDL_SetWindowFullscreen(g->win, g->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
@@ -3089,45 +3157,11 @@ void do_thumb_rem_del(int do_delete, int invert)
 #include "rendering.c"
 #include "events.c"
 
-void print_help(char* prog_name, int verbose)
-{
-	puts("Usage:");
-	printf("  %s image_name\n", prog_name);
-	printf("  %s -l text_list_of_image_paths/urls\n", prog_name);
-	puts("\nOr any combination of those uses, ie:");
-	printf("  %s image.jpg -l list1 example.com/image.jpg -l list3 image4.gif\n", prog_name);
-
-	if (verbose) {
-		puts("\nApplication Options:");
-		puts("  -f, --fullscreen                   Start in fullscreen mode");
-		puts("  -s, --slide-show [delay=3]         Start in slideshow mode");
-		puts("  -r, --recursive dir                Scan dir recursively for images to add to the list");
-		puts("  -R                                 Scan all directories that come after recursively (-r after -R is redundant)");
-		puts("  -c, --cache ./your_cache_loc       Use specified directory as cache");
-		puts("  -v, --version                      Show the version");
-		puts("  -h, --help                         Show this help");
-	}
-}
-
 int main(int argc, char** argv)
 {
 	int ticks, len;
 	struct stat file_stat;
 
-	/*
-	if (argc < 2) {
-		print_help(argv[0], SDL_FALSE);
-		exit(0);
-	}
-	*/
-
-	setup(argc >= 2);
-
-	file f;
-	int img_args = 0;
-	int given_list = 0;
-	int given_dir = 0;
-	int recurse = 0;
 	for (int i=1; i<argc; ++i) {
 		if (!strcmp(argv[i], "-l")) {
 			if (i+1 == argc) {
@@ -3136,51 +3170,11 @@ int main(int argc, char** argv)
 			}
 			cvec_push_str(&g->sources, "-l");
 			cvec_push_str(&g->sources, argv[++i]);
-		} else if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {
-			int delay;
-			if (i+1 == argc) {
-				SDL_Log("No delay following -s, defaulting to 3 second delay.");
-				delay = 3;
-			} else {
-				char* end;
-				delay = strtol(argv[++i], &end, 10);
-				if (delay <= 0 || delay > 10) {
-					if (delay == 0 && end == argv[i]) {
-						SDL_Log("No time given for -s, defaulting to 3 seconds\n");
-						i--;
-					} else {
-						SDL_Log("Invalid slideshow time given %d (should be 1-10), defaulting to 3 seconds\n", delay);
-					}
-					delay = 3;
-				}
-			}
-			// have to do this rather than just setting g->slideshow/slide_timer because
-			// timer should start *after* first image is displayed
-			SDL_Event start_slideshow;
-			start_slideshow.type = SDL_KEYUP;
-			start_slideshow.key.keysym.scancode = SDL_SCANCODE_CAPSLOCK + delay; // get proper F1-10 code
-			SDL_PushEvent(&start_slideshow);
-		} else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--cache")) {
-			if (i+1 == argc) {
-				SDL_Log("no cache directory provieded, using default cache location.\n");
-			} else {
-				if (mkdir_p(argv[++i], S_IRWXU) && errno != EEXIST) {
-					SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make cache directory %s: %s\n", argv[i], strerror(errno));
-					cleanup(1, 0);
-				}
-				g->cachedir = argv[i];
-			}
-		} else if (!strcmp(argv[i], "-f") || !strcmp(argv[i], "--fullscreen")) {
-			g->fullscreen = 1;
-		} else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--version")) {
-			puts(VERSION_STR);
-			cleanup(1, 0);
-		} else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
-			print_help(argv[0], SDL_TRUE);
-			cleanup(1, 0);
 		} else if (!strcmp(argv[i], "-R")) {
-			recurse = 1;
+			cvec_push_str(&g->sources, "-R");
 		} else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--recursive")) {
+			// TODO maybe --recursive should be --recurse and --recursive should be long form
+			// of -R?
 			if (i+1 == argc) {
 				SDL_Log("Error missing directory following -r\n");
 				break;
@@ -3190,18 +3184,20 @@ int main(int argc, char** argv)
 				SDL_Log("Bad argument, expected directory following -r: \"%s\", skipping\n", argv[i]);
 				continue;
 			}
-			given_dir = 1;
 			len = strlen(argv[i]);
 			if (argv[i][len-1] == '/')
 				argv[i][len-1] = 0;
 
 			cvec_push_str(&g->sources, argv[i-1]);
 			cvec_push_str(&g->sources, argv[i]);
-		} else {
+		} else if (argv[i][0] != '-') {
+			// a file named '-' or similar can be done by giving the path ie sdl_img ./-
 			normalize_path(argv[i]);
 			cvec_push_str(&g->sources, argv[i]);
 		}
 	}
+
+	setup(argc, argv);
 
 	int is_a_gif;
 	while (1) {

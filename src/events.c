@@ -139,6 +139,9 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 						fb->selection = fb->search_results.a[fb->selection];
 					}
 					fb->list_setscroll = TRUE;
+				} else if (g->fullscreen) {
+					g->fullscreen = 0;
+					set_fullscreen();
 				} else {
 					nk_input_end(ctx);
 					return 1;
@@ -931,10 +934,41 @@ int handle_scanning_events()
 			sym = e.key.keysym.sym;
 			switch (sym) {
 			case SDLK_ESCAPE:
-				nk_input_end(g->ctx);
-				return 1;
+				if (g->fullscreen) {
+					g->fullscreen = 0;
+					set_fullscreen();
+				} else {
+					nk_input_end(g->ctx);
+					return 1;
+				}
 				break;
 			}
+			break;
+		case SDL_WINDOWEVENT: {
+			g->status = REDRAW;
+			int x, y;
+			SDL_GetWindowSize(g->win, &x, &y);
+			switch (e.window.event) {
+			case SDL_WINDOWEVENT_RESIZED:
+				// keep GUI visible while resizing
+				g->show_gui = SDL_TRUE;
+				SDL_ShowCursor(SDL_ENABLE);
+				g->gui_timer = SDL_GetTicks();
+				// this event is always preceded by WINOWEVENT_SIZE_CHANGED
+				//g->scr_w = e.window.data1;
+				//g->scr_h = e.window.data2;
+				break;
+			case SDL_WINDOWEVENT_SIZE_CHANGED:
+				g->scr_w = e.window.data1;
+				g->scr_h = e.window.data2;
+				break;
+			case SDL_WINDOWEVENT_EXPOSED:
+				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "exposed event");
+				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
+				break;
+			}
+		}
+		break;
 		}
 	}
 	nk_input_end(g->ctx);
@@ -991,18 +1025,6 @@ int handle_events_normally()
 	space.key.keysym.sym = SDLK_SPACE;
 
 	int ticks = SDL_GetTicks();
-
-	/*
-	// do I need this variable or even to lock the mutex?
-	// can I just check g->sources.size?
-	SDL_LockMutex(g->scanning_mtx);
-	if (g->done_scanning) {
-		g->status = REDRAW;
-		g->done_scanning = 0;
-		g->state = NORMAL;
-	}
-	SDL_UnlockMutex(g->scanning_mtx);
-	*/
 
 	SDL_LockMutex(g->img_loading_mtx);
 	if (g->done_loading) {
@@ -1181,9 +1203,8 @@ int handle_events_normally()
 						SDL_Log("Ending slideshow");
 						g->slideshow = 0;
 					} else if (g->fullscreen) {
-						g->status = REDRAW;
-						SDL_SetWindowFullscreen(g->win, 0);
 						g->fullscreen = 0;
+						set_fullscreen();
 					} else if (IS_VIEW_RESULTS()) {
 						g->state ^= NORMAL;
 
@@ -1659,7 +1680,7 @@ int handle_events_normally()
 			g->status = REDRAW;
 			int x, y;
 			SDL_GetWindowSize(g->win, &x, &y);
-			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
+			SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_RESIZED:
 				// keep GUI visible while resizing
