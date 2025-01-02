@@ -124,11 +124,12 @@ int read_config_file(char* filename)
 	if (n) {
 		g->img_exts = (const char**)exts;
 		g->n_exts = n;
+		g->cfg_img_exts = SDL_TRUE;
 	}
 
 	// TODO think about where I really want cachedir storage/ownership...maybe
 	// just make cachedir and thumbdir actual arrays in g and be done with it?
-	if (get_global_strbuf(L, "cache_dir", g->cachedir, STRBUF_SZ)) {
+	if (get_global_strbuf(L, "cache_dir", g->cachedir_buf, STRBUF_SZ)) {
 		g->cfg_cachedir = SDL_TRUE;
 	}
 
@@ -214,7 +215,7 @@ void write_config(FILE* cfg_file)
 
 		case CACHE_DIR:
 			if (g->cfg_cachedir) {
-				fprintf(cfg_file, "'%s'\n", g->cachedir);
+				fprintf(cfg_file, "'%s'\n", g->cachedir_buf);
 			}
 			break;
 		case THUMB_DIR:

@@ -291,10 +291,16 @@ typedef struct global_state
 
 	int status;
 
+	// booleans
 	int cfg_cachedir;
+	int cfg_img_exts;
+
 	char* cachedir;
 	char* thumbdir;
 	char* prefpath;
+
+	char cachedir_buf[STRBUF_SZ];
+	char thumbdir_buf[STRBUF_SZ];
 
 	cvector_file files;
 	cvector_str favs;
@@ -637,6 +643,14 @@ void cleanup(int ret, int called_setup)
 		// appends prefpath inside
 		write_config_file("config.lua");
 		write_config(stdout);
+
+		// free allocated img exts if we read them from config file
+		if (g->cfg_img_exts) {
+			for (int i=0; i<g->n_exts; ++i) {
+				free(g->img_exts[i]);
+			}
+			free(g->img_exts);
+		}
 
 		// not really necessary to exit thread but
 		// valgrind reports it as possibly lost if not
@@ -1474,7 +1488,8 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 				f.size = 0;
 				f.modified = 0;
 
-				// leave whole url as name so user knows why size and modified are unknown
+				// TODO/NOTE leave whole url as name so user knows why size and modified are unknown
+				// It does mean sorting by name is useless since they all start with http
 				f.name = f.path;
 				strncpy(f.size_str, "unknown", SIZE_STR_BUF);
 				strncpy(f.mod_str, "unknown", MOD_STR_BUF);
@@ -1841,9 +1856,6 @@ void print_help(char* prog_name, int verbose)
 
 void setup(int argc, char** argv)
 {
-	static char cachedir[STRBUF_SZ] = { 0 };
-	static char thumbdir[STRBUF_SZ] = { 0 };
-
 	char error_str[STRBUF_SZ] = { 0 };
 	char title_buf[STRBUF_SZ] = { 0 };
 	char buf[STRBUF_SZ] = { 0 };
@@ -1865,6 +1877,25 @@ void setup(int argc, char** argv)
 		".pic",
 		".psd"
 	};
+
+	// set defaults before loading config file
+	g->img_exts = default_exts;
+	g->n_exts = NUM_DFLT_EXTS;
+
+	// Not currently used
+	// char* exepath = SDL_GetBasePath();
+
+	// TODO think of a company/org name
+	g->prefpath = SDL_GetPrefPath("", "sdl_img");
+	//SDL_Log("%s\n%s\n\n", exepath, g->prefpath);
+	// SDL_free(exepath);
+
+	// have to set these before load_config
+	// just point these at a buffer that will live forever
+	g->cachedir = g->cachedir_buf;
+	g->thumbdir = g->thumbdir_buf;
+
+	int got_config = load_config();
 
 	for (int i=1; i<argc; ++i) {
 		if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {
@@ -1908,9 +1939,6 @@ void setup(int argc, char** argv)
 
 	}
 
-	g->img_exts = default_exts;
-	g->n_exts = NUM_DFLT_EXTS;
-
 #ifndef NDEBUG
 	puts("does this work");
 	SDL_LogSetAllPriority(SDL_LOG_PRIORITY_DEBUG);
@@ -1930,20 +1958,6 @@ void setup(int argc, char** argv)
 		exit(1);
 	}
 
-	// Not currently used
-	// char* exepath = SDL_GetBasePath();
-
-	// TODO think of a company/org name
-	g->prefpath = SDL_GetPrefPath("", "sdl_img");
-	//SDL_Log("%s\n%s\n\n", exepath, g->prefpath);
-	// SDL_free(exepath);
-
-	// have to set these before load_config
-	// just point these at a buffer that will live forever
-	g->cachedir = cachedir;
-	g->thumbdir = thumbdir;
-
-	int got_config = load_config();
 
 	if (curl_global_init(CURL_GLOBAL_ALL)) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to initialize libcurl\n");
