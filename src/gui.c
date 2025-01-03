@@ -117,12 +117,24 @@ void draw_gui(struct nk_context* ctx)
 
 	if (IS_FS_MODE()) {
 		if (!draw_filebrowser(&g->filebrowser, g->ctx, scr_w, scr_h)) {
-			// TODO
 			if (g->filebrowser.file[0]) {
 				cvec_push_str(&g->sources, g->filebrowser.file);
 				start_scanning();
+			} else if (g->files.size) {
+				// they canceled an "open more" so just return to normal mode
+				g->state = NORMAL;
+				SDL_ShowCursor(SDL_ENABLE);
+				g->gui_timer = SDL_GetTicks();
+				g->show_gui = SDL_TRUE;
+				g->status = REDRAW;
 			}
+			// TODO else they tried to cancel an initial open or an open fresh which
+			// they can't do (we need files) ... or we could just make it exit since
+			// we currestly the only clickable exit is the window exit...
+			
 			/*
+			 * Do I need to do all state transitions when procesing events? No
+			 * Should I keep all state transitions in the same place?  Probably
 			if (g->filebrowser.file[0]) {
 				start_scanning();
 				event.user.code = PROCESS_SELECTION;
@@ -541,6 +553,23 @@ void draw_gui(struct nk_context* ctx)
 			}
 
 			nk_layout_row_dynamic(ctx, 0, 1);
+			if (g->n_imgs == 1) {
+				// Only support opening new/additional files when in 1 image mode
+				// it simplifies things
+				if (nk_menu_item_label(ctx, "Open", NK_TEXT_LEFT)) {
+					event.user.code = OPEN_FILE_NEW;
+					SDL_PushEvent(&event);
+					puts("pushing OPEN_FILE_NEW");
+				}
+			
+				// TODO naming
+				if (nk_menu_item_label(ctx, "Open Additional", NK_TEXT_LEFT)) {
+						event.user.code = OPEN_FILE_MORE;
+						SDL_PushEvent(&event);
+						puts("pushing OPEN_FILE_MORE");
+				}
+			}
+
 			if (nk_menu_item_label(ctx, "Preferences", NK_TEXT_LEFT)) {
 				g->show_prefs = SDL_TRUE;
 			}
@@ -842,7 +871,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 	cvector_file* f = &fb->files;
 
 	if (fb->file[0]) {
-		// You've already selected a file why are you calling do_filebrowser?
+		// You've already selected a file why are you calling draw_filebrowser?
 		return 0;
 	}
 

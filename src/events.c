@@ -142,6 +142,14 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 				} else if (g->fullscreen) {
 					g->fullscreen = 0;
 					set_fullscreen();
+				} else if (g->files.size) {
+					// back from an "open additional"
+					g->state = NORMAL;
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = SDL_TRUE;
+					g->status = REDRAW;
+					//try_move(SELECTION);
 				} else {
 					nk_input_end(ctx);
 					return 1;
@@ -1170,6 +1178,11 @@ int handle_events_normally()
 				break;
 			case DELETE_IMG:
 				do_delete(&space);
+				break;
+			case OPEN_FILE_NEW:
+				do_file_open(SDL_TRUE);
+			case OPEN_FILE_MORE:
+				do_file_open(SDL_FALSE);
 				break;
 			default:
 				SDL_Log("Unknown user event!");

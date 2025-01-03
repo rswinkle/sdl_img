@@ -75,8 +75,8 @@ enum { DELAY, ALWAYS, NEVER };
 enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V,
        MODE_CHANGE, THUMB_MODE, LIST_MODE, DELETE_IMG, ACTUAL_SIZE, ROT360, REMOVE_BAD,
-       SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, PROCESS_SELECTION,
-       NUM_USEREVENTS };
+       SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, PROCESS_SELECTION, OPEN_FILE_NEW,
+       OPEN_FILE_MORE, NUM_USEREVENTS };
 
 // return values for handle_selection(), says what the arg was
 enum { URL, DIRECTORY, IMAGE };
@@ -1627,9 +1627,9 @@ int scan_sources(void* data)
 
 	int given_list = 0;
 	int given_dir = 0;
+	int given_url = 0;
 	int recurse = 0;
 	int img_args = 0;
-	int start_index = 0;
 	file f;
 
 
@@ -1644,6 +1644,7 @@ int scan_sources(void* data)
 
 		given_list = 0;
 		given_dir = 0;
+		given_url = 0;
 		recurse = 0;
 		img_args = 0;
 
@@ -1682,6 +1683,7 @@ int scan_sources(void* data)
 			} else {
 				int r = handle_selection(a[i], recurse);
 				given_dir |= r == DIRECTORY;
+				given_url |= r == URL;
 				img_args += r == IMAGE;
 			}
 		}
@@ -1691,7 +1693,7 @@ int scan_sources(void* data)
 
 		// if given a single local image, scan all the files in the same directory
 		// don't do this if a list and/or directory was given even if they were empty
-		if (g->files.size == 1 && img_args == 1 && !given_list && !given_dir) {
+		if (img_args == 1 && !given_list && !given_dir && !given_url) {
 			mydirname(g->files.a[0].path, dirpath);
 			mybasename(g->files.a[0].path, img_name);
 
@@ -2409,6 +2411,17 @@ int try_move(int direction)
 		return 1;
 	}
 	return 0;
+}
+
+void do_file_open(int clear_files)
+{
+	if (clear_files) {
+		cvec_clear_file(&g->files);
+	}
+	g->state = FILE_SELECTION;
+	reset_file_browser(&g->filebrowser, NULL);
+	g->filebrowser.selection = -1; // default to no selection
+	puts("executing OPEN_FILE");
 }
 
 void do_shuffle()
