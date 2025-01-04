@@ -553,9 +553,12 @@ void draw_gui(struct nk_context* ctx)
 			}
 
 			nk_layout_row_dynamic(ctx, 0, 1);
-			if (g->n_imgs == 1) {
-				// Only support opening new/additional files when in 1 image mode
-				// it simplifies things
+
+			if (g->n_imgs == 1 && g->state == NORMAL) {
+				// Only support opening new/additional files when in 1 image NORMAL mode
+				// it simplifies things.  May support 1 image mode when viewing results
+				// in the future
+				//
 				if (nk_menu_item_label(ctx, "Open", NK_TEXT_LEFT)) {
 					event.user.code = OPEN_FILE_NEW;
 					SDL_PushEvent(&event);
