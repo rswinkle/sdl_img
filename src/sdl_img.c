@@ -2418,6 +2418,13 @@ void do_file_open(int clear_files)
 	if (clear_files) {
 		cvec_clear_file(&g->files);
 	}
+
+	// It's just easier to always clear thumbs even for "Open More"
+	g->generating_thumbs = SDL_FALSE;
+	g->thumbs_done = SDL_FALSE;
+	g->thumbs_loaded = SDL_FALSE;
+	cvec_free_thumb_state(&g->thumbs);
+
 	g->state = FILE_SELECTION;
 	reset_file_browser(&g->filebrowser, NULL);
 	g->filebrowser.selection = -1; // default to no selection
