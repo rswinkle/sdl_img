@@ -1694,14 +1694,18 @@ file* find_file(file* f, compare_func cmp)
 	start_index =(int)(res - g->files.a);
 
 	*/
+	return NULL;
+}
 
+int find_file_simple(const char* path)
+{
 	for (int i=0; i<g->files.size; ++i) {
-		if (!strcmp(f->path, g->files.a[i].path)) {
-			return &g->files.a[i];
+		if (!strcmp(path, g->files.a[i].path)) {
+			return i;
 		}
 	}
 
-	return NULL;
+	return -1;
 }
 
 
@@ -1788,53 +1792,44 @@ int scan_sources(void* data)
 			if (g->open_single) {
 				f = g->files.a[g->files.size-1];
 				SDL_Log("Added 1 image for %"PRIcv_sz" images total\n", g->files.size);
-				// should we do this when they only added 1?
-				if (remove_duplicates()) {
+
+				if ((start_index = find_file_simple(f.path)) != g->files.size-1) {
 					SDL_Log("You already had that image open, not adding duplicate..\n");
+					cvec_pop_file(&g->files, &f);
 				} else {
-					// TODO all this logic
 					mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
-
-					res = find_file(&f, filename_cmp_lt);
-					start_index =(int)(res - g->files.a);
-
-					g->selection = (start_index) ? start_index-1 : g->files.size-1;
-					try_move(SELECTION);
+					start_index = find_file_simple(f.path);
 				}
+				g->selection = (start_index) ? start_index-1 : g->files.size-1;
+				try_move(SELECTION);
 				g->open_single = SDL_FALSE;
 			} else {
-				mydirname(g->files.a[0].path, dirpath);
-				mybasename(g->files.a[0].path, img_name);
-
 				// This is right even if g->files.size != 1 (ie we did an "Open More")
 				// because it will still be the last file in the list
 				//
 				// popm to not free the string and keep the file in case
 				// the start image is not added in the scan
 				cvec_popm_file(&g->files, &f);
+				mydirname(f.path, dirpath);
 
 				myscandir(dirpath, g->img_exts, g->n_exts, recurse); // allow recurse for base case?
 
 				SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
 
-				//snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, img_name);
-
-				// TODO sorting and bsearching by filename instead of filepath means we could
-				// get a false match
-				mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
-
+				// remove duplicates first
 				remove_duplicates();
 
+				mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
+
 				SDL_Log("finding current image to update index\n");
-				// this is fine because it's only used when given a single image, which then scans
-				// only that directory, hence no duplicate filenames are possible
-				//
 				// in all other cases (list, multiple files/urls, directory(ies) or some
 				// combination of those) there is no "starting image", we just sort and
 				// start at the beginning of the g->files in those cases
-				res = find_file(&f, filename_cmp_lt);
+				int idx = find_file_simple(f.path);
+				res = (idx >= 0) ? &g->files.a[idx] : NULL;
+				//res = find_file(&f, filename_cmp_lt);
 				if (!res) {
-					SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not find starting image '%s' when scanning containing directory\n", img_name);
+					SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not find starting image '%s' when scanning containing directory\n", f.name);
 					SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "This means it did not have a searched-for extension; adding to list and attempting load anyway\n");
 					int i;
 					for (i=0; i<g->files.size; i++) {
@@ -1856,7 +1851,6 @@ int scan_sources(void* data)
 				// ever open over 2^31-1 images so just explicitly convert
 				// from ptrdiff_t (i64) to int here and use ints everywhere
 				int start_index =(int)(res - g->files.a);
-				//setup_initial_image(start_index);
 				g->selection = (start_index) ? start_index-1 : g->files.size-1;
 				try_move(SELECTION);
 			}
@@ -1867,8 +1861,8 @@ int scan_sources(void* data)
 
 			printf("%s\n", g->files.a[0].path);
 
-			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 			remove_duplicates();
+			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 
 			// TODO is_open_more will never be true here till I support opening directories, playlists
 			// and urls.
