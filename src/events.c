@@ -888,7 +888,7 @@ int handle_scanning_events()
 {
 	SDL_Event e;
 	int sym;
-	int code, sort_timer;
+	int code;
 	//SDL_Keymod mod_state = SDL_GetModState();
 	
 	// TODO make sure loading is done before setting state to NORMAL

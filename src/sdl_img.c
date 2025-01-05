@@ -310,6 +310,7 @@ typedef struct global_state
 
 	// for file selection
 	file_browser filebrowser;
+	int open_single;  // boolean (should I move it to file_browser?)
 
 	const char** img_exts;
 	int n_exts;
@@ -647,7 +648,7 @@ void cleanup(int ret, int called_setup)
 		// free allocated img exts if we read them from config file
 		if (g->cfg_img_exts) {
 			for (int i=0; i<g->n_exts; ++i) {
-				free(g->img_exts[i]);
+				free((void*)g->img_exts[i]);
 			}
 			free(g->img_exts);
 		}
@@ -1568,6 +1569,57 @@ int handle_selection(char* path, int recurse)
 	return ret;
 }
 
+int remove_duplicates(void)
+{
+	// NOTE this only works after g->files is sorted obvously
+	mirrored_qsort(g->files.a, g->files.size, sizeof(file), filepath_cmp_lt, 0);
+
+	char path_buf[STRBUF_SZ] = {0};
+	int did_removals = 0;
+	cvector_file* f = &g->files;
+	int save_cur = 0;
+
+	// TODO I should always have a valid image/path when calling this function
+	// save current image path (could be freed as a duplicate)
+	if (f->size && f->a[g->img[0].index].path) {
+		snprintf(path_buf, STRBUF_SZ, "%s", f->a[g->img[0].index].path);
+		save_cur = 1;
+	}
+
+	int j;
+	for (int i=f->size-1; i>0; --i) {
+		j = i-1;
+		printf("comparing\n%s\n%s\n\n", f->a[i].path, f->a[j].path);
+		while (j >= 0 && !strcmp(f->a[i].path, f->a[j].path)) {
+			puts("found a duplicate");
+			j--;
+		}
+		j++;
+
+		if (j != i) {
+			// found matching [j, i] so remove [j+1, i] to keep j to minimize movement
+			printf("Removing duplicates %d %d\n", j+1, i);
+			cvec_erase_file(f, j+1, i);
+			// continue to the left of j (after --i)
+			i = j;
+			did_removals = 1;
+		}
+	}
+
+	if (save_cur) {
+		for (int i=0; i<f->size; ++i) {
+			if (!strcmp(path_buf, f->a[i].path)) {
+				g->img[0].index = i;
+				g->thumb_sel = i;
+				g->selection = i;
+				break;
+			}
+		}
+	}
+
+	return did_removals;
+}
+
 /*
 void setup_initial_image(int start_idx)
 {
@@ -1619,11 +1671,47 @@ void setup_initial_image(int start_idx)
 }
 */
 
+// assumes g->files is sorted using compare_func, but not necessarily by path which is the only
+// unique identifier
+file* find_file(file* f, compare_func cmp)
+{
+	/*
+	file* res;
+	res = bsearch(&f, g->files.a, g->files.size, sizeof(file), cmp);
+	if (!res) {
+		return res;
+	}
+
+	if (cmp == filepath_cmp_lt || cmp == filepath_cmp_gt) {
+		return res;
+	} else if (!strcmp(f->path, res->path)) {
+		return res;
+	}
+
+	if (cmp == filename_cmp_lt || cmp == filename_cmp_gt) {
+	}
+
+	start_index =(int)(res - g->files.a);
+
+	*/
+
+	for (int i=0; i<g->files.size; ++i) {
+		if (!strcmp(f->path, g->files.a[i].path)) {
+			return &g->files.a[i];
+		}
+	}
+
+	return NULL;
+}
+
+
 int scan_sources(void* data)
 {
 	char dirpath[STRBUF_SZ] = { 0 };
 	char img_name[STRBUF_SZ] = { 0 };
 	char fullpath[STRBUF_SZ] = { 0 };
+
+	int start_index;
 
 	int given_list = 0;
 	int given_dir = 0;
@@ -1631,7 +1719,9 @@ int scan_sources(void* data)
 	int recurse = 0;
 	int img_args = 0;
 	file f;
+	file* res;
 
+	int is_open_more = g->files.size;
 
 	cvector_str* srcs = &g->sources;
 	while (1) {
@@ -1694,62 +1784,98 @@ int scan_sources(void* data)
 		// if given a single local image, scan all the files in the same directory
 		// don't do this if a list and/or directory was given even if they were empty
 		if (img_args == 1 && !given_list && !given_dir && !given_url) {
-			mydirname(g->files.a[0].path, dirpath);
-			mybasename(g->files.a[0].path, img_name);
 
-			// popm to not free the string and keep the file in case
-			// the start image is not added in the scan
-			cvec_popm_file(&g->files, &f);
+			if (g->open_single) {
+				f = g->files.a[g->files.size-1];
+				SDL_Log("Added 1 image for %"PRIcv_sz" images total\n", g->files.size);
+				// should we do this when they only added 1?
+				if (remove_duplicates()) {
+					SDL_Log("You already had that image open, not adding duplicate..\n");
+				} else {
+					// TODO all this logic
+					mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 
-			myscandir(dirpath, g->img_exts, g->n_exts, recurse); // allow recurse for base case?
+					res = find_file(&f, filename_cmp_lt);
+					start_index =(int)(res - g->files.a);
 
-			SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
-
-			snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, img_name);
-
-			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
-
-			SDL_Log("finding current image to update index\n");
-			// this is fine because it's only used when given a single image, which then scans
-			// only that directory, hence no duplicate filenames are possible
-			//
-			// in all other cases (list, multiple files/urls, directory(ies) or some
-			// combination of those) there is no "starting image", we just sort and
-			// start at the beginning of the g->files in those cases
-			file* res;
-			res = bsearch(&f, g->files.a, g->files.size, sizeof(file), filename_cmp_lt);
-			if (!res) {
-				SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not find starting image '%s' when scanning containing directory\n", img_name);
-				SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "This means it did not have a searched-for extension; adding to list and attempting load anyway\n");
-				int i;
-				for (i=0; i<g->files.size; i++) {
-					if (filename_cmp_lt(&f, &g->files.a[i]) <= 0) {
-						cvec_insert_file(&g->files, i, &f);
-						res = &g->files.a[i];
-						break;
-					}
+					g->selection = (start_index) ? start_index-1 : g->files.size-1;
+					try_move(SELECTION);
 				}
-				if (i == g->files.size) {
-					cvec_push_file(&g->files, &f);
-					res = &g->files.a[i];
-				}
+				g->open_single = SDL_FALSE;
 			} else {
-				// no longer need this, it was found in the scan
-				free(f.path);
+				mydirname(g->files.a[0].path, dirpath);
+				mybasename(g->files.a[0].path, img_name);
+
+				// This is right even if g->files.size != 1 (ie we did an "Open More")
+				// because it will still be the last file in the list
+				//
+				// popm to not free the string and keep the file in case
+				// the start image is not added in the scan
+				cvec_popm_file(&g->files, &f);
+
+				myscandir(dirpath, g->img_exts, g->n_exts, recurse); // allow recurse for base case?
+
+				SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
+
+				//snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, img_name);
+
+				// TODO sorting and bsearching by filename instead of filepath means we could
+				// get a false match
+				mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
+
+				remove_duplicates();
+
+				SDL_Log("finding current image to update index\n");
+				// this is fine because it's only used when given a single image, which then scans
+				// only that directory, hence no duplicate filenames are possible
+				//
+				// in all other cases (list, multiple files/urls, directory(ies) or some
+				// combination of those) there is no "starting image", we just sort and
+				// start at the beginning of the g->files in those cases
+				res = find_file(&f, filename_cmp_lt);
+				if (!res) {
+					SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not find starting image '%s' when scanning containing directory\n", img_name);
+					SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "This means it did not have a searched-for extension; adding to list and attempting load anyway\n");
+					int i;
+					for (i=0; i<g->files.size; i++) {
+						if (filename_cmp_lt(&f, &g->files.a[i]) <= 0) {
+							cvec_insert_file(&g->files, i, &f);
+							res = &g->files.a[i];
+							break;
+						}
+					}
+					if (i == g->files.size) {
+						cvec_push_file(&g->files, &f);
+						res = &g->files.a[i];
+					}
+				} else {
+					// no longer need this, it was found in the scan
+					free(f.path);
+				}
+				// I could change all indexes to i64 but but no one will
+				// ever open over 2^31-1 images so just explicitly convert
+				// from ptrdiff_t (i64) to int here and use ints everywhere
+				int start_index =(int)(res - g->files.a);
+				//setup_initial_image(start_index);
+				g->selection = (start_index) ? start_index-1 : g->files.size-1;
+				try_move(SELECTION);
 			}
-			// I could change all indexes to i64 but but no one will
-			// ever open over 2^31-1 images so just explicitly convert
-			// from ptrdiff_t (i64) to int here and use ints everywhere
-			int start_index =(int)(res - g->files.a);
-			//setup_initial_image(start_index);
-			g->selection = (start_index) ? start_index-1 : g->files.size-1;
-			try_move(SELECTION);
 		} else if (g->files.size) {
+			// TODO preserve current image in "open more" (if we're here they didn't select a single image
+			// so it would make sense to add the new directory/list etc. while staying where we are
 			SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
+
 			printf("%s\n", g->files.a[0].path);
+
 			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
-			g->selection = g->files.size-1;
-			try_move(SELECTION);
+			remove_duplicates();
+
+			// TODO is_open_more will never be true here till I support opening directories, playlists
+			// and urls.
+			if (!is_open_more) {
+				g->selection = g->files.size-1;
+				try_move(SELECTION);
+			}
 		} else {
 			SDL_Log("Found 0 images, switching to File Browser...");
 		}
@@ -1861,7 +1987,6 @@ void setup(int argc, char** argv)
 	char error_str[STRBUF_SZ] = { 0 };
 	char title_buf[STRBUF_SZ] = { 0 };
 	char buf[STRBUF_SZ] = { 0 };
-	char* img_name = NULL;
 
 	static const char* default_exts[NUM_DFLT_EXTS] =
 	{
@@ -3035,6 +3160,7 @@ void do_thumb_rem_del_search(int do_delete, int invert)
 		// is still there, should be no duplicates in search_results so we can
 		// check up front without actually doing the removal
 		if (g->search_results.size == g->files.size) {
+			// TODO goto to FILE_SELECTION?
 			SDL_Log("You removed all your currently viewed images, exiting\n");
 			cleanup(0, 1);
 		}

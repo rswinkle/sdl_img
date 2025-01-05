@@ -1021,6 +1021,8 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			struct nk_rect bounds = nk_widget_bounds(ctx);
 			fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, FONT_SIZE, nk_vec2(bounds.w, 300));
 
+			nk_checkbox_label(ctx, "single image", &g->open_single);
+
 			nk_label(ctx, "Bookmarks", NK_TEXT_CENTERED);
 			if (fb->get_recents) {
 				if (nk_button_label(ctx, "Recents")) {
