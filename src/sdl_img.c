@@ -1569,7 +1569,7 @@ int handle_selection(char* path, int recurse)
 	return ret;
 }
 
-int remove_duplicates(void)
+int remove_duplicates(char* cur_path)
 {
 	// NOTE this only works after g->files is sorted obvously
 	mirrored_qsort(g->files.a, g->files.size, sizeof(file), filepath_cmp_lt, 0);
@@ -1577,13 +1577,11 @@ int remove_duplicates(void)
 	char path_buf[STRBUF_SZ] = {0};
 	int did_removals = 0;
 	cvector_file* f = &g->files;
-	int save_cur = 0;
 
 	// TODO I should always have a valid image/path when calling this function
 	// save current image path (could be freed as a duplicate)
-	if (f->size && f->a[g->img[0].index].path) {
-		snprintf(path_buf, STRBUF_SZ, "%s", f->a[g->img[0].index].path);
-		save_cur = 1;
+	if (cur_path) {
+		snprintf(path_buf, STRBUF_SZ, "%s", cur_path);
 	}
 
 	int j;
@@ -1606,7 +1604,7 @@ int remove_duplicates(void)
 		}
 	}
 
-	if (save_cur) {
+	if (cur_path) {
 		for (int i=0; i<f->size; ++i) {
 			if (!strcmp(path_buf, f->a[i].path)) {
 				g->img[0].index = i;
@@ -1620,56 +1618,6 @@ int remove_duplicates(void)
 	return did_removals;
 }
 
-/*
-void setup_initial_image(int start_idx)
-{
-	// TODO Handle clearing out images if opening a fresh set
-	for (int i=0; i<g->n_imgs; ++i) {
-		clear_img(&g->img[i]);
-		//free(g->img[i].tex);
-	}
-	g->n_imgs = 1;
-	g->img_focus = NULL;
-	g->state = NORMAL;
-
-	// handle when first image (say in a list that's out of date) is gone/invalid
-	// loop through till valid
-	i64 last = start_idx;
-	int ret;
-	img_state* img = &g->img[0];
-	img->index = last;
-	do {
-		ret = attempt_image_load(last, img);
-		last = wrap(last+1);
-	} while (!ret && last != start_idx);
-
-	if (!ret) {
-		g->state = FILE_SELECTION;
-		cleanup(0, 1);
-	}
-
-	img->index = wrap(last-1);
-	char* img_name = g->files.a[img->index].name;
-
-	//g->scr_w = MAX(g->img[0].w, START_WIDTH);
-	//g->scr_h = MAX(g->img[0].h, START_HEIGHT);
-
-	// can't create textures till after we have a renderer (otherwise we'd pass SDL_TRUE)
-	// to load_image above
-	if (!create_textures(&g->img[0])) {
-		cleanup(1, 1);
-	}
-
-	SET_MODE1_SCR_RECT();
-	SDL_RenderClear(g->ren);
-	SDL_RenderCopy(g->ren, g->img[0].tex[g->img[0].frame_i], NULL, &g->img[0].disp_rect);
-	SDL_RenderPresent(g->ren);
-
-	SDL_SetWindowTitle(g->win, img_name);
-
-	SDL_Log("Starting with %s\n", img_name);
-}
-*/
 
 // assumes g->files is sorted using compare_func, but not necessarily by path which is the only
 // unique identifier
@@ -1704,17 +1652,12 @@ int find_file_simple(const char* path)
 			return i;
 		}
 	}
-
 	return -1;
 }
-
 
 int scan_sources(void* data)
 {
 	char dirpath[STRBUF_SZ] = { 0 };
-	char img_name[STRBUF_SZ] = { 0 };
-	char fullpath[STRBUF_SZ] = { 0 };
-
 	int start_index;
 
 	int given_list = 0;
@@ -1817,7 +1760,8 @@ int scan_sources(void* data)
 				SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
 
 				// remove duplicates first
-				remove_duplicates();
+				// TODO I should just move this logic into remove_duplicates, passing a bool is_open_more
+				remove_duplicates((is_open_more) ? g->files.a[g->img[0].index].path : NULL);
 
 				mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 
@@ -1861,7 +1805,7 @@ int scan_sources(void* data)
 
 			printf("%s\n", g->files.a[0].path);
 
-			remove_duplicates();
+			remove_duplicates((is_open_more) ? g->files.a[g->img[0].index].path : NULL);
 			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 
 			// TODO is_open_more will never be true here till I support opening directories, playlists
@@ -2536,6 +2480,13 @@ void do_file_open(int clear_files)
 {
 	if (clear_files) {
 		cvec_clear_file(&g->files);
+
+		// if we were in VIEW_RESULTS need to clear these
+		// TODO For now we don't support "Open More" in view results
+		text_buf[0] = 0;
+		//memset(text_buf, 0, text_len+1);
+		text_len = 0;
+		g->search_results.size = 0;
 	}
 
 	// It's just easier to always clear thumbs even for "Open More"

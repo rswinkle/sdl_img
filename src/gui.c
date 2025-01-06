@@ -554,8 +554,8 @@ void draw_gui(struct nk_context* ctx)
 
 			nk_layout_row_dynamic(ctx, 0, 1);
 
-			if (g->n_imgs == 1 && g->state == NORMAL) {
-				// Only support opening new/additional files when in 1 image NORMAL mode
+			if (g->n_imgs == 1 && (g->state & NORMAL)) {
+				// Only support opening new files when in 1 image NORMAL/viewing mode
 				// it simplifies things.  May support 1 image mode when viewing results
 				// in the future
 				//
@@ -565,11 +565,16 @@ void draw_gui(struct nk_context* ctx)
 					puts("pushing OPEN_FILE_NEW");
 				}
 			
-				// TODO naming
-				if (nk_menu_item_label(ctx, "Open Additional", NK_TEXT_LEFT)) {
-						event.user.code = OPEN_FILE_MORE;
-						SDL_PushEvent(&event);
-						puts("pushing OPEN_FILE_MORE");
+				// but only support opening additional when in exactly NORMAL mode
+				// ie no VIEW_RESULTS (for now, would have to re-run the search and
+				// update image indices)
+				if (g->state == NORMAL) {
+					// TODO naming
+					if (nk_menu_item_label(ctx, "Open Additional", NK_TEXT_LEFT)) {
+							event.user.code = OPEN_FILE_MORE;
+							SDL_PushEvent(&event);
+							puts("pushing OPEN_FILE_MORE");
+					}
 				}
 			}
 
@@ -1021,7 +1026,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			struct nk_rect bounds = nk_widget_bounds(ctx);
 			fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, FONT_SIZE, nk_vec2(bounds.w, 300));
 
-			nk_checkbox_label(ctx, "single image", &g->open_single);
+			nk_checkbox_label(ctx, "Single Image", &g->open_single);
 
 			nk_label(ctx, "Bookmarks", NK_TEXT_CENTERED);
 			if (fb->get_recents) {
