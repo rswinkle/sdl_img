@@ -311,6 +311,7 @@ typedef struct global_state
 	// for file selection
 	file_browser filebrowser;
 	int open_single;  // boolean (should I move it to file_browser?)
+	int open_playlist; // boolean
 
 	const char** img_exts;
 	int n_exts;
@@ -1569,7 +1570,7 @@ int handle_selection(char* path, int recurse)
 	return ret;
 }
 
-int remove_duplicates(char* cur_path)
+int remove_duplicates(int save_cur)
 {
 	// NOTE this only works after g->files is sorted obvously
 	mirrored_qsort(g->files.a, g->files.size, sizeof(file), filepath_cmp_lt, 0);
@@ -1580,8 +1581,8 @@ int remove_duplicates(char* cur_path)
 
 	// TODO I should always have a valid image/path when calling this function
 	// save current image path (could be freed as a duplicate)
-	if (cur_path) {
-		snprintf(path_buf, STRBUF_SZ, "%s", cur_path);
+	if (save_cur) {
+		snprintf(path_buf, STRBUF_SZ, "%s", g->files.a[g->img[0].index].path);
 	}
 
 	int j;
@@ -1604,7 +1605,7 @@ int remove_duplicates(char* cur_path)
 		}
 	}
 
-	if (cur_path) {
+	if (save_cur) {
 		for (int i=0; i<f->size; ++i) {
 			if (!strcmp(path_buf, f->a[i].path)) {
 				g->img[0].index = i;
@@ -1760,8 +1761,7 @@ int scan_sources(void* data)
 				SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
 
 				// remove duplicates first
-				// TODO I should just move this logic into remove_duplicates, passing a bool is_open_more
-				remove_duplicates((is_open_more) ? g->files.a[g->img[0].index].path : NULL);
+				remove_duplicates(is_open_more);
 
 				mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 
@@ -1805,7 +1805,7 @@ int scan_sources(void* data)
 
 			printf("%s\n", g->files.a[0].path);
 
-			remove_duplicates((is_open_more) ? g->files.a[g->img[0].index].path : NULL);
+			remove_duplicates(is_open_more);
 			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 
 			// TODO is_open_more will never be true here till I support opening directories, playlists

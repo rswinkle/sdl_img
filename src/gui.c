@@ -118,6 +118,9 @@ void draw_gui(struct nk_context* ctx)
 	if (IS_FS_MODE()) {
 		if (!draw_filebrowser(&g->filebrowser, g->ctx, scr_w, scr_h)) {
 			if (g->filebrowser.file[0]) {
+				if (g->open_playlist) {
+					cvec_push_str(&g->sources, "-l");
+				}
 				cvec_push_str(&g->sources, g->filebrowser.file);
 				start_scanning();
 			} else if (g->files.size) {
@@ -1002,6 +1005,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 		if (nk_group_begin(ctx, "Sidebar", 0)) {
 
+			int old;
 			// Make dynamic array to add saved bookmarked locations
 			nk_layout_row_dynamic(ctx, 0, 1);
 
@@ -1011,14 +1015,13 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				//nk_checkbox_label(ctx, "All Files", &fb->ignore_exts);
 				static const char* ext_opts[] = { FILE_TYPE_STR, "All Files" };
 				struct nk_rect bounds = nk_widget_bounds(ctx);
-				int old = fb->ignore_exts;
+				old = fb->ignore_exts;
 				fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, FONT_SIZE, nk_vec2(bounds.w, 300));
 				if (fb->ignore_exts != old) {
 					if (!fb->is_recents) {
 						switch_dir(fb, NULL);
 					} else {
 						handle_recents(fb);
-						//fb->get_recents(fb, fb->userdata);
 					}
 				}
 			}
@@ -1026,7 +1029,24 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			struct nk_rect bounds = nk_widget_bounds(ctx);
 			fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, FONT_SIZE, nk_vec2(bounds.w, 300));
 
-			nk_checkbox_label(ctx, "Single Image", &g->open_single);
+			if (nk_checkbox_label(ctx, "Single Image", &g->open_single) && g->open_single) {
+				g->open_playlist = SDL_FALSE;
+			}
+
+			nk_checkbox_label(ctx, "Playlist", &g->open_playlist);
+			if (g->open_playlist) {
+				g->open_single = SDL_FALSE;
+
+				old = fb->ignore_exts;
+				fb->ignore_exts = SDL_TRUE;
+				if (fb->ignore_exts != old) {
+					if (!fb->is_recents) {
+						switch_dir(fb, NULL);
+					} else {
+						handle_recents(fb);
+					}
+				}
+			}
 
 			nk_label(ctx, "Bookmarks", NK_TEXT_CENTERED);
 			if (fb->get_recents) {

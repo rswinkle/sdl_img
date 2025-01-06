@@ -169,9 +169,12 @@ void reset_file_browser(file_browser* fb, char* start_dir)
 	// clear vectors and prior selection
 	cvec_clear_file(&fb->files);
 	cvec_clear_i(&fb->search_results);
+	fb->is_search_results = FALSE;
 	fb->file[0] = 0;
+	fb->text_len = 0;
+	fb->text_buf[0] = 0;
 
-    // set start dir 
+    // set start dir
 	size_t l = 0;
 	const char* sd = fb->home;
 	if (start_dir) {
