@@ -13,7 +13,7 @@ Icon=sdl_img.png
 # Terminal=false
 Type=Application
 Categories=Graphics;2DGraphics;RasterGraphics;Viewer;
-MimeType=image/bmp;image/gif;image/jpeg;image/jpg;image/pjpeg;image/png;image/x-bmp;image/x-png;image/x-portable-graymap;image/x-portable-pixmap;img/vnd.radiance;
+MimeType=image/bmp;image/gif;image/jpeg;image/jpg;image/pjpeg;image/png;image/x-bmp;image/x-png;image/x-portable-graymap;image/x-portable-pixmap;image/vnd.radiance;
 # Extra keywords that can be used to search for eog in GNOME Shell and Unity
 # TRANSLATORS: Search terms to find this application.
 #              Do NOT translate or localize the semicolons!
