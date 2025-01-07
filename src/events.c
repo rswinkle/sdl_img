@@ -1028,6 +1028,9 @@ int handle_events_normally()
 	space.type = SDL_KEYDOWN;
 	space.key.keysym.scancode = SDL_SCANCODE_SPACE;
 
+	// Use if to push any user events
+	SDL_Event user_event = { .type = g->userevent };
+
 	// I only set this to clear valgrind errors of jumps in
 	// nk_sdl_handle_event based uninitialized values
 	space.key.keysym.sym = SDLK_SPACE;
@@ -1255,6 +1258,18 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_DELETE:
 				do_delete(&space);
+				break;
+
+			case SDL_SCANCODE_O:
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					user_event.user.code = OPEN_FILE_MORE;
+					SDL_PushEvent(&user_event);
+					puts("pushing OPEN_FILE_MORE");
+				} else {
+					user_event.user.code = OPEN_FILE_NEW;
+					SDL_PushEvent(&user_event);
+					puts("pushing OPEN_FILE_NEW");
+				}
 				break;
 
 			// CAPSLOCK comes right before F1 and F1-F12 are contiguous

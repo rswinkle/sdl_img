@@ -557,30 +557,6 @@ void draw_gui(struct nk_context* ctx)
 
 			nk_layout_row_dynamic(ctx, 0, 1);
 
-			if (g->n_imgs == 1 && (g->state & NORMAL)) {
-				// Only support opening new files when in 1 image NORMAL/viewing mode
-				// it simplifies things.  May support 1 image mode when viewing results
-				// in the future
-				//
-				if (nk_menu_item_label(ctx, "Open", NK_TEXT_LEFT)) {
-					event.user.code = OPEN_FILE_NEW;
-					SDL_PushEvent(&event);
-					puts("pushing OPEN_FILE_NEW");
-				}
-			
-				// but only support opening additional when in exactly NORMAL mode
-				// ie no VIEW_RESULTS (for now, would have to re-run the search and
-				// update image indices)
-				if (g->state == NORMAL) {
-					// TODO naming
-					if (nk_menu_item_label(ctx, "Open Additional", NK_TEXT_LEFT)) {
-							event.user.code = OPEN_FILE_MORE;
-							SDL_PushEvent(&event);
-							puts("pushing OPEN_FILE_MORE");
-					}
-				}
-			}
-
 			if (nk_menu_item_label(ctx, "Preferences", NK_TEXT_LEFT)) {
 				g->show_prefs = SDL_TRUE;
 			}
@@ -596,6 +572,32 @@ void draw_gui(struct nk_context* ctx)
 			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Misc. Actions", &state)) {
 				g->menu_state = MENU_MISC;
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+
+				if (g->n_imgs == 1 && (g->state & NORMAL)) {
+					// Only support opening new files when in 1 image NORMAL/viewing mode
+					// it simplifies things.  May support 1 image mode when viewing results
+					// in the future
+					//
+					if (nk_menu_item_label(ctx, "Open", NK_TEXT_LEFT)) {
+						event.user.code = OPEN_FILE_NEW;
+						SDL_PushEvent(&event);
+						puts("pushing OPEN_FILE_NEW");
+					}
+					nk_label(ctx, "O", NK_TEXT_RIGHT);
+
+					// but only support opening additional when in exactly NORMAL mode
+					// ie no VIEW_RESULTS (for now, would have to re-run the search and
+					// update image indices)
+					if (g->state == NORMAL) {
+						// TODO naming
+						if (nk_menu_item_label(ctx, "Open Additional", NK_TEXT_LEFT)) {
+								event.user.code = OPEN_FILE_MORE;
+								SDL_PushEvent(&event);
+								puts("pushing OPEN_FILE_MORE");
+						}
+						nk_label(ctx, "CTRL+O", NK_TEXT_RIGHT);
+					}
+				}
 
 				if (nk_selectable_label(ctx, "Slideshow", NK_TEXT_LEFT, &g->slideshow)) {
 					if (g->slideshow)
@@ -716,6 +718,14 @@ void draw_gui(struct nk_context* ctx)
 						SDL_PushEvent(&event);
 					}
 					nk_label(ctx, "V", NK_TEXT_RIGHT);
+
+					/*
+					if (nk_menu_item_label(ctx, "Remove", NK_TEXT_LEFT)) {
+						event.user.code = DELETE_IMG;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "BKSP", NK_TEXT_RIGHT);
+					*/
 
 					if (nk_menu_item_label(ctx, "Delete", NK_TEXT_LEFT)) {
 						event.user.code = DELETE_IMG;
