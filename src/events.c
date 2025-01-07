@@ -179,7 +179,7 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 			case SDLK_DOWN:
 			case SDLK_k:
 			case SDLK_j:
-				//puts("arrow up/down");
+				//SDL_LogDebugApp("arrow up/down");
 				fb->selection += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
 				if (fb->selection < 0)
 					fb->selection += f->size;
@@ -209,7 +209,7 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 		} break;
 
 		//case SDL_MOUSEBUTTONUP:
-			//printf("mouse click: %d, %d\n", e.button.x, e.button.y);
+			//SDL_LogDebugApp("mouse click: %d, %d\n", e.button.x, e.button.y);
 
 		break;
 
@@ -895,23 +895,20 @@ int handle_scanning_events()
 	// can either do the loading mtx lock here or load and setup manually
 	SDL_LockMutex(g->scanning_mtx);
 	if (g->done_scanning) {
-		puts("done scanning");
+		SDL_LogDebugApp("done scanning\n");
 
 		g->status = REDRAW;
 		if (g->files.size) {
 			//SDL_LockMutex(g->img_loading_mtx);
-			if (g->loading) {
-				puts("loading");
-			}
 			if (g->done_loading) {
-				puts("done loading");
+				SDL_LogDebugApp("done loading\n");
 
 				g->state = NORMAL;
-				puts("switching to normal");
+				SDL_LogDebugApp("switching to NORMAL mode\n");
 			}
 			//SDL_UnlockMutex(g->img_loading_mtx);
 		} else {
-			puts("switching to file selection");
+			SDL_Log("Switching to file selection because scanning sources discovered 0 images\n");
 			g->state = FILE_SELECTION;
 			reset_file_browser(&g->filebrowser, NULL);
 			g->filebrowser.selection = -1; // default to no selection
@@ -1264,11 +1261,9 @@ int handle_events_normally()
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					user_event.user.code = OPEN_FILE_MORE;
 					SDL_PushEvent(&user_event);
-					puts("pushing OPEN_FILE_MORE");
 				} else {
 					user_event.user.code = OPEN_FILE_NEW;
 					SDL_PushEvent(&user_event);
-					puts("pushing OPEN_FILE_NEW");
 				}
 				break;
 
@@ -1651,7 +1646,7 @@ int handle_events_normally()
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
 			if (e.button.which == SDL_TOUCH_MOUSEID)
-				puts("mouse button touch");
+				SDL_LogDebugApp("mouse button touch\n");
 			g->status = REDRAW;
 			SDL_ShowCursor(SDL_ENABLE);
 			g->gui_timer = SDL_GetTicks();
@@ -1675,7 +1670,7 @@ int handle_events_normally()
 								g->img[i].delays[j] -= amt;
 								g->img[i].delays[j] = MAX(MIN_GIF_DELAY, g->img[i].delays[j]);
 							}
-							printf("new delays[0]: %d\n", g->img[i].delays[0]);
+							SDL_LogDebugApp("new delays[0]: %d\n", g->img[i].delays[0]);
 						}
 					}
 				} else {
@@ -1741,26 +1736,26 @@ int handle_events_normally()
 			}
 		} break; // end WINDOWEVENTS
 		case SDL_FINGERDOWN:
-			puts("finger down");
-			printf("x y %f %f\n", e.tfinger.x, e.tfinger.y);
+			SDL_LogDebugApp("finger down\n");
+			SDL_LogDebugApp("x y %f %f\n", e.tfinger.x, e.tfinger.y);
 			break;
 		case SDL_FINGERUP:
-			puts("finger up");
-			printf("x y %f %f\n", e.tfinger.x, e.tfinger.y);
+			SDL_LogDebugApp("finger up\n");
+			SDL_LogDebugApp("x y %f %f\n", e.tfinger.x, e.tfinger.y);
 			break;
 		case SDL_FINGERMOTION:
-			puts("finger motion");
+			SDL_LogDebugApp("finger motion\n");
 			// documentation says dx and dy are normalized (-1, 1) but apparently they're not.
 			// Even if they were, it doesn't clarify if it's normalized in screen space or window space.
-			printf("dx dy %f %f\n", e.tfinger.dx, e.tfinger.dy);
+			SDL_LogDebugApp("dx dy %f %f\n", e.tfinger.dx, e.tfinger.dy);
 			g->status = REDRAW;
 			do_pan((int)(e.tfinger.dx+0.99), (int)(e.tfinger.dy+0.99));
 			break;
 		case SDL_MULTIGESTURE: {
-			printf("multi motion\n");
-			printf("theta = %f dist = %f\n", e.mgesture.dTheta, e.mgesture.dDist);
-			printf("x y = %f %f\n", e.mgesture.x, e.mgesture.y);
-			printf("numfingers = %d\n", e.mgesture.numFingers);
+			SDL_LogDebugApp("multi motion\n");
+			SDL_LogDebugApp("theta = %f dist = %f\n", e.mgesture.dTheta, e.mgesture.dDist);
+			SDL_LogDebugApp("x y = %f %f\n", e.mgesture.x, e.mgesture.y);
+			SDL_LogDebugApp("numfingers = %d\n", e.mgesture.numFingers);
 			g->status = REDRAW;
 			do_zoom(PINCH_ZOOM * e.mgesture.dDist, SDL_FALSE);
 		} break;

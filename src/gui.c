@@ -581,7 +581,6 @@ void draw_gui(struct nk_context* ctx)
 					if (nk_menu_item_label(ctx, "Open", NK_TEXT_LEFT)) {
 						event.user.code = OPEN_FILE_NEW;
 						SDL_PushEvent(&event);
-						puts("pushing OPEN_FILE_NEW");
 					}
 					nk_label(ctx, "O", NK_TEXT_RIGHT);
 
@@ -593,7 +592,6 @@ void draw_gui(struct nk_context* ctx)
 						if (nk_menu_item_label(ctx, "Open Additional", NK_TEXT_LEFT)) {
 								event.user.code = OPEN_FILE_MORE;
 								SDL_PushEvent(&event);
-								puts("pushing OPEN_FILE_MORE");
 						}
 						nk_label(ctx, "CTRL+O", NK_TEXT_RIGHT);
 					}
@@ -1334,7 +1332,6 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 
 		nk_layout_row_dynamic(ctx, 0, 1);
 		if (nk_button_label(ctx, "Clear thumbnail cache")) {
-			puts("Clearing thumbnails");
 			SDL_Log("Clearing thumbnails\n");
 			int ttimer = SDL_GetTicks();
 			empty_dir(g->thumbdir);

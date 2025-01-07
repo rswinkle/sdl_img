@@ -395,6 +395,8 @@ Sint32 selection_len;
 
 #include "lua_config.c"
 
+#define SDL_LogDebugApp(...) SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, __VA_ARGS__)
+
 void log_output_func(void *userdata, int category, SDL_LogPriority priority, const char *message)
 {
 	static const char *priority_prefixes[] = {
@@ -408,7 +410,7 @@ void log_output_func(void *userdata, int category, SDL_LogPriority priority, con
 	};
 
 	FILE* logfile = userdata;
-    fprintf(logfile, "%s: %s\n", priority_prefixes[priority], message);
+    fprintf(logfile, "%s: %s", priority_prefixes[priority], message);
     fflush(logfile);
 }
 
@@ -1094,10 +1096,9 @@ exit_load_thumbs:
 }
 
 // debug
-#if 1
+#if 0
 void print_img_state(img_state* img)
 {
-	puts("here");
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "{\nimg = %p\n", img);
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "pixels = %p\n", img->pixels);
 	SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "WxH = %dx%d\n", img->w, img->h);
@@ -1383,12 +1384,11 @@ int load_new_images(void* data)
 	int last;
 
 	while (1) {
-		puts("top of load_new_images");
+		SDL_LogDebugApp("top of load_new_images\n");
 		SDL_LockMutex(g->img_loading_mtx);
-		puts("locked img_loading_mtx");
 		while (g->loading < 2) {
 			SDL_CondWait(g->img_loading_cnd, g->img_loading_mtx);
-			printf("loading thread woke with load: %d\n", g->loading);
+			SDL_LogDebugApp("loading thread woke with load: %d\n", g->loading);
 		}
 		load_what = g->loading;
 		SDL_UnlockMutex(g->img_loading_mtx);
@@ -1396,8 +1396,7 @@ int load_new_images(void* data)
 		if (load_what == EXIT)
 			break;
 
-		printf("loading thread received a load: %d\n", load_what);
-		//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "loading %p = %d\n", &g->loading, g->loading);
+		SDL_LogDebugApp("loading thread received a load: %d\n", load_what);
 		if (load_what >= LEFT) {
 			img_state* img;
 			if (g->img == g->img1)
@@ -1621,9 +1620,9 @@ int remove_duplicates(int save_cur)
 	int j;
 	for (int i=f->size-1; i>0; --i) {
 		j = i-1;
-		printf("comparing\n%s\n%s\n\n", f->a[i].path, f->a[j].path);
+		SDL_LogDebugApp("comparing\n%s\n%s\n\n", f->a[i].path, f->a[j].path);
 		while (j >= 0 && !strcmp(f->a[i].path, f->a[j].path)) {
-			puts("found a duplicate");
+			SDL_LogDebugApp("found a duplicate\n");
 			j--;
 		}
 		j++;
@@ -1719,11 +1718,11 @@ int scan_sources(void* data)
 		recurse = 0;
 		img_args = 0;
 
-		printf("scanning files.size = %ld\n", g->files.size);
+		SDL_LogDebugApp("before scanning, files.size = %ld\n", g->files.size);
 
 		char** a = srcs->a;
 		for (int i=0; i<srcs->size; ++i) {
-			printf("Scanning source: %s\n", a[i]);
+			SDL_LogDebugApp("Scanning source: %s\n", a[i]);
 			if (!strcmp(a[i], "-l")) {
 
 				// sanity check extension
@@ -1791,7 +1790,7 @@ int scan_sources(void* data)
 
 				myscandir(dirpath, g->img_exts, g->n_exts, recurse); // allow recurse for base case?
 
-				SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
+				SDL_Log("Found %"PRIcv_sz" images total. Sorting by file name now...\n", g->files.size);
 
 				// remove duplicates first
 				remove_duplicates(is_open_more);
@@ -1834,9 +1833,7 @@ int scan_sources(void* data)
 		} else if (g->files.size) {
 			// TODO preserve current image in "open more" (if we're here they didn't select a single image
 			// so it would make sense to add the new directory/list etc. while staying where we are
-			SDL_Log("Found %"PRIcv_sz" images total\nSorting by file name now...\n", g->files.size);
-
-			printf("%s\n", g->files.a[0].path);
+			SDL_Log("Found %"PRIcv_sz" images total. Sorting by file name now...\n", g->files.size);
 
 			remove_duplicates(is_open_more);
 			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
@@ -1848,12 +1845,12 @@ int scan_sources(void* data)
 				try_move(SELECTION);
 			}
 		} else {
-			SDL_Log("Found 0 images, switching to File Browser...");
+			SDL_Log("Found 0 images, switching to File Browser...\n");
 		}
 
 
 		SDL_LockMutex(g->scanning_mtx);
-		puts("done scanning = 1");
+		SDL_LogDebugApp("done_scanning = 1\n");
 		g->done_scanning = 1;
 		SDL_UnlockMutex(g->scanning_mtx);
 	}
@@ -2178,7 +2175,7 @@ void setup(int argc, char** argv)
 
 #ifndef NDEBUG
 	puts("does this work");
-	SDL_LogSetAllPriority(SDL_LOG_PRIORITY_DEBUG);
+	//SDL_LogSetAllPriority(SDL_LOG_PRIORITY_DEBUG);
 #endif
 
 	// already NULL from static initialization
@@ -2624,9 +2621,8 @@ int start_scanning(void)
 {
 	if (g->sources.size) {
 		SDL_LockMutex(g->scanning_mtx);
-		// anything to do here?
 		g->done_scanning = 0;
-		puts("start scanning");
+		SDL_LogDebugApp("start scanning\n");
 
 		g->state = SCANNING;
 		SDL_CondSignal(g->scanning_cnd);
@@ -2643,7 +2639,7 @@ int try_move(int direction)
 	// hide the GUI while the popup's up, we really just have
 	// to worry about keyboard actions.
 	if (!g->loading && !g->done_loading) {
-		puts("signaling a load");
+		SDL_LogDebugApp("signaling a load\n");
 		SDL_LockMutex(g->img_loading_mtx);
 		g->loading = direction;
 		SDL_CondSignal(g->img_loading_cnd);
@@ -2675,7 +2671,9 @@ void do_file_open(int clear_files)
 	g->state = FILE_SELECTION;
 	reset_file_browser(&g->filebrowser, NULL);
 	g->filebrowser.selection = -1; // default to no selection
-	puts("executing OPEN_FILE");
+
+	const char* open_type_str[] = { "MORE", "NEW" };
+	SDL_LogDebugApp("executing OPEN_FILE%s\n", open_type_str[clear_files]);
 }
 
 void do_shuffle()
@@ -3423,7 +3421,7 @@ int main(int argc, char** argv)
 	for (int i=1; i<argc; ++i) {
 		if (!strcmp(argv[i], "-l")) {
 			if (i+1 == argc) {
-				puts("Error missing list file following -l");
+				SDL_Log("Error missing list file following -l\n");
 				break;
 			}
 			cvec_push_str(&g->sources, "-l");
