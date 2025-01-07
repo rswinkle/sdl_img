@@ -643,6 +643,21 @@ void cleanup(int ret, int called_setup)
 		fclose(g->logfile);
 	}
 	if (called_setup) {
+
+		if (g->generating_thumbs) {
+			g->generating_thumbs = FALSE;
+			while (!g->thumbs_done) {
+				; // wait for thread to exit
+			}
+		}
+
+		if (g->loading_thumbs) {
+			g->loading_thumbs = FALSE;
+			while (!g->thumbs_loaded) {
+				; // wait for thread to exit
+			}
+		}
+
 		// appends prefpath inside
 		write_config_file("config.lua");
 		write_config(stdout);
@@ -909,6 +924,13 @@ int gen_thumbs(void* data)
 	u8* pix;
 	u8* outpix;
 	for (int i=0; i<g->files.size; ++i) {
+
+		// user exited, want to cleanly end thread
+		// abusing generating_thumbs as two way communication flag
+		if (!g->generating_thumbs) {
+			goto exit_gen_thumbs;
+		}
+
 		if (!g->files.a[i].path) {
 			continue;
 		}
@@ -980,10 +1002,6 @@ int gen_thumbs(void* data)
 		SDL_Log("generated thumb %d for %s\n", i, g->files.a[i].path);
 	}
 
-	g->generating_thumbs = SDL_FALSE;
-	g->thumbs_done = SDL_TRUE;
-	g->thumbs_loaded = do_load;
-
 	if (do_load) {
 		// same as in load_thumbs, generating and loading can take even longer
 		g->thumb_sel = g->img[0].index;
@@ -991,6 +1009,10 @@ int gen_thumbs(void* data)
 		g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 	}
 
+exit_gen_thumbs:
+	g->generating_thumbs = SDL_FALSE;
+	g->thumbs_done = SDL_TRUE;
+	g->thumbs_loaded = do_load;
 
 	SDL_Log("Done generating thumbs in %.2f seconds, exiting thread.\n", (SDL_GetTicks()-start)/1000.0f);
 	return 0;
@@ -1042,6 +1064,12 @@ int load_thumbs(void* data)
 	g->loading_thumbs = SDL_TRUE;
 
 	for (int i=0; i<g->thumbs.size; i++) {
+		// user exited, want to cleanly end thread
+		// abusing loading_thumbs as two way communication flag
+		if (!g->loading_thumbs) {
+			goto exit_load_thumbs;
+		}
+
 		if (!g->files.a[i].path) {
 			continue;
 		}
@@ -1058,6 +1086,7 @@ int load_thumbs(void* data)
 	g->thumb_sel_end = g->img[0].index;
 	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 
+exit_load_thumbs:
 	g->thumbs_loaded = SDL_TRUE;
 	g->loading_thumbs = SDL_FALSE;
 	SDL_Log("Done loading thumbs in %.2f seconds, exiting thread.\n", (SDL_GetTicks()-start)/1000.0f);
@@ -2156,10 +2185,15 @@ void setup(int argc, char** argv)
 	SDL_Log("Window Max dimensions: %d %d\n", max_w, max_h);
 
 	// init file browser
-	init_file_browser(&g->filebrowser, g->img_exts, g->n_exts, NULL, NULL, NULL);
-	g->filebrowser.selection = -1; // default to no selection
+#ifdef GNOME
 	// TODO handle different recents functions for linux/windows
-	//init_file_browser(&g->filebrowser, default_exts, NUM_DFLT_EXTS, NULL, gnome_recents, NULL);
+	init_file_browser(&g->filebrowser, default_exts, NUM_DFLT_EXTS, NULL, gnome_recents, NULL);
+#else
+	init_file_browser(&g->filebrowser, g->img_exts, g->n_exts, NULL, NULL, NULL);
+#endif
+	g->filebrowser.selection = -1; // default to no selection
+
+
 
 	if (!(g->ctx = nk_sdl_init(g->win, g->ren))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "nk_sdl_init() failed!\n");
