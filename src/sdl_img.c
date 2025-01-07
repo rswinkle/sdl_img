@@ -363,6 +363,7 @@ typedef struct global_state
 
 	// threading
 	int generating_thumbs;
+	int loading_thumbs;
 	int loading;
 	int done_loading;
 	SDL_cond* img_loading_cnd;
@@ -1038,6 +1039,8 @@ int load_thumbs(void* data)
 	char thumbpath[STRBUF_SZ] = { 0 };
 	int start = SDL_GetTicks();
 
+	g->loading_thumbs = SDL_TRUE;
+
 	for (int i=0; i<g->thumbs.size; i++) {
 		if (!g->files.a[i].path) {
 			continue;
@@ -1056,6 +1059,7 @@ int load_thumbs(void* data)
 	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 
 	g->thumbs_loaded = SDL_TRUE;
+	g->loading_thumbs = SDL_FALSE;
 	SDL_Log("Done loading thumbs in %.2f seconds, exiting thread.\n", (SDL_GetTicks()-start)/1000.0f);
 	return 0;
 }
@@ -2801,13 +2805,44 @@ void do_mode_change(intptr_t mode)
 	}
 }
 
-void do_delete(SDL_Event* next)
+void do_remove(SDL_Event* next)
 {
-	if (g->generating_thumbs) {
-		puts("Can't delete images while generating thumbnails!");
+	// GUI alert for these?  Could move this logic directly into GUI or events
+	// only remove in single image mode to avoid confusion and complication
+	if (g->generating_thumbs || g->loading_thumbs || g->loading || g->n_imgs != 1) {
+		SDL_Log("Can't remove images while generating/loading thumbnails, loading images, or in any mode but single image mode");
 		return;
 	}
 
+	int files_index = g->img[0].index;
+
+	if (IS_VIEW_RESULTS()) {
+		// Have to remove from results and decrement all higher results (this works
+		// because results are always found from front to back so later results always have higher
+		// g->files indices)
+		cvec_erase_i(&g->search_results, g->img[0].index, g->img[0].index);
+		for (int i=g->img[0].index; i<g->search_results.size; ++i) {
+			g->search_results.a[i]--;
+		}
+
+		// get actual index to delete correct location from files and thumbs
+		files_index = g->search_results.a[g->img[0].index];
+	}
+
+	SDL_Log("Removing %s\n", g->files.a[files_index].path);
+	// TODO should remove in VIEW_RESULTS remove from results only or also files and thumbs?
+	cvec_erase_file(&g->files, files_index, files_index);
+
+	if (g->thumbs.a) {
+		cvec_erase_thumb_state(&g->thumbs, files_index, files_index);
+	}
+
+	g->img[0].index--; // since everything shifted left, we need to pre-decrement to not skip an image
+	SDL_PushEvent(next);
+}
+
+void do_delete(SDL_Event* next)
+{
 	SDL_MessageBoxButtonData buttons[] = {
 		//{ /* .flags, .buttonid, .text */        0, 0, "no" },
 		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "yes" },
@@ -2827,11 +2862,11 @@ void do_delete(SDL_Event* next)
 
 	char msgbox_prompt[STRBUF_SZ];
 
+	// TODO GUI alert for these?  Could move this logic directly into GUI or events
 	// only delete in single image mode to avoid confusion and complication
-	// and not while loading of course
-	if (g->loading || g->n_imgs != 1) {
-		// TODO messagebox here saying only support deletion in single mode?
-		SDL_Log("Only support deletion in single image mode");
+	// and not while generating/loading thumbs or loading images
+	if (g->generating_thumbs || g->loading_thumbs || g->loading || g->n_imgs != 1) {
+		SDL_Log("Can't delete images while generating/loading thumbnails, loading images, or in any mode but single image mode");
 		return;
 	}
 
@@ -2842,6 +2877,8 @@ void do_delete(SDL_Event* next)
 		full_img_path = g->files.a[g->search_results.a[g->img[0].index]].path;
 	}
 
+	// TODO Could remove if they don't want to delete?  Or still remove if delete fails?
+	// Check MessageBox options
 	snprintf(msgbox_prompt, STRBUF_SZ, "Are you sure you want to delete '%s'?", full_img_path);
 	messageboxdata.message = msgbox_prompt;
 	SDL_ShowMessageBox(&messageboxdata, &buttonid);
@@ -2850,66 +2887,9 @@ void do_delete(SDL_Event* next)
 			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to delete image: %s", strerror(errno));
 		} else {
 			SDL_Log("Deleted %s\n", full_img_path);
-
-			int files_index = g->img[0].index;
-
-			if (IS_VIEW_RESULTS()) {
-				// Have to remove from results and decrement all higher results (this works
-				// because results are always found from front to back so later results always have higher
-				// g->files indices)
-				cvec_erase_i(&g->search_results, g->img[0].index, g->img[0].index);
-				for (int i=g->img[0].index; i<g->search_results.size; ++i) {
-					g->search_results.a[i]--;
-				}
-
-				// get actual index to delete correct location from files and thumbs
-				files_index = g->search_results.a[g->img[0].index];
-			}
-
-			cvec_erase_file(&g->files, files_index, files_index);
-
-			if (g->thumbs.a) {
-				cvec_erase_thumb_state(&g->thumbs, files_index, files_index);
-			}
-
-			g->img[0].index--; // since everything shifted left, we need to pre-decrement to not skip an image
-			SDL_PushEvent(next);
+			do_remove(next);
 		}
 	}
-}
-
-void do_remove(SDL_Event* next)
-{
-	// TODO allow in multi modes?
-	if (g->loading || g->n_imgs > 1)
-		return;
-
-	int files_index = g->img[0].index;
-
-	// TODO log removal
-
-	if (IS_VIEW_RESULTS()) {
-		// Have to remove from results and decrement all higher results (this works
-		// because results are always found from front to back so later results always have higher
-		// g->files indices)
-		cvec_erase_i(&g->search_results, g->img[0].index, g->img[0].index);
-		for (int i=g->img[0].index; i<g->search_results.size; ++i) {
-			g->search_results.a[i]--;
-		}
-
-		// get actual index to delete correct location from files and thumbs
-		files_index = g->search_results.a[g->img[0].index];
-	}
-
-	// TODO should remove in VIEW_RESULTS remove from results only or also files and thumbs?
-	cvec_erase_file(&g->files, files_index, files_index);
-
-	if (g->thumbs.a) {
-		cvec_erase_thumb_state(&g->thumbs, files_index, files_index);
-	}
-
-	g->img[0].index--; // since everything shifted left, we need to pre-decrement to not skip an image
-	SDL_PushEvent(next);
 }
 
 void do_actual_size()
