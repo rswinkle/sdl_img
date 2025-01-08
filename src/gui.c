@@ -118,22 +118,39 @@ void draw_gui(struct nk_context* ctx)
 	if (IS_FS_MODE()) {
 		if (!draw_filebrowser(&g->filebrowser, g->ctx, scr_w, scr_h)) {
 			if (g->filebrowser.file[0]) {
+				if (g->is_open_new) {
+					cvec_clear_file(&g->files);
+
+					// if we were in VIEW_RESULTS need to clear these
+					// TODO For now we don't support "Open More" in view results
+					text_buf[0] = 0;
+					//memset(text_buf, 0, text_len+1);
+					text_len = 0;
+					g->search_results.size = 0;
+				}
+
+				// easier to do this than try for partial in "open more"
+				g->generating_thumbs = SDL_FALSE;
+				g->thumbs_done = SDL_FALSE;
+				g->thumbs_loaded = SDL_FALSE;
+				cvec_free_thumb_state(&g->thumbs);
+
 				if (g->open_playlist) {
 					cvec_push_str(&g->sources, "-l");
 				}
 				cvec_push_str(&g->sources, g->filebrowser.file);
 				start_scanning();
 			} else if (g->files.size) {
-				// they canceled an "open more" so just return to normal mode
-				g->state = NORMAL;
+				g->state = g->old_state;
 				SDL_ShowCursor(SDL_ENABLE);
 				g->gui_timer = SDL_GetTicks();
 				g->show_gui = SDL_TRUE;
 				g->status = REDRAW;
+			} else {
+				// They "Cancel"ed out of an initial startup with no files, so just exit
+				event.type = SDL_QUIT;
+				SDL_PushEvent(&event);
 			}
-			// TODO else they tried to cancel an initial open or an open fresh which
-			// they can't do (we need files) ... or we could just make it exit since
-			// we currestly the only clickable exit is the window exit...
 			
 			/*
 			 * Do I need to do all state transitions when procesing events? No
@@ -910,10 +927,16 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 		nk_layout_row_template_push_dynamic(ctx);
 		nk_layout_row_template_push_static(ctx, 100);
 		nk_layout_row_template_end(ctx);
+
+		// Can't cancel if there are no files
+		//if (!g->files.size) {
+		//	nk_widget_disable_begin(ctx);
+		//}
 		if (nk_button_label(ctx, "Cancel")) {
 			// TODO maybe just have a done flag in file browser?
 			ret = 0;
 		}
+		//nk_widget_disable_end(ctx);
 
 		search_height = nk_widget_bounds(ctx).h;
 		// Search field

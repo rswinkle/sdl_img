@@ -315,6 +315,8 @@ typedef struct global_state
 	file_browser filebrowser;
 	int open_single;  // boolean (should I move it to file_browser?)
 	int open_playlist; // boolean
+	int is_open_new;
+	int old_state;
 
 	const char** img_exts;
 	int n_exts;
@@ -2652,26 +2654,18 @@ int try_move(int direction)
 
 void do_file_open(int clear_files)
 {
-	if (clear_files) {
-		cvec_clear_file(&g->files);
-
-		// if we were in VIEW_RESULTS need to clear these
-		// TODO For now we don't support "Open More" in view results
-		text_buf[0] = 0;
-		//memset(text_buf, 0, text_len+1);
-		text_len = 0;
-		g->search_results.size = 0;
+	// TODO support Open more while in view results
+	if (g->n_imgs != 1 || !(g->state & NORMAL) || (g->state != NORMAL && !clear_files)) {
+		return;
 	}
-
-	// It's just easier to always clear thumbs even for "Open More"
-	g->generating_thumbs = SDL_FALSE;
-	g->thumbs_done = SDL_FALSE;
-	g->thumbs_loaded = SDL_FALSE;
-	cvec_free_thumb_state(&g->thumbs);
+	g->is_open_new = clear_files;
+	g->old_state = g->state;
 
 	g->state = FILE_SELECTION;
 	reset_file_browser(&g->filebrowser, NULL);
 	g->filebrowser.selection = -1; // default to no selection
+	g->open_single = SDL_FALSE;
+	g->open_playlist = SDL_FALSE;
 
 	SDL_ShowCursor(SDL_ENABLE);
 
@@ -3462,7 +3456,7 @@ int main(int argc, char** argv)
 		if (handle_events())
 			break;
 
-		//printf("g->state = %d\n", g->state);
+		printf("g->state = %d\n", g->state);
 		is_a_gif = 0;
 		ticks = SDL_GetTicks();
 

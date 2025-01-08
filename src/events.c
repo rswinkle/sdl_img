@@ -143,14 +143,14 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 					g->fullscreen = 0;
 					set_fullscreen();
 				} else if (g->files.size) {
-					// back from an "open additional"
-					g->state = NORMAL;
+					g->state = g->old_state;
 					SDL_ShowCursor(SDL_ENABLE);
 					g->gui_timer = SDL_GetTicks();
 					g->show_gui = SDL_TRUE;
 					g->status = REDRAW;
 					//try_move(SELECTION);
 				} else {
+					// ESC from an initial startup with no files, just exit
 					nk_input_end(ctx);
 					return 1;
 				}
@@ -1181,6 +1181,7 @@ int handle_events_normally()
 				break;
 			case OPEN_FILE_NEW:
 				do_file_open(SDL_TRUE);
+				break;
 			case OPEN_FILE_MORE:
 				do_file_open(SDL_FALSE);
 				break;
@@ -1783,9 +1784,29 @@ int handle_events()
 	}
 
 	if (IS_FS_MODE()) {
-		// TODO multipl return codes?
+		// TODO multiple return codes?
 		if (handle_fb_events(&g->filebrowser, g->ctx)) {
 			if (g->filebrowser.file[0]) {
+				if (g->is_open_new) {
+					cvec_clear_file(&g->files);
+
+					// if we were in VIEW_RESULTS need to clear these
+					// TODO For now we don't support "Open More" in view results
+					text_buf[0] = 0;
+					//memset(text_buf, 0, text_len+1);
+					text_len = 0;
+					g->search_results.size = 0;
+				}
+
+				// easier to do this than try for partial in "open more"
+				g->generating_thumbs = SDL_FALSE;
+				g->thumbs_done = SDL_FALSE;
+				g->thumbs_loaded = SDL_FALSE;
+				cvec_free_thumb_state(&g->thumbs);
+
+				if (g->open_playlist) {
+					cvec_push_str(&g->sources, "-l");
+				}
 				cvec_push_str(&g->sources, g->filebrowser.file);
 				start_scanning();
 				return 0;
