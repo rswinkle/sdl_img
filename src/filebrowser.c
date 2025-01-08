@@ -10,10 +10,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <unistd.h>
 
+#ifndef _WIN32
 // for getpwuid and getuid
 #include <pwd.h>
-#include <unistd.h>
+#endif
 
 
 // inline edited filebrowser.h starting here

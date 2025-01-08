@@ -1382,7 +1382,7 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 
 			int len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total);
 			if (len >= STRBUF_SZ) {
-				puts("info path too long");
+				SDL_LogCriticalApp("info path too long\n");
 				cleanup(1, 1);
 			}
 			if (img->frames > 1) {
@@ -1421,7 +1421,7 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
 			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
 			if (len >= STRBUF_SZ) {
-				puts("info path too long");
+				SDL_LogCriticalApp("info path too long\n");
 				cleanup(1, 1);
 			}
 		} else {
@@ -1435,7 +1435,7 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 				len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
 			}
 			if (len >= STRBUF_SZ) {
-				puts("info path too long");
+				SDL_LogCriticalApp("info path too long\n");
 				cleanup(1, 1);
 			}
 		}

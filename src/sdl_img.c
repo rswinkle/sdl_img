@@ -225,6 +225,9 @@ CVEC_NEW_DECLS2(thumb_state)
 
 CVEC_NEW_DEFS2(thumb_state, RESIZE)
 
+#define SDL_LogDebugApp(...) SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, __VA_ARGS__)
+#define SDL_LogCriticalApp(...) SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, __VA_ARGS__)
+
 // maybe I should just include the former in the latter...
 #include "string_compare.c"
 #include "file.c"
@@ -394,8 +397,6 @@ Sint32 selection_len;
 #include "sorting.c"
 
 #include "lua_config.c"
-
-#define SDL_LogDebugApp(...) SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, __VA_ARGS__)
 
 void log_output_func(void *userdata, int category, SDL_LogPriority priority, const char *message)
 {
