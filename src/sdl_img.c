@@ -2673,6 +2673,8 @@ void do_file_open(int clear_files)
 	reset_file_browser(&g->filebrowser, NULL);
 	g->filebrowser.selection = -1; // default to no selection
 
+	SDL_ShowCursor(SDL_ENABLE);
+
 	const char* open_type_str[] = { "MORE", "NEW" };
 	SDL_LogDebugApp("executing OPEN_FILE%s\n", open_type_str[clear_files]);
 }
@@ -3199,7 +3201,6 @@ void do_listmode()
 	text_buf[0] = 0;
 	text_len = 0;
 	g->search_results.size = 0;
-	g->status = REDRAW;
 	SDL_ShowCursor(SDL_ENABLE);
 }
 
@@ -3476,7 +3477,7 @@ int main(int argc, char** argv)
 		// TODO testing, naming/organization of showing/hiding GUI vs mouse
 		if (IS_FS_MODE() || IS_SCANNING_MODE() || (IS_LIST_MODE() && !IS_VIEW_RESULTS()) || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			draw_gui(g->ctx);
-			g->status = REDRAW;
+			g->status = REDRAW; // maybe integrate this into draw_gui()?
 		}
 
 		if (!IS_FS_MODE() && !IS_SCANNING_MODE()) {
