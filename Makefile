@@ -7,7 +7,7 @@ PLAT=linux
 # windows: msys2 mingw64 environment
 #
 # cross_win: msys2 clang/ucrt64 cross compile env using
-# using github.com/Alexpux/MSYS2-Cross
+# using https://github.com/HolyBlackCat/quasi-msys2
 
 PLATS=linux windows cross_win
 
@@ -18,6 +18,8 @@ PLATS=linux windows cross_win
 # but it's really only for creating a windows release/package anyway
 ifeq ($(PLAT), cross_win)
 	config=release
+	CC=win-clang
+	#wine_makensis=wine makensis.exe
 endif
 
 ifeq ($(config), release)
@@ -70,7 +72,7 @@ linux_package: sdl_img
 	--url "https://github.com/rswinkle/sdl_img"
 
 nuklear.o: src/nuklear.h src/nuklear_sdl_renderer.h
-	$(CC) $(OPTS) -c src/nuklear.c `sdl2-config --cflags`
+	$(CC) $(OPTS) -c src/nuklear.c `pkg-config sdl2 --cflags`
 
 minilua.o: src/minilua.c
 	$(CC) $(OPTS) -c src/minilua.c -lm
@@ -95,12 +97,12 @@ lua:
 lua_win:
 	cd lua-5.4.7/src && $(MAKE) PLAT=mingw
 
-# These are using github.com/Alexpux/MSYS2-Cross
+# These are using https://github.com/HolyBlackCat/quasi-msys2
 lua_cross_win:
 	cd lua-5.4.7/src && $(MAKE) CC=win-clang PLAT=generic
 
 cross_win: nuklear.o minilua.o
-	win-clang $(OPTS) src/sdl_img.c nuklear.o minilua.o -o sdl_img.exe $(CFLAGS) $(LIBS)
+	$(CC) $(OPTS) src/sdl_img.c nuklear.o minilua.o -o sdl_img.exe $(CFLAGS) $(LIBS)
 
 cross_win_package: cross_win
 	#cat mingw_dll_list.txt | xargs -I{} cp {} package/
@@ -111,7 +113,7 @@ cross_win_package: cross_win
 	cp README.md package/
 	unix2dos package/README.md package/LICENSE*
 	cp sdl_img.exe package/
-	$(wine_makensis) make_installer.nsi
+	makensis make_installer.nsi
 
 
 install: sdl_img

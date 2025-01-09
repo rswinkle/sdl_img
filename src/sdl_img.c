@@ -1721,7 +1721,7 @@ int scan_sources(void* data)
 		recurse = 0;
 		img_args = 0;
 
-		SDL_LogDebugApp("before scanning, files.size = %ld\n", g->files.size);
+		SDL_LogDebugApp("before scanning, files.size = %"PRIcv_sz"\n", g->files.size);
 
 		char** a = srcs->a;
 		for (int i=0; i<srcs->size; ++i) {
@@ -2244,7 +2244,7 @@ void setup(int argc, char** argv)
 		SDL_Log("%s does not exist, will try creating it on exit\n", buf);
 	} else {
 		read_list(NULL, &g->favs, f);
-		SDL_Log("Read %ld favorites from %s\n", g->favs.size, buf);
+		SDL_Log("Read %"PRIcv_sz" favorites from %s\n", g->favs.size, buf);
 		fclose(f);
 	}
 
