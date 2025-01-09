@@ -1605,20 +1605,22 @@ int handle_selection(char* path, int recurse)
 	return ret;
 }
 
-int remove_duplicates(int save_cur)
+int remove_duplicates(void)
 {
-	// NOTE this only works after g->files is sorted obvously
-	mirrored_qsort(g->files.a, g->files.size, sizeof(file), filepath_cmp_lt, 0);
-
 	char path_buf[STRBUF_SZ] = {0};
 	int did_removals = 0;
 	cvector_file* f = &g->files;
+	int save_cur = !g->is_open_new;
 
 	// TODO I should always have a valid image/path when calling this function
 	// save current image path (could be freed as a duplicate)
 	if (save_cur) {
 		snprintf(path_buf, STRBUF_SZ, "%s", g->files.a[g->img[0].index].path);
 	}
+
+	// NOTE this only works after g->files is sorted obvously though I suppose I could
+	// do it sorted by name with more complicated code
+	mirrored_qsort(g->files.a, g->files.size, sizeof(file), filepath_cmp_lt, 0);
 
 	int j;
 	for (int i=f->size-1; i>0; --i) {
@@ -1632,7 +1634,7 @@ int remove_duplicates(int save_cur)
 
 		if (j != i) {
 			// found matching [j, i] so remove [j+1, i] to keep j to minimize movement
-			printf("Removing duplicates %d %d\n", j+1, i);
+			SDL_LogDebugApp("Removing duplicates %d %d\n", j+1, i);
 			cvec_erase_file(f, j+1, i);
 			// continue to the left of j (after --i)
 			i = j;
@@ -1703,8 +1705,6 @@ int scan_sources(void* data)
 	int img_args = 0;
 	file f;
 	file* res;
-
-	int is_open_more = g->files.size;
 
 	cvector_str* srcs = &g->sources;
 	while (1) {
@@ -1796,7 +1796,7 @@ int scan_sources(void* data)
 				SDL_Log("Found %"PRIcv_sz" images total. Sorting by file name now...\n", g->files.size);
 
 				// remove duplicates first
-				remove_duplicates(is_open_more);
+				remove_duplicates();
 
 				mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 
@@ -1834,17 +1834,27 @@ int scan_sources(void* data)
 				try_move(SELECTION);
 			}
 		} else if (g->files.size) {
-			// TODO preserve current image in "open more" (if we're here they didn't select a single image
-			// so it would make sense to add the new directory/list etc. while staying where we are
 			SDL_Log("Found %"PRIcv_sz" images total. Sorting by file name now...\n", g->files.size);
 
-			remove_duplicates(is_open_more);
+			remove_duplicates();
+			char* path = g->files.a[g->img[0].index].path;
+
 			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 
-			// TODO is_open_more will never be true here till I support opening directories, playlists
-			// and urls.
-			if (!is_open_more) {
+			if (g->is_open_new) {
 				g->selection = g->files.size-1;
+				try_move(SELECTION);
+			} else {
+				// TODO is there a way to avoid the unecessary load with minimal code changes?
+				//
+				// should be able to just do this line since we're already on the image
+				// but we can't.  It would get us out of scanning mode but then
+				// it would trigger the "done_loading" code which will crash since
+				// no load actually happened
+				//g->done_loading = 1;
+
+				int idx = find_file_simple(path);
+				g->selection = idx-1;
 				try_move(SELECTION);
 			}
 		} else {
@@ -1852,6 +1862,7 @@ int scan_sources(void* data)
 		}
 
 
+		g->is_open_new = SDL_FALSE;
 		SDL_LockMutex(g->scanning_mtx);
 		SDL_LogDebugApp("done_scanning = 1\n");
 		g->done_scanning = 1;
@@ -2331,6 +2342,7 @@ void setup(int argc, char** argv)
 	init_file_browser(&g->filebrowser, g->img_exts, g->n_exts, NULL, NULL, NULL);
 #endif
 	g->filebrowser.selection = -1; // default to no selection
+	g->is_open_new = SDL_TRUE;
 
 
 
@@ -2660,6 +2672,10 @@ void do_file_open(int clear_files)
 	}
 	g->is_open_new = clear_files;
 	g->old_state = g->state;
+
+	for (int i=0; i<g->sources.size; i++) {
+		printf("src %d: %s\n", i, g->sources.a[i]);
+	}
 
 	g->state = FILE_SELECTION;
 	reset_file_browser(&g->filebrowser, NULL);
@@ -3456,7 +3472,7 @@ int main(int argc, char** argv)
 		if (handle_events())
 			break;
 
-		printf("g->state = %d\n", g->state);
+		//printf("g->state = %d\n", g->state);
 		is_a_gif = 0;
 		ticks = SDL_GetTicks();
 
