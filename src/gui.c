@@ -979,7 +979,11 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 				ctx->style.window.spacing.x = 0;
 				char *d = fb->dir;
+#ifndef _WIN32
 				char *begin = d + 1;
+#else
+				char *begin = d;
+#endif
 				char tmp;
 				nk_layout_row_dynamic(ctx, 0, 6);
 				while (*d++) {
@@ -1020,7 +1024,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 				if (nk_button_label(ctx, "Up")) {
 					char* s = strrchr(fb->dir, '/');
-					if (s != fb->dir) {
+					if (s && s != fb->dir) {
 						*s = 0;
 						switch_dir(fb, NULL);
 					} else {

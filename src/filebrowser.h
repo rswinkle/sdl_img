@@ -3,7 +3,7 @@
 
 
 // pulls in cvector
-#include "file.h"
+//#include "file.h"
 
 #ifndef FILE_TYPE_STR
 #define FILE_TYPE_STR "Match Exts"
@@ -19,7 +19,13 @@
 #define FILE_LIST_SZ 20
 #define STRBUF_SZ 512
 #define MAX_PATH_LEN STRBUF_SZ
+
+// TODO not sure if I need/want this, that's why I have normalize_path
+#ifndef _WIN32
 #define PATH_SEPARATOR '/'
+#else
+#define PATH_SEPARATOR '\\'
+#endif
 
 typedef int (*recents_func)(cvector_str* recents, void * userdata);
 typedef int (*cmp_func)(const void* a, const void* b);

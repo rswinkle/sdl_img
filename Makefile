@@ -17,17 +17,23 @@ PLATS=linux windows cross_win
 # for some reason the sanitizers aren't working in my cross compile environment
 # but it's really only for creating a windows release/package anyway
 ifeq ($(PLAT), cross_win)
-	config=release
-	CC=win-clang
-	#wine_makensis=wine makensis.exe
+ifeq ($(config), release)
+	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
+	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
+else
+	-fsanitize=undefined -std=gnu99 -g -O0 -Wall
+	#OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall -DSDL_DISABLE_IMMINTRIN_H
+endif
 endif
 
+ifeq ($(PLAT), linux)
 ifeq ($(config), release)
 	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
 	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
 else
 	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall
 	#OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall -DSDL_DISABLE_IMMINTRIN_H
+endif
 endif
 
 #CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.7/src

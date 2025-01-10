@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 //POSIX (mostly) works with MinGW64
 #include <sys/stat.h>
@@ -15,6 +16,8 @@
 #ifndef _WIN32
 // for getpwuid and getuid
 #include <pwd.h>
+#else
+#include <windows.h>
 #endif
 
 
@@ -122,8 +125,13 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 
 	size_t l = 0;
 	strncpy(browser->home, home, MAX_PATH_LEN);
+#ifdef _WIN32
+	normalize_path(browser->home);
+#endif
 	browser->home[MAX_PATH_LEN - 1] = 0;
+	printf("home = %s\n", browser->home);
 
+	home = browser->home;
 	const char* sd = home;
 	if (start_dir) {
 		l = strlen(start_dir);
@@ -176,7 +184,7 @@ void reset_file_browser(file_browser* fb, char* start_dir)
 	fb->text_len = 0;
 	fb->text_buf[0] = 0;
 
-    // set start dir
+	// set start dir
 	size_t l = 0;
 	const char* sd = fb->home;
 	if (start_dir) {
@@ -196,7 +204,7 @@ void reset_file_browser(file_browser* fb, char* start_dir)
 		fb->dir[l-1] = 0;
 	}
 
-    // scan and sort
+	// scan and sort
 	fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts);
 
 	qsort(fb->files.a, fb->files.size, sizeof(file), filename_cmp_lt);
@@ -343,10 +351,15 @@ int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int 
 		return 0;
 	}
 
-	char* tmp;
 	char* sep;
 	char* ext = NULL;
 	file f;
+	
+	// This is to turn windows drives like C:/ into C: so the fullpath below doesn't become C://subdir
+	// Can't remove the / before caling opendir or it won't work
+	int l = strlen(dirpath);
+	const char* fmt_strs[] = { "%s/%s", "%s%s" };
+	int has_ts = dirpath[l-1] == '/';
 
 	while ((entry = readdir(dir))) {
 
@@ -355,7 +368,7 @@ int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int 
 			continue;
 		}
 
-		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, entry->d_name);
+		ret = snprintf(fullpath, STRBUF_SZ, fmt_strs[has_ts], dirpath, entry->d_name);
 		if (ret >= STRBUF_SZ) {
 			// path too long
 			assert(ret >= STRBUF_SZ);
@@ -396,7 +409,7 @@ int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int 
 		// fragmentation.  This dropped memory use by 80% in certain
 		// extreme cases.
 		//f.path = realpath(fullpath, NULL);
-		tmp = realpath(fullpath, NULL);
+		char* tmp = realpath(fullpath, NULL);
 		f.path = realloc(tmp, strlen(tmp)+1);
 #else
 		f.path = CVEC_STRDUP(fullpath);
@@ -469,12 +482,14 @@ char* mybasename(const char* path, char* base)
 	return base;
 }
 
-//stupid windows
 void normalize_path(char* path)
 {
-	for (int i=0; path[i]; ++i) {
-		if (path[i] == '\\')
-			path[i] = '/';
+	if (path) {
+		for (int i=0; path[i]; ++i) {
+			if (path[i] == '\\') {
+				path[i] = '/';
+			}
+		}
 	}
 }
 
@@ -526,7 +541,38 @@ void switch_dir(file_browser* fb, const char* dir)
 	fb->text_len = 0;
 
 	FB_LOG("switching to '%s'\n", fb->dir);
+#ifndef _WIN32
 	fb_scandir(&fb->files, fb->dir, fb->exts, (fb->ignore_exts) ? 0 : fb->num_exts);
+#else
+	if (fb->dir[1]) {
+		fb_scandir(&fb->files, fb->dir, fb->exts, (fb->ignore_exts) ? 0 : fb->num_exts);
+	} else {
+		// have to handle "root" special on windows since it doesn't have a unified filesystem
+		// like *nix
+		char buf[STRBUF_SZ];
+		cvec_clear_file(&fb->files);
+		int sz = GetLogicalDriveStrings(sizeof(buf), buf);
+		file f = {0};
+		f.size = -1;
+		if (sz > 0) {
+			char* p = buf, *p2;
+			while (*p && (p2 = strchr(p, 0))) {
+				p[2] = '/'; // change \ to / so "C:/" instead of "C:\"
+				printf("%s\n", p);
+
+				f.path = strdup(p);
+				f.name = f.path;
+				cvec_push_file(&fb->files, &f);
+
+				p = p2+1;
+			}
+		} else {
+			DWORD err = GetLastError();
+			FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, 0, err, 0, buf, sizeof(buf), 0);
+			SDL_Log("Error getting drive names: %s\n", buf);
+		}
+	}
+#endif
 	qsort(fb->files.a, fb->files.size, sizeof(file), fb->c_func);
 	fb->list_setscroll = TRUE;
 	fb->selection = 0;

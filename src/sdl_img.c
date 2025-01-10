@@ -144,7 +144,7 @@ enum {
 
 // If defined, all log output goes to log.txt in the
 // same directory as config.lua
-//#define USE_LOGFILE
+#define USE_LOGFILE
 
 // zoom is calculated
 // h = old_h * (1.0 + zoom*ZOOM_RATE)
@@ -1245,7 +1245,6 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		cleanup(1, 1);
 	}
 
-	char* tmp;
 	char* sep;
 	char* ext = NULL;
 	file f;
@@ -1309,7 +1308,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		// fragmentation.  This dropped memory use by 80% in certain
 		// extreme cases.
 		//f.path = realpath(fullpath, NULL);
-		tmp = realpath(fullpath, NULL);
+		char* tmp = realpath(fullpath, NULL);
 		f.path = realloc(tmp, strlen(tmp)+1);
 #else
 		f.path = CVEC_STRDUP(fullpath);
