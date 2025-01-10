@@ -413,8 +413,10 @@ void log_output_func(void *userdata, int category, SDL_LogPriority priority, con
 	};
 
 	FILE* logfile = userdata;
-    fprintf(logfile, "%s: %s", priority_prefixes[priority], message);
-    fflush(logfile);
+
+	// Why is the extra \n needed when every individual message already has a \n?
+	fprintf(logfile, "%s: %s\n", priority_prefixes[priority], message);
+	//fflush(logfile);
 }
 
 size_t write_data(void* buf, size_t size, size_t num, void* userp)

@@ -974,11 +974,15 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 		if (!fb->is_recents && fb->dir[1]) {
 			// method 1
 			// breadcrumb buttons
+			// I really hate Windows.  TODO Come up with a better way/compromise between visuals
+			// and code
 			if (!fb->is_text_path) {
 				int depth = 0; // number of breadcrumb buttons;
-
 				ctx->style.window.spacing.x = 0;
-				char *d = fb->dir;
+
+				char dir_buf[STRBUF_SZ];
+				strncpy(dir_buf, fb->dir, sizeof(dir_buf));
+				char *d = dir_buf;
 #ifndef _WIN32
 				char *begin = d + 1;
 #else
@@ -988,14 +992,30 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				nk_layout_row_dynamic(ctx, 0, 6);
 				while (*d++) {
 					tmp = *d;
-					if (tmp == '/' || !tmp) {
+					if (tmp == '/' || (!tmp && begin != d)) {
+#ifndef _WIN32
 						*d = '\0';
+#else
+						char tmp2 = 0;
+						if (d != &begin[2]) {
+							*d = '\0';
+							tmp2 = 0;
+						} else {
+							tmp2 = begin[3];
+							begin[3] = '\0';
+						}
+#endif
 						if (nk_button_label(ctx, begin)) {
-							switch_dir(fb, NULL);
+							switch_dir(fb, dir_buf);
 							break;
 						}
 						depth++;
 						if (tmp) *d = '/';
+
+#ifdef _WIN32
+						if (tmp2) begin[3] = tmp2;
+#endif
+
 						begin = d + 1;
 					}
 				}
@@ -1024,8 +1044,20 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 				if (nk_button_label(ctx, "Up")) {
 					char* s = strrchr(fb->dir, '/');
-					if (s && s != fb->dir) {
+					assert(s); // should never be NULL since "/" or "C:/"
+#ifndef _WIN32
+					if (s != fb->dir) {
 						*s = 0;
+#else
+					if (s[1]) {
+						// Don't want to turn "C:/" into "C:" since that isn't actually a proper path
+						// ie opendir() fails on "C:"
+						if (s == &fb->dir[2]) {
+							s[1] = 0;
+						} else {
+							*s = 0;
+						}
+#endif
 						switch_dir(fb, NULL);
 					} else {
 						switch_dir(fb, "/");

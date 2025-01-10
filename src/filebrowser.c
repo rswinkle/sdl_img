@@ -162,6 +162,7 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 	browser->exts = exts;
 	browser->num_exts = num_exts;
 
+	// TODO this is unnecessary on initial startup if you passed some sources with images...
 	fb_scandir(&browser->files, browser->dir, exts, num_exts);
 
 	qsort(browser->files.a, browser->files.size, sizeof(file), filename_cmp_lt);
@@ -530,6 +531,7 @@ void switch_dir(file_browser* fb, const char* dir)
 {
 	if (dir) {
 		if (!strncmp(fb->dir, dir, MAX_PATH_LEN)) {
+			FB_LOG("No need to switch to %s\n", dir);
 			return;
 		}
 		strncpy(fb->dir, dir, MAX_PATH_LEN);
