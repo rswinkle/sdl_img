@@ -354,6 +354,14 @@ int handle_thumb_events()
 					g->show_gui = SDL_TRUE;
 				}
 				break;
+			case SDLK_HOME:
+				g->thumb_start_row = 0;;
+				g->thumb_sel = 0;
+				break;
+			case SDLK_END:
+				g->thumb_start_row = g->files.size-1; // will get fixed at the bottom
+				g->thumb_sel = g->files.size-1;
+				break;
 
 			// I can't decide, backspace for consistency with normal mode
 			// but r for "removal" even though in vim r means replace and x
@@ -1395,11 +1403,9 @@ int handle_events_normally()
 				}
 			break;
 
-#ifndef _WIN32
 			case SDL_SCANCODE_S:
 				do_save(mod_state & (KMOD_LCTRL | KMOD_RCTRL));
 			break;
-#endif
 
 			case SDL_SCANCODE_H:
 			case SDL_SCANCODE_V:
@@ -1443,6 +1449,13 @@ int handle_events_normally()
 			// list or thumb mode to scroll to the top/bottom)
 			case SDL_SCANCODE_HOME:
 				g->selection = g->files.size-1;
+				try_move(SELECTION);
+				break;
+
+			// not a lot of use for this since you can just hit HOME and then back one
+			// but users will probably expect it to work
+			case SDL_SCANCODE_END:
+				g->selection = g->files.size-2;
 				try_move(SELECTION);
 				break;
 		}

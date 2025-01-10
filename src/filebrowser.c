@@ -129,7 +129,7 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 	normalize_path(browser->home);
 #endif
 	browser->home[MAX_PATH_LEN - 1] = 0;
-	printf("home = %s\n", browser->home);
+	FB_LOG("home = %s\n", browser->home);
 
 	home = browser->home;
 	const char* sd = home;
@@ -177,9 +177,12 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 
 void reset_file_browser(file_browser* fb, char* start_dir)
 {
+	assert(fb->home[0]);
+	assert(fb->dir[0]);
+	assert(fb->desktop[0]);
+	assert(fb->files.elem_free == free_file);
+
 	// clear vectors and prior selection
-	cvec_clear_file(&fb->files);
-	cvec_clear_i(&fb->search_results);
 	fb->is_search_results = FALSE;
 	fb->file[0] = 0;
 	fb->text_len = 0;
@@ -187,19 +190,21 @@ void reset_file_browser(file_browser* fb, char* start_dir)
 
 	// set start dir
 	size_t l = 0;
-	const char* sd = fb->home;
+	const char* sd = fb->dir;
 	if (start_dir) {
-		l = strlen(start_dir);
 		struct stat file_stat;
 		if (stat(start_dir, &file_stat)) {
-			perror("Could not stat start_dir, will use home directory");
+			perror("Could not stat start_dir, will use last directory");
 		} else if (l >= MAX_PATH_LEN) {
-			fprintf(stderr, "start_dir path too long, will use home directory\n");
+			fprintf(stderr, "start_dir path too long, will use last directory\n");
 		} else {
 			sd = start_dir;
+			cvec_clear_file(&fb->files);
+			cvec_clear_i(&fb->search_results);
+			snprintf(fb->dir, MAX_PATH_LEN, "%s", sd);
+			l = strlen(start_dir);
 		}
 	}
-	snprintf(fb->dir, MAX_PATH_LEN, "%s", sd);
 	// cut off trailing '/'
 	if (l > 1 && sd[l-1] == '/') {
 		fb->dir[l-1] = 0;
@@ -376,7 +381,7 @@ int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int 
 			return 0;
 		}
 		if (stat(fullpath, &file_stat)) {
-			printf("%s\n", fullpath);
+			FB_LOG("%s\n", fullpath);
 			perror("stat");
 			continue;
 		}
@@ -560,7 +565,6 @@ void switch_dir(file_browser* fb, const char* dir)
 			char* p = buf, *p2;
 			while (*p && (p2 = strchr(p, 0))) {
 				p[2] = '/'; // change \ to / so "C:/" instead of "C:\"
-				printf("%s\n", p);
 
 				f.path = strdup(p);
 				f.name = f.path;

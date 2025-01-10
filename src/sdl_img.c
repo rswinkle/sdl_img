@@ -107,7 +107,11 @@ enum {
 
 #ifdef _WIN32
 #define mkdir(A, B) mkdir(A)
+#define myrealpath(A, B) _fullpath(B, A, 0)
+#else
+#define myrealpath(A, B) realpath(A, B)
 #endif
+
 
 #define VERSION 1.0
 #define VERSION_STR "sdl_img 1.0-RC2"
@@ -849,11 +853,12 @@ char* curl_image(int img_idx)
 
 	// Have to call realpath in case the user passed
 	// a relative path cachedir as a command line argument
-#ifndef _WIN32
-	f->path = realpath(filename, NULL);
-#else
-	f->path = CVEC_STRDUP(filename);
+	char* tmp = myrealpath(filename, NULL);
+	f->path = realloc(tmp, strlen(tmp)+1);
+#ifdef _WIN32
+	normalize_path(f->path);
 #endif
+
 	f->size = file_stat.st_size;
 	f->modified = file_stat.st_mtime;
 
@@ -1248,6 +1253,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 	}
 
 	char* sep;
+	char* tmp;
 	char* ext = NULL;
 	file f;
 
@@ -1305,15 +1311,13 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		}
 
 		// have to use fullpath not d_name in case we're in a recursive call
-#ifndef _WIN32
 		// resize to exact length to save memory, reduce internal
 		// fragmentation.  This dropped memory use by 80% in certain
 		// extreme cases.
-		//f.path = realpath(fullpath, NULL);
-		char* tmp = realpath(fullpath, NULL);
+		tmp = myrealpath(fullpath, NULL);
 		f.path = realloc(tmp, strlen(tmp)+1);
-#else
-		f.path = CVEC_STRDUP(fullpath);
+#ifdef _WIN32
+		normalize_path(f.path);
 #endif
 
 #ifdef CHECK_IF_NO_EXTENSION
@@ -3089,8 +3093,6 @@ void do_actual_size()
 	}
 }
 
-#ifndef _WIN32
-
 int cvec_contains_str(cvector_str* list, char* s)
 {
 	for (int i=0; i<list->size; ++i) {
@@ -3101,7 +3103,6 @@ int cvec_contains_str(cvector_str* list, char* s)
 	return -1;
 }
 
-// TODO simple cross platform realpath
 void do_save(int removing)
 {
 	if (g->loading)
@@ -3115,7 +3116,7 @@ void do_save(int removing)
 			} else {
 				SDL_Log("removing %s\n", g->img_focus->fullpath);
 				cvec_erase_str(&g->favs, loc, loc);
-				SDL_Log("%ld left after removal\n", g->favs.size);
+				SDL_Log("%"PRIcv_sz" left after removal\n", g->favs.size);
 			}
 		} else {
 			for (int i=0; i<g->n_imgs; ++i) {
@@ -3124,7 +3125,7 @@ void do_save(int removing)
 				} else {
 					SDL_Log("removing %s\n", g->img[i].fullpath);
 					cvec_erase_str(&g->favs, loc, loc);
-					SDL_Log("%ld after removal\n", g->favs.size);
+					SDL_Log("%"PRIcv_sz" after removal\n", g->favs.size);
 				}
 			}
 		}
@@ -3148,7 +3149,6 @@ void do_save(int removing)
 		}
 	}
 }
-#endif
 
 // There is no easy way to do cross platform visual copy paste.
 // SDL lets you do text but to get visual, I'd have to be using something
