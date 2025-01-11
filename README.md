@@ -18,25 +18,29 @@ Goals / Focus
 * Implement features I've always wanted in an image viewer
 * Relatively simple, short, readable code
 * Learn/Practice/Fun
-* Not really focused on speed, if it's fast enough on my chromebook it's good enough
+* Not really focused on speed but it is reasonably fast and light weight
 
 Controls/Basic Usage
 ====================
+    ./sdl_img
     ./sdl_img image_name.jpg
     ./sdl_img -f image_name.jpg  (to start in full screen mode)
 
-Will open image_name.jpg.  On Windows that would be `sdl_img.exe`, but better
-to just right click on an image of each type and change the default application
-to be sdl_img.exe and then double clicking any image of that type will open it
-with sdl_img.  Left and right will go through images in the same directory in
-alphabetical order.
+The first will open in "File Selection" mode since you didn't provide it any
+images. The second ill open image_name.jpg and all files with recognized image
+extensions in the same directory. On Windows that would be `sdl_img.exe`, but
+better to just right click on an image of each type and change the default
+application to be sdl_img.exe and then double clicking any image of that type
+will open it with sdl_img.  Left and right will go through images in the same
+directory in [alphabetical](http://stereopsis.com/strcmp4humans.html)
+[order](https://github.com/rswinkle/sdl_img/blob/master/src/string_compare.c).
 
 | Basic Controls      | Description |
 | --------------------|-------------|
 | Left (or Up)        | Previous image(s) or pan if appropriate |
 | Right (or Down)     | Next image(s) or pan if appropriate |
 | Space               | Next image(s) |
-| CTRL+Space          | Previous image(s) |
+| CTRL + Space        | Previous image(s) |
 | CTRL + Direction    | Next or previous image(s) even when zoomed in |
 | +/-                 | Zoom in/out |
 | Mouse Wheel         | Zoom in/out |
@@ -44,6 +48,7 @@ alphabetical order.
 | A                   | Actual size |
 | F                   | Toggle fill screen mode |
 | Home                | Go to first image in the list |
+| End                 | Go to last image in the list |
 | M                   | Shuffle (Mix) the images (only in single mode) |
 | N                   | Sort the images by file name (only in single mode) |
 | CTRL+N              | Sort the images by file path (only in single mode) |
@@ -141,6 +146,12 @@ Switch with CTRL+U to viewing all your current images as thumbnails on a vertica
 scrolling plane.  Animated GIF thumbnails are generated from the first frame.
 You can use the arrows and mouse and scrollwheel to move around
 and select an image but if you're a vim user you'll feel right at home.
+Note the basic controls above are based on scancode (ie what you see on the
+physical key, what the hardware actually sends, not any custom layout you have in
+software) while the Thumbmode controls are based on keycode and do respect your
+layout (otherwise you lose all that vim muscle memory).  This is irrelevant
+to most people but for people like myself who use Dvorak and *don't* change
+the default Vim keybinds so HJKL are JCVP physically.
 
 | Thumbmode Controls      | Description |
 | --------------------    |-------------|

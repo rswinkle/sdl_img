@@ -1,5 +1,5 @@
 .\" Man page for SDL_IMG
-.TH SDL_IMG 1 "22 December 2023" "1.0" "The SDL2 and stb_image based image viewer"
+.TH SDL_IMG 1 "12 January 2025" "1.0" "The SDL2 and stb_image based image viewer"
 .\" Please adjust this date when revising the manpage.
 .\"
 .SH "NAME"
@@ -7,7 +7,9 @@ sdl_img \- A simple but unique image viewer based on stb_image and SDL2
 .SH "SYNOPSIS"
 .B ./sdl_img [-f] [-R] [-s [delay]] [-r dir] [-l text_list] [files/dirs]
 
-.B ./sdl_img image1.jpg (will open all images in same dir)
+.B ./sdl_img (will open in File Selector mode)
+
+.B ./sdl_img image1.jpg (will open all images in same dir as arg)
 
 .B ./sdl_img -l list_of_imgs (urls or local paths or both)
 
@@ -31,7 +33,7 @@ l l .
 | Left (or Up)        | Previous image(s) or pan if appropriate |
 | Right (or Down)     | Next image(s) or pan if appropriate |
 | Space               | Next image(s) |
-| CTRL+Space          | Previous image(s) |
+| CTRL + Space        | Previous image(s) |
 | CTRL + Direction    | Next or previous image(s) even when zoomed in |
 | +/-                 | Zoom in/out |
 | Mouse Wheel         | Zoom in/out |
@@ -39,6 +41,7 @@ l l .
 | A                   | Actual size |
 | F                   | Toggle fill screen mode |
 | Home                | Go to first image in the list |
+| End                 | Go to last image in the list |
 | M                   | Shuffle (Mix) the images (only in single mode) |
 | N                   | Sort the images by file name (only in single mode) |
 | CTRL+N              | Sort the images by file path (only in single mode) |
