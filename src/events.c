@@ -148,7 +148,7 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 					g->gui_timer = SDL_GetTicks();
 					g->show_gui = SDL_TRUE;
 					g->status = REDRAW;
-					//try_move(SELECTION);
+					SDL_SetWindowTitle(g->win, g->files.a[g->img[0].index].name);
 				} else {
 					// ESC from an initial startup with no files, just exit
 					nk_input_end(ctx);

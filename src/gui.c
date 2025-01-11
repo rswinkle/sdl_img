@@ -146,6 +146,7 @@ void draw_gui(struct nk_context* ctx)
 				g->gui_timer = SDL_GetTicks();
 				g->show_gui = SDL_TRUE;
 				g->status = REDRAW;
+				SDL_SetWindowTitle(g->win, g->files.a[g->img[0].index].name);
 			} else {
 				// They "Cancel"ed out of an initial startup with no files, so just exit
 				event.type = SDL_QUIT;
@@ -595,7 +596,7 @@ void draw_gui(struct nk_context* ctx)
 					// it simplifies things.  May support 1 image mode when viewing results
 					// in the future
 					//
-					if (nk_menu_item_label(ctx, "Open", NK_TEXT_LEFT)) {
+					if (nk_menu_item_label(ctx, "Open New", NK_TEXT_LEFT)) {
 						event.user.code = OPEN_FILE_NEW;
 						SDL_PushEvent(&event);
 					}
@@ -606,7 +607,7 @@ void draw_gui(struct nk_context* ctx)
 					// update image indices)
 					if (g->state == NORMAL) {
 						// TODO naming
-						if (nk_menu_item_label(ctx, "Open Additional", NK_TEXT_LEFT)) {
+						if (nk_menu_item_label(ctx, "Open More", NK_TEXT_LEFT)) {
 								event.user.code = OPEN_FILE_MORE;
 								SDL_PushEvent(&event);
 						}

@@ -2735,6 +2735,15 @@ void do_file_open(int clear_files)
 		printf("src %d: %s\n", i, g->sources.a[i]);
 	}
 
+	// TODO Naming "Open" "Open New" "Open New Images" vs
+	// "Open More" "Open More Images", "File Selector" etc.
+	// Currently matches GUI menu options
+	if (clear_files) {
+		SDL_SetWindowTitle(g->win, "Open New");
+	} else {
+		SDL_SetWindowTitle(g->win, "Open More");
+	}
+
 	g->state = FILE_SELECTION;
 	reset_file_browser(&g->filebrowser, NULL);
 	g->filebrowser.selection = -1; // default to no selection
