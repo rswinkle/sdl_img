@@ -282,10 +282,23 @@ int handle_thumb_events()
 	int mouse_x, mouse_y;
 	SDL_GetMouseState(&mouse_x, &mouse_y);
 	char title_buf[STRBUF_SZ];
+	int code;
 
 	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
+		if (e.type == g->userevent) {
+			code = e.user.code;
+			switch (code) {
+			case OPEN_FILE_NEW:
+				do_file_open(SDL_TRUE);
+				return 0;
+				break;
+			default:
+				SDL_Log("Unknown user event!");
+			}
+			continue;
+		}
 		switch (e.type) {
 		case SDL_QUIT:
 			// don't think I really need these since we'll be exiting anyway
@@ -907,6 +920,7 @@ int handle_scanning_events()
 
 		g->status = REDRAW;
 		if (g->files.size) {
+			SDL_LogDebugApp("files.size != 0\n");
 			//SDL_LockMutex(g->img_loading_mtx);
 			if (g->done_loading) {
 				SDL_LogDebugApp("done loading\n");
@@ -918,7 +932,13 @@ int handle_scanning_events()
 		} else {
 			SDL_Log("Switching to file selection because scanning sources discovered 0 images\n");
 			g->state = FILE_SELECTION;
+			g->done_loading = 0;
 			reset_file_browser(&g->filebrowser, NULL);
+
+			g->open_single = SDL_FALSE;
+			g->open_playlist = SDL_FALSE;
+			g->is_open_new = SDL_TRUE;
+
 			g->filebrowser.selection = -1; // default to no selection
 		}
 

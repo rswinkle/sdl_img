@@ -420,7 +420,7 @@ void log_output_func(void *userdata, int category, SDL_LogPriority priority, con
 
 	// Why is the extra \n needed when every individual message already has a \n?
 	fprintf(logfile, "%s: %s\n", priority_prefixes[priority], message);
-	//fflush(logfile);
+	fflush(logfile);
 }
 
 size_t write_data(void* buf, size_t size, size_t num, void* userp)
@@ -1390,6 +1390,7 @@ int load_new_images(void* data)
 	int tmp;
 	int load_what;
 	int last;
+	cvec_sz cnt;
 
 	while (1) {
 		SDL_LogDebugApp("top of load_new_images\n");
@@ -1426,9 +1427,15 @@ int load_new_images(void* data)
 						if (g->ind_mm && load_what != SELECTION) {
 							last = g->img[i].index;
 						}
-						do {
+						for (cnt = 0; cnt < g->files.size; ++cnt) {
 							last = wrap(last + 1);
-						} while (!attempt_image_load(last, &img[i]));
+							if (attempt_image_load(last, &img[i])) {
+								break;
+							}
+						}
+						if (cnt == g->files.size) {
+							goto failed_load;
+						}
 						set_rect_bestfit(&img[i], g->fullscreen | g->slideshow | g->fill_mode);
 						SDL_Log("Loaded %d\n", last);
 						img[i].index = last;
@@ -1439,10 +1446,17 @@ int load_new_images(void* data)
 						if (g->ind_mm) {
 							last = g->img[i].index;
 						}
-						do {
+						for (cnt = 0; cnt < g->files.size; ++cnt) {
 							last = wrap(last - 1);
-						} while (!attempt_image_load(last, &img[i]));
+							if (attempt_image_load(last, &img[i])) {
+								break;
+							}
+						}
+						if (cnt == g->files.size) {
+							goto failed_load;
+						}
 						set_rect_bestfit(&img[i], g->fullscreen | g->slideshow | g->fill_mode);
+						SDL_Log("Loaded %d\n", last);
 						img[i].index = last;
 					}
 				}
@@ -1454,9 +1468,15 @@ int load_new_images(void* data)
 			} else {
 				tmp = (load_what >= RIGHT) ? 1 : -1;
 				last = (load_what != SELECTION) ? g->img_focus->index : g->selection;
-				do {
+				for (cnt = 0; cnt < g->files.size; ++cnt) {
 					last = wrap(last + tmp);
-				} while (!attempt_image_load(last, &img[0]));
+					if (attempt_image_load(last, &img[0])) {
+						break;
+					}
+				}
+				if (cnt == g->files.size) {
+					goto failed_load;
+				}
 				img[0].index = last;
 				img[0].scr_rect = g->img_focus->scr_rect;
 				set_rect_bestfit(&img[0], g->fullscreen | g->slideshow | g->fill_mode);
@@ -1467,13 +1487,27 @@ int load_new_images(void* data)
 		} else {
 			last = g->img[g->n_imgs-1].index;
 			for (int i=g->n_imgs; i<load_what; ++i) {
-				do {
+				for (cnt = 0; cnt < g->files.size; ++cnt) {
 					last = wrap(last + 1);
-				} while (!attempt_image_load(last, &g->img[i]));
+					if (attempt_image_load(last, &g->img[i])) {
+						break;
+					}
+				}
+				if (cnt == g->files.size) {
+					goto failed_load;
+				}
 				g->img[i].index = last;
 			}
 		}
 
+		goto success_load;
+
+failed_load:
+		SDL_Log("No valid file, clearing g->files\n");
+		cvec_clear_file(&g->files);
+		SDL_Log("g->files.size = %"PRIcv_sz"\n", g->files.size);
+
+success_load:
 		SDL_LockMutex(g->img_loading_mtx);
 		g->done_loading = load_what;
 		g->loading = 0;
@@ -2194,7 +2228,7 @@ void setup(int argc, char** argv)
 
 #ifndef NDEBUG
 	puts("does this work");
-	//SDL_LogSetAllPriority(SDL_LOG_PRIORITY_DEBUG);
+	SDL_LogSetAllPriority(SDL_LOG_PRIORITY_DEBUG);
 #endif
 
 	// already NULL from static initialization
@@ -3026,8 +3060,21 @@ void do_remove(SDL_Event* next)
 		cvec_erase_thumb_state(&g->thumbs, files_index, files_index);
 	}
 
-	g->img[0].index--; // since everything shifted left, we need to pre-decrement to not skip an image
-	SDL_PushEvent(next);
+	// since everything shifted left, we need to pre-decrement to not skip an image
+	if (!g->img[0].index) {
+		g->img[0].index = g->files.size-1;
+	} else {
+		g->img[0].index--;
+	}
+
+	if (g->files.size) {
+		SDL_PushEvent(next);
+	} else {
+		g->img[0].index = 0; // not sure if necesary but not a bad idea
+		SDL_Event user_event = { .type = g->userevent };
+		user_event.user.code = OPEN_FILE_NEW;
+		SDL_PushEvent(&user_event);
+	}
 }
 
 void do_delete(SDL_Event* next)
@@ -3269,7 +3316,7 @@ void do_thumb_rem_del_search(int do_delete, int invert)
 		// is still there, should be no duplicates in search_results so we can
 		// check up front without actually doing the removal
 		if (g->search_results.size == g->files.size) {
-			// TODO goto to FILE_SELECTION?
+			// TODO goto to FILE_SELECTION
 			SDL_Log("You removed all your currently viewed images, exiting\n");
 			cleanup(0, 1);
 		}
@@ -3391,19 +3438,21 @@ void do_thumb_rem_del_dflt_visual(int do_delete, int invert)
 	// If the current images remain but images to the left were
 	// removed, their index needs to be updated for the shift in
 	// position
-	for (int i=0; i<g->n_imgs; ++i) {
-		if (!invert) {
-			if (g->img[i].index >= start && g->img[i].index <= end) {
-				g->img[i].index = (start) ? start-1 : g->files.size-1;
+	if (g->files.size) {
+		for (int i=0; i<g->n_imgs; ++i) {
+			if (!invert) {
+				if (g->img[i].index >= start && g->img[i].index <= end) {
+					g->img[i].index = (start) ? start-1 : g->files.size-1;
+					g->do_next = nk_true;
+				} else if (g->img[i].index > end) {
+					g->img[i].index -= end - start + 1;
+				}
+			} else if (g->img[i].index < start || g->img[i].index > end) {
+				g->img[i].index = (i) ? (g->img[i-1].index + 1) % g->files.size : g->files.size - 1;
 				g->do_next = nk_true;
-			} else if (g->img[i].index > end) {
-				g->img[i].index -= end - start + 1;
+			} else {
+				g->img[i].index -= start;
 			}
-		} else if (g->img[i].index < start || g->img[i].index > end) {
-			g->img[i].index = (i) ? (g->img[i-1].index + 1) % g->files.size : g->files.size - 1;
-			g->do_next = nk_true;
-		} else {
-			g->img[i].index -= start;
 		}
 	}
 	g->thumb_sel = (!invert) ? start : 0;  // in case it was > _sel_end
@@ -3417,10 +3466,17 @@ void do_thumb_rem_del(int do_delete, int invert)
 		do_thumb_rem_del_dflt_visual(do_delete, invert);
 	}
 
-	fix_thumb_sel(1);
+	if (g->files.size) {
+		fix_thumb_sel(1);
+		// exit Visual mode after r/x (and backspace in this case) like vim
+		g->state = THUMB_DFLT;
+	} else {
+		g->img[0].index = 0; // not sure if necesary but not a bad idea
+		SDL_Event user_event = { .type = g->userevent };
+		user_event.user.code = OPEN_FILE_NEW;
+		SDL_PushEvent(&user_event);
+	}
 
-	// exit Visual mode after r/x (and backspace in this case) like vim
-	g->state = THUMB_DFLT;
 }
 
 #include "rendering.c"

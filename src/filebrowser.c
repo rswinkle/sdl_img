@@ -188,6 +188,9 @@ void reset_file_browser(file_browser* fb, char* start_dir)
 	fb->text_len = 0;
 	fb->text_buf[0] = 0;
 
+	// TODO do we want to keep the old value?  I feel like not
+	fb->ignore_exts = FALSE;
+
 	// set start dir
 	size_t l = 0;
 	const char* sd = fb->dir;
