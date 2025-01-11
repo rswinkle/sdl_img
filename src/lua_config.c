@@ -21,6 +21,8 @@ enum {
 	THUMB_COLS,
 	SHOW_INFO_BAR,
 	X_DELETES_THUMB,
+	CONFIRM_DELETE,
+	CONFIRM_ROTATION,
 	RELATIVE_OFFSETS,
 	IMG_EXTS,
 	CACHE_DIR,
@@ -40,6 +42,8 @@ char* keys[] =
 	"thumb_cols",
 	"show_info_bar",
 	"x_deletes_thumb",
+	"confirm_delete",
+	"confirm_rotation",
 	"relative_offsets",
 	"img_exts",
 	"cache_dir",
@@ -86,7 +90,6 @@ int read_config_file(char* filename)
 
 	if (luaL_dofile(L, filename)) {
 		//error(L, "cannot run config. file: %s\n", lua_tostring(L, -1));
-		perror("Cannot run lua config file");
 		fprintf(stderr, "lua error: %s\n", lua_tostring(L, -1));
 		lua_close(L);
 		return 0;
@@ -116,6 +119,8 @@ int read_config_file(char* filename)
 
 	g->show_infobar = get_global_bool(L, "show_info_bar");
 	g->thumb_x_deletes  = get_global_bool(L, "x_deletes_thumb");
+	g->confirm_delete  = get_global_bool(L, "confirm_delete");
+	g->confirm_rotation  = get_global_bool(L, "confirm_rotation");
 	g->ind_mm = get_global_bool(L, "relative_offsets");
 
 
@@ -208,6 +213,12 @@ void write_config(FILE* cfg_file)
 			break;
 		case X_DELETES_THUMB:
 			fprintf(cfg_file, "%s\n", bool_str[g->thumb_x_deletes]);
+			break;
+		case CONFIRM_DELETE:
+			fprintf(cfg_file, "%s\n", bool_str[g->confirm_delete]);
+			break;
+		case CONFIRM_ROTATION:
+			fprintf(cfg_file, "%s\n", bool_str[g->confirm_rotation]);
 			break;
 		case RELATIVE_OFFSETS:
 			fprintf(cfg_file, "%s\n", bool_str[g->ind_mm]);

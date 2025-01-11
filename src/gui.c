@@ -1378,6 +1378,8 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 
 		nk_checkbox_label(ctx, "Show info bar", &g->show_infobar);
 		nk_checkbox_label(ctx, "x deletes in Thumb mode", &g->thumb_x_deletes);
+		nk_checkbox_label(ctx, "Confirm delete in Normal mode", &g->confirm_delete);
+		nk_checkbox_label(ctx, "Confirm rotation", &g->confirm_rotation);
 
 		// TODO come up with better name/description
 		nk_layout_row_dynamic(ctx, 0, 1);

@@ -345,6 +345,8 @@ typedef struct global_state
 	int ind_mm;         // independent multimode, better name?
 	int fullscreen_gui;
 	int show_infobar;
+	int confirm_delete;
+	int confirm_rotation;
 
 	int list_setscroll;
 
@@ -581,7 +583,7 @@ void clear_img(img_state* img)
 
 	if (img->edited && img->frames == 1) {
 		char msgbox_prompt[STRBUF_SZ];
-		int buttonid;
+		int buttonid = 1;
 
 		SDL_MessageBoxButtonData buttons[] = {
 			//{ /* .flags, .buttonid, .text */        0, 0, "no" },
@@ -608,7 +610,9 @@ void clear_img(img_state* img)
 
 		snprintf(msgbox_prompt, STRBUF_SZ, "Do you want to save changes to '%s'?", full_img_path);
 		messageboxdata.message = msgbox_prompt;
-		SDL_ShowMessageBox(&messageboxdata, &buttonid);
+		if (g->confirm_rotation) {
+			SDL_ShowMessageBox(&messageboxdata, &buttonid);
+		}
 
 		if (buttonid == 1) {
 			char* ext = strrchr(full_img_path, '.');
@@ -1972,7 +1976,7 @@ void setup_dirs()
 	}
 
 
-	printf("cache: %s\nthumbnails: %s\nlogs: %s", g->cachedir, g->thumbdir, logdir_buf);
+	printf("cache: %s\nthumbnails: %s\nlogs: %s\n", g->cachedir, g->thumbdir, logdir_buf);
 }
 
 int load_config()
@@ -1994,6 +1998,8 @@ int load_config()
 		g->bg = nk_rgb(0,0,0);
 		g->thumb_rows = MAX_THUMB_ROWS;
 		g->thumb_cols = MAX_THUMB_COLS;
+		g->confirm_delete = SDL_TRUE;
+		g->confirm_rotation = SDL_TRUE;
 
 		return nk_false;
 	}
@@ -3122,7 +3128,7 @@ void do_delete(SDL_Event* next)
 		buttons, /* .buttons */
 		NULL /* .colorScheme, NULL = system default */
 	};
-	int buttonid;
+	int buttonid = 1;
 
 	char msgbox_prompt[STRBUF_SZ];
 
@@ -3145,7 +3151,11 @@ void do_delete(SDL_Event* next)
 	// Check MessageBox options
 	snprintf(msgbox_prompt, STRBUF_SZ, "Are you sure you want to delete '%s'?", full_img_path);
 	messageboxdata.message = msgbox_prompt;
-	SDL_ShowMessageBox(&messageboxdata, &buttonid);
+
+	if (g->confirm_delete) {
+		SDL_ShowMessageBox(&messageboxdata, &buttonid);
+	}
+
 	if (buttonid == 1) {
 		if (remove(full_img_path)) {
 			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to delete image: %s", strerror(errno));
