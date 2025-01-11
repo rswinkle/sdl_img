@@ -1918,9 +1918,11 @@ int scan_sources(void* data)
 void setup_dirs()
 {
 	char datebuf[200] = { 0 };
+	char logdir_buf[STRBUF_SZ] = { 0 };
 	time_t t;
 	struct tm *tmp;
 	int len;
+	
 
 	t = time(NULL);
 	srand(t);
@@ -1952,12 +1954,25 @@ void setup_dirs()
 		}
 	}
 	if (mkdir_p(g->thumbdir, S_IRWXU) && errno != EEXIST) {
-		perror("Failed to make cache directory");
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make cache directory: %s\n", strerror(errno));
+		perror("Failed to make thumb directory");
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make thumb directory: %s\n", strerror(errno));
 		cleanup(1, 1);
 	}
 
-	printf("cache: %s\nthumbnails: %s\n", g->cachedir, g->thumbdir);
+
+		len = snprintf(logdir_buf, STRBUF_SZ, "%slogs", prefpath);
+		if (len >= STRBUF_SZ) {
+			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "logdir path too long\n");
+			cleanup(1, 1);
+		}
+	if (mkdir_p(logdir_buf, S_IRWXU) && errno != EEXIST) {
+		perror("Failed to make log directory");
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make log directory: %s\n", strerror(errno));
+		cleanup(1, 1);
+	}
+
+
+	printf("cache: %s\nthumbnails: %s\nlogs: %s", g->cachedir, g->thumbdir, logdir_buf);
 }
 
 int load_config()
@@ -2258,11 +2273,13 @@ void setup(int argc, char** argv)
 	cvec_str(&g->favs, 0, 50);
 	// g->thumbs initialized if needed in generate_thumbs()
 
+	// Call this before creating logfile
+	setup_dirs();
 
-
+// NOTE by doing it here we miss all log calls above but code above could change
 #ifdef USE_LOGFILE
 	char log_path[STRBUF_SZ];
-	snprintf(log_path, sizeof(log_path), "%slog.txt", g->prefpath);
+	snprintf(log_path, sizeof(log_path), "%slogs/log_%d.txt", g->prefpath, getpid());
 	g->logfile = fopen(log_path, "w");
 	SDL_LogSetOutputFunction(log_output_func, g->logfile);
 #endif
@@ -2277,8 +2294,6 @@ void setup(int argc, char** argv)
 	g->sorted_state = NAME_UP;  // ie by name ascending
 	g->state = (g->sources.size) ? SCANNING : FILE_SELECTION; // setup is called after sources is filled
 	g->has_bad_paths = SDL_FALSE;
-
-	setup_dirs();
 
 	// read favorites
 	snprintf(buf, STRBUF_SZ, "%sfavorites.txt", g->prefpath);

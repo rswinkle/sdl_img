@@ -1426,7 +1426,6 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 		}
 
 		if (img) {
-			SDL_Log("img->index = %d\n", img->index);
 			size_str = g->files.a[img->index].size_str;
 
 			// 2 options when viewing results, showing n/total like normal (so it'd jump between matches)
