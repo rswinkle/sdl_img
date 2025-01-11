@@ -649,10 +649,7 @@ void cleanup(int ret, int called_setup)
 {
 	char buf[STRBUF_SZ] = { 0 };
 
-	if (g->logfile) {
-		SDL_Log("In cleanup()");
-		fclose(g->logfile);
-	}
+	SDL_Log("In cleanup()");
 	if (called_setup) {
 
 		if (g->generating_thumbs) {
@@ -693,10 +690,6 @@ void cleanup(int ret, int called_setup)
 			free(g->img[i].tex);
 		}
 
-		SDL_DestroyRenderer(g->ren);
-		SDL_DestroyWindow(g->win);
-		SDL_Quit();
-
 		if (g->favs.size) {
 			snprintf(buf, STRBUF_SZ, "%sfavorites.txt", g->prefpath);
 			FILE* f = fopen(buf, "w");
@@ -709,6 +702,17 @@ void cleanup(int ret, int called_setup)
 				fclose(f);
 			}
 		}
+
+		// Exit SDL and close logfile last so we can use SDL_Log*() above and in other threads
+		// till the end
+		SDL_DestroyRenderer(g->ren);
+		SDL_DestroyWindow(g->win);
+		if (g->logfile) {
+			fclose(g->logfile);
+		}
+
+		SDL_Quit();
+
 	}
 
 	free(g->prefpath);
