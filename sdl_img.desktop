@@ -8,7 +8,7 @@ Exec=sdl_img %U
 # put in /usr/share/icons/hicolor/scalable/apps
 # Icon=sdl_img.svg
 # put in /usr/share/icons/hicolor/48x48/apps
-Icon=sdl_img.png
+Icon=sdl_img
 # StartupNotify=true
 # Terminal=false
 Type=Application

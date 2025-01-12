@@ -653,7 +653,7 @@ void cleanup(int ret, int called_setup)
 {
 	char buf[STRBUF_SZ] = { 0 };
 
-	SDL_Log("In cleanup()");
+	SDL_LogDebugApp("In cleanup()");
 	if (called_setup) {
 
 		if (g->generating_thumbs) {
@@ -672,7 +672,9 @@ void cleanup(int ret, int called_setup)
 
 		// appends prefpath inside
 		write_config_file("config.lua");
+#ifndef NDEBUG
 		write_config(stdout);
+#endif
 
 		// free allocated img exts if we read them from config file
 		if (g->cfg_img_exts) {
@@ -1983,7 +1985,7 @@ int load_config()
 {
 	char config_path[STRBUF_SZ] = { 0 };
 	snprintf(config_path, STRBUF_SZ, "%sconfig.lua", g->prefpath);
-	SDL_Log("config file: %s\n", config_path);
+	SDL_LogDebugApp("config file: %s\n", config_path);
 
 	// If no config file, set default preferences
 	// NOTE cachedir already set to default in main
@@ -2003,7 +2005,7 @@ int load_config()
 
 		return nk_false;
 	}
-	SDL_Log("Successfully loaded config file\n");
+	SDL_LogDebugApp("Successfully loaded config file\n");
 
 	return nk_true;
 }
@@ -2193,6 +2195,10 @@ void setup(int argc, char** argv)
 		".psd"
 	};
 
+#ifndef NDEBUG
+	SDL_LogSetAllPriority(SDL_LOG_PRIORITY_DEBUG);
+#endif
+
 	// set defaults before loading config file
 	g->img_exts = default_exts;
 	g->n_exts = NUM_DFLT_EXTS;
@@ -2209,8 +2215,6 @@ void setup(int argc, char** argv)
 	// just point these at a buffer that will live forever
 	g->cachedir = g->cachedir_buf;
 	g->thumbdir = g->thumbdir_buf;
-
-	int got_config = load_config();
 
 	for (int i=1; i<argc; ++i) {
 		if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {
@@ -2254,10 +2258,7 @@ void setup(int argc, char** argv)
 
 	}
 
-#ifndef NDEBUG
-	puts("does this work");
-	SDL_LogSetAllPriority(SDL_LOG_PRIORITY_DEBUG);
-#endif
+	int got_config = load_config();
 
 	// already NULL from static initialization
 	g->win = NULL;

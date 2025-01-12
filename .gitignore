@@ -43,6 +43,8 @@ package/LICENSE*
 package/README.md
 package_linux/*
 
+AppDir/*
+
 prototyping/sdl_img
 prototyping/gui_test
 prototyping/md5_test
