@@ -9,7 +9,6 @@
 
 #define MAX_COLOR 255
 
-// TODO figure out how to handle cachedir needs changes in main()
 enum {
 	GUI_SCALE,
 	BACKGROUND,
@@ -141,7 +140,9 @@ int read_config_file(char* filename)
 	get_global_strbuf(L, "thumb_dir", g->thumbdir, STRBUF_SZ);
 
 	// For debug purposes
+#ifndef NDEBUG
 	write_config(stdout);
+#endif
 
 	lua_close(L);
 	return 1;

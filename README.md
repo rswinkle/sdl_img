@@ -56,8 +56,10 @@ directory in [alphabetical](http://stereopsis.com/strcmp4humans.html)
 | T                   | Sort the images by last modified (only in single mode) |
 | CTRL + F or F11     | Toggle Fullscreen |
 | ESC                 | Exit or "Back" similar to Android |
-| L/R                 | Rotate the current image left/right |
+| L/R                 | Rotate the current image 90 degrees left/right |
+| CTRL + L/R          | Rotate the current image arbitrary degrees (popup GUI) |
 | H/V                 | Flip the current image horizontally/vertically |
+| S                   | Save current image to favorites |
 | Delete              | Delete the current image and move to the next (only in single mode) |
 | Backspace           | Remove the current image and move to the next (only in single mode) |
 | CTRL + 1            | Single image mode |
@@ -178,10 +180,10 @@ instead of just removing the selection.
 
 List Mode
 =========
-Switch with CTRL+I to view a list of all your current images with columns showing the size
-and last modified time.  You can select the column headings to sort by that ascending or
-descending.  You can scroll through the list or use up and down.  Hitting Enter or double
-clicking will go back to normal mode on that image.
+Switch with CTRL+I to view a list of all your current images with columns showing the
+name, size, and last modified time.  You can select the column headings to sort by that,
+ascending or descending.  You can scroll through the list or use up and down.  Hitting
+Enter or double clicking will go back to normal mode on that image.
 
 Type something in the search bar at the top and hit enter to show a list of files that match.
 Same controls as normal list mode, but if you hit enter or double click you will be in "View
