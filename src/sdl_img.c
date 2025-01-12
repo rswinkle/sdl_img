@@ -2011,15 +2011,18 @@ int load_config()
 void print_help(char* prog_name, int verbose)
 {
 	puts("Usage:");
-	printf("  %s image_name\n", prog_name);
-	printf("  %s -l text_list_of_image_paths/urls\n", prog_name);
+	printf("  %s image_path\n", prog_name);
+	printf("  %s directory\n", prog_name);
+	printf("  %s image_URL\n", prog_name);
+	printf("  %s -l/--list text_list_of_image_paths/urls\n", prog_name);
 	puts("\nOr any combination of those uses, ie:");
-	printf("  %s image.jpg -l list1 example.com/image.jpg -l list3 image4.gif\n", prog_name);
+	printf("  %s image.jpg -l list1 -s 8 ~/some/dir example.com/image.jpg -l list3 image4.gif -f\n", prog_name);
 
 	if (verbose) {
 		puts("\nApplication Options:");
 		puts("  -f, --fullscreen                   Start in fullscreen mode");
 		puts("  -s, --slide-show [delay=3]         Start in slideshow mode");
+		puts("  -l, --list list_file               Add all paths/urls in list_file to list");
 		puts("  -r, --recursive dir                Scan dir recursively for images to add to the list");
 		puts("  -R                                 Scan all directories that come after recursively (-r after -R is redundant)");
 		puts("  -c, --cache ./your_cache_loc       Use specified directory as cache");
@@ -3526,7 +3529,7 @@ int main(int argc, char** argv)
 	struct stat file_stat;
 
 	for (int i=1; i<argc; ++i) {
-		if (!strcmp(argv[i], "-l")) {
+		if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--list")) {
 			if (i+1 == argc) {
 				SDL_Log("Error missing list file following -l\n");
 				break;

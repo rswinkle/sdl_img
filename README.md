@@ -18,7 +18,7 @@ Goals / Focus
 * Implement features I've always wanted in an image viewer
 * Relatively simple, short, readable code
 * Learn/Practice/Fun
-* Not really focused on speed but it is reasonably fast and light weight
+* Not really focused on speed but keep it reasonably fast and light weight
 
 Controls/Basic Usage
 ====================
@@ -27,7 +27,7 @@ Controls/Basic Usage
     ./sdl_img -f image_name.jpg  (to start in full screen mode)
 
 The first will open in "File Selection" mode since you didn't provide it any
-images. The second ill open image_name.jpg and all files with recognized image
+images. The second will open image_name.jpg and all files with recognized image
 extensions in the same directory. On Windows that would be `sdl_img.exe`, but
 better to just right click on an image of each type and change the default
 application to be sdl_img.exe and then double clicking any image of that type
@@ -119,13 +119,18 @@ the default.
 Advanced Usage
 ==============
     ./sdl_img -l list_of_images (urls or local paths or mixed, doesn't matter)
+    ./sdl_img --list list_of_images
+    ./sdl_img dir (scan dir for images)
+    ./sdl_img -r dir (scan dir recursively for images)
+    ./sdl_img dir1 -r dir2 dir3 (scan dir1, dir2 recursively, dir3 )
+    ./sdl_img dir1 -R dir2 dir3 (scan dir1, then dir2 and dir3 recursively)
     ./sdl_img image1.jpg image2.png
     ./sdl_img image1.jpg -s 4
     ./sdl_img -l list_of_urls -c ./custom_cache_dir
 
 Or any combination of those options, ie
 
-    ./sdl_img image.jpg -l list1 -s 8 example.com/image.jpg -l list3 image4.gif -f
+    ./sdl_img image.jpg -l list1 -s 8 ~/some/dir example.com/image.jpg -l list3 image4.gif -f
 
 The option -s [delay] means start in slideshow mode with the given delay in seconds.
 If delay is not 1-10 or is missing, delay will be set to 3 seconds.
@@ -151,7 +156,7 @@ physical key, what the hardware actually sends, not any custom layout you have i
 software) while the Thumbmode controls are based on keycode and do respect your
 layout (otherwise you lose all that vim muscle memory).  This is irrelevant
 to most people but for people like myself who use Dvorak and *don't* change
-the default Vim keybinds so HJKL are JCVP physically.
+the default Vim keybinds, HJKL, are JCVP physically.
 
 | Thumbmode Controls      | Description |
 | --------------------    |-------------|
@@ -246,7 +251,7 @@ TODO/IDEAS
 - [x] shuffle/sort (m / o for mix/order)
 - [x] Use image extensions as a filter most common use cases
 - [x] Nuklear GUI
-- [ ] save to favorites or more general "collection" saving
+- [x] save to favorites or more general "collection" saving
 - [ ] Clean up code a bit (ongoing)
 - [ ] Save memory by aliasing when viewing the same image more than once in multimode
 - [ ] Save memory by having the main thread update images as they're loaded

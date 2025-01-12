@@ -5,7 +5,7 @@
 .SH "NAME"
 sdl_img \- A simple but unique image viewer based on stb_image and SDL2
 .SH "SYNOPSIS"
-.B ./sdl_img [-f] [-R] [-s [delay]] [-r dir] [-l text_list] [files/dirs]
+.B ./sdl_img [-f] [-R] [-s [delay]] [-r dir] [-l/--list text_list] [files/dirs]
 
 .B ./sdl_img (will open in File Selector mode)
 
@@ -117,6 +117,12 @@ Switch with CTRL+U to viewing all your current images as thumbnails on a vertica
 scrolling plane.  Animated GIF thumbnails are generated from the first frame.
 You can use the arrows and mouse and scrollwheel to move around
 and select an image but if you're a vim user you'll feel right at home.
+Note the basic controls above are based on scancode (ie what you see on the
+physical key, what the hardware actually sends, not any custom layout you have in
+software) while the Thumbmode controls are based on keycode and do respect your
+layout (otherwise you lose all that vim muscle memory).  This is irrelevant
+to most people but for people like myself who use Dvorak and *don't* change
+the default Vim keybinds, HJKL, are JCVP physically.
 
 .TS
 l l .
@@ -154,13 +160,19 @@ ESC to backs out of View Results, Results, and list mode entirely.
 .TP
 \fBfilename/directory(s)...\fR
 Specifies the image to open when \fBsdl_img\fR starts.  If a directory is given
-it is scanned for images.  \fBsdl_img\fR also supports handling of remote files.
+it is scanned for images.  \fBsdl_img\fR also supports handling of remote files,
+ie you can give it URLs.
 .TP
 \fB\-f, \-\-fullscreen\fR
 Start \fBsdl_img\fR in fullscreen mode.
 .TP
 \fB\-s, \-\-slide-show [delay=3]\fR
 Open in slideshow mode.
+.TP
+\fB\-l, \-\-list text_list_of_images\fR
+Loads the list of images/urls from the specified text file. The
+extension doesn't have to be txt or even exist, but it can't be one of the
+recognized image extensions.
 .TP
 \fB\-r, \-\-recursive dir\fR
 Scan dir recursively for images to add to the list
