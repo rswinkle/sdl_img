@@ -319,8 +319,9 @@ typedef struct global_state
 	file_browser filebrowser;
 	int open_single;  // boolean (should I move it to file_browser?)
 	int open_playlist; // boolean
-	int is_open_new;
+	int is_open_new;  // boolean
 	int old_state;
+	cvector_str bookmarks;
 
 	const char** img_exts;
 	int n_exts;

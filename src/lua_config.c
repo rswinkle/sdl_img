@@ -24,6 +24,7 @@ enum {
 	CONFIRM_ROTATION,
 	RELATIVE_OFFSETS,
 	IMG_EXTS,
+	BOOKMARKS,
 	CACHE_DIR,
 	THUMB_DIR,
 	NUM_KEYS
@@ -45,6 +46,7 @@ char* keys[] =
 	"confirm_rotation",
 	"relative_offsets",
 	"img_exts",
+	"bookmarks",
 	"cache_dir",
 	"thumb_dir"
 };
@@ -130,6 +132,9 @@ int read_config_file(char* filename)
 		g->n_exts = n;
 		g->cfg_img_exts = SDL_TRUE;
 	}
+
+	g->bookmarks.size = get_global_str_array(L, "bookmarks", &g->bookmarks.a);
+	g->bookmarks.capacity = g->bookmarks.size;
 
 	// TODO think about where I really want cachedir storage/ownership...maybe
 	// just make cachedir and thumbdir actual arrays in g and be done with it?
@@ -237,6 +242,14 @@ void write_config(FILE* cfg_file)
 			fprintf(cfg_file, "{\n");
 			for (int j=0; j<g->n_exts; j++) {
 				fprintf(cfg_file, "\t'%s',\n", g->img_exts[j]);
+			}
+			fprintf(cfg_file, "}\n");
+			break;
+
+		case BOOKMARKS:
+			fprintf(cfg_file, "{\n");
+			for (int j=0; j<g->bookmarks.size; j++) {
+				fprintf(cfg_file, "\t'%s',\n", g->bookmarks.a[j]);
 			}
 			fprintf(cfg_file, "}\n");
 			break;

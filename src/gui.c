@@ -1069,12 +1069,14 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 		const float group_szs[] = { FB_SIDEBAR_W, scr_w-FB_SIDEBAR_W };
 
-		nk_layout_row(ctx, NK_STATIC, scr_h, 2, group_szs);
+		bounds = nk_widget_bounds(ctx);
+		nk_layout_row(ctx, NK_STATIC, scr_h-bounds.y, 2, group_szs);
 
-		if (nk_group_begin(ctx, "Sidebar", 0)) {
+		if (nk_group_begin(ctx, "Sidebar", NK_WINDOW_NO_SCROLLBAR)) {
 
 			int old;
 			// Make dynamic array to add saved bookmarked locations
+			// TODO no need for dynamic because that's about width not height?
 			nk_layout_row_dynamic(ctx, 0, 1);
 
 			nk_label(ctx, "Settings", NK_TEXT_CENTERED);
@@ -1136,7 +1138,49 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				switch_dir(fb, "/");
 			}
 
+			if (nk_button_label(ctx, "Bookmark")) {
+				cvec_push_str(&g->bookmarks, fb->dir);
+			}
 
+
+			bounds = nk_widget_bounds(ctx);
+
+			nk_layout_row_static(ctx, scr_h-bounds.y, FB_SIDEBAR_W-win_spacing.x*2, 1);
+			if (nk_group_begin(ctx, "User Bookmarks", 0)) {
+				nk_layout_row_dynamic(ctx, 0, 1);
+				char** bmarks = g->bookmarks.a;
+				int remove = -1;
+				for (int i=0; i<g->bookmarks.size; ++i) {
+					char* b = bmarks[i];
+					char* name = strrchr(b, '/');
+
+					// handle Windows "C:/" correctly
+					if (name == &b[2] && b[1] == ':') {
+						name = &b[0];
+					}
+					if (name != b) {
+						name++;
+					}
+					bounds = nk_widget_bounds(ctx);
+					if (nk_button_label(ctx, name)) {
+						switch_dir(fb, b);
+					}
+					if (nk_contextual_begin(ctx, 0, nk_vec2(100, 300), bounds)) {
+
+						nk_layout_row_dynamic(ctx, 25, 1);
+						if (nk_menu_item_label(ctx, "Remove", NK_TEXT_LEFT)) {
+							remove = i;
+						}
+
+						//nk_slider_int(ctx, 0, &slider, 16, 1);
+						nk_contextual_end(ctx);
+					}
+				}
+				if (remove >= 0) {
+					cvec_erase_str(&g->bookmarks, remove, remove);
+				}
+				nk_group_end(ctx);
+			}
 			nk_group_end(ctx);
 		}
 
