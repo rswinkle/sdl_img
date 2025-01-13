@@ -53,6 +53,7 @@ typedef struct file_browser
 	int is_search_results;
 	int is_text_path; // could change to flag if I add a third option
 	int list_setscroll;
+	int show_hidden;
 
 	// does not own memory
 	const char** exts;
@@ -82,7 +83,7 @@ void handle_recents(file_browser* fb);
 
 void search_filenames(file_browser* fb);
 const char* get_homedir();
-int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts);
+int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts, int show_hidden);
 char* mydirname(const char* path, char* dirpath);
 char* mybasename(const char* path, char* base);
 void normalize_path(char* path);

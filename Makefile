@@ -64,14 +64,14 @@ linux_package: sdl_img
 	cp ./package/sdl_img.png $(PKG_DIR)/share/icons/hicolor/48x48/apps
 	fpm -s dir -t deb -v 1.0-RC2 -n sdl_img -C $(PKGDIR) \
 	--log info --verbose \
-	-d "libsdl2-2.0-0 >= 2.0.5" -d "libcurl4" \
+	-d "libsdl2-2.0-0 >= 2.0.20" -d "libcurl4" \
 	-m "Robert Winkler <rob121618@gmail.com>" \
 	--description "A simple image viewer based on SDL2 and stb_image" \
 	--license MIT \
 	--url "https://github.com/rswinkle/sdl_img"
 	fpm -s dir -t tar -v 1.0-RC2 -n sdl_img_1.0-RC2 -C package_linux \
 	--log info --verbose \
-	-d "libsdl2-2.0-0 >= 2.0.5" -d "libcurl4" \
+	-d "libsdl2-2.0-0 >= 2.0.20" -d "libcurl4" \
 	-m "Robert Winkler <rob121618@gmail.com>" \
 	--description "A simple image viewer based on SDL2 and stb_image" \
 	--license MIT \

@@ -66,6 +66,7 @@ typedef struct file_browser
 	int is_search_results;
 	int is_text_path; // could change to flag if I add a third option
 	int list_setscroll;
+	int show_hidden;
 
 	// does not own memory
 	const char** exts;
@@ -96,7 +97,7 @@ void handle_recents(file_browser* fb);
 
 void fb_search_filenames(file_browser* fb);
 const char* get_homedir();
-int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts);
+int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts, int show_hidden);
 char* mydirname(const char* path, char* dirpath);
 char* mybasename(const char* path, char* base);
 void normalize_path(char* path);
@@ -163,7 +164,7 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 	browser->num_exts = num_exts;
 
 	// TODO this is unnecessary on initial startup if you passed some sources with images...
-	fb_scandir(&browser->files, browser->dir, exts, num_exts);
+	fb_scandir(&browser->files, browser->dir, exts, num_exts, browser->show_hidden);
 
 	qsort(browser->files.a, browser->files.size, sizeof(file), filename_cmp_lt);
 	browser->sorted_state = NAME_UP;
@@ -214,7 +215,7 @@ void reset_file_browser(file_browser* fb, char* start_dir)
 	}
 
 	// scan and sort
-	fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts);
+	fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts, fb->show_hidden);
 
 	qsort(fb->files.a, fb->files.size, sizeof(file), filename_cmp_lt);
 	fb->sorted_state = NAME_UP;
@@ -341,7 +342,7 @@ void fb_search_filenames(file_browser* fb)
 
 // TODO would it be better to just use scandir + an extra pass to fill cvector of files?
 // How portable would that be?  Windows? etc.
-int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts)
+int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts, int show_hidden)
 {
 	assert(!num_exts || exts);
 
@@ -372,8 +373,8 @@ int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int 
 
 	while ((entry = readdir(dir))) {
 
-		// faster than 2 strcmp calls? ignore "." and ".."
-		if (entry->d_name[0] == '.' && (!entry->d_name[1] || (entry->d_name[1] == '.' && !entry->d_name[2]))) {
+		// faster than 2 strcmp calls? always ignore "." and ".." and all . files unless show_hidden
+		if (entry->d_name[0] == '.' && ((!entry->d_name[1] || (entry->d_name[1] == '.' && !entry->d_name[2])) || !show_hidden)) {
 			continue;
 		}
 
@@ -552,10 +553,10 @@ void switch_dir(file_browser* fb, const char* dir)
 
 	FB_LOG("switching to '%s'\n", fb->dir);
 #ifndef _WIN32
-	fb_scandir(&fb->files, fb->dir, fb->exts, (fb->ignore_exts) ? 0 : fb->num_exts);
+	fb_scandir(&fb->files, fb->dir, fb->exts, (fb->ignore_exts) ? 0 : fb->num_exts, fb->show_hidden);
 #else
 	if (fb->dir[1]) {
-		fb_scandir(&fb->files, fb->dir, fb->exts, (fb->ignore_exts) ? 0 : fb->num_exts);
+		fb_scandir(&fb->files, fb->dir, fb->exts, (fb->ignore_exts) ? 0 : fb->num_exts, fb->show_hidden);
 	} else {
 		// have to handle "root" special on windows since it doesn't have a unified filesystem
 		// like *nix

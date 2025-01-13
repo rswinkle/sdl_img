@@ -1097,6 +1097,10 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			struct nk_rect bounds = nk_widget_bounds(ctx);
 			fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, FONT_SIZE, nk_vec2(bounds.w, 300));
 
+			if (nk_checkbox_label(ctx, "Show Hidden", &g->filebrowser.show_hidden)) {
+				switch_dir(fb, NULL);
+			}
+
 			if (nk_checkbox_label(ctx, "Single Image", &g->open_single) && g->open_single) {
 				g->open_playlist = SDL_FALSE;
 			}
