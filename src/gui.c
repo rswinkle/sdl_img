@@ -24,7 +24,7 @@ int start_scanning(void);
 // TODO better name? cleardir?
 int empty_dir(const char* dirpath);
 
-enum { MENU_NONE, MENU_MISC, MENU_SORT, MENU_EDIT, MENU_VIEW };
+enum { MENU_NONE, MENU_MISC, MENU_PLAYLIST, MENU_SORT, MENU_EDIT, MENU_VIEW };
 
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h);
@@ -656,6 +656,26 @@ void draw_gui(struct nk_context* ctx)
 				nk_tree_pop(ctx);
 			} else g->menu_state = (g->menu_state == MENU_MISC) ? MENU_NONE : g->menu_state;
 
+
+			state = (g->menu_state == MENU_PLAYLIST) ? NK_MAXIMIZED : NK_MINIMIZED;
+			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Playlist Actions", &state)) {
+				g->menu_state = MENU_PLAYLIST;
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
+				if (nk_menu_item_label(ctx, "Save", NK_TEXT_LEFT)) {
+					event.user.code = SAVE_IMG;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "S", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "Unsave", NK_TEXT_LEFT)) {
+					event.user.code = UNSAVE_IMG;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "CTRL+S", NK_TEXT_RIGHT);
+
+				nk_tree_pop(ctx);
+			} else g->menu_state = (g->menu_state == MENU_PLAYLIST) ? MENU_NONE : g->menu_state;
+
 			state = (g->menu_state == MENU_SORT) ? NK_MAXIMIZED : NK_MINIMIZED;
 			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Sort Actions", &state)) {
 				g->menu_state = MENU_SORT;
@@ -735,19 +755,20 @@ void draw_gui(struct nk_context* ctx)
 					}
 					nk_label(ctx, "V", NK_TEXT_RIGHT);
 
-					/*
-					if (nk_menu_item_label(ctx, "Remove", NK_TEXT_LEFT)) {
-						event.user.code = DELETE_IMG;
-						SDL_PushEvent(&event);
-					}
-					nk_label(ctx, "BKSP", NK_TEXT_RIGHT);
-					*/
+					if (g->n_imgs == 1) {
+						if (nk_menu_item_label(ctx, "Remove", NK_TEXT_LEFT)) {
+							event.user.code = REMOVE_IMG;
+							SDL_PushEvent(&event);
+						}
+						nk_label(ctx, "BKSP", NK_TEXT_RIGHT);
 
-					if (nk_menu_item_label(ctx, "Delete", NK_TEXT_LEFT)) {
-						event.user.code = DELETE_IMG;
-						SDL_PushEvent(&event);
+
+						if (nk_menu_item_label(ctx, "Delete", NK_TEXT_LEFT)) {
+							event.user.code = DELETE_IMG;
+							SDL_PushEvent(&event);
+						}
+						nk_label(ctx, "DEL", NK_TEXT_RIGHT);
 					}
-					nk_label(ctx, "DEL", NK_TEXT_RIGHT);
 
 					nk_tree_pop(ctx);
 				} else g->menu_state = (g->menu_state == MENU_EDIT) ? MENU_NONE: g->menu_state;
@@ -803,7 +824,6 @@ void draw_gui(struct nk_context* ctx)
 
 					nk_tree_pop(ctx);
 				} else g->menu_state = (g->menu_state == MENU_VIEW) ? MENU_NONE: g->menu_state;
-
 			}
 
 			nk_menu_end(ctx);
@@ -1075,51 +1095,55 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 		if (nk_group_begin(ctx, "Sidebar", NK_WINDOW_NO_SCROLLBAR)) {
 
 			int old;
-			// Make dynamic array to add saved bookmarked locations
-			// TODO no need for dynamic because that's about width not height?
-			nk_layout_row_dynamic(ctx, 0, 1);
+			// no layouting needed for tree header apparently
 
-			nk_label(ctx, "Settings", NK_TEXT_CENTERED);
+			if (nk_tree_push(ctx, NK_TREE_NODE, "Settings", NK_MINIMIZED)) {
 
-			if (fb->num_exts) {
-				//nk_checkbox_label(ctx, "All Files", &fb->ignore_exts);
-				static const char* ext_opts[] = { FILE_TYPE_STR, "All Files" };
+				// TODO no layout needed here either?  Or am I getting a default somehow?
+				// would static be faster?
+				nk_layout_row_dynamic(ctx, 0, 1);
+
+				if (fb->num_exts) {
+					//nk_checkbox_label(ctx, "All Files", &fb->ignore_exts);
+					static const char* ext_opts[] = { FILE_TYPE_STR, "All Files" };
+					struct nk_rect bounds = nk_widget_bounds(ctx);
+					old = fb->ignore_exts;
+					fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, FONT_SIZE, nk_vec2(bounds.w, 300));
+					if (fb->ignore_exts != old) {
+						if (!fb->is_recents) {
+							switch_dir(fb, NULL);
+						} else {
+							handle_recents(fb);
+						}
+					}
+				}
+				static const char* path_opts[] = { "Breadcrumbs", "Text" };
 				struct nk_rect bounds = nk_widget_bounds(ctx);
-				old = fb->ignore_exts;
-				fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, FONT_SIZE, nk_vec2(bounds.w, 300));
-				if (fb->ignore_exts != old) {
-					if (!fb->is_recents) {
-						switch_dir(fb, NULL);
-					} else {
-						handle_recents(fb);
+				fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, FONT_SIZE, nk_vec2(bounds.w, 300));
+
+				if (nk_checkbox_label(ctx, "Show Hidden", &g->filebrowser.show_hidden)) {
+					switch_dir(fb, NULL);
+				}
+
+				if (nk_checkbox_label(ctx, "Single Image", &g->open_single) && g->open_single) {
+					g->open_playlist = SDL_FALSE;
+				}
+
+				nk_checkbox_label(ctx, "Playlist", &g->open_playlist);
+				if (g->open_playlist) {
+					g->open_single = SDL_FALSE;
+
+					old = fb->ignore_exts;
+					fb->ignore_exts = SDL_TRUE;
+					if (fb->ignore_exts != old) {
+						if (!fb->is_recents) {
+							switch_dir(fb, NULL);
+						} else {
+							handle_recents(fb);
+						}
 					}
 				}
-			}
-			static const char* path_opts[] = { "Breadcrumbs", "Text" };
-			struct nk_rect bounds = nk_widget_bounds(ctx);
-			fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, FONT_SIZE, nk_vec2(bounds.w, 300));
-
-			if (nk_checkbox_label(ctx, "Show Hidden", &g->filebrowser.show_hidden)) {
-				switch_dir(fb, NULL);
-			}
-
-			if (nk_checkbox_label(ctx, "Single Image", &g->open_single) && g->open_single) {
-				g->open_playlist = SDL_FALSE;
-			}
-
-			nk_checkbox_label(ctx, "Playlist", &g->open_playlist);
-			if (g->open_playlist) {
-				g->open_single = SDL_FALSE;
-
-				old = fb->ignore_exts;
-				fb->ignore_exts = SDL_TRUE;
-				if (fb->ignore_exts != old) {
-					if (!fb->is_recents) {
-						switch_dir(fb, NULL);
-					} else {
-						handle_recents(fb);
-					}
-				}
+				nk_tree_pop(ctx);
 			}
 
 			nk_label(ctx, "Bookmarks", NK_TEXT_CENTERED);
@@ -1138,7 +1162,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				switch_dir(fb, "/");
 			}
 
-			if (nk_button_label(ctx, "Bookmark")) {
+			if (nk_button_label(ctx, "Add Bookmark")) {
 				cvec_push_str(&g->bookmarks, fb->dir);
 			}
 

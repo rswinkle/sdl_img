@@ -1204,6 +1204,15 @@ int handle_events_normally()
 				g->sorted_state = MODIFIED_UP;
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
+			case SAVE_IMG:
+				do_save(SDL_FALSE);
+				break;
+			case UNSAVE_IMG:
+				do_save(SDL_TRUE);
+				break;
+			case REMOVE_IMG:
+				do_remove(&space);
+				break;
 			case DELETE_IMG:
 				do_delete(&space);
 				break;
