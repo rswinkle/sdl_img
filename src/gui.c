@@ -33,7 +33,10 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h);
 
 // window dimensions
-#define GUI_BAR_HEIGHT 50
+// TODO All these need to scale/adjust with font size
+// so they should all probably be variables not constants
+// TODO font_height + text.padding.y*2 + min_row_height_padding*2 + window spacing?
+#define GUI_BAR_HEIGHT (DFLT_FONT_SIZE+26)
 #define GUI_MENU_WIN_W 550
 #define GUI_MENU_WIN_H 600
 #define GUI_PREFS_W 860
@@ -419,7 +422,7 @@ void draw_gui(struct nk_context* ctx)
 						g->search_results.size = 0;
 					}
 				} else {
-					if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, FONT_SIZE+16, g->search_results.size)) {
+					if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, DFLT_FONT_SIZE+16, g->search_results.size)) {
 						nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 						int i;
 						for (int j=rview.begin; j<rview.end; ++j) {
@@ -465,7 +468,7 @@ void draw_gui(struct nk_context* ctx)
 					g->list_setscroll = SDL_FALSE;
 				}
 			} else {
-				if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, FONT_SIZE+16, g->files.size)) {
+				if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, DFLT_FONT_SIZE+16, g->files.size)) {
 					// TODO ratio layout 0.5 0.2 0.3 ? give or take
 					//nk_layout_row_dynamic(ctx, 0, 3);
 					nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
@@ -1108,7 +1111,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 					static const char* ext_opts[] = { FILE_TYPE_STR, "All Files" };
 					struct nk_rect bounds = nk_widget_bounds(ctx);
 					old = fb->ignore_exts;
-					fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, FONT_SIZE, nk_vec2(bounds.w, 300));
+					fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, DFLT_FONT_SIZE, nk_vec2(bounds.w, 300));
 					if (fb->ignore_exts != old) {
 						if (!fb->is_recents) {
 							switch_dir(fb, NULL);
@@ -1119,7 +1122,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				}
 				static const char* path_opts[] = { "Breadcrumbs", "Text" };
 				struct nk_rect bounds = nk_widget_bounds(ctx);
-				fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, FONT_SIZE, nk_vec2(bounds.w, 300));
+				fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, DFLT_FONT_SIZE, nk_vec2(bounds.w, 300));
 
 				if (nk_checkbox_label(ctx, "Show Hidden", &g->filebrowser.show_hidden)) {
 					switch_dir(fb, NULL);
@@ -1300,7 +1303,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 						fb->list_setscroll = TRUE;
 					}
 				} else {
-					if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, FONT_SIZE+16, fb->search_results.size)) {
+					if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, DFLT_FONT_SIZE+16, fb->search_results.size)) {
 						nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 						int i;
 						for (int j=rview.begin; j<rview.end; ++j) {
@@ -1343,7 +1346,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 					fb->list_setscroll = FALSE;
 				}
 			} else {
-				if (nk_list_view_begin(ctx, &lview, "File List", NK_WINDOW_BORDER, FONT_SIZE+16, f->size)) {
+				if (nk_list_view_begin(ctx, &lview, "File List", NK_WINDOW_BORDER, DFLT_FONT_SIZE+16, f->size)) {
 					// TODO ratio layout 0.5 0.2 0.3 ? give or take
 					//nk_layout_row_dynamic(ctx, 0, 3);
 					nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);

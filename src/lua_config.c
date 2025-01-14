@@ -11,6 +11,7 @@
 
 enum {
 	GUI_SCALE,
+	FONT_SIZE,
 	BACKGROUND,
 	SLIDE_DELAY,
 	HIDE_GUI_DELAY,
@@ -33,6 +34,7 @@ enum {
 char* keys[] =
 {
 	"gui_scale",
+	"font_size",
 	"background",
 	"slide_delay",
 	"hide_gui_delay",

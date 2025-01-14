@@ -135,7 +135,7 @@ enum {
 #define MAX_THUMB_COLS 15
 #define SIZE_STR_BUF 16
 #define MOD_STR_BUF 24
-#define FONT_SIZE 24
+#define DFLT_FONT_SIZE 24
 #define NUM_DFLT_EXTS 11
 
 // If this is defined, sdl_img will add files without extensions
@@ -2443,7 +2443,7 @@ void setup(int argc, char** argv)
 	struct nk_font* font;
 
 	nk_sdl_font_stash_begin(&atlas);
-	font = nk_font_atlas_add_default(atlas, FONT_SIZE*font_scale, &config);
+	font = nk_font_atlas_add_default(atlas, DFLT_FONT_SIZE*font_scale, &config);
 	//font = nk_font_atlas_add_from_file(atlas, "../fonts/kenvector_future_thin.ttf", 13 * font_scale, &config);
 	nk_sdl_font_stash_end();
 
