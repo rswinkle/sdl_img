@@ -196,12 +196,8 @@ void draw_gui(struct nk_context* ctx)
 	// Do popups first so I can return early if eather is up
 	if (g->show_rotate) {
 		// TODO make full screen or adjust for font size
-		int w = 400, h = 300, tmp;
-		struct nk_rect s;
-		s.x = scr_w/2-w/2;
-		s.y = scr_h/2-h/2;
-		s.w = w;
-		s.h = h;
+		int tmp;
+		struct nk_rect s = {0, 0, scr_w, scr_h};
 		img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
 
 		if (nk_begin(ctx, "Arbitrary Rotation", s, popup_flags)) {
@@ -247,12 +243,7 @@ void draw_gui(struct nk_context* ctx)
 
 	if (g->show_about) {
 		// TODO make full screen or adjust for font_size
-		int w = 700, h = 580; ///scale_x, h = 400/scale_y;
-		struct nk_rect s;
-		s.x = scr_w/2-w/2;
-		s.y = scr_h/2-h/2;
-		s.w = w;
-		s.h = h;
+		struct nk_rect s = { 0, 0, scr_w, scr_h };
 
 		if (nk_begin(ctx, "About sdl_img", s, popup_flags))
 		{
@@ -1433,13 +1424,8 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 
-	struct nk_rect s = {0};
-	s.w = scr_w;
-	s.h = scr_h;
-	
 	struct nk_rect bounds;
-
-
+	struct nk_rect s = {0, 0, scr_w, scr_h };
 	struct nk_colorf bgf = nk_color_cf(g->bg);
 
 	if (nk_begin(ctx, "Preferences", s, popup_flags)) {

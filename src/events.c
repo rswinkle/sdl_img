@@ -1036,35 +1036,15 @@ int handle_popup_events()
 {
 	SDL_Event e;
 	int sc;
-	int zoomed;
-	char title_buf[STRBUF_SZ];
-	img_state* img;
-	int scroll_y;
-
-	// eat all escapes this frame after copy dialog ended with "no"
-	int copy_escape = SDL_FALSE;
 
 	g->status = NOCHANGE;
 
 	SDL_Keymod mod_state = SDL_GetModState();
 
-	/*
-	// use space to move to next image(s) even if zoomed in, ie during slideshow
-	SDL_Event space;
-	space.type = SDL_KEYDOWN;
-	space.key.keysym.scancode = SDL_SCANCODE_SPACE;
-
-	// Use if to push any user events
-	SDL_Event user_event = { .type = g->userevent };
-
-	// I only set this to clear valgrind errors of jumps in
-	// nk_sdl_handle_event based uninitialized values
-	space.key.keysym.sym = SDLK_SPACE;
-	*/
-
 	int ticks = SDL_GetTicks();
 
 	if (g->slideshow) {
+		// don't advance slideshow while a popup is active
 		g->slide_timer = ticks;
 	}
 
@@ -1116,7 +1096,40 @@ int handle_popup_events()
 				}
 			}
 			break;
-		}
+		case SDL_WINDOWEVENT: {
+			g->status = REDRAW;
+			int x, y;
+			SDL_GetWindowSize(g->win, &x, &y);
+			SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
+			switch (e.window.event) {
+			case SDL_WINDOWEVENT_RESIZED:
+				// this event is always preceded by WINOWEVENT_SIZE_CHANGED
+				break;
+			case SDL_WINDOWEVENT_SIZE_CHANGED:
+				g->scr_w = e.window.data1;
+				g->scr_h = e.window.data2;
+
+				// have to do this here too since images are "under" the popup otherwise
+				// when you go back, they'll look wrong
+				// TODO how/where to reset all the "subscreens" rects
+				if (g->n_imgs == 1) {
+					SET_MODE1_SCR_RECT();
+				} else if (g->n_imgs == 2) {
+					SET_MODE2_SCR_RECTS();
+				} else if (g->n_imgs == 4) {
+					SET_MODE4_SCR_RECTS();
+				} else if (g->n_imgs == 8) {
+					SET_MODE8_SCR_RECTS();
+				}
+				break;
+			case SDL_WINDOWEVENT_EXPOSED:
+				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "exposed event");
+				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
+				break;
+			}
+		} break; // end WINDOWEVENTS
+		} // end switch event type
+
 		// TODO leave it here where it calls for every event
 		// or put it back in mouse and key events?
 		nk_sdl_handle_event(&e);
