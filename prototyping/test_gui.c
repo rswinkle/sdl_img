@@ -30,7 +30,7 @@
 
 #define STRBUF_SZ 1024
 
-#define GUI_BAR_HEIGHT 50
+int GUI_BAR_HEIGHT;
 #define GUI_MENU_WIN_W 550
 #define GUI_MENU_WIN_H 600
 
@@ -91,11 +91,38 @@ void draw_gui(struct nk_context* ctx);
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_simple_gui(struct nk_context* ctx);
 
-int main(void)
+int main(int argc, char** argv)
 {
 	struct nk_context *ctx;
 	/* float bg[4]; */
 
+	float font_size = 24.0f;
+	if (argc > 1) {
+		font_size = atof(argv[1]);
+		if (!font_size) font_size = 24.0f;
+	}
+
+	// win.padding.y = 4
+	// text.padding.y = 0
+	// min_row_height_padding = 8
+	// win.spacing.y = 4
+	//
+	// row height = height + win.spacing.y;
+	//
+	// if height is 0 use min height which is:
+	// font_height + 2*min_row_height_padding + 2*text.padding.y;
+	//
+	// so automatic row height is
+	// font_size + 16 + 4
+	//
+	// so total window height needed for that row
+	// row_height + 2 * win.padding.y
+	//
+	// (font_size + 16 + 4) + 8 = font_size + 28
+	//
+	// plus extra for borders
+	GUI_BAR_HEIGHT = font_size + 28;
+	
 	/* SDL setup */
 	if (SDL_Init(SDL_INIT_VIDEO) == -1) {
 		printf( "Can't init SDL:  %s\n", SDL_GetError( ) );
@@ -177,7 +204,7 @@ int main(void)
 	struct nk_font* font;
 
 	nk_sdl_font_stash_begin(&atlas);
-	font = nk_font_atlas_add_default(atlas, 24*font_scale, &config);
+	font = nk_font_atlas_add_default(atlas, font_size*font_scale, &config);
 	//font = nk_font_atlas_add_from_file(atlas, "../fonts/kenvector_future_thin.ttf", 13 * font_scale, &config);
 	nk_sdl_font_stash_end();
 
@@ -193,7 +220,7 @@ int main(void)
     memcpy(color_table, nk_default_color_style, sizeof(color_table));
 
 
-	bg2 = nk_rgb(28,48,62);
+	bg2 = nk_rgb(128,158,62);
 	bg = nk_color_cf(bg2);
 	int start_time = SDL_GetTicks();
 	int time;
@@ -221,11 +248,19 @@ int main(void)
 		//draw_simple_gui(ctx);
 
 		//style_configurator(ctx, color_table);
+		//
+		//
+		
+		//SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
+		//nk_sdl_render(NK_ANTI_ALIASING_ON);
+		//SDL_RenderSetScale(g->ren, 1, 1);
 
 		SDL_SetRenderDrawColor(ren, bg2.r, bg2.g, bg2.b, bg2.a);
 		SDL_RenderSetClipRect(ren, NULL);
 		SDL_RenderClear(ren);
 		nk_sdl_render(NK_ANTI_ALIASING_ON);
+
+
 		SDL_RenderPresent(ren);
 		SDL_Delay(15);
 
@@ -243,7 +278,9 @@ cleanup:
 
 void draw_simple_gui(struct nk_context* ctx)
 {
-	int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
+	//int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
+	int gui_flags = NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER; //|NK_WINDOW_TITLE;
+	//ctx->style.window.border_color = nk_rgb(255,255,255);
 
 	int win_w, win_h;
 	int scr_w, scr_h;
@@ -298,7 +335,9 @@ void draw_gui(struct nk_context* ctx)
 {
 	char info_buf[STRBUF_SZ];
 	int len;
-	int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
+	//int gui_flags = NK_WINDOW_NO_SCROLLBAR; //NK_WINDOW_BORDER|NK_WINDOW_TITLE;
+	int gui_flags = NK_WINDOW_NO_SCROLLBAR | NK_WINDOW_BORDER; //|NK_WINDOW_TITLE;
+	ctx->style.window.border_color = nk_rgb(255,255,255);
 
 	// closable gives the x, if you use it it won't come back (probably have to call show() or
 	// something...
@@ -595,6 +634,16 @@ void draw_gui(struct nk_context* ctx)
 
 		//nk_layout_row_static(ctx, 0, 80, 16);
 		//nk_layout_row_dynamic(ctx, 0, 16);
+		//
+		struct nk_vec2 win_spacing = ctx->style.window.spacing;
+		//ctx->style.menu_button.border = 1;
+		//ctx->style.menu_button.border_color = nk_rgb(255, 0, 0);
+		//ctx->style.window.padding.y = 0;
+		//ctx->style.window.min_row_height_padding = 0;
+		//ctx->style.window.menu_border = 0;
+		
+		//ctx->style.window.spacing.y = 0;
+		//ctx->style.window.padding.y = 0;
 		
 		nk_layout_row_template_begin(ctx, 0);
 
@@ -645,7 +694,32 @@ void draw_gui(struct nk_context* ctx)
 		*/
 		nk_layout_row_template_end(ctx);
 
+		static int once = 0;
+
+
+		/*
+		struct nk_vec2 win_spacing = ctx->style.window.spacing;
+		ctx->style.menu_button.border = 1;
+		ctx->style.menu_button.border_color = nk_rgb(255, 0, 0);
+		ctx->style.window.padding.y = 0;
+		ctx->style.window.min_row_height_padding = 0;
+		ctx->style.window.menu_border = 0;
+		*/
+		ctx->style.menu_button.border = 1;
+		ctx->style.menu_button.border_color = nk_rgb(255, 0, 0);
+
+		if (!once) {
+			bounds = nk_widget_bounds(ctx);
+			printf("win.spacing = %f %f\n", win_spacing.x, win_spacing.y);
+			printf("win.padding.y = %f\n", ctx->style.window.padding.y);
+			printf("bounds= { %f, %f, %f, %f}\n", bounds.x, bounds.y, bounds.w, bounds.h);
+			once = 1;
+		}
+		//ctx->style.window.spacing.y = 0;
+		//ctx->style.window.padding.y = 0;
+
 		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(GUI_MENU_WIN_W, GUI_MENU_WIN_H))) {
+			puts("menu clicked");
 
 			enum nk_collapse_states state;
 			float ratios[] = { 0.7f, 0.3f, 0.8f, 0.2f };
@@ -802,7 +876,7 @@ void draw_gui(struct nk_context* ctx)
 			;
 		}
 		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_RIGHT, "Next", NK_TEXT_LEFT)) {
-			;
+			puts("Next hit");
 		}
 
 		//nk_label(ctx, "zoom:", NK_TEXT_RIGHT);
