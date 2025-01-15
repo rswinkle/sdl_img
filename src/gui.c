@@ -33,14 +33,38 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h);
 
 // window dimensions
-// TODO All these need to scale/adjust with font size
+// TODO most of these need to scale/adjust with font size
 // so they should all probably be variables not constants
-// TODO font_height + text.padding.y*2 + min_row_height_padding*2 + window spacing?
-#define GUI_BAR_HEIGHT (DFLT_FONT_SIZE+26)
+
+// win.padding.y = 4
+// text.padding.y = 0
+// min_row_height_padding = 8
+// win.spacing.y = 4
+//
+// row height = height + win.spacing.y;
+//
+// if height is 0 use min height which is:
+// font_height + 2*min_row_height_padding + 2*text.padding.y;
+//
+// so automatic row height is
+// font_size + 16 + 4
+//
+// so total window height needed for that row
+// row_height + 2 * win.padding.y
+//
+// (font_size + 16 + 4) + 8 = font_size + 28
+//
+// plus extra for borders?
+
+
+#define GUI_BAR_HEIGHT (DFLT_FONT_SIZE+28)
 #define GUI_MENU_WIN_W 550
-#define GUI_MENU_WIN_H 600
-#define GUI_PREFS_W 860
-#define GUI_PREFS_H 580
+
+// Nuklear seems to use the min(necessary, given) for menus so just pick a big height
+#define GUI_MENU_WIN_H 1000
+
+//#define GUI_PREFS_W 860
+//#define GUI_PREFS_H 580
 
 // button widths
 #define GUI_MENU_W 80
@@ -171,6 +195,7 @@ void draw_gui(struct nk_context* ctx)
 
 	// Do popups first so I can return early if eather is up
 	if (g->show_rotate) {
+		// TODO make full screen or adjust for font size
 		int w = 400, h = 300, tmp;
 		struct nk_rect s;
 		s.x = scr_w/2-w/2;
@@ -221,6 +246,7 @@ void draw_gui(struct nk_context* ctx)
 
 
 	if (g->show_about) {
+		// TODO make full screen or adjust for font_size
 		int w = 700, h = 580; ///scale_x, h = 400/scale_y;
 		struct nk_rect s;
 		s.x = scr_w/2-w/2;
@@ -1407,20 +1433,19 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 
-	int w = GUI_PREFS_W, h = GUI_PREFS_H;
+	struct nk_rect s = {0};
+	s.w = scr_w;
+	s.h = scr_h;
+	
 	struct nk_rect bounds;
-	struct nk_rect s;
-	s.x = scr_w/2-w/2;
-	s.y = scr_h/2-h/2;
-	s.w = w;
-	s.h = h;
+
 
 	struct nk_colorf bgf = nk_color_cf(g->bg);
 
 	if (nk_begin(ctx, "Preferences", s, popup_flags)) {
 		nk_layout_row_dynamic(ctx, 0, 2);
 		nk_label(ctx, "background:", NK_TEXT_LEFT);
-		if (nk_combo_begin_color(ctx, nk_rgb_cf(bgf), nk_vec2(nk_widget_width(ctx), GUI_PREFS_W/2))) {
+		if (nk_combo_begin_color(ctx, nk_rgb_cf(bgf), nk_vec2(nk_widget_width(ctx), scr_w/2))) {
 			nk_layout_row_dynamic(ctx, 240, 1);
 			bgf = nk_color_picker(ctx, bgf, NK_RGB);
 			nk_layout_row_dynamic(ctx, 0, 1);
@@ -1477,7 +1502,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 
 #define OK_WIDTH 200
 		nk_layout_space_begin(ctx, NK_STATIC, 60, 1);
-		nk_layout_space_push(ctx, nk_rect(GUI_PREFS_W-OK_WIDTH-12, 20, OK_WIDTH, 40));
+		nk_layout_space_push(ctx, nk_rect(scr_w-OK_WIDTH-12, 20, OK_WIDTH, 40));
 		if (nk_button_label(ctx, "Ok")) {
 			g->show_prefs = SDL_FALSE;;
 		}

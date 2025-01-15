@@ -2937,6 +2937,7 @@ void do_rotate(int left, int is_90)
 				g->show_rotate = nk_true;
 				g->show_gui = nk_true;
 				g->gui_timer = SDL_GetTicks();
+				SDL_ShowCursor(SDL_ENABLE);
 				return;
 			}
 

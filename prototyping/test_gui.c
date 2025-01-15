@@ -120,7 +120,7 @@ int main(int argc, char** argv)
 	//
 	// (font_size + 16 + 4) + 8 = font_size + 28
 	//
-	// plus extra for borders
+	// plus extra for borders?
 	GUI_BAR_HEIGHT = font_size + 28;
 	
 	/* SDL setup */
@@ -705,8 +705,8 @@ void draw_gui(struct nk_context* ctx)
 		ctx->style.window.min_row_height_padding = 0;
 		ctx->style.window.menu_border = 0;
 		*/
-		ctx->style.menu_button.border = 1;
-		ctx->style.menu_button.border_color = nk_rgb(255, 0, 0);
+		//ctx->style.menu_button.border = 1;
+		//ctx->style.menu_button.border_color = nk_rgb(255, 0, 0);
 
 		if (!once) {
 			bounds = nk_widget_bounds(ctx);

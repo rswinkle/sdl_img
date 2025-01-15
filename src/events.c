@@ -1032,6 +1032,100 @@ void mode_focus_change(intptr_t mode, SDL_Keymod mod_state, char* title_buf)
 	}
 }
 
+int handle_popup_events()
+{
+	SDL_Event e;
+	int sc;
+	int zoomed;
+	char title_buf[STRBUF_SZ];
+	img_state* img;
+	int scroll_y;
+
+	// eat all escapes this frame after copy dialog ended with "no"
+	int copy_escape = SDL_FALSE;
+
+	g->status = NOCHANGE;
+
+	SDL_Keymod mod_state = SDL_GetModState();
+
+	/*
+	// use space to move to next image(s) even if zoomed in, ie during slideshow
+	SDL_Event space;
+	space.type = SDL_KEYDOWN;
+	space.key.keysym.scancode = SDL_SCANCODE_SPACE;
+
+	// Use if to push any user events
+	SDL_Event user_event = { .type = g->userevent };
+
+	// I only set this to clear valgrind errors of jumps in
+	// nk_sdl_handle_event based uninitialized values
+	space.key.keysym.sym = SDLK_SPACE;
+	*/
+
+	int ticks = SDL_GetTicks();
+
+	if (g->slideshow) {
+		g->slide_timer = ticks;
+	}
+
+	int code;
+	nk_input_begin(g->ctx);
+	while (SDL_PollEvent(&e)) {
+		if (e.type == g->userevent) {
+			// reset this everytime they interact with GUI
+			// so it doesn't disappear even if they're holding
+			// the mouse down but still (on zoom controls for example)
+			g->gui_timer = SDL_GetTicks();
+			code = e.user.code;
+			switch (code) {
+			case ROT360:
+				// TODO
+				rotate_img((g->n_imgs == 1) ? &g->img[0] : g->img_focus);
+				break;
+			default:
+				SDL_Log("Shouldn't get any other user event in popup mode!\n");
+			}
+		}
+		switch (e.type) {
+		case SDL_QUIT:
+			//nk_input_end(g->ctx); // TODO need these?
+			return 1;
+		case SDL_KEYUP:
+			sc = e.key.keysym.scancode;
+			switch (sc) {
+			case SDL_SCANCODE_ESCAPE:
+				if (g->show_rotate) {
+					// ESC discards all changes, including previewed changes which means
+					// we may have to clean up/free
+					discard_rotation((g->n_imgs == 1) ? &g->img[0] : g->img_focus);
+					g->show_rotate = nk_false;
+				}
+				// safe to just always set these to false, only 1 "popup" at a time
+				g->show_about = nk_false;
+				g->show_prefs = nk_false;
+				break;
+			case SDL_SCANCODE_F11:
+				g->fullscreen = !g->fullscreen;
+				set_fullscreen();
+				break;
+			case SDL_SCANCODE_F:
+				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					g->status = REDRAW;
+					g->fullscreen = !g->fullscreen;
+					set_fullscreen();
+				}
+			}
+			break;
+		}
+		// TODO leave it here where it calls for every event
+		// or put it back in mouse and key events?
+		nk_sdl_handle_event(&e);
+	}
+	nk_input_end(g->ctx);
+
+	return 0;
+}
+
 int handle_events_normally()
 {
 	SDL_Event e;
@@ -1103,10 +1197,7 @@ int handle_events_normally()
 	SDL_UnlockMutex(g->img_loading_mtx);
 
 	if (g->slideshow) {
-		// pause slideshow if popup is up
-		if (g->show_about || g->show_prefs) {
-			g->slide_timer = ticks;
-		} else if (!g->loading && ticks - g->slide_timer > g->slideshow) {
+		if (!g->loading && ticks - g->slide_timer > g->slideshow) {
 			int i;
 			// make sure all current gifs have gotten to the end
 			// at least once
@@ -1151,10 +1242,6 @@ int handle_events_normally()
 			case FLIP_H:
 			case FLIP_V:
 				do_flip(code == FLIP_V);
-				break;
-			case ROT360:
-				// TODO
-				rotate_img((g->n_imgs == 1) ? &g->img[0] : g->img_focus);
 				break;
 			case LIST_MODE:
 				do_listmode();
@@ -1223,7 +1310,7 @@ int handle_events_normally()
 				do_file_open(SDL_FALSE);
 				break;
 			default:
-				SDL_Log("Unknown user event!");
+				SDL_Log("Unknown or unhandled user event!'\n");
 			}
 			continue;
 		}
@@ -1236,58 +1323,46 @@ int handle_events_normally()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
-				if (!copy_escape && !g->fullscreen && !g->slideshow && !g->show_about &&
-					!g->show_prefs && !g->show_rotate && g->state == NORMAL) {
+				if (!copy_escape && !g->fullscreen && !g->slideshow && g->state == NORMAL) {
 					//nk_input_end(g->ctx);
 					return 1;
-				} else {
-					if (g->show_rotate) {
-						// ESC discards all changes, including previewed changes which means
-						// we may have to clean up/free
-						discard_rotation((g->n_imgs == 1) ? &g->img[0] : g->img_focus);
-						g->show_rotate = nk_false;
-					} else if (g->show_about) {
-						g->show_about = nk_false;
-					} else if (g->show_prefs) {
-						g->show_prefs = nk_false;
-					} else if (g->slideshow) {
-						SDL_Log("Ending slideshow");
-						g->slideshow = 0;
-					} else if (g->fullscreen) {
-						g->fullscreen = 0;
-						set_fullscreen();
-					} else if (IS_VIEW_RESULTS()) {
-						g->state ^= NORMAL;
+				} else if (g->slideshow) {
+					SDL_Log("Ending slideshow");
+					g->slideshow = 0;
+				} else if (g->fullscreen) {
+					g->fullscreen = 0;
+					set_fullscreen();
+				} else if (IS_VIEW_RESULTS()) {
+					g->state ^= NORMAL;
 
-						// selection is used in listmode results, = index in results
-						g->selection = g->img[0].index;
-						g->list_setscroll = SDL_TRUE;
+					// selection is used in listmode results, = index in results
+					g->selection = g->img[0].index;
+					g->list_setscroll = SDL_TRUE;
 
-						// thumb_sel is the actual index in g->files, since results are
-						// not separated out, just highlighted like vim
-						g->thumb_sel = g->search_results.a[g->selection];
-						g->thumb_start_row = g->thumb_sel / g->thumb_cols;
+					// thumb_sel is the actual index in g->files, since results are
+					// not separated out, just highlighted like vim
+					g->thumb_sel = g->search_results.a[g->selection];
+					g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 
-						// for thumb mode we switch indices back immediately on leaving VIEW_RESULTS
-						// compared to list mode SEARCH_RESULTS we leave them, till we go back to
-						// LIST_DFLT.
-						if (g->state & THUMB_SEARCH) {
-							// TODO alternative, force switch to single mode?
-							for (int i=0; i<g->n_imgs; ++i) {
-								g->img[i].index = g->search_results.a[g->img[i].index];
-							}
+					// for thumb mode we switch indices back immediately on leaving VIEW_RESULTS
+					// compared to list mode SEARCH_RESULTS we leave them, till we go back to
+					// LIST_DFLT.
+					if (g->state & THUMB_SEARCH) {
+						// TODO alternative, force switch to single mode?
+						for (int i=0; i<g->n_imgs; ++i) {
+							g->img[i].index = g->search_results.a[g->img[i].index];
 						}
-
-						// TODO macro or function?  check how many uses
-						SDL_ShowCursor(SDL_ENABLE);
-						g->gui_timer = SDL_GetTicks();
-						g->show_gui = SDL_TRUE;
-
-						g->status = REDRAW; // necessary here or below?
-					} else if (IS_THUMB_MODE() || IS_LIST_MODE()) {
-						// TODO this can't be reached! ... right?
-						g->state = NORMAL;
 					}
+
+					// TODO macro or function?  check how many uses
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = SDL_TRUE;
+
+					g->status = REDRAW; // necessary here or below?
+				} else if (IS_THUMB_MODE() || IS_LIST_MODE()) {
+					// TODO this can't be reached! ... right?
+					g->state = NORMAL;
 				}
 				break;
 
@@ -1860,6 +1935,9 @@ int handle_events()
 	}
 
 	if (g->state & NORMAL) {
+		if (g->show_about || g->show_prefs || g->show_rotate) {
+			return handle_popup_events();
+		}
 		return handle_events_normally();
 	}
 
