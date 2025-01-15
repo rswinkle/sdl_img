@@ -698,7 +698,7 @@ void cleanup(int ret, int called_setup)
 		}
 
 		if (g->favs.size) {
-			snprintf(buf, STRBUF_SZ, "%sfavorites.txt", g->prefpath);
+			snprintf(buf, STRBUF_SZ, "%s/playlists/favorites.txt", g->prefpath);
 			FILE* f = fopen(buf, "w");
 			if (!f) {
 				SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to create %s: %s\nAborting save\n", buf, strerror(errno));
@@ -1925,7 +1925,7 @@ int scan_sources(void* data)
 void setup_dirs()
 {
 	char datebuf[200] = { 0 };
-	char logdir_buf[STRBUF_SZ] = { 0 };
+	char dir_buf[STRBUF_SZ] = { 0 };
 	time_t t;
 	struct tm *tmp;
 	int len;
@@ -1966,20 +1966,34 @@ void setup_dirs()
 		cleanup(1, 1);
 	}
 
+	printf("cache: %s\nthumbnails: %s\n", g->cachedir, g->thumbdir);
 
-		len = snprintf(logdir_buf, STRBUF_SZ, "%slogs", prefpath);
-		if (len >= STRBUF_SZ) {
-			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "logdir path too long\n");
-			cleanup(1, 1);
-		}
-	if (mkdir_p(logdir_buf, S_IRWXU) && errno != EEXIST) {
+	len = snprintf(dir_buf, STRBUF_SZ, "%slogs", prefpath);
+	if (len >= STRBUF_SZ) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "logdir path too long\n");
+		cleanup(1, 1);
+	}
+	if (mkdir_p(dir_buf, S_IRWXU) && errno != EEXIST) {
 		perror("Failed to make log directory");
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make log directory: %s\n", strerror(errno));
 		cleanup(1, 1);
 	}
 
+	printf("logs: %s\n", dir_buf);
 
-	printf("cache: %s\nthumbnails: %s\nlogs: %s\n", g->cachedir, g->thumbdir, logdir_buf);
+	len = snprintf(dir_buf, STRBUF_SZ, "%splaylists", prefpath);
+	if (len >= STRBUF_SZ) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "playlist path too long\n");
+		cleanup(1, 1);
+	}
+	if (mkdir_p(dir_buf, S_IRWXU) && errno != EEXIST) {
+		perror("Failed to make playlist directory");
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make playlist directory: %s\n", strerror(errno));
+		cleanup(1, 1);
+	}
+
+	printf("playlists: %s\n", dir_buf);
+
 }
 
 int load_config()
@@ -2307,7 +2321,7 @@ void setup(int argc, char** argv)
 	g->has_bad_paths = SDL_FALSE;
 
 	// read favorites
-	snprintf(buf, STRBUF_SZ, "%sfavorites.txt", g->prefpath);
+	snprintf(buf, STRBUF_SZ, "%s/playlists/favorites.txt", g->prefpath);
 	FILE* f = NULL;
 	if (!(f = fopen(buf, "r"))) {
 		SDL_Log("%s does not exist, will try creating it on exit\n", buf);
