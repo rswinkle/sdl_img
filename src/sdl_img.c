@@ -366,6 +366,7 @@ typedef struct global_state
 	int show_about;
 	int show_prefs;
 	int show_rotate;
+	int show_pm;
 	int menu_state;
 	int sorted_state;
 
@@ -401,6 +402,9 @@ int text_len;
 char* composition;
 Sint32 cursor;
 Sint32 selection_len;
+
+int cvec_contains_str(cvector_str* list, char* s);
+void read_cur_playlist(void);
 
 // has to come after all the enums/macros/struct defs and bytes2str 
 #include "gui.c"
@@ -693,6 +697,10 @@ void cleanup(int ret, int called_setup)
 		g->loading = EXIT;
 		SDL_CondSignal(g->img_loading_cnd);
 		SDL_UnlockMutex(g->img_loading_mtx);
+
+		while (g->loading) {
+			; // wait for thread to exit
+		}
 
 		for (int i=0; i<g->n_imgs; ++i) {
 			clear_img(&g->img[i]);
@@ -1561,6 +1569,9 @@ success_load:
 		SDL_UnlockMutex(g->img_loading_mtx);
 	}
 
+	g->done_loading = EXIT;
+	g->loading = 0;
+
 	return 0;
 }
 
@@ -1643,6 +1654,21 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 		}
 	}
 }
+
+void read_cur_playlist(void)
+{
+	cvec_clear_str(&g->favs);
+	FILE* f = NULL;
+	if (!(f = fopen(g->cur_playlist, "r"))) {
+		SDL_Log("%s does not exist, will try creating it on exit\n", g->cur_playlist);
+	} else {
+		read_list(NULL, &g->favs, f);
+		SDL_Log("Read %"PRIcv_sz" favorites from %s\n", g->favs.size, g->cur_playlist);
+		fclose(f);
+	}
+
+}
+
 
 int handle_selection(char* path, int recurse)
 {
@@ -2364,7 +2390,10 @@ void setup(int argc, char** argv)
 	get_playlists(buf);
 
 	// read favorites
-	snprintf(g->cur_playlist, STRBUF_SZ, "%s/playlists/favorites.txt", g->prefpath);
+	snprintf(g->cur_playlist, STRBUF_SZ, "%splaylists/favorites.txt", g->prefpath);
+	read_cur_playlist();
+	/*
+	cvec_clear_str(&g->favs);
 	FILE* f = NULL;
 	if (!(f = fopen(g->cur_playlist, "r"))) {
 		SDL_Log("%s does not exist, will try creating it on exit\n", g->cur_playlist);
@@ -2373,6 +2402,7 @@ void setup(int argc, char** argv)
 		SDL_Log("Read %"PRIcv_sz" favorites from %s\n", g->favs.size, g->cur_playlist);
 		fclose(f);
 	}
+	*/
 
 	SDL_Rect r;
 	if (SDL_GetDisplayUsableBounds(0, &r)) {

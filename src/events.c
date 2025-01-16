@@ -1083,6 +1083,7 @@ int handle_popup_events()
 				// safe to just always set these to false, only 1 "popup" at a time
 				g->show_about = nk_false;
 				g->show_prefs = nk_false;
+				g->show_pm = nk_false;
 				break;
 			case SDL_SCANCODE_F11:
 				g->fullscreen = !g->fullscreen;
@@ -1948,7 +1949,7 @@ int handle_events()
 	}
 
 	if (g->state & NORMAL) {
-		if (g->show_about || g->show_prefs || g->show_rotate) {
+		if (g->show_about || g->show_prefs || g->show_rotate || g->show_pm) {
 			return handle_popup_events();
 		}
 		return handle_events_normally();

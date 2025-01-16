@@ -29,6 +29,7 @@ enum { MENU_NONE, MENU_MISC, MENU_PLAYLIST, MENU_SORT, MENU_EDIT, MENU_VIEW };
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h);
+void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h);
 int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h);
 void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h);
 
@@ -194,6 +195,7 @@ void draw_gui(struct nk_context* ctx)
 	}
 
 	// Do popups first so I can return early if eather is up
+	// TODO I can just return after a popup since they're all fullscreen now right?
 	if (g->show_rotate) {
 		// TODO make full screen or adjust for font size
 		int tmp;
@@ -284,6 +286,10 @@ void draw_gui(struct nk_context* ctx)
 		draw_prefs(ctx, scr_w, scr_h);
 	}
 
+	if (g->show_pm) {
+		draw_playlist_manager(ctx, scr_w, scr_h);
+	}
+
 	if (g->fullscreen && g->fullscreen_gui == NEVER) {
 		return;
 	}
@@ -291,7 +297,7 @@ void draw_gui(struct nk_context* ctx)
 	// don't show main GUI if a popup is up, don't want user to
 	// be able to interact with it.  Could look up how to make them inactive
 	// but meh, this is simpler
-	if (g->show_about || g->show_prefs || g->show_rotate) {
+	if (g->show_about || g->show_prefs || g->show_rotate || g->show_pm) {
 		//SDL_ShowCursor(SDL_ENABLE);  // shouldn't be necessary
 		g->show_gui = SDL_TRUE;
 		g->gui_timer = SDL_GetTicks();
@@ -682,11 +688,12 @@ void draw_gui(struct nk_context* ctx)
 				g->menu_state = MENU_PLAYLIST;
 
 				nk_layout_row_dynamic(ctx, 0, 1);
-				nk_label(ctx, g->cur_playlist, NK_TEXT_LEFT);
+				nk_label(ctx, strrchr(g->cur_playlist, '/')+1, NK_TEXT_LEFT);
 
 				if (nk_menu_item_label(ctx, "Manager", NK_TEXT_LEFT)) {
-					event.user.code = OPEN_PLAYLIST_MANAGER;
-					SDL_PushEvent(&event);
+					g->show_pm = SDL_TRUE;
+					//event.user.code = OPEN_PLAYLIST_MANAGER;
+					//SDL_PushEvent(&event);
 				}
 
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
@@ -1643,20 +1650,64 @@ int empty_dir(const char* dirpath)
 }
 
 
+// inline macro?
+void get_playlist_path(char* path_buf, char* name)
+{
+	snprintf(path_buf, STRBUF_SZ, "%splaylists/%s", g->prefpath, name);
+}
 
 
 
 void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 {
+	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;
+	int edit_flags = NK_EDIT_FIELD | NK_EDIT_GOTO_END_ON_ACTIVATE;
 	int is_selected = SDL_FALSE;
-	int selected = -1;
+	//int active;
+
 	struct nk_rect bounds;
+	char path_buf[STRBUF_SZ];
 	
+	// should I reuse g->selected?  probably a bad idea
+	static int selected = -1;
+	static char pm_buf[STRBUF_SZ];
+	static int pm_len = 0;
+
 	// start with same setup as File Browser
 	const float group_szs[] = { FB_SIDEBAR_W, scr_w-FB_SIDEBAR_W };
 
-	if (nk_begin(ctx, "Playlist Manager", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
+	if (selected >= 0) {
+		get_playlist_path(path_buf, g->playlists.a[selected]);
+	}
 
+	if (nk_begin(ctx, "Playlist Manager", nk_rect(0, 0, scr_w, scr_h), popup_flags)) {
+
+		nk_layout_row(ctx, NK_STATIC, 0, 2, group_szs);
+
+		if (nk_button_label(ctx, "New")) {
+			if (pm_len) {
+				if (cvec_contains_str(&g->playlists, pm_buf) < 0) {
+					get_playlist_path(path_buf, pm_buf);
+					FILE* f = fopen(path_buf, "w");
+					if (!f) {
+						// GUI indication of failure
+						snprintf(pm_buf, STRBUF_SZ, "%s", strerror(errno));
+						SDL_Log("Failed to create %s: %s\n", path_buf, pm_buf);
+					} else {
+						fclose(f);
+						cvec_push_str(&g->playlists, pm_buf);
+						pm_buf[0] = 0;
+						pm_len = 0;
+					}
+
+					// reset selection since we just overwrote path_buf
+					selected = -1;
+					path_buf[0] = 0;
+				}
+			}
+
+		}
+		nk_edit_string(ctx, edit_flags, pm_buf, &pm_len, STRBUF_SZ, nk_filter_default);
 
 		bounds = nk_widget_bounds(ctx);
 		nk_layout_row(ctx, NK_STATIC, scr_h-bounds.y, 2, group_szs);
@@ -1664,17 +1715,27 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 		if (nk_group_begin(ctx, "Playlist Sidebar", NK_WINDOW_NO_SCROLLBAR)) {
 
 			nk_layout_row_dynamic(ctx, 0, 1);
-			if (nk_button_label(ctx, "New")) {
-
-			}
 			if (nk_button_label(ctx, "Delete")) {
-
+				if (selected >= 0) {
+					SDL_Log("Trying to remove %s\n", path_buf);
+					if (remove(path_buf)) {
+						SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to delete playlist: %s", strerror(errno));
+					} else {
+						SDL_Log("Deleted playlist %s\n", g->playlists.a[selected]);
+						cvec_erase_str(&g->playlists, selected, selected);
+						selected = -1;
+						path_buf[0] = 0;
+					}
+				}
 			}
 			// Rename?
 			// Open New/More?  Or let FB handle that?
 
 			if (nk_button_label(ctx, "Make Active")) {
-
+				if (selected >= 0) {
+					strncpy(g->cur_playlist, path_buf, STRBUF_SZ);
+					read_cur_playlist();
+				}
 			}
 
 			nk_group_end(ctx);
@@ -1686,9 +1747,16 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 			for (int i=0; i<g->playlists.size; ++i) {
 				is_selected = selected == i;
 				if (nk_selectable_label(ctx, g->playlists.a[i], NK_TEXT_CENTERED, &is_selected)) {
-					// Not actually anything to do, handled on button click
+					if (is_selected) {
+						selected = i;
+						get_playlist_path(path_buf, g->playlists.a[selected]);
+					} else {
+						selected = -1;
+						path_buf[0] = 0;
+					}
 				}
 			}
+			nk_group_end(ctx);
 		}
 	}
 	
