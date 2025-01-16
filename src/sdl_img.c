@@ -76,7 +76,7 @@ enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIE
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V, MODE_CHANGE,
        THUMB_MODE, LIST_MODE, SAVE_IMG, UNSAVE_IMG, REMOVE_IMG, DELETE_IMG, ACTUAL_SIZE, ROT360, REMOVE_BAD,
        SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, PROCESS_SELECTION, OPEN_FILE_NEW,
-       OPEN_FILE_MORE, NUM_USEREVENTS };
+       OPEN_FILE_MORE, OPEN_PLAYLIST_MANAGER, NUM_USEREVENTS };
 
 // return values for handle_selection(), says what the arg was
 enum { URL, DIRECTORY, IMAGE };
@@ -308,9 +308,11 @@ typedef struct global_state
 
 	char cachedir_buf[STRBUF_SZ];
 	char thumbdir_buf[STRBUF_SZ];
+	char cur_playlist[STRBUF_SZ];
 
 	cvector_file files;
 	cvector_str favs;
+	cvector_str playlists;
 
 	cvector_str sources;  // files/directories to scan etc.
 	int done_scanning;
@@ -652,7 +654,7 @@ void clear_img(img_state* img)
 
 void cleanup(int ret, int called_setup)
 {
-	char buf[STRBUF_SZ] = { 0 };
+	//char buf[STRBUF_SZ] = { 0 };
 
 	SDL_LogDebugApp("In cleanup()");
 	if (called_setup) {
@@ -698,10 +700,9 @@ void cleanup(int ret, int called_setup)
 		}
 
 		if (g->favs.size) {
-			snprintf(buf, STRBUF_SZ, "%s/playlists/favorites.txt", g->prefpath);
-			FILE* f = fopen(buf, "w");
+			FILE* f = fopen(g->cur_playlist, "w");
 			if (!f) {
-				SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to create %s: %s\nAborting save\n", buf, strerror(errno));
+				SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to create %s: %s\nAborting save\n", g->cur_playlist, strerror(errno));
 			} else {
 				for (int i=0; i<g->favs.size; i++) {
 					fprintf(f, "%s\n", g->favs.a[i]);
@@ -726,6 +727,7 @@ void cleanup(int ret, int called_setup)
 	cvec_free_thumb_state(&g->thumbs);
 	cvec_free_file(&g->files);
 	cvec_free_str(&g->favs);
+	cvec_free_str(&g->playlists);
 	curl_global_cleanup();
 	exit(ret);
 }
@@ -1238,6 +1240,40 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 
 #define GET_EXT(s) strrchr(s, '.')
 
+int get_playlists(const char* dirpath)
+{
+	//int ret;
+	//char* ext = NULL;
+	//char buf[STRBUF_SZ];
+
+	struct dirent* entry;
+	DIR* dir;
+
+	dir = opendir(dirpath);
+	if (!dir) {
+		perror("opendir");
+		cleanup(1, 1);
+	}
+
+	while ((entry = readdir(dir))) {
+
+		// faster than 2 strcmp calls? ignore "." and ".."
+		if (entry->d_name[0] == '.' && (!entry->d_name[1] || (entry->d_name[1] == '.' && !entry->d_name[2]))) {
+			continue;
+		}
+
+		//ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, entry->d_name);
+		//ret = snprintf(name, STRBUF_SZ, "%s", entry->d_name);
+		//ext = GET_EXT(name);
+		//if (ext) {
+		//	*ext = 0;
+		//}
+		cvec_push_str(&g->playlists, entry->d_name);
+	}
+
+	closedir(dir);
+	return 1;
+}
 
 // renamed to not conflict with <dirent.h>'s scandir
 // which I could probably use to accomplish  most of this...
@@ -2296,6 +2332,7 @@ void setup(int argc, char** argv)
 	}
 	cvec_file(&g->files, 0, 100, free_file, NULL);
 	cvec_str(&g->favs, 0, 50);
+	cvec_str(&g->playlists, 0, 50);
 	// g->thumbs initialized if needed in generate_thumbs()
 
 	// Call this before creating logfile
@@ -2320,14 +2357,20 @@ void setup(int argc, char** argv)
 	g->state = (g->sources.size) ? SCANNING : FILE_SELECTION; // setup is called after sources is filled
 	g->has_bad_paths = SDL_FALSE;
 
+	// TODO command line -p playlist.txt to be current playlist?
+	// --favorites to open favorites?
+	
+	snprintf(buf, STRBUF_SZ, "%s/playlists", g->prefpath);
+	get_playlists(buf);
+
 	// read favorites
-	snprintf(buf, STRBUF_SZ, "%s/playlists/favorites.txt", g->prefpath);
+	snprintf(g->cur_playlist, STRBUF_SZ, "%s/playlists/favorites.txt", g->prefpath);
 	FILE* f = NULL;
-	if (!(f = fopen(buf, "r"))) {
-		SDL_Log("%s does not exist, will try creating it on exit\n", buf);
+	if (!(f = fopen(g->cur_playlist, "r"))) {
+		SDL_Log("%s does not exist, will try creating it on exit\n", g->cur_playlist);
 	} else {
 		read_list(NULL, &g->favs, f);
-		SDL_Log("Read %"PRIcv_sz" favorites from %s\n", g->favs.size, buf);
+		SDL_Log("Read %"PRIcv_sz" favorites from %s\n", g->favs.size, g->cur_playlist);
 		fclose(f);
 	}
 

@@ -102,6 +102,9 @@ int main(int argc, char** argv)
 		if (!font_size) font_size = 24.0f;
 	}
 
+	// see nk_panel_layout()
+	// and nk_layout_reset_min_row_height()
+	//
 	// win.padding.y = 4
 	// text.padding.y = 0
 	// min_row_height_padding = 8

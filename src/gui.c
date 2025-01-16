@@ -680,6 +680,15 @@ void draw_gui(struct nk_context* ctx)
 			state = (g->menu_state == MENU_PLAYLIST) ? NK_MAXIMIZED : NK_MINIMIZED;
 			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Playlist Actions", &state)) {
 				g->menu_state = MENU_PLAYLIST;
+
+				nk_layout_row_dynamic(ctx, 0, 1);
+				nk_label(ctx, g->cur_playlist, NK_TEXT_LEFT);
+
+				if (nk_menu_item_label(ctx, "Manager", NK_TEXT_LEFT)) {
+					event.user.code = OPEN_PLAYLIST_MANAGER;
+					SDL_PushEvent(&event);
+				}
+
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
 				if (nk_menu_item_label(ctx, "Save", NK_TEXT_LEFT)) {
 					event.user.code = SAVE_IMG;
@@ -1631,5 +1640,58 @@ int empty_dir(const char* dirpath)
 	closedir(dir);
 
 	return 1;
+}
+
+
+
+
+
+void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
+{
+	int is_selected = SDL_FALSE;
+	int selected = -1;
+	struct nk_rect bounds;
+	
+	// start with same setup as File Browser
+	const float group_szs[] = { FB_SIDEBAR_W, scr_w-FB_SIDEBAR_W };
+
+	if (nk_begin(ctx, "Playlist Manager", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
+
+
+		bounds = nk_widget_bounds(ctx);
+		nk_layout_row(ctx, NK_STATIC, scr_h-bounds.y, 2, group_szs);
+
+		if (nk_group_begin(ctx, "Playlist Sidebar", NK_WINDOW_NO_SCROLLBAR)) {
+
+			nk_layout_row_dynamic(ctx, 0, 1);
+			if (nk_button_label(ctx, "New")) {
+
+			}
+			if (nk_button_label(ctx, "Delete")) {
+
+			}
+			// Rename?
+			// Open New/More?  Or let FB handle that?
+
+			if (nk_button_label(ctx, "Make Active")) {
+
+			}
+
+			nk_group_end(ctx);
+		}
+		if (nk_group_begin(ctx, "Playlists", 0)) {
+			// TODO do I need this or is the layout from Sidebar still active?
+			nk_layout_row_dynamic(ctx, 0, 1);
+
+			for (int i=0; i<g->playlists.size; ++i) {
+				is_selected = selected == i;
+				if (nk_selectable_label(ctx, g->playlists.a[i], NK_TEXT_CENTERED, &is_selected)) {
+					// Not actually anything to do, handled on button click
+				}
+			}
+		}
+	}
+	
+	nk_end(ctx);
 }
 
