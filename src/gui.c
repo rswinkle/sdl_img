@@ -1708,6 +1708,8 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 
 		}
 		nk_edit_string(ctx, edit_flags, pm_buf, &pm_len, STRBUF_SZ, nk_filter_default);
+		pm_buf[pm_len] = 0;
+		//printf("pm_len = %d\n", pm_len);
 
 		bounds = nk_widget_bounds(ctx);
 		nk_layout_row(ctx, NK_STATIC, scr_h-bounds.y, 2, group_szs);

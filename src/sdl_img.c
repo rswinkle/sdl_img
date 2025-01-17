@@ -1669,7 +1669,6 @@ void read_cur_playlist(void)
 
 }
 
-
 int handle_selection(char* path, int recurse)
 {
 	file f;
@@ -2064,22 +2063,26 @@ int load_config()
 	snprintf(config_path, STRBUF_SZ, "%sconfig.lua", g->prefpath);
 	SDL_LogDebugApp("config file: %s\n", config_path);
 
-	// If no config file, set default preferences
-	// NOTE cachedir already set to default in main
-	if (!read_config_file(config_path)) {
-		g->slide_delay = 3;
-		g->gui_delay = DFLT_GUI_DELAY;
-		g->button_rpt_delay = DFLT_BUTTON_REPEAT_DELAY;
-		g->show_infobar = nk_true;
-		g->fullscreen_gui = DELAY;
-		g->thumb_x_deletes = nk_false;
-		g->ind_mm = nk_false;
-		g->bg = nk_rgb(0,0,0);
-		g->thumb_rows = MAX_THUMB_ROWS;
-		g->thumb_cols = MAX_THUMB_COLS;
-		g->confirm_delete = SDL_TRUE;
-		g->confirm_rotation = SDL_TRUE;
+	// set default preferences ahead of time in case config file is missing
+	// or (more likely) some aren't set in the config
+	// NOTE cachedir will be set in setup_dirs() if necessary
+	// extensions are set elsewhere too
+	//
+	// TODO compare with config enums
+	g->slide_delay = 3;
+	g->gui_delay = DFLT_GUI_DELAY;
+	g->button_rpt_delay = DFLT_BUTTON_REPEAT_DELAY;
+	g->show_infobar = nk_true;
+	g->fullscreen_gui = DELAY;
+	g->thumb_x_deletes = nk_false;
+	g->ind_mm = nk_false;
+	g->bg = nk_rgb(0,0,0);
+	g->thumb_rows = MAX_THUMB_ROWS;
+	g->thumb_cols = MAX_THUMB_COLS;
+	g->confirm_delete = SDL_TRUE;
+	g->confirm_rotation = SDL_TRUE;
 
+	if (!read_config_file(config_path)) {
 		return nk_false;
 	}
 	SDL_LogDebugApp("Successfully loaded config file\n");
@@ -2390,7 +2393,7 @@ void setup(int argc, char** argv)
 	get_playlists(buf);
 
 	// read favorites
-	snprintf(g->cur_playlist, STRBUF_SZ, "%splaylists/favorites.txt", g->prefpath);
+	snprintf(g->cur_playlist, STRBUF_SZ, "%splaylists/Favorites", g->prefpath);
 	read_cur_playlist();
 	/*
 	cvec_clear_str(&g->favs);
@@ -2500,16 +2503,13 @@ void setup(int argc, char** argv)
 	g->filebrowser.selection = -1; // default to no selection
 	g->is_open_new = SDL_TRUE;
 
-
-
 	if (!(g->ctx = nk_sdl_init(g->win, g->ren))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "nk_sdl_init() failed!\n");
 		cleanup(1, 1);
 	}
 
-
 	// TODO Font stuff, refactor/reorganize
-	if (!got_config) {
+	if (!got_config || !g->x_scale || !g->y_scale) {
 		int render_w, render_h;
 		int window_w, window_h;
 		SDL_GetRendererOutputSize(g->ren, &render_w, &render_h);
@@ -2517,7 +2517,7 @@ void setup(int argc, char** argv)
 		g->x_scale = (float)(render_w) / (float)(window_w);
 		g->y_scale = (float)(render_h) / (float)(window_h);
 	}
-	// could adjust for dpi, then adjust for font size if necessary
+	// TODO could adjust for dpi, then adjust for font size if necessary
 	//g->x_scale = 2; //hdpi/72;
 	//g->y_scale = 2; //vdpi/72;
 	float font_scale = g->y_scale;
@@ -2539,6 +2539,7 @@ void setup(int argc, char** argv)
 
 
 	// Make GUI partially transparent
+	// TODO not always?
 	g->ctx->style.window.fixed_background.data.color.a *= 0.75;
 	//g->ctx->style.window.background.a *= 0.75;
 
