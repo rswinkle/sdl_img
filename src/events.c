@@ -1937,6 +1937,20 @@ int handle_events()
 
 				if (g->open_playlist) {
 					cvec_push_str(&g->sources, "-l");
+				} else if (g->open_recursive) {
+					char* last_slash = strrchr(g->filebrowser.file, PATH_SEPARATOR);
+					if (last_slash) {
+						cvec_push_str(&g->sources, "-r");
+
+						// don't want to turn "/somefile" into ""
+						if (last_slash != g->filebrowser.file) {
+							*last_slash = 0;
+						} else {
+							last_slash[1] = 0;
+						}
+					} else {
+						assert(last_slash); // should never get here
+					}
 				}
 				cvec_push_str(&g->sources, g->filebrowser.file);
 				start_scanning();

@@ -165,10 +165,25 @@ void draw_gui(struct nk_context* ctx)
 
 				if (g->open_playlist) {
 					cvec_push_str(&g->sources, "-l");
+				} else if (g->open_recursive) {
+					char* last_slash = strrchr(g->filebrowser.file, PATH_SEPARATOR);
+					if (last_slash) {
+						cvec_push_str(&g->sources, "-r");
+
+						// don't want to turn "/somefile" into ""
+						if (last_slash != g->filebrowser.file) {
+							*last_slash = 0;
+						} else {
+							last_slash[1] = 0;
+						}
+					} else {
+						assert(last_slash); // should never get here
+					}
 				}
 				cvec_push_str(&g->sources, g->filebrowser.file);
 				start_scanning();
 			} else if (g->files.size) {
+				// they canceled out but still have current images
 				g->state = g->old_state;
 				SDL_ShowCursor(SDL_ENABLE);
 				g->gui_timer = SDL_GetTicks();
@@ -1161,13 +1176,23 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 					switch_dir(fb, NULL);
 				}
 
+				bounds = nk_widget_bounds(ctx);
 				if (nk_checkbox_label(ctx, "Single Image", &g->open_single) && g->open_single) {
 					g->open_playlist = SDL_FALSE;
+					g->open_recursive = SDL_FALSE;
+				}
+				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+					nk_tooltip(ctx, "Only open the image you select, not all images in the same directory");
 				}
 
+				bounds = nk_widget_bounds(ctx);
 				nk_checkbox_label(ctx, "Playlist", &g->open_playlist);
+				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+					nk_tooltip(ctx, "Select a playlist instead of an image");
+				}
 				if (g->open_playlist) {
 					g->open_single = SDL_FALSE;
+					g->open_recursive = SDL_FALSE;
 
 					old = fb->ignore_exts;
 					fb->ignore_exts = SDL_TRUE;
@@ -1179,6 +1204,16 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 						}
 					}
 				}
+
+				bounds = nk_widget_bounds(ctx);
+				if (nk_checkbox_label(ctx, "Recursive", &g->open_recursive) && g->open_recursive) {
+					g->open_playlist = SDL_FALSE;
+					g->open_single = SDL_FALSE;
+				}
+				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+					nk_tooltip(ctx, "Include images in all subdirectories");
+				}
+
 				nk_tree_pop(ctx);
 			}
 

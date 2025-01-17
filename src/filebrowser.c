@@ -453,6 +453,8 @@ char* mydirname(const char* path, char* dirpath)
 		return dirpath;
 	}
 
+	// TODO doesn't correctly handle "/" "/hello" or anything that ends in a '/' like
+	// "/some/random/dir/"
 	char* last_slash = strrchr(path, PATH_SEPARATOR);
 	if (last_slash) {
 		strncpy(dirpath, path, last_slash-path);

@@ -321,6 +321,7 @@ typedef struct global_state
 	file_browser filebrowser;
 	int open_single;  // boolean (should I move it to file_browser?)
 	int open_playlist; // boolean
+	int open_recursive; // boolean
 	int is_open_new;  // boolean
 	int old_state;
 	cvector_str bookmarks;
@@ -2848,6 +2849,7 @@ void do_file_open(int clear_files)
 	g->filebrowser.selection = -1; // default to no selection
 	g->open_single = SDL_FALSE;
 	g->open_playlist = SDL_FALSE;
+	g->open_recursive = SDL_FALSE;
 
 	SDL_ShowCursor(SDL_ENABLE);
 
