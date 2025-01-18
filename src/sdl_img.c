@@ -304,10 +304,14 @@ typedef struct global_state
 
 	char* cachedir;
 	char* thumbdir;
+	char* logdir;
+	char* playlistdir;
 	char* prefpath;
 
 	char cachedir_buf[STRBUF_SZ];
 	char thumbdir_buf[STRBUF_SZ];
+	char logdir_buf[STRBUF_SZ];
+	char playlistdir_buf[STRBUF_SZ];
 	char cur_playlist[STRBUF_SZ];
 
 	cvector_file files;
@@ -2012,7 +2016,6 @@ int scan_sources(void* data)
 void setup_dirs()
 {
 	char datebuf[200] = { 0 };
-	char dir_buf[STRBUF_SZ] = { 0 };
 	time_t t;
 	struct tm *tmp;
 	int len;
@@ -2055,31 +2058,35 @@ void setup_dirs()
 
 	printf("cache: %s\nthumbnails: %s\n", g->cachedir, g->thumbdir);
 
-	len = snprintf(dir_buf, STRBUF_SZ, "%slogs", prefpath);
-	if (len >= STRBUF_SZ) {
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "logdir path too long\n");
-		cleanup(1, 1);
-	}
-	if (mkdir_p(dir_buf, S_IRWXU) && errno != EEXIST) {
-		perror("Failed to make log directory");
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make log directory: %s\n", strerror(errno));
-		cleanup(1, 1);
-	}
-
-	printf("logs: %s\n", dir_buf);
-
-	len = snprintf(dir_buf, STRBUF_SZ, "%splaylists", prefpath);
-	if (len >= STRBUF_SZ) {
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "playlist path too long\n");
-		cleanup(1, 1);
-	}
-	if (mkdir_p(dir_buf, S_IRWXU) && errno != EEXIST) {
-		perror("Failed to make playlist directory");
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make playlist directory: %s\n", strerror(errno));
-		cleanup(1, 1);
+	if (!g->logdir[0]) {
+		len = snprintf(g->logdir, STRBUF_SZ, "%slogs", prefpath);
+		if (len >= STRBUF_SZ) {
+			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "logdir path too long\n");
+			cleanup(1, 1);
+		}
+		if (mkdir_p(g->logdir, S_IRWXU) && errno != EEXIST) {
+			perror("Failed to make log directory");
+			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make log directory: %s\n", strerror(errno));
+			cleanup(1, 1);
+		}
 	}
 
-	printf("playlists: %s\n", dir_buf);
+	printf("logs: %s\n", g->logdir);
+
+	if (!g->playlistdir[0]) {
+		len = snprintf(g->playlistdir, STRBUF_SZ, "%splaylists", prefpath);
+		if (len >= STRBUF_SZ) {
+			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "playlist path too long\n");
+			cleanup(1, 1);
+		}
+		if (mkdir_p(g->playlistdir, S_IRWXU) && errno != EEXIST) {
+			perror("Failed to make playlist directory");
+			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make playlist directory: %s\n", strerror(errno));
+			cleanup(1, 1);
+		}
+	}
+
+	printf("playlists: %s\n", g->playlistdir);
 
 }
 
@@ -2282,7 +2289,6 @@ void setup(int argc, char** argv)
 {
 	char error_str[STRBUF_SZ] = { 0 };
 	char title_buf[STRBUF_SZ] = { 0 };
-	char buf[STRBUF_SZ] = { 0 };
 
 	static const char* default_exts[NUM_DFLT_EXTS] =
 	{
@@ -2321,6 +2327,8 @@ void setup(int argc, char** argv)
 	// just point these at a buffer that will live forever
 	g->cachedir = g->cachedir_buf;
 	g->thumbdir = g->thumbdir_buf;
+	g->logdir = g->logdir_buf;
+	g->playlistdir = g->playlistdir_buf;
 
 	for (int i=1; i<argc; ++i) {
 		if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {
@@ -2415,11 +2423,10 @@ void setup(int argc, char** argv)
 	// TODO command line -p playlist.txt to be current playlist?
 	// --favorites to open favorites?
 	
-	snprintf(buf, STRBUF_SZ, "%s/playlists", g->prefpath);
-	get_playlists(buf);
+	get_playlists(g->playlistdir);
 
 	// read favorites
-	snprintf(g->cur_playlist, STRBUF_SZ, "%splaylists/Favorites", g->prefpath);
+	snprintf(g->cur_playlist, STRBUF_SZ, "%s/Favorites", g->playlistdir);
 	read_cur_playlist();
 	/*
 	cvec_clear_str(&g->favs);
@@ -2872,9 +2879,16 @@ void do_file_open(int clear_files)
 	g->state = FILE_SELECTION;
 	reset_file_browser(&g->filebrowser, NULL);
 	g->filebrowser.selection = -1; // default to no selection
-	g->open_single = SDL_FALSE;
-	g->open_playlist = SDL_FALSE;
-	g->open_recursive = SDL_FALSE;
+	//
+	// If they're in playlistdir keep settings the same
+	if (strcmp(g->filebrowser.dir, g->playlistdir)) {
+		g->open_single = SDL_FALSE;
+		g->open_playlist = SDL_FALSE;
+		g->open_recursive = SDL_FALSE;
+	} else {
+		g->open_playlist = SDL_TRUE;  // should still be true but for clarity
+		g->filebrowser.ignore_exts = SDL_TRUE; // was reset by reset_file_browser
+	}
 
 	SDL_ShowCursor(SDL_ENABLE);
 

@@ -121,6 +121,47 @@ void search_filenames(int is_vimmode)
 	SDL_Log("found %d matches\n", (int)g->search_results.size);
 }
 
+// TODO find a better place to put this function
+void transition_to_scanning(char* file)
+{
+	if (g->is_open_new) {
+		cvec_clear_file(&g->files);
+
+		// if we were in VIEW_RESULTS need to clear these
+		// TODO For now we don't support "Open More" in view results
+		text_buf[0] = 0;
+		//memset(text_buf, 0, text_len+1);
+		text_len = 0;
+		g->search_results.size = 0;
+	}
+
+	// easier to do this than try for partial in "open more"
+	g->generating_thumbs = SDL_FALSE;
+	g->thumbs_done = SDL_FALSE;
+	g->thumbs_loaded = SDL_FALSE;
+	cvec_free_thumb_state(&g->thumbs);
+
+	if (g->open_playlist) {
+		cvec_push_str(&g->sources, "-l");
+	} else if (g->open_recursive) {
+		char* last_slash = strrchr(file, PATH_SEPARATOR);
+		if (last_slash) {
+			cvec_push_str(&g->sources, "-r");
+
+			// don't want to turn "/somefile" into ""
+			if (last_slash != file) {
+				*last_slash = 0;
+			} else {
+				last_slash[1] = 0;
+			}
+		} else {
+			assert(last_slash); // should never get here
+		}
+	}
+	cvec_push_str(&g->sources, file);
+	start_scanning();
+}
+
 void draw_gui(struct nk_context* ctx)
 {
 	// closable gives the x, if you use it it won't come back (probably have to call show() or
@@ -146,6 +187,8 @@ void draw_gui(struct nk_context* ctx)
 	if (IS_FS_MODE()) {
 		if (!draw_filebrowser(&g->filebrowser, g->ctx, scr_w, scr_h)) {
 			if (g->filebrowser.file[0]) {
+				transition_to_scanning(g->filebrowser.file);
+				/*
 				if (g->is_open_new) {
 					cvec_clear_file(&g->files);
 
@@ -182,6 +225,7 @@ void draw_gui(struct nk_context* ctx)
 				}
 				cvec_push_str(&g->sources, g->filebrowser.file);
 				start_scanning();
+				*/
 			} else if (g->files.size) {
 				// they canceled out but still have current images
 				g->state = g->old_state;
@@ -1232,6 +1276,12 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			if (nk_button_label(ctx, "Computer")) {
 				switch_dir(fb, "/");
 			}
+			if (nk_button_label(ctx, "Playlists")) {
+				g->open_playlist = SDL_TRUE;
+				g->open_single = SDL_FALSE;
+				g->open_recursive = SDL_FALSE;
+				switch_dir(fb, g->playlistdir);
+			}
 
 			if (nk_button_label(ctx, "Add Bookmark")) {
 				cvec_push_str(&g->bookmarks, fb->dir);
@@ -1688,7 +1738,7 @@ int empty_dir(const char* dirpath)
 // inline macro?
 void get_playlist_path(char* path_buf, char* name)
 {
-	snprintf(path_buf, STRBUF_SZ, "%splaylists/%s", g->prefpath, name);
+	snprintf(path_buf, STRBUF_SZ, "%s/%s", g->playlistdir, name);
 }
 
 
@@ -1718,12 +1768,14 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 	if (nk_begin(ctx, "Playlist Manager", nk_rect(0, 0, scr_w, scr_h), popup_flags)) {
 
 		nk_layout_row(ctx, NK_STATIC, 0, 2, group_szs);
+		nk_label(ctx, "Active:", NK_TEXT_LEFT);
+		nk_label(ctx, g->cur_playlist, NK_TEXT_LEFT);
 
 		if (nk_button_label(ctx, "New")) {
 			if (pm_len) {
 				if (cvec_contains_str(&g->playlists, pm_buf) < 0) {
 					get_playlist_path(path_buf, pm_buf);
-					FILE* f = fopen(path_buf, "w");
+					FILE* f = fopen(g->playlistdir, "w");
 					if (!f) {
 						// GUI indication of failure
 						snprintf(pm_buf, STRBUF_SZ, "%s", strerror(errno));
@@ -1752,6 +1804,33 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 		if (nk_group_begin(ctx, "Playlist Sidebar", NK_WINDOW_NO_SCROLLBAR)) {
 
 			nk_layout_row_dynamic(ctx, 0, 1);
+			// Rename?
+			// Open New/More?  Or let FB handle that?
+
+			if (nk_button_label(ctx, "Make Active")) {
+				if (selected >= 0) {
+					strncpy(g->cur_playlist, path_buf, STRBUF_SZ);
+					read_cur_playlist();
+				}
+			}
+
+			if (nk_button_label(ctx, "Open New")) {
+				if (selected >= 0) {
+					g->is_open_new = SDL_TRUE;
+					g->open_playlist = SDL_TRUE;
+					g->show_pm = SDL_FALSE;
+					transition_to_scanning(path_buf);
+				}
+			}
+
+			if (nk_button_label(ctx, "Open More")) {
+				if (selected >= 0) {
+					g->open_playlist = SDL_TRUE;
+					g->show_pm = SDL_FALSE;
+					transition_to_scanning(path_buf);
+				}
+			}
+
 			if (nk_button_label(ctx, "Delete")) {
 				if (selected >= 0) {
 					SDL_Log("Trying to remove %s\n", path_buf);
@@ -1763,15 +1842,6 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 						selected = -1;
 						path_buf[0] = 0;
 					}
-				}
-			}
-			// Rename?
-			// Open New/More?  Or let FB handle that?
-
-			if (nk_button_label(ctx, "Make Active")) {
-				if (selected >= 0) {
-					strncpy(g->cur_playlist, path_buf, STRBUF_SZ);
-					read_cur_playlist();
 				}
 			}
 

@@ -1929,6 +1929,8 @@ int handle_events()
 		// TODO multiple return codes?
 		if (handle_fb_events(&g->filebrowser, g->ctx)) {
 			if (g->filebrowser.file[0]) {
+				transition_to_scanning(g->filebrowser.file);
+				/*
 				if (g->is_open_new) {
 					cvec_clear_file(&g->files);
 
@@ -1965,8 +1967,10 @@ int handle_events()
 				}
 				cvec_push_str(&g->sources, g->filebrowser.file);
 				start_scanning();
+				*/
 				return 0;
 			} else {
+				// can only happen when SDL_QUIT or ESC on initial startup with no files
 				return 1;
 			}
 		}
