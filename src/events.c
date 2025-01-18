@@ -422,14 +422,13 @@ int handle_thumb_events()
 					search_filenames(SDL_TRUE);
 					if (g->search_results.size) {
 						g->thumb_sel = g->search_results.a[0];
-
 						// TODO think about this it's THUMB_SEARCH | SEARCH_RESULTS
 						// THUMB_DFLT is not a general THUMB state and while in this mode
 						// we still can't remove individual images only all the search results
-						
+	
 						// also can't use the keyboard to navigate list and hit enter because
 						// Enter just repeats the search
-						
+
 						g->state |= SEARCH_RESULTS;
 					} else {
 						g->state = THUMB_DFLT;

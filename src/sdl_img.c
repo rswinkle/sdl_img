@@ -699,9 +699,22 @@ void cleanup(int ret, int called_setup)
 		SDL_CondSignal(g->img_loading_cnd);
 		SDL_UnlockMutex(g->img_loading_mtx);
 
+
+		// Apparently I have to do something more complicated or the Optimizer will get rid
+		// of code that breaks my logic...
+		/*
+		// This worked fine in debug, but not in release mode
 		while (g->loading) {
-			; // wait for thread to exit
+			;
 		}
+		 */
+		SDL_LockMutex(g->img_loading_mtx);
+		while (g->loading) {
+			SDL_CondWait(g->img_loading_cnd, g->img_loading_mtx);
+			SDL_LogDebugApp("Waiting for loading to exit, g->loading is: %d\n", g->loading);
+		}
+		SDL_UnlockMutex(g->img_loading_mtx);
+
 
 		for (int i=0; i<g->n_imgs; ++i) {
 			clear_img(&g->img[i]);
@@ -1578,8 +1591,12 @@ success_load:
 		SDL_UnlockMutex(g->img_loading_mtx);
 	}
 
+	SDL_LockMutex(g->img_loading_mtx);
+	SDL_Log("Exiting loading thread\n");
 	g->done_loading = EXIT;
 	g->loading = 0;
+	SDL_CondSignal(g->img_loading_cnd);
+	SDL_UnlockMutex(g->img_loading_mtx);
 
 	return 0;
 }
@@ -2284,9 +2301,9 @@ void setup(int argc, char** argv)
 		".psd"
 	};
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
 	SDL_LogSetAllPriority(SDL_LOG_PRIORITY_DEBUG);
-#endif
+//#endif
 
 	// set defaults before loading config file
 	g->img_exts = default_exts;
@@ -3418,7 +3435,7 @@ void do_listmode()
 
 void do_thumbmode()
 {
-	//possibly preserve SEARCH_RESULTS 
+	//possibly preserve SEARCH_RESULTS
 	if (g->state == NORMAL) {
 		g->state = THUMB_DFLT;
 		g->thumb_sel = g->img[0].index;

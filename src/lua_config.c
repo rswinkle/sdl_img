@@ -112,7 +112,6 @@ int read_config_file(char* filename)
 	g->button_rpt_delay = get_global_number_clamp(L, "button_repeat_delay", 0.25, MAX_BUTTON_RPT_DELAY);
 	g->thumb_rows = get_global_int_clamp(L, "thumb_rows", 2, 8);
 	g->thumb_cols = get_global_int_clamp(L, "thumb_cols", 4, 15);
-	printf("Got %d %d", g->thumb_rows, g->thumb_cols);
 
 	// enum
 	g->fullscreen_gui = load_fullscreen_gui(L);
