@@ -1038,8 +1038,12 @@ int gen_thumbs(void* data)
 
 	if (do_load) {
 		// same as in load_thumbs, generating and loading can take even longer
-		g->thumb_sel = g->img[0].index;
-		g->thumb_sel_end = g->img[0].index;
+		if (g->state == THUMB_DFLT) {
+			g->thumb_sel = g->img[0].index;
+		} else {
+			g->thumb_sel = g->search_results.a[g->img[0].index];
+		}
+		g->thumb_sel_end = g->thumb_sel;
 		g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 	}
 
@@ -1116,8 +1120,12 @@ int load_thumbs(void* data)
 
 	// make sure we are on current image after we're done loading
 	// since loading can take a while if there are 1000's of images
-	g->thumb_sel = g->img[0].index;
-	g->thumb_sel_end = g->img[0].index;
+	if (g->state == THUMB_DFLT) {
+		g->thumb_sel = g->img[0].index;
+	} else {
+		g->thumb_sel = g->search_results.a[g->img[0].index];
+	}
+	g->thumb_sel_end = g->thumb_sel;
 	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 
 exit_load_thumbs:
@@ -3387,17 +3395,41 @@ int do_copy()
 void do_listmode()
 {
 	// TODO hmm handle switching directly from thumb to list and vice versa
-	g->state = LIST_DFLT;
+	if (g->state == NORMAL) {
+		g->state = LIST_DFLT;
+	} else {
+		g->state = LIST_DFLT | SEARCH_RESULTS;
+		if (text_buf[0] == '/') {
+			memmove(text_buf, &text_buf[1], text_len);
+			text_len--;
+		}
+	}
+
 	g->selection = g->img[0].index;
 	g->list_setscroll = SDL_TRUE;
+	/*
+	 * // this should always be cleared when exiting a search mode
 	text_buf[0] = 0;
 	text_len = 0;
 	g->search_results.size = 0;
+	*/
 	SDL_ShowCursor(SDL_ENABLE);
 }
 
 void do_thumbmode()
 {
+	//possibly preserve SEARCH_RESULTS 
+	if (g->state == NORMAL) {
+		g->state = THUMB_DFLT;
+		g->thumb_sel = g->img[0].index;
+	} else {
+		g->state = THUMB_SEARCH | SEARCH_RESULTS;
+		g->thumb_sel = g->search_results.a[g->img[0].index];
+	}
+
+	g->thumb_sel_end = g->thumb_sel;
+	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
+
 	if (!g->thumbs_done) {
 		generate_thumbs(SDL_TRUE);
 	} else if (!g->thumbs_loaded) {
@@ -3410,11 +3442,6 @@ void do_thumbmode()
 		SDL_DetachThread(thumb_thrd);
 	}
 
-	g->state = THUMB_DFLT;
-	g->thumb_sel = g->img[0].index;
-	g->thumb_sel_end = g->img[0].index;
-	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
-	g->search_results.size = 0;
 	g->status = REDRAW;
 	// TODO what a mess, need to think about the best way
 	// to handle GUI vs mouse in thumb vs normal mode
