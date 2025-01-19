@@ -17,9 +17,10 @@
 *.app
 *.pyc
 *.deb
+*.AppImage
 sdl_img
-lua-5.4.6/src/lua
-lua-5.4.6/src/luac
+lua-5.4.7/src/lua
+lua-5.4.7/src/luac
 
 #ignore ~ files
 *~
