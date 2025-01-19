@@ -1521,7 +1521,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		nk_label(ctx, "GUI in Fullscreen mode:", NK_TEXT_LEFT);
 		static const char* gui_options[] = { "Delay", "Always", "Never" };
 		bounds = nk_widget_bounds(ctx);
-		g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, 12, nk_vec2(bounds.w, 300));
+		g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, DFLT_FONT_SIZE+28, nk_vec2(bounds.w, 800));
 
 		nk_property_int(ctx, "Thumb rows", MIN_THUMB_ROWS, &g->thumb_rows, MAX_THUMB_ROWS, 1, 0.05);
 		nk_property_int(ctx, "Thumb cols", MIN_THUMB_COLS, &g->thumb_cols, MAX_THUMB_COLS, 1, 0.05);
