@@ -945,12 +945,19 @@ int handle_scanning_events()
 			g->state = FILE_SELECTION;
 			g->done_loading = 0;
 			reset_file_browser(&g->filebrowser, NULL);
-
-			g->open_single = SDL_FALSE;
-			g->open_playlist = SDL_FALSE;
-			g->is_open_new = SDL_TRUE;
-
 			g->filebrowser.selection = -1; // default to no selection
+
+			// If they're in playlistdir keep settings the same
+			if (strcmp(g->filebrowser.dir, g->playlistdir)) {
+				g->open_single = SDL_FALSE;
+				g->open_playlist = SDL_FALSE;
+				g->open_recursive = SDL_FALSE;
+			} else {
+				g->open_playlist = SDL_TRUE;  // should still be true but for clarity
+				g->filebrowser.ignore_exts = SDL_TRUE; // was reset by reset_file_browser
+			}
+
+			g->is_open_new = SDL_TRUE;
 		}
 
 		//SDL_UnlockMutex(g->scanning_mtx);
