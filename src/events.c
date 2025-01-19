@@ -1930,44 +1930,6 @@ int handle_events()
 		if (handle_fb_events(&g->filebrowser, g->ctx)) {
 			if (g->filebrowser.file[0]) {
 				transition_to_scanning(g->filebrowser.file);
-				/*
-				if (g->is_open_new) {
-					cvec_clear_file(&g->files);
-
-					// if we were in VIEW_RESULTS need to clear these
-					// TODO For now we don't support "Open More" in view results
-					text_buf[0] = 0;
-					//memset(text_buf, 0, text_len+1);
-					text_len = 0;
-					g->search_results.size = 0;
-				}
-
-				// easier to do this than try for partial in "open more"
-				g->generating_thumbs = SDL_FALSE;
-				g->thumbs_done = SDL_FALSE;
-				g->thumbs_loaded = SDL_FALSE;
-				cvec_free_thumb_state(&g->thumbs);
-
-				if (g->open_playlist) {
-					cvec_push_str(&g->sources, "-l");
-				} else if (g->open_recursive) {
-					char* last_slash = strrchr(g->filebrowser.file, PATH_SEPARATOR);
-					if (last_slash) {
-						cvec_push_str(&g->sources, "-r");
-
-						// don't want to turn "/somefile" into ""
-						if (last_slash != g->filebrowser.file) {
-							*last_slash = 0;
-						} else {
-							last_slash[1] = 0;
-						}
-					} else {
-						assert(last_slash); // should never get here
-					}
-				}
-				cvec_push_str(&g->sources, g->filebrowser.file);
-				start_scanning();
-				*/
 				return 0;
 			} else {
 				// can only happen when SDL_QUIT or ESC on initial startup with no files

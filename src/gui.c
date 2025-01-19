@@ -170,11 +170,14 @@ void draw_gui(struct nk_context* ctx)
 
 	SDL_Event event = { .type = g->userevent };
 	img_state* img;
+	char buf[STRBUF_SZ];
 
 	// Can't use actual screen size g->scr_w/h have to
 	// calculate logical screen size since GUI is scaled
 	int scr_w = g->scr_w/g->x_scale;
 	int scr_h = g->scr_h/g->y_scale;
+
+	snprintf(buf, STRBUF_SZ, "Active: %s", strrchr(g->cur_playlist, '/')+1);
 
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
@@ -188,44 +191,6 @@ void draw_gui(struct nk_context* ctx)
 		if (!draw_filebrowser(&g->filebrowser, g->ctx, scr_w, scr_h)) {
 			if (g->filebrowser.file[0]) {
 				transition_to_scanning(g->filebrowser.file);
-				/*
-				if (g->is_open_new) {
-					cvec_clear_file(&g->files);
-
-					// if we were in VIEW_RESULTS need to clear these
-					// TODO For now we don't support "Open More" in view results
-					text_buf[0] = 0;
-					//memset(text_buf, 0, text_len+1);
-					text_len = 0;
-					g->search_results.size = 0;
-				}
-
-				// easier to do this than try for partial in "open more"
-				g->generating_thumbs = SDL_FALSE;
-				g->thumbs_done = SDL_FALSE;
-				g->thumbs_loaded = SDL_FALSE;
-				cvec_free_thumb_state(&g->thumbs);
-
-				if (g->open_playlist) {
-					cvec_push_str(&g->sources, "-l");
-				} else if (g->open_recursive) {
-					char* last_slash = strrchr(g->filebrowser.file, PATH_SEPARATOR);
-					if (last_slash) {
-						cvec_push_str(&g->sources, "-r");
-
-						// don't want to turn "/somefile" into ""
-						if (last_slash != g->filebrowser.file) {
-							*last_slash = 0;
-						} else {
-							last_slash[1] = 0;
-						}
-					} else {
-						assert(last_slash); // should never get here
-					}
-				}
-				cvec_push_str(&g->sources, g->filebrowser.file);
-				start_scanning();
-				*/
 			} else if (g->files.size) {
 				// they canceled out but still have current images
 				g->state = g->old_state;
@@ -676,11 +641,9 @@ void draw_gui(struct nk_context* ctx)
 				g->menu_state = MENU_MISC;
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
 
+				// Only support opening new files when in 1 image NORMAL/viewing mode
+				// it simplifies things.
 				if (g->n_imgs == 1 && (g->state & NORMAL)) {
-					// Only support opening new files when in 1 image NORMAL/viewing mode
-					// it simplifies things.  May support 1 image mode when viewing results
-					// in the future
-					//
 					if (nk_menu_item_label(ctx, "Open New", NK_TEXT_LEFT)) {
 						event.user.code = OPEN_FILE_NEW;
 						SDL_PushEvent(&event);
@@ -693,8 +656,8 @@ void draw_gui(struct nk_context* ctx)
 					if (g->state == NORMAL) {
 						// TODO naming
 						if (nk_menu_item_label(ctx, "Open More", NK_TEXT_LEFT)) {
-								event.user.code = OPEN_FILE_MORE;
-								SDL_PushEvent(&event);
+							event.user.code = OPEN_FILE_MORE;
+							SDL_PushEvent(&event);
 						}
 						nk_label(ctx, "CTRL+O", NK_TEXT_RIGHT);
 					}
@@ -747,7 +710,7 @@ void draw_gui(struct nk_context* ctx)
 				g->menu_state = MENU_PLAYLIST;
 
 				nk_layout_row_dynamic(ctx, 0, 1);
-				nk_label(ctx, strrchr(g->cur_playlist, '/')+1, NK_TEXT_LEFT);
+				nk_label(ctx, buf, NK_TEXT_LEFT);
 
 				if (nk_menu_item_label(ctx, "Manager", NK_TEXT_LEFT)) {
 					g->show_pm = SDL_TRUE;
@@ -1752,17 +1715,26 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 
 	struct nk_rect bounds;
 	char path_buf[STRBUF_SZ];
+	char path_buf2[STRBUF_SZ];
+
+	const char* new_rename[] = { "New", "Rename" };
 	
 	// should I reuse g->selected?  probably a bad idea
 	static int selected = -1;
 	static char pm_buf[STRBUF_SZ];
 	static int pm_len = 0;
+	int nr_idx = 0;
+
+	// TODO think about multiple selections for operations like
+	// merge
+	// Other operations like Copy/Duplicate?
 
 	// start with same setup as File Browser
 	const float group_szs[] = { FB_SIDEBAR_W, scr_w-FB_SIDEBAR_W };
 
 	if (selected >= 0) {
 		get_playlist_path(path_buf, g->playlists.a[selected]);
+		nr_idx = 1;
 	}
 
 	if (nk_begin(ctx, "Playlist Manager", nk_rect(0, 0, scr_w, scr_h), popup_flags)) {
@@ -1771,25 +1743,38 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 		nk_label(ctx, "Active:", NK_TEXT_LEFT);
 		nk_label(ctx, g->cur_playlist, NK_TEXT_LEFT);
 
-		if (nk_button_label(ctx, "New")) {
+		if (nk_button_label(ctx, new_rename[nr_idx])) {
 			if (pm_len) {
 				if (cvec_contains_str(&g->playlists, pm_buf) < 0) {
-					get_playlist_path(path_buf, pm_buf);
-					FILE* f = fopen(g->playlistdir, "w");
-					if (!f) {
-						// GUI indication of failure
-						snprintf(pm_buf, STRBUF_SZ, "%s", strerror(errno));
-						SDL_Log("Failed to create %s: %s\n", path_buf, pm_buf);
-					} else {
-						fclose(f);
-						cvec_push_str(&g->playlists, pm_buf);
-						pm_buf[0] = 0;
-						pm_len = 0;
-					}
+					get_playlist_path(path_buf2, pm_buf);
 
-					// reset selection since we just overwrote path_buf
-					selected = -1;
-					path_buf[0] = 0;
+					if (!nr_idx) {
+						FILE* f = fopen(path_buf2, "w");
+						if (!f) {
+							// GUI indication of failure
+							pm_len = snprintf(pm_buf, STRBUF_SZ, "%s", strerror(errno));
+							SDL_Log("Failed to create %s: %s\n", path_buf2, pm_buf);
+						} else {
+							fclose(f);
+							cvec_push_str(&g->playlists, pm_buf);
+							pm_buf[0] = 0;
+							pm_len = 0;
+						}
+					} else {
+						if (rename(path_buf, path_buf2)) {
+							pm_len = snprintf(pm_buf, STRBUF_SZ, "Failed to rename: %s", strerror(errno));
+							SDL_Log("Failed to rename %s to %s: %s\n", path_buf, path_buf2, pm_buf);
+						} else {
+							cvec_replace_str(&g->playlists, selected, pm_buf, NULL);
+							pm_buf[0] = 0;
+							pm_len = 0;
+							// update selection path
+							strcpy(path_buf, path_buf2);
+						}
+					}
+				} else {
+					pm_len = snprintf(path_buf, STRBUF_SZ, "'%s' already exists!", pm_buf);
+					strcpy(pm_buf, path_buf);
 				}
 			}
 

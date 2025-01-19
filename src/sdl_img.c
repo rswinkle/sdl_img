@@ -3332,7 +3332,7 @@ void do_save(int removing)
 	if (removing) {
 		if (g->img_focus) {
 			if ((loc = cvec_contains_str(&g->favs, g->img_focus->fullpath)) < 0) {
-				SDL_Log("%s not in favorites\n", g->img_focus->fullpath);
+				SDL_Log("%s not in playlist\n", g->img_focus->fullpath);
 			} else {
 				SDL_Log("removing %s\n", g->img_focus->fullpath);
 				cvec_erase_str(&g->favs, loc, loc);
@@ -3341,7 +3341,7 @@ void do_save(int removing)
 		} else {
 			for (int i=0; i<g->n_imgs; ++i) {
 				if ((loc = cvec_contains_str(&g->favs, g->img[i].fullpath)) < 0) {
-					SDL_Log("%s not in favorites\n", g->img[i].fullpath);
+					SDL_Log("%s not in playlist\n", g->img[i].fullpath);
 				} else {
 					SDL_Log("removing %s\n", g->img[i].fullpath);
 					cvec_erase_str(&g->favs, loc, loc);
@@ -3352,7 +3352,7 @@ void do_save(int removing)
 	} else {
 		if (g->img_focus) {
 			if (cvec_contains_str(&g->favs, g->img_focus->fullpath) >= 0) {
-				SDL_Log("%s already in favorites\n", g->img_focus->fullpath);
+				SDL_Log("%s already in playlist\n", g->img_focus->fullpath);
 			} else {
 				SDL_Log("saving %s\n", g->img_focus->fullpath);
 				cvec_push_str(&g->favs, g->img_focus->fullpath);
@@ -3360,7 +3360,7 @@ void do_save(int removing)
 		} else {
 			for (int i=0; i<g->n_imgs; ++i) {
 				if (cvec_contains_str(&g->favs, g->img[i].fullpath) >= 0) {
-					SDL_Log("%s already in favorites\n", g->img[i].fullpath);
+					SDL_Log("%s already in playlist\n", g->img[i].fullpath);
 				} else {
 					SDL_Log("saving %s\n", g->img[i].fullpath);
 					cvec_push_str(&g->favs, g->img[i].fullpath);
