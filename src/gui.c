@@ -738,7 +738,7 @@ void draw_gui(struct nk_context* ctx)
 			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Sort Actions", &state)) {
 				g->menu_state = MENU_SORT;
 
-				if (g->n_imgs == 1) {
+				if (g->n_imgs == 1 && !g->generating_thumbs && g->state == NORMAL) {
 					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
 					if (nk_menu_item_label(ctx, "Mix images", NK_TEXT_LEFT)) {
 						event.user.code = SHUFFLE;
@@ -774,6 +774,8 @@ void draw_gui(struct nk_context* ctx)
 				} else {
 					nk_layout_row_dynamic(ctx, 0, 1);
 					nk_label(ctx, "Only available in 1 image mode", NK_TEXT_LEFT);
+					nk_label(ctx, "while not generating thumbs", NK_TEXT_LEFT);
+					nk_label(ctx, "and not viewing search results", NK_TEXT_LEFT);
 				}
 
 				nk_tree_pop(ctx);
@@ -1709,9 +1711,9 @@ void get_playlist_path(char* path_buf, char* name)
 void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;
-	int edit_flags = NK_EDIT_FIELD | NK_EDIT_GOTO_END_ON_ACTIVATE;
+	int edit_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
 	int is_selected = SDL_FALSE;
-	//int active;
+	int active, button_pressed;
 
 	struct nk_rect bounds;
 	char path_buf[STRBUF_SZ];
@@ -1720,6 +1722,8 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 	const char* new_rename[] = { "New", "Rename" };
 	
 	// should I reuse g->selected?  probably a bad idea
+	// unless I want to easily reset to no selection every time
+	// we open the pm...
 	static int selected = -1;
 	static char pm_buf[STRBUF_SZ];
 	static int pm_len = 0;
@@ -1743,45 +1747,44 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 		nk_label(ctx, "Active:", NK_TEXT_LEFT);
 		nk_label(ctx, g->cur_playlist, NK_TEXT_LEFT);
 
-		if (nk_button_label(ctx, new_rename[nr_idx])) {
-			if (pm_len) {
-				if (cvec_contains_str(&g->playlists, pm_buf) < 0) {
-					get_playlist_path(path_buf2, pm_buf);
-
-					if (!nr_idx) {
-						FILE* f = fopen(path_buf2, "w");
-						if (!f) {
-							// GUI indication of failure
-							pm_len = snprintf(pm_buf, STRBUF_SZ, "%s", strerror(errno));
-							SDL_Log("Failed to create %s: %s\n", path_buf2, pm_buf);
-						} else {
-							fclose(f);
-							cvec_push_str(&g->playlists, pm_buf);
-							pm_buf[0] = 0;
-							pm_len = 0;
-						}
-					} else {
-						if (rename(path_buf, path_buf2)) {
-							pm_len = snprintf(pm_buf, STRBUF_SZ, "Failed to rename: %s", strerror(errno));
-							SDL_Log("Failed to rename %s to %s: %s\n", path_buf, path_buf2, pm_buf);
-						} else {
-							cvec_replace_str(&g->playlists, selected, pm_buf, NULL);
-							pm_buf[0] = 0;
-							pm_len = 0;
-							// update selection path
-							strcpy(path_buf, path_buf2);
-						}
-					}
-				} else {
-					pm_len = snprintf(path_buf, STRBUF_SZ, "'%s' already exists!", pm_buf);
-					strcpy(pm_buf, path_buf);
-				}
-			}
-
-		}
-		nk_edit_string(ctx, edit_flags, pm_buf, &pm_len, STRBUF_SZ, nk_filter_default);
+		// Not sure if this will work doing things sort of out of order
+		button_pressed = nk_button_label(ctx, new_rename[nr_idx]);
+		active = nk_edit_string(ctx, edit_flags, pm_buf, &pm_len, STRBUF_SZ, nk_filter_default);
 		pm_buf[pm_len] = 0;
 		//printf("pm_len = %d\n", pm_len);
+		if (button_pressed || (active & NK_EDIT_COMMITED && pm_len)) {
+			if (cvec_contains_str(&g->playlists, pm_buf) < 0) {
+				get_playlist_path(path_buf2, pm_buf);
+
+				if (!nr_idx) {
+					FILE* f = fopen(path_buf2, "w");
+					if (!f) {
+						// GUI indication of failure
+						pm_len = snprintf(pm_buf, STRBUF_SZ, "%s", strerror(errno));
+						SDL_Log("Failed to create %s: %s\n", path_buf2, pm_buf);
+					} else {
+						fclose(f);
+						cvec_push_str(&g->playlists, pm_buf);
+						pm_buf[0] = 0;
+						pm_len = 0;
+					}
+				} else {
+					if (rename(path_buf, path_buf2)) {
+						pm_len = snprintf(pm_buf, STRBUF_SZ, "Failed to rename: %s", strerror(errno));
+						SDL_Log("Failed to rename %s to %s: %s\n", path_buf, path_buf2, pm_buf);
+					} else {
+						cvec_replace_str(&g->playlists, selected, pm_buf, NULL);
+						pm_buf[0] = 0;
+						pm_len = 0;
+						// update selection path
+						strcpy(path_buf, path_buf2);
+					}
+				}
+			} else {
+				pm_len = snprintf(path_buf, STRBUF_SZ, "'%s' already exists!", pm_buf);
+				strcpy(pm_buf, path_buf);
+			}
+		}
 
 		bounds = nk_widget_bounds(ctx);
 		nk_layout_row(ctx, NK_STATIC, scr_h-bounds.y, 2, group_szs);
@@ -1828,6 +1831,10 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 						path_buf[0] = 0;
 					}
 				}
+			}
+
+			if (nk_button_label(ctx, "Done")) {
+				g->show_pm = SDL_FALSE;
 			}
 
 			nk_group_end(ctx);
