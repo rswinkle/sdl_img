@@ -1870,6 +1870,7 @@ int scan_sources(void* data)
 			if (!strcmp(a[i], "-l")) {
 
 				// sanity check extension
+				// TODO GUI indication and don't exit just skip?
 				char* ext = GET_EXT(a[i+1]);
 				if (ext) {
 					for (int j=0; j<g->n_exts; ++j) {
@@ -2320,6 +2321,7 @@ void setup(int argc, char** argv)
 
 	// TODO think of a company/org name
 	g->prefpath = SDL_GetPrefPath("", "sdl_img");
+	normalize_path(g->prefpath);
 	//SDL_Log("%s\n%s\n\n", exepath, g->prefpath);
 	// SDL_free(exepath);
 
