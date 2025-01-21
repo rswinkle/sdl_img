@@ -976,9 +976,12 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 	// TODO move to browser?
 	static struct nk_list_view lview, rview;
-	static float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
 	static int splitter_down = 0;
+	char dir_buf[STRBUF_SZ];
 
+#define UP_WIDTH 100
+	float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
+	float path_szs[2] = { 0, UP_WIDTH };
 
 	int search_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
 	int text_path_flags = NK_EDIT_SELECTABLE | NK_EDIT_CLIPBOARD | NK_EDIT_AUTO_SELECT;
@@ -1042,7 +1045,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 		}
 		if (nk_button_label(ctx, "Open")) {
 			if (f->a[fb->selection].size == -1) {
-				switch_dir(fb, f->a[fb->selection].path);
+				my_switch_dir(f->a[fb->selection].path);
 			} else {
 				strncpy(fb->file, f->a[fb->selection].path, MAX_PATH_LEN);
 				ret = 0;
@@ -1053,6 +1056,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 		int path_rows = 1; // default 1 for text path
 		// don't show path if recents or in root directory "/"
 		if (!fb->is_recents && fb->dir[1]) {
+			strncpy(dir_buf, fb->dir, sizeof(dir_buf));
 			// method 1
 			// breadcrumb buttons
 			// I really hate Windows.  TODO Come up with a better way/compromise between visuals
@@ -1061,8 +1065,6 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				int depth = 0; // number of breadcrumb buttons;
 				ctx->style.window.spacing.x = 0;
 
-				char dir_buf[STRBUF_SZ];
-				strncpy(dir_buf, fb->dir, sizeof(dir_buf));
 				char *d = dir_buf;
 #ifndef _WIN32
 				char *begin = d + 1;
@@ -1087,7 +1089,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 						}
 #endif
 						if (nk_button_label(ctx, begin)) {
-							switch_dir(fb, dir_buf);
+							my_switch_dir(dir_buf);
 							break;
 						}
 						depth++;
@@ -1108,7 +1110,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 				// method 2
 				// TODO how to make this look like method 3, submit issue/documentation
-				const float path_szs[] = { win_content_rect.w-win_spacing.x-100, 100 };
+				path_szs[0] = win_content_rect.w-win_spacing.x-UP_WIDTH;
 				nk_layout_row(ctx, NK_STATIC, 0, 2, path_szs);
 
 				// method 3
@@ -1124,24 +1126,24 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 
 				if (nk_button_label(ctx, "Up")) {
-					char* s = strrchr(fb->dir, '/');
+					char* s = strrchr(dir_buf, '/');
 					assert(s); // should never be NULL since "/" or "C:/"
 #ifndef _WIN32
-					if (s != fb->dir) {
+					if (s != dir_buf) {
 						*s = 0;
 #else
 					if (s[1]) {
 						// Don't want to turn "C:/" into "C:" since that isn't actually a proper path
 						// ie opendir() fails on "C:"
-						if (s == &fb->dir[2]) {
+						if (s == &dir_buf[2]) {
 							s[1] = 0;
 						} else {
 							*s = 0;
 						}
 #endif
-						switch_dir(fb, NULL);
+						my_switch_dir(dir_buf);
 					} else {
-						switch_dir(fb, "/");
+						my_switch_dir("/");
 					}
 				}
 			}
@@ -1171,7 +1173,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 					fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, DFLT_FONT_SIZE, nk_vec2(bounds.w, 300));
 					if (fb->ignore_exts != old) {
 						if (!fb->is_recents) {
-							switch_dir(fb, NULL);
+							my_switch_dir(NULL);
 						} else {
 							handle_recents(fb);
 						}
@@ -1182,7 +1184,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, DFLT_FONT_SIZE, nk_vec2(bounds.w, 300));
 
 				if (nk_checkbox_label(ctx, "Show Hidden", &g->filebrowser.show_hidden)) {
-					switch_dir(fb, NULL);
+					my_switch_dir(NULL);
 				}
 
 				bounds = nk_widget_bounds(ctx);
@@ -1207,7 +1209,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 					fb->ignore_exts = SDL_TRUE;
 					if (fb->ignore_exts != old) {
 						if (!fb->is_recents) {
-							switch_dir(fb, NULL);
+							my_switch_dir(NULL);
 						} else {
 							handle_recents(fb);
 						}
@@ -1233,19 +1235,16 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				}
 			}
 			if (nk_button_label(ctx, "Home")) {
-				switch_dir(fb, fb->home);
+				my_switch_dir(fb->home);
 			}
 			if (nk_button_label(ctx, "Desktop")) {
-				switch_dir(fb, fb->desktop);
+				my_switch_dir(fb->desktop);
 			}
 			if (nk_button_label(ctx, "Computer")) {
-				switch_dir(fb, "/");
+				my_switch_dir("/");
 			}
 			if (nk_button_label(ctx, "Playlists")) {
-				g->open_playlist = SDL_TRUE;
-				g->open_single = SDL_FALSE;
-				g->open_recursive = SDL_FALSE;
-				switch_dir(fb, g->playlistdir);
+				my_switch_dir(g->playlistdir);
 			}
 
 			if (nk_button_label(ctx, "Add Bookmark")) {
@@ -1273,7 +1272,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 					}
 					bounds = nk_widget_bounds(ctx);
 					if (nk_button_label(ctx, name)) {
-						switch_dir(fb, b);
+						my_switch_dir(b);
 					}
 					if (nk_contextual_begin(ctx, 0, nk_vec2(100, 300), bounds)) {
 
@@ -1404,7 +1403,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 									// for now, treat clicking a selection as a "double click" ie same as return
 									if (f->a[i].size == -1) {
-										switch_dir(fb, f->a[i].path);
+										my_switch_dir(f->a[i].path);
 										break;
 									} else {
 										strncpy(fb->file, f->a[i].path, MAX_PATH_LEN);
@@ -1441,7 +1440,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 								fb->selection = i;
 							} else {
 								if (f->a[i].size == -1) {
-									switch_dir(fb, f->a[i].path);
+									my_switch_dir(f->a[i].path);
 									break;
 								} else {
 									strncpy(fb->file, f->a[i].path, MAX_PATH_LEN);

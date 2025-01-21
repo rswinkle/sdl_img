@@ -410,8 +410,9 @@ Sint32 selection_len;
 
 int cvec_contains_str(cvector_str* list, char* s);
 void read_cur_playlist(void);
+void my_switch_dir(const char* dir);
 
-// has to come after all the enums/macros/struct defs and bytes2str 
+// has to come after all the enums/macros/struct defs and bytes2str
 #include "gui.c"
 
 #include "sorting.c"
@@ -1150,6 +1151,27 @@ exit_load_thumbs:
 	g->loading_thumbs = SDL_FALSE;
 	SDL_Log("Done loading thumbs in %.2f seconds, exiting thread.\n", (SDL_GetTicks()-start)/1000.0f);
 	return 0;
+}
+
+void my_switch_dir(const char* dir)
+{
+	// We automatically turn open_playlist on when going into
+	// the playlist directory, so we turn it off leaving
+
+	// NOTE this doesn't occur if dir is NULL so don't modify fb->dir in place
+	// and call with dir == NULL; dir == NULL should only be used for refreshing
+	// the current dir
+	if (dir) {
+		if (!strcmp(dir, g->playlistdir)) {
+			g->open_playlist = SDL_TRUE;
+			g->open_single = SDL_FALSE;
+			g->open_recursive = SDL_FALSE;
+			g->filebrowser.ignore_exts = SDL_TRUE;
+		} else {
+			g->open_playlist = SDL_FALSE;
+		}
+	}
+	switch_dir(&g->filebrowser, dir);
 }
 
 // debug
