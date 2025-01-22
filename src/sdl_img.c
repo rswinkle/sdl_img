@@ -336,6 +336,7 @@ typedef struct global_state
 	int has_bad_paths;
 
 	int state; // better name?
+	int is_exiting;
 
 	// flag to do load returning from thumb mode
 	int do_next;
@@ -666,21 +667,25 @@ void cleanup(int ret, int called_setup)
 {
 	//char buf[STRBUF_SZ] = { 0 };
 
+	g->is_exiting = SDL_TRUE;
+
 	SDL_LogDebugApp("In cleanup()");
 	if (called_setup) {
 
 		if (g->generating_thumbs) {
-			g->generating_thumbs = FALSE;
-			while (!g->thumbs_done) {
-				; // wait for thread to exit
-			}
+			// wait for thread to exit
+			while (!g->thumbs_done);
 		}
 
 		if (g->loading_thumbs) {
-			g->loading_thumbs = FALSE;
-			while (!g->thumbs_loaded) {
-				; // wait for thread to exit
-			}
+			// wait for thread to exit
+			while (!g->thumbs_loaded);
+		}
+
+		// setting g->is_exiting will get myscandir to exit early but
+		// we still have to wait for it to back out of nested recursive calls
+		if (g->state == SCANNING) {
+			while (g->done_scanning != EXIT);
 		}
 
 		// appends prefpath inside
@@ -697,29 +702,26 @@ void cleanup(int ret, int called_setup)
 			free(g->img_exts);
 		}
 
-		// not really necessary to exit thread but
-		// valgrind reports it as possibly lost if not
+		// TODO get rid of this requirement
+		// First wait for anything currently loading to exit
+		while (g->loading);
+
+		// not really necessary to exit thread but for completion's sake
+		// and to get rid of Valgrind's "possibly lost warnings"
+		//try_move(EXIT); // can't do this because done_loading
 		SDL_LockMutex(g->img_loading_mtx);
 		g->loading = EXIT;
 		SDL_CondSignal(g->img_loading_cnd);
 		SDL_UnlockMutex(g->img_loading_mtx);
 
-
-		// Apparently I have to do something more complicated or the Optimizer will get rid
-		// of code that breaks my logic...
-		/*
-		// This worked fine in debug, but not in release mode
-		while (g->loading) {
-			;
-		}
-		 */
+		// Now just in case the rest of cleanup() went to quickly, we
+		// actually wait for it to exit
 		SDL_LockMutex(g->img_loading_mtx);
 		while (g->loading) {
 			SDL_CondWait(g->img_loading_cnd, g->img_loading_mtx);
-			SDL_LogDebugApp("Waiting for loading to exit, g->loading is: %d\n", g->loading);
+			SDL_LogDebugApp("Waiting for loading to exit...\n");
 		}
 		SDL_UnlockMutex(g->img_loading_mtx);
-
 
 		for (int i=0; i<g->n_imgs; ++i) {
 			clear_img(&g->img[i]);
@@ -753,6 +755,7 @@ void cleanup(int ret, int called_setup)
 	free(g->prefpath);
 	cvec_free_thumb_state(&g->thumbs);
 	cvec_free_file(&g->files);
+	cvec_free_i(&g->search_results);
 	cvec_free_str(&g->favs);
 	cvec_free_str(&g->playlists);
 	curl_global_cleanup();
@@ -978,8 +981,7 @@ int gen_thumbs(void* data)
 	for (int i=0; i<g->files.size; ++i) {
 
 		// user exited, want to cleanly end thread
-		// abusing generating_thumbs as two way communication flag
-		if (!g->generating_thumbs) {
+		if (g->is_exiting) {
 			goto exit_gen_thumbs;
 		}
 
@@ -1121,8 +1123,7 @@ int load_thumbs(void* data)
 
 	for (int i=0; i<g->thumbs.size; i++) {
 		// user exited, want to cleanly end thread
-		// abusing loading_thumbs as two way communication flag
-		if (!g->loading_thumbs) {
+		if (g->is_exiting) {
 			goto exit_load_thumbs;
 		}
 
@@ -1362,6 +1363,10 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 
 	//SDL_Log("Scanning %s for images...\n", dirpath);
 	while ((entry = readdir(dir))) {
+
+		if (g->is_exiting) {
+			break;
+		}
 
 		// faster than 2 strcmp calls? ignore "." and ".."
 		if (entry->d_name[0] == '.' && (!entry->d_name[1] || (entry->d_name[1] == '.' && !entry->d_name[2]))) {
@@ -1788,7 +1793,7 @@ int remove_duplicates(void)
 	int j;
 	for (int i=f->size-1; i>0; --i) {
 		j = i-1;
-		SDL_LogDebugApp("comparing\n%s\n%s\n\n", f->a[i].path, f->a[j].path);
+		//SDL_LogDebugApp("comparing\n%s\n%s\n\n", f->a[i].path, f->a[j].path);
 		while (j >= 0 && !strcmp(f->a[i].path, f->a[j].path)) {
 			SDL_LogDebugApp("found a duplicate\n");
 			j--;
@@ -1872,11 +1877,14 @@ int scan_sources(void* data)
 	cvector_str* srcs = &g->sources;
 	while (1) {
 		SDL_LockMutex(g->scanning_mtx);
-		while (!srcs->size) {
+		while (!srcs->size && !g->is_exiting) {
 			SDL_CondWait(g->scanning_cnd, g->scanning_mtx);
 		}
 		// anything here?
 		SDL_UnlockMutex(g->scanning_mtx);
+		if (g->is_exiting) {
+			break;
+		}
 
 		given_list = 0;
 		given_dir = 0;
@@ -1888,6 +1896,9 @@ int scan_sources(void* data)
 
 		char** a = srcs->a;
 		for (int i=0; i<srcs->size; ++i) {
+			if (g->is_exiting) {
+				goto exit_scan_sources;
+			}
 			SDL_LogDebugApp("Scanning source: %s\n", a[i]);
 			if (!strcmp(a[i], "-l")) {
 
@@ -2033,6 +2044,9 @@ int scan_sources(void* data)
 		SDL_UnlockMutex(g->scanning_mtx);
 	}
 
+exit_scan_sources:
+	SDL_Log("Exiting scanning thread\n");
+	g->done_scanning = EXIT;
 	return 0;
 }
 
