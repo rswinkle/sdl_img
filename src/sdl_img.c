@@ -730,7 +730,10 @@ void cleanup(int ret, int called_setup)
 
 		for (int i=0; i<g->n_imgs; ++i) {
 			clear_img(&g->img[i]);
-			free(g->img[i].tex);
+		}
+		for (int i=0; i<8; ++i) {
+			free(g->img1[i].tex);
+			free(g->img2[i].tex);
 		}
 
 		if (g->favs.size) {
