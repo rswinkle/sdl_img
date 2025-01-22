@@ -682,10 +682,15 @@ void cleanup(int ret, int called_setup)
 			while (!g->thumbs_loaded);
 		}
 
-		// setting g->is_exiting will get myscandir to exit early but
-		// we still have to wait for it to back out of nested recursive calls
 		if (g->state == SCANNING) {
+			// setting g->is_exiting will get myscandir to exit early but
+			// we still have to wait for it to back out of nested recursive calls
 			while (g->done_scanning != EXIT);
+		} else {
+			// have to signal it to exit since it's sleeping
+			SDL_LockMutex(g->scanning_mtx);
+			SDL_CondSignal(g->scanning_cnd);
+			SDL_UnlockMutex(g->scanning_mtx);
 		}
 
 		// appends prefpath inside
@@ -749,10 +754,10 @@ void cleanup(int ret, int called_setup)
 		}
 
 		SDL_Quit();
-
 	}
 
 	free(g->prefpath);
+	free_file_browser(&g->filebrowser);
 	cvec_free_thumb_state(&g->thumbs);
 	cvec_free_file(&g->files);
 	cvec_free_i(&g->search_results);
@@ -1078,7 +1083,7 @@ exit_gen_thumbs:
 
 void free_thumb(void* t)
 {
-	SDL_DestroyTexture(t);
+	SDL_DestroyTexture(((thumb_state*)t)->tex);
 }
 
 void generate_thumbs(intptr_t do_load)
