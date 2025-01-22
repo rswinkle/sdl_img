@@ -31,10 +31,10 @@ ifeq ($(config), release)
 	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
 	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
 else
-	#OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall
+	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall
 
 	#for valgrind
-	OPTS=-std=gnu99 -g -O0 -Wall
+	#OPTS=-std=gnu99 -g -O0 -Wall
 
 	#OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall -DSDL_DISABLE_IMMINTRIN_H
 endif

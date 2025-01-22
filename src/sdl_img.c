@@ -645,6 +645,8 @@ void clear_img(img_state* img)
 				stbi_write_tga(full_img_path, img->w, img->h, 4, img->pixels);
 			else
 				stbi_write_jpg(full_img_path, img->w, img->h, 4, img->pixels, 100);
+
+			// TODO update thumb if it exists
 		}
 	}
 
