@@ -33,7 +33,7 @@ ifeq ($(config), release)
 else
 	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall
 
-	#for valgrind
+	#for valgrind or gdb
 	#OPTS=-std=gnu99 -g -O0 -Wall
 
 	#OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall -DSDL_DISABLE_IMMINTRIN_H

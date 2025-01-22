@@ -385,6 +385,13 @@ typedef struct global_state
 	// threading
 	int generating_thumbs;
 	int loading_thumbs;
+
+	// only one for both since you never have the generating
+	// and the loading thread at the same time...for now
+	SDL_cond* thumb_cnd;
+	SDL_mutex* thumb_mtx;
+
+
 	int loading;
 	int done_loading;
 	SDL_cond* img_loading_cnd;
@@ -676,24 +683,63 @@ void cleanup(int ret, int called_setup)
 
 		if (g->generating_thumbs) {
 			// wait for thread to exit
-			while (!g->thumbs_done);
+			SDL_LockMutex(g->thumb_mtx);
+			while (!g->thumbs_done) {
+				SDL_LogDebugApp("Waiting for thumb generating thread to exit...\n");
+				SDL_CondWait(g->thumb_cnd, g->thumb_mtx);
+			}
+			SDL_UnlockMutex(g->thumb_mtx);
 		}
 
 		if (g->loading_thumbs) {
 			// wait for thread to exit
-			while (!g->thumbs_loaded);
+			SDL_LockMutex(g->thumb_mtx);
+			while (!g->thumbs_loaded) {
+				SDL_LogDebugApp("Waiting for thumb loading thread to exit...\n");
+				SDL_CondWait(g->thumb_cnd, g->thumb_mtx);
+			}
+			SDL_UnlockMutex(g->thumb_mtx);
 		}
 
-		if (g->state == SCANNING) {
-			// setting g->is_exiting will get myscandir to exit early but
-			// we still have to wait for it to back out of nested recursive calls
-			while (g->done_scanning != EXIT);
-		} else {
+		if (g->state != SCANNING) {
 			// have to signal it to exit since it's sleeping
 			SDL_LockMutex(g->scanning_mtx);
 			SDL_CondSignal(g->scanning_cnd);
 			SDL_UnlockMutex(g->scanning_mtx);
 		}
+
+		SDL_LockMutex(g->scanning_mtx);
+		while (g->done_scanning != EXIT) {
+			SDL_LogDebugApp("Waiting for scanning thread to exit...\n");
+			SDL_CondWait(g->scanning_cnd, g->scanning_mtx);
+		}
+		SDL_UnlockMutex(g->scanning_mtx);
+
+		// TODO get rid of this requirement
+		// First wait for anything currently loading to exit
+		while (g->loading) {
+			SDL_LogDebugApp("Waiting for loading to finish\n");
+		}
+
+		// not really necessary to exit thread but for completion's sake
+		// and to get rid of Valgrind's "possibly lost warnings"
+		//try_move(EXIT); // can't do this because done_loading
+		SDL_LockMutex(g->img_loading_mtx);
+		g->loading = EXIT;
+		SDL_Log("Sending EXIT to loading thread");
+		SDL_CondSignal(g->img_loading_cnd);
+		SDL_UnlockMutex(g->img_loading_mtx);
+
+		// Now just in case the rest of cleanup() went to quickly, we
+		// actually wait for it to exit
+		SDL_LockMutex(g->img_loading_mtx);
+		while (g->loading) {
+			SDL_LogDebugApp("Waiting for loading to exit...\n");
+			SDL_CondWait(g->img_loading_cnd, g->img_loading_mtx);
+		}
+		SDL_UnlockMutex(g->img_loading_mtx);
+
+
 
 		// appends prefpath inside
 		write_config_file("config.lua");
@@ -708,27 +754,6 @@ void cleanup(int ret, int called_setup)
 			}
 			free(g->img_exts);
 		}
-
-		// TODO get rid of this requirement
-		// First wait for anything currently loading to exit
-		while (g->loading);
-
-		// not really necessary to exit thread but for completion's sake
-		// and to get rid of Valgrind's "possibly lost warnings"
-		//try_move(EXIT); // can't do this because done_loading
-		SDL_LockMutex(g->img_loading_mtx);
-		g->loading = EXIT;
-		SDL_CondSignal(g->img_loading_cnd);
-		SDL_UnlockMutex(g->img_loading_mtx);
-
-		// Now just in case the rest of cleanup() went to quickly, we
-		// actually wait for it to exit
-		SDL_LockMutex(g->img_loading_mtx);
-		while (g->loading) {
-			SDL_CondWait(g->img_loading_cnd, g->img_loading_mtx);
-			SDL_LogDebugApp("Waiting for loading to exit...\n");
-		}
-		SDL_UnlockMutex(g->img_loading_mtx);
 
 		for (int i=0; i<g->n_imgs; ++i) {
 			clear_img(&g->img[i]);
@@ -750,6 +775,10 @@ void cleanup(int ret, int called_setup)
 			}
 		}
 
+		// Have to free these *before* Destroying the Renderer and
+		// exiting SDL
+		cvec_free_thumb_state(&g->thumbs);
+
 		// Exit SDL and close logfile last so we can use SDL_Log*() above and in other threads
 		// till the end
 		SDL_DestroyRenderer(g->ren);
@@ -763,7 +792,6 @@ void cleanup(int ret, int called_setup)
 
 	free(g->prefpath);
 	free_file_browser(&g->filebrowser);
-	cvec_free_thumb_state(&g->thumbs);
 	cvec_free_file(&g->files);
 	cvec_free_i(&g->search_results);
 	cvec_free_str(&g->favs);
@@ -992,6 +1020,7 @@ int gen_thumbs(void* data)
 
 		// user exited, want to cleanly end thread
 		if (g->is_exiting) {
+			g->thumbs.size = (do_load) ? i : 0;
 			goto exit_gen_thumbs;
 		}
 
@@ -1078,9 +1107,12 @@ int gen_thumbs(void* data)
 	}
 
 exit_gen_thumbs:
+	SDL_LockMutex(g->thumb_mtx);
 	g->generating_thumbs = SDL_FALSE;
 	g->thumbs_done = SDL_TRUE;
 	g->thumbs_loaded = do_load;
+	SDL_CondSignal(g->thumb_cnd);
+	SDL_UnlockMutex(g->thumb_mtx);
 
 	SDL_Log("Done generating thumbs in %.2f seconds, exiting thread.\n", (SDL_GetTicks()-start)/1000.0f);
 	return 0;
@@ -1088,6 +1120,11 @@ exit_gen_thumbs:
 
 void free_thumb(void* t)
 {
+	/*
+	if (!((thumb_state*)t)->tex) {
+		SDL_Log("Shouldn't get here\n");
+	}
+	*/
 	SDL_DestroyTexture(((thumb_state*)t)->tex);
 }
 
@@ -1134,6 +1171,7 @@ int load_thumbs(void* data)
 	for (int i=0; i<g->thumbs.size; i++) {
 		// user exited, want to cleanly end thread
 		if (g->is_exiting) {
+			g->thumbs.size = i;
 			goto exit_load_thumbs;
 		}
 
@@ -1158,8 +1196,12 @@ int load_thumbs(void* data)
 	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 
 exit_load_thumbs:
+	SDL_LockMutex(g->thumb_mtx);
 	g->thumbs_loaded = SDL_TRUE;
 	g->loading_thumbs = SDL_FALSE;
+	SDL_CondSignal(g->thumb_cnd);
+	SDL_UnlockMutex(g->thumb_mtx);
+
 	SDL_Log("Done loading thumbs in %.2f seconds, exiting thread.\n", (SDL_GetTicks()-start)/1000.0f);
 	return 0;
 }
@@ -1946,6 +1988,12 @@ int scan_sources(void* data)
 			}
 		}
 
+		// need this in case there was only 1 source so we finished/backed out
+		// of that but never hit the check at the top of the loop again
+		if (g->is_exiting) {
+			break; //goto exit_scan_sources; //same
+		}
+
 		cvec_clear_str(srcs);
 
 
@@ -2055,8 +2103,11 @@ int scan_sources(void* data)
 	}
 
 exit_scan_sources:
-	SDL_Log("Exiting scanning thread\n");
+	SDL_LockMutex(g->scanning_mtx);
+	SDL_LogDebugApp("Exiting scanning thread\n");
 	g->done_scanning = EXIT;
+	SDL_CondSignal(g->scanning_cnd);
+	SDL_UnlockMutex(g->scanning_mtx);
 	return 0;
 }
 
@@ -2620,6 +2671,16 @@ void setup(int argc, char** argv)
 	// type of event for all GUI initiated events
 	g->userevent = SDL_RegisterEvents(1);
 	if (g->userevent == (u32)-1) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Error: %s\n", SDL_GetError());
+		cleanup(0, 1);
+	}
+
+	if (!(g->thumb_cnd = SDL_CreateCond())) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR,"Error: %s\n", SDL_GetError());
+		cleanup(0, 1);
+	}
+
+	if (!(g->thumb_mtx = SDL_CreateMutex())) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
