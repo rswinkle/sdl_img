@@ -1,11 +1,12 @@
 !include LogicLib.nsh
 
 !include "MUI2.nsh"
+!include "FileFunc.nsh"
 
 ; --------------------------------
 
 ; Change these as needed
-!define VERSION "1.0-RC2"
+!define VERSION "1.0-RC3"
 !define INST_FOLDER "package"
 
 SetCompressor /SOLID /FINAL lzma
@@ -14,13 +15,24 @@ SetCompressorDictSize 64
 Name "sdl_img-${VERSION}"
 OutFile "sdl_img-${VERSION}-Setup.exe"
 
-; Not sure how this works if they keep the default install folder
-RequestExecutionLevel user
+; This doesn't work if they keep the default install folder
+; but on the other hand you can install it anywhere without admin...
+; So which is better?  Forcing admin because of the default install location
+; or letting some users have to run it again as administrator?
+;RequestExecutionLevel user
+RequestExecutionLevel admin
 
 ; Default install folder
 InstallDir "$PROGRAMfILES64\sdl_img"
 
 ; Do registry stuff here if wanted
+!define REGUNINSTKEY "sdl_img"  ; could use GUID to assure uniqueness
+;!define REGHKEY HKCU    ; for execution level user
+!define REGHKEY HKLM   ; for execution level admin
+
+; Do I need double backslashes?
+!define REGPATH_WINUNINST "Software\Microsoft\Windows\CurrentVersion\Uninstall"
+
 
 ;-----------------------------------
 ; Interface configuration
@@ -99,12 +111,34 @@ Section "-Core"
 	File ${INST_FOLDER}\README.md
 	File ${INST_FOLDER}\ca-bundle.crt
 
-	WriteUninstaller $INSTDIR\uninstall.exe
+	WriteUninstaller "$INSTDIR\uninstall.exe"
 
-	;WriteRegStr SHCTX "Software\sdl_img " "" $INSTDIR
-	WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\sdl_img" "DisplayName" "sdl_img"
-	WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\sdl_img" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
-	WriteRegStr SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\sdl_img" "QuietUninstallString" "$\"$INSTDIR\uninstall.exe$\" /S"
+	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "DisplayName" "sdl_img"
+	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "UninstallString" "$\"$INSTDIR\\uninstaller.exe$\""
+	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "QuietUninstallString" "$\"$INSTDIR\uninstaller.exe$\" /S"
+
+	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "InstallLocation" "$INSTDIR"
+	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "Publisher" "Robert Winkler"
+	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "HelpLink" "https://www.robertwinkler.com"
+	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "DisplayVersion" "${VERSION}"
+
+
+	; get cumulative size of all files in and under install dir
+	; report the total in KB (decimal)
+	; place the answer into $0  (ignore $1 $2)
+	${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
+
+	!echo "installed size estimate $0"
+
+	; Convert the decimal KB value in $0 to DWORD
+	; put it right back into $0
+	IntFmt $0 "0x$08X" $0
+
+	!echo "installed size estimate dword $0"
+
+	; If I do this here it won't count the size of the source code if they include it?
+	; create/update the reg key
+	WriteRegDWORD ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "EstimatedSize" "$0" ; where $0 is the size in bytes
 
 
 
@@ -167,8 +201,8 @@ Section "Uninstall"
 	; will only remove if dir is empty
 	rmDir $INSTDIR
 
-	DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\sdl_img"
-
+	; Does this delete all the registry stuff I did?  I guess it's sort of a directory thing
+	DeleteRegKey ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}"
 
 	; don't forget this 
 	RMDir /r $STARTMENU\sdl_img
