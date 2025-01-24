@@ -351,6 +351,7 @@ void draw_gui(struct nk_context* ctx)
 	static int splitter_down = 0;
 
 	int search_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
+	struct nk_window* search_text_field = NULL;
 
 	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
 		splitter_down = 0;

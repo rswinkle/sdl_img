@@ -596,6 +596,91 @@ int create_textures(img_state* img)
 	return 1;
 }
 
+extern inline void hash2str(char* str, MD5_HASH* h)
+{
+	char buf[3];
+
+	for (int i=0; i<MD5_HASH_SIZE; ++i) {
+		sprintf(buf, "%02x", h->bytes[i]);
+		strcat(str, buf);
+	}
+}
+
+void get_thumbpath(const char* path, char* thumbpath, size_t thumbpath_len)
+{
+	MD5_HASH hash;
+	char hash_str[MD5_HASH_SIZE*2+1] = { 0 };
+
+	Md5Calculate(path, strlen(path), &hash);
+	hash_str[0] = 0;
+	hash2str(hash_str, &hash);
+	// could just do the %02x%02x etc. here but that'd be a long format string and 16 extra parameters
+	int ret = snprintf(thumbpath, thumbpath_len, "%s/%s.png", g->thumbdir, hash_str);
+	if (ret >= thumbpath_len) {
+		SDL_Log("path too long\n");
+		cleanup(0, 1);
+	}
+}
+
+void make_thumb_tex(int i, int w, int h, u8* pix)
+{
+	if (!pix)
+		return;
+
+	if (g->thumbs.a[i].tex) {
+		// Doing a rotation/flip after loading thumbs, can't change the
+		// texture dimensions, so have to destroy and make a new one
+		SDL_DestroyTexture(g->thumbs.a[i].tex);
+	}
+	
+	g->thumbs.a[i].tex = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, w, h);
+	
+	if (!g->thumbs.a[i].tex) {
+		SDL_Log("Error creating texture: %s\n", SDL_GetError());
+		cleanup(0, 1);
+	}
+	if (SDL_UpdateTexture(g->thumbs.a[i].tex, NULL, pix, w*4)) {
+		SDL_Log("Error updating texture: %s\n", SDL_GetError());
+		cleanup(0, 1);
+	}
+
+	g->thumbs.a[i].w = w;
+	g->thumbs.a[i].h = h;
+}
+
+int make_thumb(int i, int w, int h, u8* pix, const char* thumbpath, int do_load)
+{
+	int out_w, out_h;
+	u8* outpix;
+
+	if (w > h) {
+		out_w = THUMBSIZE;
+		out_h = THUMBSIZE * h/(float)w;
+	} else {
+		out_h = THUMBSIZE;
+		out_w = THUMBSIZE * w/(float)h;
+	}
+
+	if (!(outpix = malloc(out_h*out_w*4))) {
+		cleanup(0, 1);
+	}
+
+	if (!stbir_resize_uint8_linear(pix, w, h, 0, outpix, out_w, out_h, 0, STBIR_RGBA)) {
+		SDL_Log("Failed to resize for thumbnail!\n");
+		free(outpix);
+		return 0;
+	}
+
+	stbi_write_png(thumbpath, out_w, out_h, 4, outpix, out_w*4);
+
+	if (do_load) {
+		make_thumb_tex(i, out_w, out_h, outpix);
+	}
+	free(outpix);
+
+	return 1;
+}
+
 void clear_img(img_state* img)
 {
 	for (int i=0; i<img->frames; ++i) {
@@ -644,16 +729,38 @@ void clear_img(img_state* img)
 				// to update g->files.a[img->index].path with the new name
 			}
 
-			if (!strcasecmp(ext, ".png"))
+			if (!strcasecmp(ext, ".png")) {
 				stbi_write_png(full_img_path, img->w, img->h, 4, img->pixels, img->w*4);
-			else if (!strcasecmp(ext, ".bmp"))
+			} else if (!strcasecmp(ext, ".bmp")) {
 				stbi_write_bmp(full_img_path, img->w, img->h, 4, img->pixels);
-			else if (!strcasecmp(ext, ".tga"))
+			} else if (!strcasecmp(ext, ".tga")) {
 				stbi_write_tga(full_img_path, img->w, img->h, 4, img->pixels);
-			else
+			} else {
 				stbi_write_jpg(full_img_path, img->w, img->h, 4, img->pixels, 100);
+			}
 
-			// TODO update thumb if it exists
+			// TODO update thumb if it exists and reload if g->thumbs_loaded
+			char thumbpath[STRBUF_SZ] = { 0 };
+			get_thumbpath(full_img_path, thumbpath, sizeof(thumbpath));
+
+			struct stat thumb_stat;
+			if (!stat(thumbpath, &thumb_stat)) {
+				remove(thumbpath);
+			}
+			if (!g->thumbs_done) {
+				;
+				// just delete it, the updated version will be made
+				// when/if they generate thumbs
+			} else if (!g->thumbs_loaded) {
+				g->thumbs_done = SDL_FALSE;
+				// regeneration is usually quick if they're all already done
+				// TODO
+			} else {
+				// they're generated and loaded so just make it here
+				// and update the texture
+				int i = (IS_VIEW_RESULTS()) ? g->search_results.a[img->index] : img->index;
+				make_thumb(i, img->w, img->h, img->pixels, thumbpath, SDL_TRUE);
+			}
 		}
 	}
 
@@ -778,6 +885,7 @@ void cleanup(int ret, int called_setup)
 		// Have to free these *before* Destroying the Renderer and
 		// exiting SDL
 		cvec_free_thumb_state(&g->thumbs);
+		nk_sdl_shutdown();
 
 		// Exit SDL and close logfile last so we can use SDL_Log*() above and in other threads
 		// till the end
@@ -958,55 +1066,9 @@ exit_cleanup:
 	return NULL;
 }
 
-extern inline void hash2str(char* str, MD5_HASH* h)
-{
-	char buf[3];
-
-	for (int i=0; i<MD5_HASH_SIZE; ++i) {
-		sprintf(buf, "%02x", h->bytes[i]);
-		strcat(str, buf);
-	}
-}
-
-void get_thumbpath(const char* path, char* thumbpath, size_t thumbpath_len)
-{
-	MD5_HASH hash;
-	char hash_str[MD5_HASH_SIZE*2+1] = { 0 };
-
-	Md5Calculate(path, strlen(path), &hash);
-	hash_str[0] = 0;
-	hash2str(hash_str, &hash);
-	// could just do the %02x%02x etc. here but that'd be a long format string and 16 extra parameters
-	int ret = snprintf(thumbpath, thumbpath_len, "%s/%s.png", g->thumbdir, hash_str);
-	if (ret >= thumbpath_len) {
-		SDL_Log("path too long\n");
-		cleanup(0, 1);
-	}
-}
-
-void make_thumb_tex(int i, int w, int h, u8* pix)
-{
-	if (!pix)
-		return;
-
-	g->thumbs.a[i].tex = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, w, h);
-	if (!g->thumbs.a[i].tex) {
-		SDL_Log("Error creating texture: %s\n", SDL_GetError());
-		cleanup(0, 1);
-	}
-	if (SDL_UpdateTexture(g->thumbs.a[i].tex, NULL, pix, w*4)) {
-		SDL_Log("Error updating texture: %s\n", SDL_GetError());
-		cleanup(0, 1);
-	}
-
-	g->thumbs.a[i].w = w;
-	g->thumbs.a[i].h = h;
-}
-
 int gen_thumbs(void* data)
 {
 	int w, h, channels;
-	int out_w, out_h;
 	char thumbpath[STRBUF_SZ] = { 0 };
 
 	struct stat thumb_stat, orig_stat;
@@ -1043,9 +1105,7 @@ int gen_thumbs(void* data)
 			}
 		}
 
-		// path was already set to realpath in myscandir if using linux
-		// Windows will just generate duplicate thumbnails when accessing the
-		// same image from a different relative path
+		// path was already set to realpath in myscandir
 		get_thumbpath(g->files.a[i].path, thumbpath, sizeof(thumbpath));
 
 		if (!stat(thumbpath, &thumb_stat)) {
@@ -1067,31 +1127,11 @@ int gen_thumbs(void* data)
 			continue;
 		}
 
-		if (w > h) {
-			out_w = THUMBSIZE;
-			out_h = THUMBSIZE * h/(float)w;
-		} else {
-			out_h = THUMBSIZE;
-			out_w = THUMBSIZE * w/(float)h;
-		}
-
-		if (!(outpix = malloc(out_h*out_w*4))) {
-			cleanup(0, 1);
-		}
-
-		if (!stbir_resize_uint8_linear(pix, w, h, 0, outpix, out_w, out_h, 0, STBIR_RGBA)) {
+		if (!make_thumb(i, w, h, pix, thumbpath, do_load)) {
 			free(pix);
-			free(outpix);
 			continue;
 		}
-
-		stbi_write_png(thumbpath, out_w, out_h, 4, outpix, out_w*4);
-
-		if (do_load) {
-			make_thumb_tex(i, out_w, out_h, outpix);
-		}
 		free(pix);
-		free(outpix);
 		SDL_Log("generated thumb %d for %s\n", i, g->files.a[i].path);
 	}
 
@@ -1130,20 +1170,22 @@ void free_thumb(void* t)
 
 void generate_thumbs(intptr_t do_load)
 {
-	if (g->thumbs.a)
+	if (g->thumbs_done)
 		return;
 
 	// still using separate calloc because calling vec constructor uses
 	// malloc and I want them 0'd
-	thumb_state* tmp;
-	if (!(tmp = calloc(g->files.size, sizeof(thumb_state)))) {
-		cleanup(0, 1);
+	if (!g->thumbs.a) {
+		thumb_state* tmp;
+		if (!(tmp = calloc(g->files.size, sizeof(thumb_state)))) {
+			cleanup(0, 1);
+		}
+		g->thumbs.a = tmp;
+		g->thumbs.size = g->files.size;
+		g->thumbs.capacity = g->files.size;
+		g->thumbs.elem_free = free_thumb;
+		// elem_init already NULL
 	}
-	g->thumbs.a = tmp;
-	g->thumbs.size = g->files.size;
-	g->thumbs.capacity = g->files.size;
-	g->thumbs.elem_free = free_thumb;
-	// elem_init already NULL
 
 	g->generating_thumbs = SDL_TRUE;
 	SDL_Log("Starting thread to generate thumbs\n");
@@ -2815,6 +2857,10 @@ void calc_rotated_size(int w, int h, float degrees, int* out_w, int* out_h)
 
 void rotate_img(img_state* img)
 {
+	if (!img) {
+		return;
+	}
+
 	int w, h, frames;
 	frames = img->frames;
 
