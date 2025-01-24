@@ -175,6 +175,7 @@ the default Vim keybinds, HJKL, are JCVP physically.
 | /pattern + ENTER        | Enter "Results mode" (cycle with n/N) |
 | CTRL + ENTER            | (in results mode) View results |
 | ESC                     | Exit or "Back" similar to Android |
+| CTRL + C                | Same as Vim, almost the same as ESC but can't exit thumbmode |
 
 The number of rows and columns can also be set in Preferences, as well as whether X deletes
 instead of just removing the selection.
@@ -193,15 +194,21 @@ ESC to backs out of View Results, Results, and list mode entirely.
 
 Building
 ========
-On Linux I now use a custom Makefile.  Just running `make` will create a debug build,
+There's a Makefile which is not great but gets the job done.
+
+On Linux just running `make` will create a debug build,
 while `make config=release` (after a `make clean`) will create an optimized build.
 
-On Windows I use [MSYS2](https://github.com/msys2/msys2/wiki/MSYS2-installation).
-You can do `make PLAT=windows` or just change the default at the top of the makefile so
-you don't have to specify it every time.
+On Windows I use [MSYS2](https://github.com/msys2/msys2/wiki/MSYS2-installation) and
+you can do `make PLAT=windows` or just change the default at the top of the makefile so
+you don't have to specify it every time. Unfortunately it seems to be broken no matter
+whith MSYS2 environment I choose at the moment so the last windows build was built
+using the cross compiling target which uses
+[quasi-msys2](https://github.com/HolyBlackCat/quasi-msys2). I'm using the default setup
+which is native clang with a ucrt environment but I'm still unclear why that works
+but clang and a ucrt environment on actual Windows doesn't.
 
-There are other targets for creating packages (ie installers) and some expermental
-targets for cross compiling.
+There are other targets for creating packages (ie installers) for each platform.
 
 Packaging
 =========
@@ -221,10 +228,11 @@ so I chose sdl_img rather than stb_img.  Unfortunately, SDL_image and SDL2_image
 (libsdl-image1.2 and libsdl2-image in repos) also exist so there's a minor clash there too.
 
 Now I'm using the following libraries:
-[SDL2](https://www.libsdl.org), stb_image, stb_image_write, stb_image_resize
+[SDL2](https://www.libsdl.org), stb_image, stb_image_write, stb_image_resize2
 [libcurl](https://curl.haxx.se/libcurl/)
 [nuklear](https://github.com/vurtun/nuklear) (immediate mode GUI library)
 [WjCryptLibMd5](https://github.com/WaterJuice/WjCryptLib)
+[Lua](https://lua.org/) in the form of [minilua](https://github.com/edubart/minilua)
 
 So potential names are stb_img, sdl_img, sdl2_img, sdl_imv, nuklear_img, or
 some cool original name that I'm not creative enough to think of.  I'm open to
@@ -233,33 +241,15 @@ suggestions.
 
 TODO/IDEAS
 ==========
-- [x] Let user adjust gif delay up/down with ALT + +/-
-- [x] Make initial window size based on initial image dimensions
-- [x] Take a text list of image paths as an arg and browse those
-- [x] Same as above, but allow URL's (download into a tmp/cache directory)
-- [x] Don't waste CPU cycles/battery when viewing static images
-- [x] Can delete current image in single image mode
-- [x] Can rotate images (and save the changes if not animated gifs)
-- [x] Handle quoted paths/urls in -l files
-- [x] Handle being given a directory as an argument(s)
-- [x] Add argument -s [1-10] to start in slideshow mode
 - [ ] Add window icon (either static or based on current image(s))
-- [x] Thumbnail generating and browsing
 - [ ] Install icon in deb package
 - [ ] WebM support with mbew?
 - [ ] MP4 support?
-- [x] Speed up initial startup when a directory has a large number of images
-- [x] Change sorting to use strcmp for humans (could use gnu strverscmp)
-- [x] Recursive directory scanning with -r/-R
-- [x] shuffle/sort (m / o for mix/order)
-- [x] Use image extensions as a filter most common use cases
-- [x] Nuklear GUI
-- [x] save to favorites or more general "collection" saving
 - [ ] Clean up code a bit (ongoing)
 - [ ] Save memory by aliasing when viewing the same image more than once in multimode
 - [ ] Save memory by having the main thread update images as they're loaded
-- [ ] AppImage and/or Flatpak
+- [x] AppImage and/or Flatpak (needs more work/testing)
 - [ ] Automatic updating
-- [x] Travis-CI
+- [ ] Travis-CI or Github Actions
 - [x] Coverity
 - [x] Figure out why certain rare animated gifs don't load all the frames
