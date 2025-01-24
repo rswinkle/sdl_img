@@ -1811,7 +1811,13 @@ void read_cur_playlist(void)
 	cvec_clear_str(&g->favs);
 	FILE* f = NULL;
 	if (!(f = fopen(g->cur_playlist, "r"))) {
-		SDL_Log("%s does not exist, will try creating it on exit\n", g->cur_playlist);
+		SDL_Log("%s does not exist, will try creating it\n", g->cur_playlist);
+		f = fopen(g->cur_playlist, "w");
+		if (!f) {
+			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to create %s: %s\n", g->cur_playlist, strerror(errno));
+		} else {
+			fclose(f);
+		}
 	} else {
 		read_list(NULL, &g->favs, f);
 		SDL_Log("Read %"PRIcv_sz" favorites from %s\n", g->favs.size, g->cur_playlist);
