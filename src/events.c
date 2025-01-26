@@ -58,6 +58,11 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 	int ret = 0;
 	int did_sort = 0;
 	//SDL_Keymod mod_state = SDL_GetModState();
+
+	SDL_Event enter;
+	enter.type = SDL_KEYDOWN;
+	enter.key.keysym.scancode = SDL_SCANCODE_RETURN;
+	enter.key.keysym.sym = SDLK_RETURN;
 	
 	cvector_file* f = &fb->files;
 
@@ -168,6 +173,12 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 					}
 				}
 				break;
+
+			case SDLK_KP_ENTER:
+				// convert keypad enter to regular enter, mostly for nuklear
+				enter.type = SDL_KEYUP;
+				SDL_PushEvent(&enter);
+				break;
 			}
 			break;
 
@@ -187,6 +198,12 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 					fb->selection %= f->size;
 				// TODO don't set unless necessary
 				fb->list_setscroll = TRUE;
+				break;
+
+			case SDLK_KP_ENTER:
+				// convert keypad enter to regular enter for nuklear
+				enter.type = SDL_KEYDOWN;
+				SDL_PushEvent(&enter);
 				break;
 			}
 
@@ -697,6 +714,10 @@ int handle_list_events()
 	int sym;
 	int code, sort_timer;
 	//SDL_Keymod mod_state = SDL_GetModState();
+	SDL_Event enter;
+	enter.type = SDL_KEYDOWN;
+	enter.key.keysym.scancode = SDL_SCANCODE_RETURN;
+	enter.key.keysym.sym = SDLK_RETURN;
 
 	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
@@ -848,6 +869,12 @@ int handle_list_events()
 					try_move(SELECTION);
 				}
 				break;
+
+			case SDLK_KP_ENTER:
+				// convert keypad enter to regular enter, mostly for nuklear
+				enter.type = SDL_KEYUP;
+				SDL_PushEvent(&enter);
+				break;
 			}
 			break;
 
@@ -873,6 +900,12 @@ int handle_list_events()
 				}
 				// TODO don't set unless necessary
 				g->list_setscroll = SDL_TRUE;
+				break;
+
+			case SDLK_KP_ENTER:
+				// convert keypad enter to regular enter for nuklear
+				enter.type = SDL_KEYDOWN;
+				SDL_PushEvent(&enter);
 				break;
 			}
 
@@ -1055,6 +1088,11 @@ int handle_popup_events()
 	SDL_Event e;
 	int sc;
 
+	SDL_Event enter;
+	enter.type = SDL_KEYDOWN;
+	enter.key.keysym.scancode = SDL_SCANCODE_RETURN;
+	enter.key.keysym.sym = SDLK_RETURN;
+
 	g->status = NOCHANGE;
 
 	SDL_Keymod mod_state = SDL_GetModState();
@@ -1113,6 +1151,21 @@ int handle_popup_events()
 					g->fullscreen = !g->fullscreen;
 					set_fullscreen();
 				}
+			case SDL_SCANCODE_KP_ENTER:
+				// convert keypad enter to regular enter, mostly for nuklear
+				enter.type = SDL_KEYUP;
+				SDL_PushEvent(&enter);
+				break;
+			}
+			break;
+		case SDL_KEYDOWN:
+			sc = e.key.keysym.scancode;
+			switch (sc) {
+			case SDL_SCANCODE_KP_ENTER:
+				// convert keypad enter to regular enter for nuklear
+				enter.type = SDL_KEYDOWN;
+				SDL_PushEvent(&enter);
+				break;
 			}
 			break;
 		case SDL_WINDOWEVENT: {
@@ -1178,13 +1231,13 @@ int handle_events_normally()
 	SDL_Event space;
 	space.type = SDL_KEYDOWN;
 	space.key.keysym.scancode = SDL_SCANCODE_SPACE;
-
-	// Use if to push any user events
-	SDL_Event user_event = { .type = g->userevent };
-
 	// I only set this to clear valgrind errors of jumps in
 	// nk_sdl_handle_event based uninitialized values
 	space.key.keysym.sym = SDLK_SPACE;
+
+
+	// Use if to push any user events
+	SDL_Event user_event = { .type = g->userevent };
 
 	int ticks = SDL_GetTicks();
 
