@@ -97,6 +97,8 @@ char* get_global_str(lua_State* L, const char* var)
 	lua_getglobal(L, var);
 	if (lua_type(L, -1) != LUA_TSTRING) {
 		error(L, "'%s', should be a string\n", var);
+		lua_pop(L, 1);  // remove result from stack
+		return NULL;
 	}
 	char* result = strdup(lua_tostring(L, -1));
 	lua_pop(L, 1);  // remove result from stack

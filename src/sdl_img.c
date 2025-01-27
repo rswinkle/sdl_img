@@ -313,6 +313,7 @@ typedef struct global_state
 	char logdir_buf[STRBUF_SZ];
 	char playlistdir_buf[STRBUF_SZ];
 	char cur_playlist[STRBUF_SZ];
+	char* default_playlist;
 
 	cvector_file files;
 	cvector_str favs;
@@ -853,6 +854,8 @@ void cleanup(int ret, int called_setup)
 #ifndef NDEBUG
 		write_config(stdout);
 #endif
+
+		free(g->default_playlist);
 
 		// free allocated img exts if we read them from config file
 		if (g->cfg_img_exts) {
@@ -2573,7 +2576,11 @@ void setup(int argc, char** argv)
 	get_playlists(g->playlistdir);
 
 	// read favorites
-	snprintf(g->cur_playlist, STRBUF_SZ, "%s/Favorites", g->playlistdir);
+	if (!g->default_playlist) {
+		g->default_playlist = CVEC_STRDUP("Favorites");
+	}
+
+	snprintf(g->cur_playlist, STRBUF_SZ, "%s/%s", g->playlistdir, g->default_playlist);
 	read_cur_playlist();
 
 	SDL_Rect r;
@@ -3701,6 +3708,7 @@ void do_thumb_rem_del_search(int do_delete, int invert)
 		} while (g->search_results.size);
 	}
 
+	// TODO?
 	// Not worth trying to handle arbitrary selection imo so just reset to 0
 	g->do_next = nk_true;
 	int idx = g->files.size-1;

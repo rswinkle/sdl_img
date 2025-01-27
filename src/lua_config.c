@@ -26,6 +26,7 @@ enum {
 	RELATIVE_OFFSETS,
 	IMG_EXTS,
 	BOOKMARKS,
+	DEFAULT_PLAYLIST,
 	CACHE_DIR,
 	THUMB_DIR,
 	NUM_KEYS
@@ -49,6 +50,7 @@ char* keys[] =
 	"relative_offsets",
 	"img_exts",
 	"bookmarks",
+	"default_playlist",
 	"cache_dir",
 	"thumb_dir"
 };
@@ -137,6 +139,8 @@ int read_config_file(char* filename)
 
 	g->bookmarks.size = get_global_str_array(L, "bookmarks", &g->bookmarks.a);
 	g->bookmarks.capacity = g->bookmarks.size;
+
+	g->default_playlist = get_global_str(L, "default_playlist");
 
 	// TODO think about where I really want cachedir storage/ownership...maybe
 	// just make cachedir and thumbdir actual arrays in g and be done with it?
@@ -233,6 +237,10 @@ void write_config(FILE* cfg_file)
 			break;
 		case RELATIVE_OFFSETS:
 			fprintf(cfg_file, "%s\n", bool_str[g->ind_mm]);
+			break;
+
+		case DEFAULT_PLAYLIST:
+			fprintf(cfg_file, "'%s'\n", g->default_playlist);
 			break;
 
 		case CACHE_DIR:
