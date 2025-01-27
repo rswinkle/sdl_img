@@ -1525,6 +1525,14 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		bounds = nk_widget_bounds(ctx);
 		g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, DFLT_FONT_SIZE+28, nk_vec2(bounds.w, 800));
 
+		/*
+		 * This doesn't scale well, looks like it's time to do that total Prefs
+		 * redesign
+		nk_label(ctx, "Default Playlist:", NK_TEXT_LEFT);
+		//bounds = nk_widget_bounds(ctx);
+		g->default_playlist_idx = nk_combo(ctx, (const char* const*)g->playlists.a, g->playlists.size, g->default_playlist_idx, DFLT_FONT_SIZE+28, nk_vec2(bounds.w, 800));
+		*/
+
 		nk_property_int(ctx, "Thumb rows", MIN_THUMB_ROWS, &g->thumb_rows, MAX_THUMB_ROWS, 1, 0.05);
 		nk_property_int(ctx, "Thumb cols", MIN_THUMB_COLS, &g->thumb_cols, MAX_THUMB_COLS, 1, 0.05);
 

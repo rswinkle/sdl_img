@@ -314,6 +314,7 @@ typedef struct global_state
 	char playlistdir_buf[STRBUF_SZ];
 	char cur_playlist[STRBUF_SZ];
 	char* default_playlist;
+	int default_playlist_idx;
 
 	cvector_file files;
 	cvector_str favs;
@@ -1820,6 +1821,8 @@ void read_cur_playlist(void)
 			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to create %s: %s\n", g->cur_playlist, strerror(errno));
 		} else {
 			fclose(f);
+			char* tmp = strrchr(g->cur_playlist, '/');
+			cvec_push_str(&g->playlists, (tmp) ? &tmp[1] : g->cur_playlist);
 		}
 	} else {
 		read_list(NULL, &g->favs, f);
@@ -2570,11 +2573,6 @@ void setup(int argc, char** argv)
 	g->state = (g->sources.size) ? SCANNING : FILE_SELECTION; // setup is called after sources is filled
 	g->has_bad_paths = SDL_FALSE;
 
-	// TODO command line -p playlist.txt to be current playlist?
-	// --favorites to open favorites?
-	
-	get_playlists(g->playlistdir);
-
 	// read favorites
 	if (!g->default_playlist) {
 		g->default_playlist = CVEC_STRDUP("Favorites");
@@ -2582,6 +2580,20 @@ void setup(int argc, char** argv)
 
 	snprintf(g->cur_playlist, STRBUF_SZ, "%s/%s", g->playlistdir, g->default_playlist);
 	read_cur_playlist();
+
+	// TODO command line -p playlist.txt to be current playlist?
+	// --favorites to open favorites?
+	get_playlists(g->playlistdir);
+
+	int i=0; 
+	for (; i<g->playlists.size; ++i) {
+		if (!strcmp(g->default_playlist, g->playlists.a[i])) {
+			g->default_playlist_idx = i;
+			break;
+		}
+	}
+	assert(i != g->playlists.size);
+
 
 	SDL_Rect r;
 	if (SDL_GetDisplayUsableBounds(0, &r)) {
