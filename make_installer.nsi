@@ -114,8 +114,8 @@ Section "-Core"
 	WriteUninstaller "$INSTDIR\uninstall.exe"
 
 	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "DisplayName" "sdl_img"
-	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "UninstallString" "$\"$INSTDIR\\uninstaller.exe$\""
-	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "QuietUninstallString" "$\"$INSTDIR\uninstaller.exe$\" /S"
+	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "UninstallString" "$\"$INSTDIR\\uninstall.exe$\""
+	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "QuietUninstallString" "$\"$INSTDIR\uninstall.exe$\" /S"
 
 	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "InstallLocation" "$INSTDIR"
 	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "Publisher" "Robert Winkler"
@@ -123,35 +123,43 @@ Section "-Core"
 	WriteRegStr ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "DisplayVersion" "${VERSION}"
 
 
-	; get cumulative size of all files in and under install dir
-	; report the total in KB (decimal)
-	; place the answer into $0  (ignore $1 $2)
-	${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
+	;; get cumulative size of all files in and under install dir
+	;; report the total in KB (decimal)
+	;; place the answer into $0  (ignore $1 $2)
+	;${GetSize} "$INSTDIR" "/S=0K" $0 $1 $2
 
-	!echo "installed size estimate $0"
+	;!echo "installed size estimate $0"
 
-	; Convert the decimal KB value in $0 to DWORD
-	; put it right back into $0
-	IntFmt $0 "0x$08X" $0
+	;; Convert the decimal KB value in $0 to DWORD
+	;; put it right back into $0
+	;IntFmt $0 "0x$08X" $0
 
-	!echo "installed size estimate dword $0"
+	;!echo "installed size estimate dword $0"
 
-	; If I do this here it won't count the size of the source code if they include it?
-	; create/update the reg key
-	WriteRegDWORD ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "EstimatedSize" "$0" ; where $0 is the size in bytes
+	;; If I do this here it won't count the size of the source code if they include it?
+	;; create/update the reg key
+	;WriteRegDWORD ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}" "EstimatedSize" "$0" ; where $0 is the size in bytes
 
 
 
 SectionEnd
 
 ; I'll put back the group if I ever add other optional sections
-;SectionGroup /e "Optional" optional_id
+SectionGroup /e "Optional" optional_id
 	Section "Source Code" source_id
-		SetOutPath $INSTDIR\src
+		SetOutPath "$INSTDIR\src"
 		FILE src\*
 	SectionEnd
 
-;SectionGroupEnd
+	Section "Start Menu Shortuct" start_menu_id
+		CreateShortcut /NoWorkingDir "$STARTMENU\sdl_img.lnk" "$INSTDIR\sdl_img.exe"
+	SectionEnd
+
+	Section "Desktop Shortuct" desktop_shortcut_id
+		CreateShortcut /NoWorkingDir "$DESKTOP\sdl_img.lnk" "$INSTDIR\sdl_img.exe"
+	SectionEnd
+
+SectionGroupEnd
 
 
 
@@ -160,7 +168,8 @@ SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
 	!insertmacro MUI_DESCRIPTION_TEXT ${source_id} "Include the sdl_img source code."
-
+	!insertmacro MUI_DESCRIPTION_TEXT ${start_menu_id} "Create a start menu shortcut."
+	!insertmacro MUI_DESCRIPTION_TEXT ${desktop_shortcut_id} "Create a desktop shortcut."
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 
@@ -183,29 +192,33 @@ SectionEnd
 Section "Uninstall"
 	; RMDir /r /REBOOTOK $INSTDIR
 	;
-	delete $INSTDIR\sdl_img.exe
-	delete $INSTDIR\*.dll
-	delete $INSTDIR\sdl_img.ico
-	delete $INSTDIR\sdl_img.bmp
-	delete $INSTDIR\sdl_img2.bmp
-	delete $INSTDIR\LICENSE
-	delete $INSTDIR\LICENSE.txt
-	delete $INSTDIR\README.md
-	delete $INSTDIR\ca-bundle.crt
+	delete "$INSTDIR\sdl_img.exe"
+	delete "$INSTDIR\*.dll"
+	delete "$INSTDIR\sdl_img.ico"
+	delete "$INSTDIR\sdl_img.bmp"
+	delete "$INSTDIR\sdl_img2.bmp"
+	delete "$INSTDIR\LICENSE"
+	delete "$INSTDIR\LICENSE.txt"
+	delete "$INSTDIR\README.md"
+	delete "$INSTDIR\ca-bundle.crt"
 
-	rmdir /r $INSTDIR\src
+	rmdir /r "$INSTDIR\src"
 
 	; remove uninstaller last
-	delete $INSTDIR\uninstall.exe
+	delete "$INSTDIR\uninstall.exe"
 
 	; will only remove if dir is empty
-	rmDir $INSTDIR
+	rmDir "$INSTDIR"
 
 	; Does this delete all the registry stuff I did?  I guess it's sort of a directory thing
 	DeleteRegKey ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}"
 
-	; don't forget this 
-	RMDir /r $STARTMENU\sdl_img
+	; Don't actually have a folder
+	;RMDir /r $STARTMENU\sdl_img
+
+	; these might not exist...
+	delete $STARTMENU\sdl_img.lnk
+	delete $DESKTOP\sdl_img.lnk
 
 
 SectionEnd
