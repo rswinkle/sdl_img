@@ -100,7 +100,7 @@ int read_config_file(char* filename)
 		return 0;
 	}
 
-	float scale = get_global_number_clamp(L, "gui_scale", 1.0, 5.0);
+	float scale = get_global_number_clamp(L, "gui_scale", 0.5, 5.0);
 
 	// make sure only 0.5 increments
 	float tmp = floor(scale);

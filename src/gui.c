@@ -612,9 +612,9 @@ void draw_gui(struct nk_context* ctx)
 			if (nk_menu_item_label(ctx, "-", NK_TEXT_CENTERED)) {
 				g->x_scale -= 0.5;
 				g->y_scale -= 0.5;
-				if (g->x_scale < 1) {
-					g->x_scale = 1;
-					g->y_scale = 1;
+				if (g->x_scale < 0.5) {
+					g->x_scale = 0.5;
+					g->y_scale = 0.5;
 				}
 				nk_sdl_scale(g->x_scale, g->y_scale);
 			}
