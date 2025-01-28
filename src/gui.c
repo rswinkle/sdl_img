@@ -33,6 +33,35 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h);
 int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h);
 void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h);
 
+
+// TODO nuklear helper functions to separate file?
+void do_color_setting(struct nk_context* ctx, const char* label, struct nk_color* color, enum nk_color_format format)
+{
+	struct nk_color c = *color;
+	struct nk_colorf fcolor = nk_color_cf(c);
+
+	// TODO should I let the caller set the layout?  Yes
+	//nk_layout_row_dynamic(ctx, 0, 2);
+	nk_label(ctx, label, NK_TEXT_LEFT);
+	int width = nk_widget_width(ctx);
+	if (nk_combo_begin_color(ctx, c, nk_vec2(width, width))) {
+
+		// TODO 240?
+		nk_layout_row_dynamic(ctx, 240, 1);
+		fcolor = nk_color_picker(ctx, fcolor, format);
+		nk_layout_row_dynamic(ctx, 0, 1);
+		fcolor.r = nk_propertyf(ctx, "#R:", 0, fcolor.r, 1.0f, 0.01f,0.005f);
+		fcolor.g = nk_propertyf(ctx, "#G:", 0, fcolor.g, 1.0f, 0.01f,0.005f);
+		fcolor.b = nk_propertyf(ctx, "#B:", 0, fcolor.b, 1.0f, 0.01f,0.005f);
+
+		if (format == NK_RGBA) {
+			fcolor.a = nk_propertyf(ctx, "#A:", 0, fcolor.a, 1.0f, 0.01f,0.005f);
+		}
+		*color = nk_rgb_cf(fcolor);
+		nk_combo_end(ctx);
+	}
+}
+
 // window dimensions
 // TODO most of these need to scale/adjust with font size
 // so they should all probably be variables not constants
@@ -1486,80 +1515,116 @@ void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h)
 	nk_end(ctx);
 }
 
+
+enum { PREFS_APPEARANCE, PREFS_BEHAVIOR, PREFS_DATA };
+
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 
 	struct nk_rect bounds;
 	struct nk_rect s = {0, 0, scr_w, scr_h };
-	struct nk_colorf bgf = nk_color_cf(g->bg);
+
+	const float group_szs[] = { FB_SIDEBAR_W, scr_w-FB_SIDEBAR_W };
+	
+	static int cur_prefs = PREFS_APPEARANCE;
+	nk_bool is_selected;
 
 	if (nk_begin(ctx, "Preferences", s, popup_flags)) {
-		nk_layout_row_dynamic(ctx, 0, 2);
-		nk_label(ctx, "background:", NK_TEXT_LEFT);
-		if (nk_combo_begin_color(ctx, nk_rgb_cf(bgf), nk_vec2(nk_widget_width(ctx), scr_w/2))) {
-			nk_layout_row_dynamic(ctx, 240, 1);
-			bgf = nk_color_picker(ctx, bgf, NK_RGB);
-			nk_layout_row_dynamic(ctx, 0, 1);
-			bgf.r = nk_propertyf(ctx, "#R:", 0, bgf.r, 1.0f, 0.01f,0.005f);
-			bgf.g = nk_propertyf(ctx, "#G:", 0, bgf.g, 1.0f, 0.01f,0.005f);
-			bgf.b = nk_propertyf(ctx, "#B:", 0, bgf.b, 1.0f, 0.01f,0.005f);
-
-			// doesn't make sense to have the background be transparent
-			//bgf.a = nk_propertyf(ctx, "#A:", 0, bgf.a, 1.0f, 0.01f,0.005f);
-			g->bg = nk_rgb_cf(bgf);
-			nk_combo_end(ctx);
-		}
-
-		nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
-		nk_property_int(ctx, "#", 1, &g->slide_delay, MAX_SLIDE_DELAY, 1, 0.3);
-
-		nk_label(ctx, "Hide GUI delay:", NK_TEXT_LEFT);
-		nk_property_int(ctx, "#", 1, &g->gui_delay, MAX_GUI_DELAY, 1, 0.3);
-
-		nk_label(ctx, "Button repeat delay:", NK_TEXT_LEFT);
-		nk_property_float(ctx, "#", 0.25f, &g->button_rpt_delay, MAX_BUTTON_RPT_DELAY, 0.25, 0.08333);
-
-		nk_label(ctx, "GUI in Fullscreen mode:", NK_TEXT_LEFT);
-		static const char* gui_options[] = { "Delay", "Always", "Never" };
-		bounds = nk_widget_bounds(ctx);
-		g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, DFLT_FONT_SIZE+28, nk_vec2(bounds.w, 800));
-
-		/*
-		 * This doesn't scale well, looks like it's time to do that total Prefs
-		 * redesign
-		nk_label(ctx, "Default Playlist:", NK_TEXT_LEFT);
 		//bounds = nk_widget_bounds(ctx);
-		g->default_playlist_idx = nk_combo(ctx, (const char* const*)g->playlists.a, g->playlists.size, g->default_playlist_idx, DFLT_FONT_SIZE+28, nk_vec2(bounds.w, 800));
-		*/
+		nk_layout_row(ctx, NK_STATIC, scr_h, 2, group_szs);
 
-		nk_property_int(ctx, "Thumb rows", MIN_THUMB_ROWS, &g->thumb_rows, MAX_THUMB_ROWS, 1, 0.05);
-		nk_property_int(ctx, "Thumb cols", MIN_THUMB_COLS, &g->thumb_cols, MAX_THUMB_COLS, 1, 0.05);
+		if (nk_group_begin(ctx, "Pref Sidebar", 0)) {
 
-		nk_checkbox_label(ctx, "Show info bar", &g->show_infobar);
-		nk_checkbox_label(ctx, "x deletes in Thumb mode", &g->thumb_x_deletes);
-		nk_checkbox_label(ctx, "Confirm delete in Normal mode", &g->confirm_delete);
-		nk_checkbox_label(ctx, "Confirm rotation", &g->confirm_rotation);
+			nk_layout_row_dynamic(ctx, 0, 1);
+			is_selected = cur_prefs == PREFS_APPEARANCE;
+			if (nk_selectable_label(ctx, "Appearance", NK_TEXT_LEFT, &is_selected)) {
+				cur_prefs = PREFS_APPEARANCE;
+			}
+			is_selected = cur_prefs == PREFS_BEHAVIOR;
+			if (nk_selectable_label(ctx, "Behavior", NK_TEXT_LEFT, &is_selected)) {
+				cur_prefs = PREFS_BEHAVIOR;
+			}
+			is_selected = cur_prefs == PREFS_DATA;
+			if (nk_selectable_label(ctx, "Data", NK_TEXT_LEFT, &is_selected)) {
+				cur_prefs = PREFS_DATA;
+			}
 
-		// TODO come up with better name/description
-		nk_layout_row_dynamic(ctx, 0, 1);
-		nk_checkbox_label(ctx, "Preserve relative offsets in multimode movement", &g->ind_mm);
+			if (nk_button_label(ctx, "Ok")) {
+				g->show_prefs = SDL_FALSE;;
+			}
+			
+			// TODO think about names of categories and where individual
+			// items belong
 
-		// TODO make actually editable?  Have a folder selector popup?
-		float ratios[] = { 0.25, 0.75 };
-		nk_layout_row(ctx, NK_DYNAMIC, 60, 2, ratios);
-		nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
-		int cache_len = strlen(g->cachedir);
-		nk_edit_string(ctx, NK_EDIT_SELECTABLE|NK_EDIT_CLIPBOARD, g->cachedir, &cache_len, STRBUF_SZ, nk_filter_default);
-
-		nk_layout_row_dynamic(ctx, 0, 1);
-		if (nk_button_label(ctx, "Clear thumbnail cache")) {
-			SDL_Log("Clearing thumbnails\n");
-			int ttimer = SDL_GetTicks();
-			empty_dir(g->thumbdir);
-			SDL_Log("Clearing thumbnails took %d\n", SDL_GetTicks()-ttimer);
+			nk_group_end(ctx);
 		}
 
+		if (nk_group_begin(ctx, "Pref Panel", 0)) {
+			if (cur_prefs == PREFS_APPEARANCE) {
+				nk_layout_row_dynamic(ctx, 0, 2);
+				do_color_setting(ctx, "background:", &g->bg, NK_RGB);
+			} else if (cur_prefs == PREFS_BEHAVIOR) {
+				nk_layout_row_dynamic(ctx, 0, 2);
+
+				nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
+				nk_property_int(ctx, "#", 1, &g->slide_delay, MAX_SLIDE_DELAY, 1, 0.3);
+
+				nk_label(ctx, "Hide GUI delay:", NK_TEXT_LEFT);
+				nk_property_int(ctx, "#", 1, &g->gui_delay, MAX_GUI_DELAY, 1, 0.3);
+
+				nk_label(ctx, "Button repeat delay:", NK_TEXT_LEFT);
+				nk_property_float(ctx, "#", 0.25f, &g->button_rpt_delay, MAX_BUTTON_RPT_DELAY, 0.25, 0.08333);
+
+				// TODO should this go in appearance?
+				nk_label(ctx, "GUI in Fullscreen mode:", NK_TEXT_LEFT);
+				static const char* gui_options[] = { "Delay", "Always", "Never" };
+				bounds = nk_widget_bounds(ctx);
+				g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, DFLT_FONT_SIZE+28, nk_vec2(bounds.w, 800));
+
+				/*
+				* This doesn't scale well, looks like it's time to do that total Prefs
+				* redesign
+				nk_label(ctx, "Default Playlist:", NK_TEXT_LEFT);
+				//bounds = nk_widget_bounds(ctx);
+				g->default_playlist_idx = nk_combo(ctx, (const char* const*)g->playlists.a, g->playlists.size, g->default_playlist_idx, DFLT_FONT_SIZE+28, nk_vec2(bounds.w, 800));
+				*/
+
+				// TODO should these go in appearance?
+				nk_property_int(ctx, "Thumb rows", MIN_THUMB_ROWS, &g->thumb_rows, MAX_THUMB_ROWS, 1, 0.2);
+				nk_property_int(ctx, "Thumb cols", MIN_THUMB_COLS, &g->thumb_cols, MAX_THUMB_COLS, 1, 0.2);
+
+				nk_checkbox_label(ctx, "Show info bar", &g->show_infobar);
+				nk_checkbox_label(ctx, "x deletes in Thumb mode", &g->thumb_x_deletes);
+				nk_checkbox_label(ctx, "Confirm delete in Normal mode", &g->confirm_delete);
+				nk_checkbox_label(ctx, "Confirm rotation", &g->confirm_rotation);
+
+				// TODO come up with better name/description
+				nk_layout_row_dynamic(ctx, 0, 1);
+				nk_checkbox_label(ctx, "Preserve relative offsets in multimode movement", &g->ind_mm);
+			} else if (cur_prefs == PREFS_DATA) {
+				// TODO make actually editable?  Have a folder selector popup?
+				float ratios[] = { 0.25, 0.75 };
+				nk_layout_row(ctx, NK_DYNAMIC, 60, 2, ratios);
+				nk_label(ctx, "Cache directory:", NK_TEXT_LEFT);
+				int cache_len = strlen(g->cachedir);
+				nk_edit_string(ctx, NK_EDIT_SELECTABLE|NK_EDIT_CLIPBOARD, g->cachedir, &cache_len, STRBUF_SZ, nk_filter_default);
+
+				nk_layout_row_dynamic(ctx, 0, 1);
+				if (nk_button_label(ctx, "Clear thumbnail cache")) {
+					SDL_Log("Clearing thumbnails\n");
+					int ttimer = SDL_GetTicks();
+					empty_dir(g->thumbdir);
+					SDL_Log("Clearing thumbnails took %d\n", SDL_GetTicks()-ttimer);
+				}
+			}
+
+			nk_group_end(ctx);
+		}
+
+
+
+			/*
 #define OK_WIDTH 200
 		nk_layout_space_begin(ctx, NK_STATIC, 60, 1);
 		nk_layout_space_push(ctx, nk_rect(scr_w-OK_WIDTH-12, 20, OK_WIDTH, 40));
@@ -1568,6 +1633,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 		}
 		nk_layout_space_end(ctx);
 #undef OK_WIDTH
+			*/
 	}
 	nk_end(ctx);
 }
@@ -1869,4 +1935,5 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 	
 	nk_end(ctx);
 }
+
 
