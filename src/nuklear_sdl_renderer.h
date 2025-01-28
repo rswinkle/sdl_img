@@ -349,8 +349,8 @@ nk_sdl_handle_event(SDL_Event *evt)
 
         case SDL_MOUSEMOTION:
             if (ctx->input.mouse.grabbed) {
-                // TODO hmm?
-                int x = (int)ctx->input.mouse.prev.x/scale_x, y = (int)ctx->input.mouse.prev.y/scale_y;
+				// previous positions were already scaled
+                int x = (int)ctx->input.mouse.prev.x, y = (int)ctx->input.mouse.prev.y;
                 nk_input_motion(ctx, x + evt->motion.xrel/scale_x, y + evt->motion.yrel/scale_y);
             }
             else nk_input_motion(ctx, evt->motion.x/scale_x, evt->motion.y/scale_y);
