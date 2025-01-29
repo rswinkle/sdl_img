@@ -59,7 +59,8 @@ directory in [alphabetical](http://stereopsis.com/strcmp4humans.html)
 | L/R                 | Rotate the current image 90 degrees left/right |
 | CTRL + L/R          | Rotate the current image arbitrary degrees (popup GUI) |
 | H/V                 | Flip the current image horizontally/vertically |
-| S                   | Save current image to favorites |
+| S                   | Save current image(s) to current playlist |
+| CTRL + S            | Remove current image(s) from current playlist |
 | Delete              | Delete the current image and move to the next (only in single mode) |
 | Backspace           | Remove the current image and move to the next (only in single mode) |
 | CTRL + 1            | Single image mode |
@@ -165,12 +166,17 @@ the default Vim keybinds, HJKL, are JCVP physically.
 | Arrow Keys or HJKL      | Move around |
 | Mouse Wheel             | Move up and down |
 | Click                   | Move to that image |
+| CTRL + Click            | Select multiple arbitrary images |
+| SHIFT + Click           | Select a contiguous range of images |
 | Enter or Double Click   | Change to normal mode on current image |
 | CTRL + HJKL             | Adjust the number of rows and columns shown |
 | V                       | Enter Visual Selection Mode |
+| SHIFT + V               | Enter Visual Line Selection Mode |
 | Backspace or R          | Removes current selection from the list |
 | X                       | Removes and possibly Deletes current selection |
 | CTRL + Backspace/R/X    | Invert action (remove/delete unselected items) |
+| S                       | Save current image(s) to current playlist |
+| CTRL + S                | Remove current image(s) from current playlist |
 | /                       | Start typing a search |
 | /pattern + ENTER        | Enter "Results mode" (cycle with n/N) |
 | CTRL + ENTER            | (in results mode) View results |
