@@ -1142,7 +1142,7 @@ int gen_thumbs(void* data)
 
 	if (do_load) {
 		// same as in load_thumbs, generating and loading can take even longer
-		if (g->state == THUMB_DFLT) {
+		if (!(g->state & SEARCH_RESULTS)) {
 			g->thumb_sel = g->img[0].index;
 		} else {
 			g->thumb_sel = g->search_results.a[g->img[0].index];
@@ -1234,7 +1234,7 @@ int load_thumbs(void* data)
 
 	// make sure we are on current image after we're done loading
 	// since loading can take a while if there are 1000's of images
-	if (g->state == THUMB_DFLT) {
+	if (!(g->state & SEARCH_RESULTS)) {
 		g->thumb_sel = g->img[0].index;
 	} else {
 		g->thumb_sel = g->search_results.a[g->img[0].index];

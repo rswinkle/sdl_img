@@ -447,6 +447,10 @@ int handle_thumb_events()
 						g->selection = (g->thumb_sel) ? g->thumb_sel - 1 : g->files.size-1;
 					}
 
+					g->search_results.size = 0;
+					text_buf[0] = 0;
+					text_len = 0;
+
 					SDL_ShowCursor(SDL_ENABLE);
 					g->gui_timer = SDL_GetTicks();
 					g->show_gui = SDL_TRUE;
