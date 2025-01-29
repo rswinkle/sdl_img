@@ -339,6 +339,7 @@ int handle_thumb_events()
 						
 					}
 				} else {
+					SDL_StopTextInput();
 					g->state = THUMB_DFLT;
 					g->thumb_sel_end = g->thumb_sel;
 					g->is_thumb_visual_line = SDL_FALSE;
@@ -352,8 +353,14 @@ int handle_thumb_events()
 			case SDLK_c:
 				// turn off VISUAL (or any other mode I add later)
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					SDL_StopTextInput();
 					g->state = THUMB_DFLT;
 					g->is_thumb_visual_line = SDL_FALSE;
+
+					// CTRL+C doesn't actualy exit search mode in vim but we do
+					g->search_results.size = 0;
+					text_buf[0] = 0;
+					text_len = 0;
 				}
 				break;
 			case SDLK_SLASH:
@@ -403,6 +410,12 @@ int handle_thumb_events()
 				g->thumb_sel = g->files.size-1;
 				break;
 
+			case SDLK_s:
+				if (g->state != THUMB_SEARCH) {
+					do_thumb_save(mod_state & (KMOD_LCTRL | KMOD_RCTRL));
+				}
+				break;
+
 			// I can't decide, backspace for consistency with normal mode
 			// but r for "removal" even though in vim r means replace and x
 			// means delete but we have it remove and delete.  d would also work
@@ -420,7 +433,7 @@ int handle_thumb_events()
 			case SDLK_RETURN:
 				// TODO why am I or'ing with THUMB_DFLT?
 				if (g->state & (THUMB_DFLT | SEARCH_RESULTS)) {
-					// TODO document this behavior
+					// Go to view results
 					if (g->state & SEARCH_RESULTS && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 						g->state |= NORMAL;
 

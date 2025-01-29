@@ -3847,7 +3847,85 @@ void do_thumb_rem_del(int do_delete, int invert)
 		user_event.user.code = OPEN_FILE_NEW;
 		SDL_PushEvent(&user_event);
 	}
+}
 
+// TODO support invert like thumb_rem_del?
+void do_thumb_save(int removing)
+{
+	if (g->loading) {
+		return;
+	}
+
+	SDL_Log("In do_thumb_save()\n");
+
+	char* playlist = strrchr(g->cur_playlist, '/') + 1;
+	i64 loc;
+	char* fullpath;
+
+	// so we can share code for default and visual modes
+	if (g->state == THUMB_DFLT) {
+		g->thumb_sel_end = g->thumb_sel;
+	}
+
+	// Unused if search mode but meh
+	int start = g->thumb_sel;
+	int end = g->thumb_sel_end;
+	if (g->thumb_sel > g->thumb_sel_end) {
+		end = g->thumb_sel;
+		start = g->thumb_sel_end;
+	}
+	if (g->is_thumb_visual_line) {
+		start = (start / g->thumb_cols) * g->thumb_cols;
+		end = (end / g->thumb_cols) * g->thumb_cols + g->thumb_cols - 1;
+	}
+
+	if (removing) {
+		if (g->state & SEARCH_RESULTS) {
+			for (int i=0; i<g->search_results.size; ++i) {
+				fullpath = g->files.a[g->search_results.a[i]].path;
+				if ((loc = cvec_contains_str(&g->favs, fullpath)) < 0) {
+					SDL_Log("%s not in %s\n", fullpath, playlist);
+				} else {
+					SDL_Log("removing %s\n", fullpath);
+					cvec_erase_str(&g->favs, loc, loc);
+					SDL_Log("%"PRIcv_sz" left after removal\n", g->favs.size);
+				}
+			}
+		} else {
+			for (int i=start; i<=end; ++i) {
+				fullpath = g->files.a[i].path;
+				if ((loc = cvec_contains_str(&g->favs, fullpath)) < 0) {
+					SDL_Log("%s not in %s\n", fullpath, playlist);
+				} else {
+					SDL_Log("removing %s\n", fullpath);
+					cvec_erase_str(&g->favs, loc, loc);
+					SDL_Log("%"PRIcv_sz" left after removal\n", g->favs.size);
+				}
+			}
+		}
+	} else {
+		if (g->state & SEARCH_RESULTS) {
+			for (int i=0; i<g->search_results.size; ++i) {
+				fullpath = g->files.a[g->search_results.a[i]].path;
+				if (cvec_contains_str(&g->favs, fullpath) >= 0) {
+					SDL_Log("%s already in %s\n", fullpath, playlist);
+				} else {
+					SDL_Log("saving %s\n", fullpath);
+					cvec_push_str(&g->favs, fullpath);
+				}
+			}
+		} else {
+			for (int i=start; i<=end; ++i) {
+				fullpath = g->files.a[i].path;
+				if (cvec_contains_str(&g->favs, fullpath) >= 0) {
+					SDL_Log("%s already in %s\n", fullpath, playlist);
+				} else {
+					SDL_Log("saving %s\n", fullpath);
+					cvec_push_str(&g->favs, fullpath);
+				}
+			}
+		}
+	}
 }
 
 #include "rendering.c"
