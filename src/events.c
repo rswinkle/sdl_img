@@ -297,7 +297,7 @@ int handle_thumb_events()
 	int sym;
 	SDL_Keymod mod_state = SDL_GetModState();
 	int mouse_x, mouse_y;
-	SDL_GetMouseState(&mouse_x, &mouse_y);
+	u32 mouse_state = SDL_GetMouseState(&mouse_x, &mouse_y);
 	char title_buf[STRBUF_SZ];
 	int code;
 
@@ -569,6 +569,24 @@ int handle_thumb_events()
 			SDL_ShowCursor(SDL_ENABLE);
 			g->gui_timer = SDL_GetTicks();
 			g->show_gui = SDL_TRUE;
+
+			// TODO
+			// Have to think about this, best way to do drag select while still supporting
+			// CTRL and SHIFT selection modifiers, and other existing mouse/selection
+			// behaviors and edge cases and scrolling
+
+			/*
+			if (SDL_BUTTON_LMASK & mouse_state) {
+				if (g->state & THUMB_DFLT) {
+					g->state = THUMB_VISUAL;
+					g->thumb_sel_end = g->thumb_sel;
+					g->status = REDRAW;
+				}
+			}
+			*/
+			break;
+		case SDL_MOUSEBUTTONDOWN:
+			// TODO
 			break;
 		case SDL_MOUSEBUTTONUP:
 			// TODO should have this behavior in VISUAL MODE too?  Single click changes
