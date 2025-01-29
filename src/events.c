@@ -296,6 +296,10 @@ int handle_thumb_events()
 	SDL_Event e;
 	int sym;
 	SDL_Keymod mod_state = SDL_GetModState();
+
+	int ctrl_down = mod_state & (KMOD_LCTRL | KMOD_RCTRL);
+	int shift_down = mod_state & (KMOD_LSHIFT | KMOD_RSHIFT);
+
 	int mouse_x, mouse_y;
 	u32 mouse_state = SDL_GetMouseState(&mouse_x, &mouse_y);
 	char title_buf[STRBUF_SZ];
@@ -352,7 +356,7 @@ int handle_thumb_events()
 				break;
 			case SDLK_c:
 				// turn off VISUAL (or any other mode I add later)
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (ctrl_down) {
 					SDL_StopTextInput();
 					g->state = THUMB_DFLT;
 					g->is_thumb_visual_line = SDL_FALSE;
@@ -380,7 +384,7 @@ int handle_thumb_events()
 					g->thumb_sel_end = g->thumb_sel;
 
 					// TODO visual block mode
-					g->is_thumb_visual_line = mod_state & (KMOD_LSHIFT | KMOD_RSHIFT);
+					g->is_thumb_visual_line = shift_down;
 				} else if (g->state & THUMB_VISUAL) {
 					g->state = THUMB_DFLT;
 					g->is_thumb_visual_line = SDL_FALSE;
@@ -389,7 +393,7 @@ int handle_thumb_events()
 				break;
 			case SDLK_g:
 				if (g->state != THUMB_SEARCH) {
-					if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
+					if (shift_down) {
 						g->thumb_start_row = g->files.size-1; // will get fixed at the bottom
 						g->thumb_sel = g->files.size-1;
 					} else {
@@ -412,7 +416,7 @@ int handle_thumb_events()
 
 			case SDLK_s:
 				if (g->state != THUMB_SEARCH) {
-					do_thumb_save(mod_state & (KMOD_LCTRL | KMOD_RCTRL));
+					do_thumb_save(ctrl_down);
 				}
 				break;
 
@@ -427,14 +431,14 @@ int handle_thumb_events()
 			case SDLK_x:
 				if (g->state != THUMB_SEARCH) {
 					// TODO Also support Delete key?
-					do_thumb_rem_del(sym == SDLK_x && g->thumb_x_deletes, mod_state & (KMOD_LCTRL | KMOD_RCTRL));
+					do_thumb_rem_del(sym == SDLK_x && g->thumb_x_deletes, ctrl_down);
 				}
 				break;
 			case SDLK_RETURN:
 				// TODO why am I or'ing with THUMB_DFLT?
 				if (g->state & (THUMB_DFLT | SEARCH_RESULTS)) {
 					// Go to view results
-					if (g->state & SEARCH_RESULTS && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					if (g->state & SEARCH_RESULTS && ctrl_down) {
 						g->state |= NORMAL;
 
 						// Just going to go to last result they were on
@@ -484,7 +488,7 @@ int handle_thumb_events()
 			case SDLK_DOWN:
 			case SDLK_k:
 			case SDLK_j:
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (ctrl_down) {
 					g->thumb_rows += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
 					if (g->thumb_rows < MIN_THUMB_ROWS)
 						g->thumb_rows = MIN_THUMB_ROWS;
@@ -502,7 +506,7 @@ int handle_thumb_events()
 			case SDLK_RIGHT:
 			case SDLK_h:
 			case SDLK_l:
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (ctrl_down) {
 					g->thumb_cols += (sym == SDLK_LEFT || sym == SDLK_h) ? -1 : 1;
 					if (g->thumb_cols < MIN_THUMB_COLS)
 						g->thumb_cols = MIN_THUMB_COLS;
@@ -520,9 +524,9 @@ int handle_thumb_events()
 				break;
 			case SDLK_f:
 			case SDLK_b:
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (ctrl_down) {
 					// TODO match vim behavior, doesn't jump a full page,
-					// jumps so the top row is the first row below the page
+					// jumps so the top/bottom row is the first row below/above the page
 					// so the amount depends on which row on the screen thumb_sel is on
 					int rows = g->thumb_rows;
 					g->thumb_start_row += (sym == SDLK_f) ? rows : -rows;
@@ -538,7 +542,7 @@ int handle_thumb_events()
 				break;
 			case SDLK_n:
 				if (g->state & SEARCH_RESULTS) {
-					if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
+					if (shift_down) {
 						if (g->thumb_sel == g->search_results.a[g->cur_result]) {
 							g->cur_result--;
 							if (g->cur_result < 0)
@@ -632,6 +636,9 @@ int handle_thumb_events()
 					g->thumb_sel = g->selection;
 				}
 			}
+			SDL_ShowCursor(SDL_ENABLE);
+			g->gui_timer = SDL_GetTicks();
+			g->show_gui = SDL_TRUE;
 			break;
 		case SDL_MOUSEWHEEL:
 			g->status = REDRAW;
@@ -1267,6 +1274,8 @@ int handle_events_normally()
 	g->status = NOCHANGE;
 
 	SDL_Keymod mod_state = SDL_GetModState();
+	int ctrl_down = mod_state & (KMOD_LCTRL | KMOD_RCTRL);
+	int shift_down = mod_state & (KMOD_LSHIFT | KMOD_RSHIFT);
 
 	// use space to move to next image(s) even if zoomed in, ie during slideshow
 	SDL_Event space;
@@ -1497,7 +1506,7 @@ int handle_events_normally()
 				break;
 
 			case SDL_SCANCODE_O:
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (ctrl_down) {
 					user_event.user.code = OPEN_FILE_MORE;
 					SDL_PushEvent(&user_event);
 				} else {
@@ -1575,7 +1584,7 @@ int handle_events_normally()
 				break;
 
 			case SDL_SCANCODE_N:
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (ctrl_down) {
 					do_sort(filepath_cmp_lt);
 					g->sorted_state = PATH_UP;
 				} else {
@@ -1607,13 +1616,13 @@ int handle_events_normally()
 				// rotation (since it's not in the GUI and was always
 				// kind of janky anyway) to clear up CTRL+L...
 			case SDL_SCANCODE_I:
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (ctrl_down) {
 					do_listmode();
 				}
 				break;
 
 			case SDL_SCANCODE_U:
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (ctrl_down) {
 					do_thumbmode();
 				} else {
 					// TODO GUI for this?  starts thumb thread in the background
@@ -1623,7 +1632,7 @@ int handle_events_normally()
 				break;
 
 			case SDL_SCANCODE_C:
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (ctrl_down) {
 					// TODO maybe just flush events here and return 0 so
 					// no input for the current frame after CTRL+V? can I do
 					// that without breaking the GUI?
@@ -1634,7 +1643,7 @@ int handle_events_normally()
 			break;
 
 			case SDL_SCANCODE_S:
-				do_save(mod_state & (KMOD_LCTRL | KMOD_RCTRL));
+				do_save(ctrl_down);
 			break;
 
 			case SDL_SCANCODE_H:
@@ -1645,7 +1654,7 @@ int handle_events_normally()
 			case SDL_SCANCODE_L:
 			case SDL_SCANCODE_R:
 				if (!done_rotate) {
-					if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+					if (ctrl_down) {
 						do_rotate(sc == SDL_SCANCODE_L, SDL_FALSE);
 					} else {
 						do_rotate(sc == SDL_SCANCODE_L, SDL_TRUE);
@@ -1660,7 +1669,7 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_F: {
 				g->status = REDRAW;
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (ctrl_down) {
 					g->fullscreen = !g->fullscreen;
 					set_fullscreen();
 				} else {
@@ -1697,7 +1706,7 @@ int handle_events_normally()
 			switch (sc) {
 
 			case SDL_SCANCODE_SPACE:
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (ctrl_down) {
 					try_move(LEFT);
 				} else {
 					try_move(RIGHT);
@@ -1711,7 +1720,7 @@ int handle_events_normally()
 					break;
 				zoomed = SDL_FALSE;
 				g->status = REDRAW;
-				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
+				if (!ctrl_down) {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
@@ -1739,7 +1748,7 @@ int handle_events_normally()
 			case SDL_SCANCODE_DOWN:
 				zoomed = SDL_FALSE;
 				g->status = REDRAW;
-				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
+				if (!ctrl_down) {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
@@ -1770,7 +1779,7 @@ int handle_events_normally()
 					break;
 				zoomed = SDL_FALSE;
 				g->status = REDRAW;
-				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
+				if (!ctrl_down) {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
@@ -1798,7 +1807,7 @@ int handle_events_normally()
 			case SDL_SCANCODE_UP:
 				zoomed = SDL_FALSE;
 				g->status = REDRAW;
-				if (g->loading || !(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
+				if (!ctrl_down) {
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i) {
 							img = &g->img[i];
@@ -1826,7 +1835,7 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_MINUS:
 				g->status = REDRAW;
-				if (!(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
+				if (!ctrl_down) {
 					do_zoom(-KEY_ZOOM, SDL_FALSE);
 				} else {
 					// Should MINUS slow it down or decrease the delay amount?
@@ -1848,7 +1857,7 @@ int handle_events_normally()
 				break;
 			case SDL_SCANCODE_EQUALS:
 				g->status = REDRAW;
-				if (!(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
+				if (!ctrl_down) {
 					do_zoom(KEY_ZOOM, SDL_FALSE);
 				} else {
 					if (!g->img_focus) {
@@ -1905,7 +1914,7 @@ int handle_events_normally()
 
 			int amt = scroll_y*10;
 			if (!g->progress_hovered) {
-				if (!(mod_state & (KMOD_LCTRL | KMOD_RCTRL))) {
+				if (!ctrl_down) {
 					do_zoom(scroll_y*SCROLL_ZOOM, SDL_TRUE);
 				} else if (!g->img_focus) {
 					for (int i=0; i<g->n_imgs; ++i) {
