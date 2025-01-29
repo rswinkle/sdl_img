@@ -341,6 +341,7 @@ int handle_thumb_events()
 				} else {
 					g->state = THUMB_DFLT;
 					g->thumb_sel_end = g->thumb_sel;
+					g->is_thumb_visual_line = SDL_FALSE;
 
 					g->search_results.size = 0;
 					text_buf[0] = 0;
@@ -352,6 +353,7 @@ int handle_thumb_events()
 				// turn off VISUAL (or any other mode I add later)
 				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
 					g->state = THUMB_DFLT;
+					g->is_thumb_visual_line = SDL_FALSE;
 				}
 				break;
 			case SDLK_SLASH:
@@ -369,8 +371,12 @@ int handle_thumb_events()
 				if (g->state & THUMB_DFLT) {
 					g->state = THUMB_VISUAL;
 					g->thumb_sel_end = g->thumb_sel;
+
+					// TODO visual block mode
+					g->is_thumb_visual_line = mod_state & (KMOD_LSHIFT | KMOD_RSHIFT);
 				} else if (g->state & THUMB_VISUAL) {
 					g->state = THUMB_DFLT;
+					g->is_thumb_visual_line = SDL_FALSE;
 				}
 				g->status = REDRAW;
 				break;

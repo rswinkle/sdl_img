@@ -364,6 +364,7 @@ typedef struct global_state
 	int thumbs_done;
 	int thumbs_loaded;
 	int thumb_start_row;
+	int is_thumb_visual_line;
 	int thumb_rows;
 	int thumb_cols;
 
@@ -3742,6 +3743,11 @@ void do_thumb_rem_del_dflt_visual(int do_delete, int invert)
 		end = g->thumb_sel;
 		start = g->thumb_sel_end;
 	}
+	if (g->is_thumb_visual_line) {
+		start = (start / g->thumb_cols) * g->thumb_cols;
+		end = (end / g->thumb_cols) * g->thumb_cols + g->thumb_cols - 1;
+	}
+
 	if (!invert) {
 		if (end - start + 1 == g->files.size) {
 			SDL_Log("You removed all your currently viewed images, exiting\n");
@@ -3834,6 +3840,7 @@ void do_thumb_rem_del(int do_delete, int invert)
 		fix_thumb_sel(1);
 		// exit Visual mode after r/x (and backspace in this case) like vim
 		g->state = THUMB_DFLT;
+		g->is_thumb_visual_line = SDL_FALSE;
 	} else {
 		g->img[0].index = 0; // not sure if necesary but not a bad idea
 		SDL_Event user_event = { .type = g->userevent };

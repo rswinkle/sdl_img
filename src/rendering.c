@@ -12,7 +12,9 @@ void render_thumbs()
 	int w = g->scr_w/(float)g->thumb_cols;
 	int h = g->scr_h/(float)g->thumb_rows;
 	SDL_Rect r = { 0, 0, w, h };
+	int cur_row = g->thumb_start_row - 1;
 	for (int i = start; i < end && i<g->files.size; ++i) {
+		cur_row += !(i % g->thumb_cols);
 		// We create tex's in sequence and exit if any fail and
 		// erase them when the source image is deleted so
 		// we can break rather than continue here
@@ -47,18 +49,41 @@ void render_thumbs()
 				SDL_RenderDrawRect(g->ren, &r);
 			}
 		} else if (g->state & THUMB_VISUAL) {
-			if ((i >= g->thumb_sel && i <= g->thumb_sel_end) ||
-				(i <= g->thumb_sel && i >= g->thumb_sel_end)) {
-				// TODO why doesn't setting this in setup work?  Where else is it changed?
-				SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
+			if (!g->is_thumb_visual_line) {
+				if ((i >= g->thumb_sel && i <= g->thumb_sel_end) ||
+					(i <= g->thumb_sel && i >= g->thumb_sel_end)) {
+					// TODO why doesn't setting this in setup work?  Where else is it changed?
+					SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
 
-				SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
-				// have selection box take up whole screen space, easier to see
-				r.x = ((i-start) % g->thumb_cols) * w;
-				r.y = ((i-start) / g->thumb_cols) * h;
-				r.w = w;
-				r.h = h;
-				SDL_RenderFillRect(g->ren, &r);
+					SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
+					// have selection box take up whole screen space, easier to see
+					r.x = ((i-start) % g->thumb_cols) * w;
+					r.y = ((i-start) / g->thumb_cols) * h;
+					r.w = w;
+					r.h = h;
+					SDL_RenderFillRect(g->ren, &r);
+				}
+			} else {
+				// Seems a bit stupid to do individual highlighting when we know
+				// it's entire rows but meh.  TODO
+				int r1 = g->thumb_sel / g->thumb_cols;
+				int r2 = g->thumb_sel_end / g->thumb_cols;
+				if (r2 < r1) {
+					int tmp = r1;
+					r1 = r2;
+					r2 = tmp;
+				}
+				if (cur_row >= r1 && cur_row <= r2) {
+					SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
+
+					SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
+					// have selection box take up whole screen space, easier to see
+					r.x = ((i-start) % g->thumb_cols) * w;
+					r.y = ((i-start) / g->thumb_cols) * h;
+					r.w = w;
+					r.h = h;
+					SDL_RenderFillRect(g->ren, &r);
+				}
 			}
 		} else if (g->state & SEARCH_RESULTS) {
 
