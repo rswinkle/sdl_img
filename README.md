@@ -165,6 +165,8 @@ the default Vim keybinds, HJKL, are JCVP physically.
 | --------------------    |-------------|
 | Arrow Keys or HJKL      | Move around |
 | Mouse Wheel             | Move up and down |
+| g or Home               | Move to first image |
+| G or End                | Move to last image |
 | Click                   | Move to that image |
 | CTRL + Click            | Select multiple arbitrary images |
 | SHIFT + Click           | Select a contiguous range of images |
