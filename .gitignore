@@ -39,6 +39,7 @@ build/*
 *.swp
 tags
 scratch/*
+references/*
 
 package/LICENSE*
 package/README.md
