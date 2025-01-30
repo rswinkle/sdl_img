@@ -7,6 +7,7 @@ void render_thumbs()
 	SDL_RenderSetClipRect(g->ren, NULL);
 	SDL_RenderClear(g->ren);
 
+	struct nk_color th = g->thumb_highlight;
 	int start = g->thumb_start_row * g->thumb_cols;
 	int end = start + g->thumb_cols*g->thumb_rows;
 	int w = g->scr_w/(float)g->thumb_cols;
@@ -40,7 +41,7 @@ void render_thumbs()
 		SDL_RenderCopy(g->ren, g->thumbs.a[i].tex, NULL, &r);
 		if (g->state & THUMB_DFLT) {
 			if (i == g->thumb_sel) {
-				SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
+				SDL_SetRenderDrawColor(g->ren, th.r, th.g, th.b, 255);
 				// have selection box take up whole screen space, easier to see
 				r.x = ((i-start) % g->thumb_cols) * w;
 				r.y = ((i-start) / g->thumb_cols) * h;
@@ -55,7 +56,7 @@ void render_thumbs()
 					// TODO why doesn't setting this in setup work?  Where else is it changed?
 					SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
 
-					SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
+					SDL_SetRenderDrawColor(g->ren, th.r, th.g, th.b, 100);
 					// have selection box take up whole screen space, easier to see
 					r.x = ((i-start) % g->thumb_cols) * w;
 					r.y = ((i-start) / g->thumb_cols) * h;

@@ -379,7 +379,14 @@ typedef struct global_state
 	int menu_state;
 	int sorted_state;
 
+	// sdl_img colors
 	struct nk_color bg;
+	// for now this is used for regular box and visual mode
+	// with alpha hardcoded as 255 and 100 respectively
+	struct nk_color thumb_highlight;
+
+	// Nuklear colors
+	struct nk_color color_table[NK_COLOR_COUNT];
 
 	int slide_delay;
 	int slideshow;

@@ -35,7 +35,7 @@ void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h);
 
 
 // TODO nuklear helper functions to separate file?
-void do_color_setting(struct nk_context* ctx, const char* label, struct nk_color* color, enum nk_color_format format)
+int do_color_setting(struct nk_context* ctx, const char* label, struct nk_color* color, enum nk_color_format format)
 {
 	struct nk_color c = *color;
 	struct nk_colorf fcolor = nk_color_cf(c);
@@ -59,7 +59,9 @@ void do_color_setting(struct nk_context* ctx, const char* label, struct nk_color
 		}
 		*color = nk_rgb_cf(fcolor);
 		nk_combo_end(ctx);
+		return 1;
 	}
+	return 0;
 }
 
 // window dimensions
@@ -1518,6 +1520,43 @@ void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h)
 
 enum { PREFS_APPEARANCE, PREFS_BEHAVIOR, PREFS_DATA };
 
+const char* color_labels[NK_COLOR_COUNT] =
+{
+	"TEXT:",
+	"WINDOW:",
+	"HEADER:",
+	"BORDER:",
+	"BUTTON:",
+	"BUTTON_HOVER:",
+	"BUTTON_ACTIVE:",
+	"TOGGLE:",
+	"TOGGLE_HOVER:",
+	"TOGGLE_CURSOR:",
+	"SELECT:",
+	"SELECT_ACTIVE:",
+	"SLIDER:",
+	"SLIDER_CURSOR:",
+	"SLIDER_CURSOR_HOVER:",
+	"SLIDER_CURSOR_ACTIVE:",
+	"PROPERTY:",
+	"EDIT:",
+	"EDIT_CURSOR:",
+	"COMBO:",
+	"CHART:",
+	"CHART_COLOR:",
+	"CHART_COLOR_HIGHLIGHT:",
+	"SCROLLBAR:",
+	"SCROLLBAR_CURSOR:",
+	"SCROLLBAR_CURSOR_HOVER:",
+	"SCROLLBAR_CURSOR_ACTIVE:",
+	"TAB_HEADER:",
+	"KNOB:",
+	"KNOB_CURSOR:",
+	"KNOB_CURSOR_HOVER:",
+	"KNOB_CURSOR_ACTIVE:"
+};
+
+
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;
@@ -1562,8 +1601,40 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 
 		if (nk_group_begin(ctx, "Pref Panel", 0)) {
 			if (cur_prefs == PREFS_APPEARANCE) {
+				nk_layout_row_dynamic(ctx, 0, 1);
+				nk_label(ctx, "sdl_img colors:", NK_TEXT_LEFT);
+
 				nk_layout_row_dynamic(ctx, 0, 2);
 				do_color_setting(ctx, "background:", &g->bg, NK_RGB);
+
+				// TODO split into normal and visual with visual controlling alpha?
+				do_color_setting(ctx, "thumb highlight:", &g->thumb_highlight, NK_RGB);
+
+				nk_layout_row_dynamic(ctx, 0, 1);
+				nk_label(ctx, "GUI colors:", NK_TEXT_LEFT);
+
+				nk_layout_row_dynamic(ctx, 0, 2);
+				int clicked = SDL_FALSE;
+				for (int i=0; i<NK_COLOR_COUNT; i++) {
+					clicked |= do_color_setting(ctx, color_labels[i], &g->color_table[i]);
+				}
+				if (clicked) {
+					nk_style_from_table(ctx, g->color_table);
+				}
+
+
+				nk_layout_row_dynamic(ctx, 0, 1);
+				// TODO reset sdl_img colors too? or have a separet button for them
+				if (nk_button_label(ctx, "Reset GUI colors to defaults")) {
+					memcpy(g->color_table, nk_default_color_style, sizeof(nk_default_color_style));
+					nk_style_default(ctx);
+
+					// TODO have this be it's own setting?
+					g->ctx->style.window.fixed_background.data.color.a *= 0.75;
+				}
+
+
+
 			} else if (cur_prefs == PREFS_BEHAVIOR) {
 				nk_layout_row_dynamic(ctx, 0, 2);
 

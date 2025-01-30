@@ -13,6 +13,7 @@ enum {
 	GUI_SCALE,
 	FONT_SIZE,
 	BACKGROUND,
+	THUMB_HIGHLIGHT,
 	SLIDE_DELAY,
 	HIDE_GUI_DELAY,
 	BUTTON_REPEAT_DELAY,
@@ -29,6 +30,7 @@ enum {
 	DEFAULT_PLAYLIST,
 	CACHE_DIR,
 	THUMB_DIR,
+	GUI_COLORS,
 	NUM_KEYS
 };
 
@@ -37,6 +39,7 @@ char* keys[] =
 	"gui_scale",
 	"font_size",
 	"background",
+	"thumb_highlight",
 	"slide_delay",
 	"hide_gui_delay",
 	"button_repeat_delay",
@@ -52,10 +55,11 @@ char* keys[] =
 	"bookmarks",
 	"default_playlist",
 	"cache_dir",
-	"thumb_dir"
+	"thumb_dir",
+	"gui_colors"
 };
 
-// TODO better name
+// TODO better name, support alpha?
 typedef struct Color
 {
 	u8 r,g,b;
@@ -118,9 +122,12 @@ int read_config_file(char* filename)
 	// enum
 	g->fullscreen_gui = load_fullscreen_gui(L);
 
-	Color background = {0};
+	Color background = {0}, thumb_hl = {0};
 	load_color(L, "background", &background);
 	g->bg = nk_rgb(background.r,background.g,background.b); // clamps for us
+
+	load_color(L, "thumb_highlight", &thumb_hl);
+	g->thumb_highlight = nk_rgb(thumb_hl.r, thumb_hl.g, thumb_hl.b);
 
 	g->show_infobar = get_global_bool(L, "show_info_bar");
 	g->thumb_x_deletes  = get_global_bool(L, "x_deletes_thumb");
@@ -201,6 +208,9 @@ void write_config(FILE* cfg_file)
 			break;
 		case BACKGROUND:
 			fprintf(cfg_file, "{ red = %u, green = %u, blue = %u }\n", g->bg.r, g->bg.g, g->bg.b);
+			break;
+		case THUMB_HIGHLIGHT:
+			fprintf(cfg_file, "{ red = %u, green = %u, blue = %u }\n", g->thumb_highlight.r, g->thumb_highlight.g, g->thumb_highlight.b);
 			break;
 		case SLIDE_DELAY:
 			fprintf(cfg_file, "%d\n", g->slide_delay);
