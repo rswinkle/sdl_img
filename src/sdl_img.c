@@ -435,6 +435,7 @@ void my_switch_dir(const char* dir);
 
 #include "sorting.c"
 
+// depends on color_labels in gui.c
 #include "lua_config.c"
 
 void log_output_func(void *userdata, int category, SDL_LogPriority priority, const char *message)
@@ -2485,11 +2486,17 @@ void setup(int argc, char** argv)
 	// SDL_free(exepath);
 
 	// have to set these before load_config
+
 	// just point these at a buffer that will live forever
 	g->cachedir = g->cachedir_buf;
 	g->thumbdir = g->thumbdir_buf;
 	g->logdir = g->logdir_buf;
 	g->playlistdir = g->playlistdir_buf;
+
+	g->thumb_highlight = nk_rgb(0, 255, 0);
+	memcpy(g->color_table, nk_default_color_style, sizeof(nk_default_color_style));
+	
+
 
 	for (int i=1; i<argc; ++i) {
 		if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {

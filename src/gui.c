@@ -1522,38 +1522,38 @@ enum { PREFS_APPEARANCE, PREFS_BEHAVIOR, PREFS_DATA };
 
 const char* color_labels[NK_COLOR_COUNT] =
 {
-	"TEXT:",
-	"WINDOW:",
-	"HEADER:",
-	"BORDER:",
-	"BUTTON:",
-	"BUTTON_HOVER:",
-	"BUTTON_ACTIVE:",
-	"TOGGLE:",
-	"TOGGLE_HOVER:",
-	"TOGGLE_CURSOR:",
-	"SELECT:",
-	"SELECT_ACTIVE:",
-	"SLIDER:",
-	"SLIDER_CURSOR:",
-	"SLIDER_CURSOR_HOVER:",
-	"SLIDER_CURSOR_ACTIVE:",
-	"PROPERTY:",
-	"EDIT:",
-	"EDIT_CURSOR:",
-	"COMBO:",
-	"CHART:",
-	"CHART_COLOR:",
-	"CHART_COLOR_HIGHLIGHT:",
-	"SCROLLBAR:",
-	"SCROLLBAR_CURSOR:",
-	"SCROLLBAR_CURSOR_HOVER:",
-	"SCROLLBAR_CURSOR_ACTIVE:",
-	"TAB_HEADER:",
-	"KNOB:",
-	"KNOB_CURSOR:",
-	"KNOB_CURSOR_HOVER:",
-	"KNOB_CURSOR_ACTIVE:"
+	"TEXT",
+	"WINDOW",
+	"HEADER",
+	"BORDER",
+	"BUTTON",
+	"BUTTON_HOVER",
+	"BUTTON_ACTIVE",
+	"TOGGLE",
+	"TOGGLE_HOVER",
+	"TOGGLE_CURSOR",
+	"SELECT",
+	"SELECT_ACTIVE",
+	"SLIDER",
+	"SLIDER_CURSOR",
+	"SLIDER_CURSOR_HOVER",
+	"SLIDER_CURSOR_ACTIVE",
+	"PROPERTY",
+	"EDIT",
+	"EDIT_CURSOR",
+	"COMBO",
+	"CHART",
+	"CHART_COLOR",
+	"CHART_COLOR_HIGHLIGHT",
+	"SCROLLBAR",
+	"SCROLLBAR_CURSOR",
+	"SCROLLBAR_CURSOR_HOVER",
+	"SCROLLBAR_CURSOR_ACTIVE",
+	"TAB_HEADER",
+	"KNOB",
+	"KNOB_CURSOR",
+	"KNOB_CURSOR_HOVER",
+	"KNOB_CURSOR_ACTIVE"
 };
 
 
@@ -1566,6 +1566,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 
 	const float group_szs[] = { FB_SIDEBAR_W, scr_w-FB_SIDEBAR_W };
 	
+	char label_buf[100];
 	static int cur_prefs = PREFS_APPEARANCE;
 	nk_bool is_selected;
 
@@ -1616,7 +1617,8 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 				nk_layout_row_dynamic(ctx, 0, 2);
 				int clicked = SDL_FALSE;
 				for (int i=0; i<NK_COLOR_COUNT; i++) {
-					clicked |= do_color_setting(ctx, color_labels[i], &g->color_table[i]);
+					snprintf(label_buf, sizeof(label_buf), "%s:", color_labels[i]);
+					clicked |= do_color_setting(ctx, label_buf, &g->color_table[i], NK_RGB);
 				}
 				if (clicked) {
 					nk_style_from_table(ctx, g->color_table);

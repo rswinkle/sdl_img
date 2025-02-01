@@ -26,7 +26,7 @@ void error(lua_State* L, const char *fmt, ...)
 	va_end(argp);
 
 	// TODO make this compile time configurable, think of good macro name
-#if 0
+#ifndef LUA_ERROR_NO_EXIT
 	lua_close(L);
 	exit(EXIT_FAILURE);
 #endif
@@ -293,6 +293,26 @@ void stackDump(lua_State* L)
 		printf("  ");
 	}
 	putchar('\n');
+}
+
+// TODO better name
+typedef void (*table_member_callback)(lua_State* L, void* userdata);
+
+// table is at stack idx
+void map_table(lua_State* L, int idx, table_member_callback callback, void* userdata)
+{
+	lua_pushnil(L); // first "key"
+	idx--;
+	while (lua_next(L, idx)) {
+		callback(L, userdata);
+		lua_pop(L, 1);  // pop value, keeps key
+	}
+}
+
+void loop_globals(lua_State* L, table_member_callback callback, void* userdata)
+{
+	lua_pushglobaltable(L);
+	map_table(L, -1, callback, userdata);
 }
 
 

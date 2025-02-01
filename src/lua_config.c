@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#define LUA_ERROR_NO_EXIT
 #include "lua_helper.h"
 
 #include "lua.h"
@@ -59,7 +60,7 @@ char* keys[] =
 	"gui_colors"
 };
 
-// TODO better name, support alpha?
+// TODO better name support alpha?
 typedef struct Color
 {
 	u8 r,g,b;
@@ -70,7 +71,9 @@ typedef struct ColorEntry {
 	Color c;
 } ColorEntry;
 
-void load_color(lua_State* L, const char* name, Color* c);
+void load_global_color(lua_State* L, const char* name, Color* c);
+void convert_color(lua_State* L, Color* c, int index);
+int convert_color_field(lua_State* L, int index);
 
 // assume table (a color) is on top of the stack
 int get_color_field(lua_State* L, const char* key);
@@ -84,13 +87,46 @@ void write_config(FILE* cfg_file);
 
 ColorEntry colortable[] =
 {
-	{ "WHITE", { MAX_COLOR, MAX_COLOR, MAX_COLOR } },
-	{ "RED",   { MAX_COLOR, 0, 0 } },
-	{ "GREEN", { 0, MAX_COLOR, 0 } },
-	{ "BLUE",  { 0, 0, MAX_COLOR } },
-	{ "BLACK", { 0, 0, 0 } },
-	{ NULL,    { 0, 0, 0} }     // sentinal
+	{ "WHITE",   { MAX_COLOR, MAX_COLOR, MAX_COLOR } },
+	{ "RED",     { MAX_COLOR, 0, 0 } },
+	{ "GREEN",   { 0, MAX_COLOR, 0 } },
+	{ "BLUE",    { 0, 0, MAX_COLOR } },
+	{ "CYAN",    { 0, MAX_COLOR, MAX_COLOR} },
+	{ "YELLOW",  { MAX_COLOR, MAX_COLOR, 0 } },
+	{ "MAGENTA",  { MAX_COLOR, 0, MAX_COLOR } },
+	{ "BLACK",   { 0, 0, 0 } },
+	
+	// TODO more web colors?
+	{ "BROWN",   {165, 42, 42 } },
+	{ "ORANGE",  { 255, 165, 0 } },
+
+	{ NULL,      { 0, 0, 0} }     // sentinal
 };
+
+
+void handle_gui_colors(lua_State* L, void* userdata)
+{
+	// key at -2, value at -1
+	if (lua_type(L, -2) != LUA_TSTRING) {
+		//error(L, "")
+		return;
+	}
+	Color c = {0};
+	const char* key = lua_tostring(L, -2);
+	printf("%s: %s\n", key, lua_tostring(L, -1));
+	
+	struct nk_color* ct = g->color_table;
+	for (int i=0; i<NK_COLOR_COUNT; ++i) {
+		if (!strcasecmp(color_labels[i], key)) {
+			convert_color(L, &c, -1);
+			ct[i].r = c.r;
+			ct[i].g = c.g;
+			ct[i].b = c.b;
+			ct[i].a = 255;
+			break;
+		}
+	}
+}
 
 int read_config_file(char* filename)
 {
@@ -123,10 +159,10 @@ int read_config_file(char* filename)
 	g->fullscreen_gui = load_fullscreen_gui(L);
 
 	Color background = {0}, thumb_hl = {0};
-	load_color(L, "background", &background);
+	load_global_color(L, "background", &background);
 	g->bg = nk_rgb(background.r,background.g,background.b); // clamps for us
 
-	load_color(L, "thumb_highlight", &thumb_hl);
+	load_global_color(L, "thumb_highlight", &thumb_hl);
 	g->thumb_highlight = nk_rgb(thumb_hl.r, thumb_hl.g, thumb_hl.b);
 
 	g->show_infobar = get_global_bool(L, "show_info_bar");
@@ -156,6 +192,10 @@ int read_config_file(char* filename)
 	}
 
 	get_global_strbuf(L, "thumb_dir", g->thumbdir, STRBUF_SZ);
+
+	if (lua_getglobal(L, "gui_colors") == LUA_TTABLE) {
+		map_table(L, -1, handle_gui_colors, NULL);
+	}
 
 	// For debug purposes
 #ifndef NDEBUG
@@ -276,6 +316,16 @@ void write_config(FILE* cfg_file)
 			}
 			fprintf(cfg_file, "}\n");
 			break;
+
+		case GUI_COLORS:
+			fprintf(cfg_file, "{\n");
+			// not writing alpha, alpha always 255 for now
+			for (int j=0; j<NK_COLOR_COUNT; ++j) {
+				fprintf(cfg_file, "{ %u, %u, %u },\n", g->color_table[j].r, g->color_table[j].g, g->color_table[j].b);
+
+			}
+			fprintf(cfg_file, "}\n");
+			break;
 		}
 	}
 }
@@ -305,11 +355,12 @@ int load_fullscreen_gui(lua_State* L)
 	return load_str2enum(L, "fullscreen_gui", enum_names, enum_values, 3);
 }
 
-void load_color(lua_State* L, const char* name, Color* c)
+// TODO better function names
+// color value is at index
+void convert_color(lua_State* L, Color* c, int index)
 {
-	lua_getglobal(L, name);
-	if (lua_isstring(L, -1)) {
-		const char* colorname = lua_tostring(L, -1);
+	if (lua_isstring(L, index)) {
+		const char* colorname = lua_tostring(L, index);
 		int i;
 		for (i=0; colortable[i].name; i++) {
 			if (!strcasecmp(colorname, colortable[i].name)) {
@@ -321,29 +372,54 @@ void load_color(lua_State* L, const char* name, Color* c)
 		} else {
 			*c = colortable[i].c;
 		}
-	} else if (lua_istable(L, -1)) {
-		c->r = get_color_field(L, "red");
-		c->g = get_color_field(L, "green");
-		c->b = get_color_field(L, "blue");
+	} else if (lua_istable(L, index)) {
+		if (lua_rawlen(L, index) >= 3) {
+
+			lua_geti(L, index, 1);
+			c->r = convert_color_field(L, -1);
+			lua_geti(L, index, 2);
+			c->g = convert_color_field(L, -1);
+			lua_geti(L, index, 3);
+			c->b = convert_color_field(L, -1);
+		} else {
+			if (lua_getfield(L, -1, "red") != LUA_TNIL) {
+				lua_pop(L, 1);
+				c->r = get_color_field(L, "red");
+				c->g = get_color_field(L, "green");
+				c->b = get_color_field(L, "blue");
+			} else if (lua_getfield(L, -1, "r") != LUA_TNIL) {
+				lua_pop(L, 1);
+				c->r = get_color_field(L, "r");
+				c->g = get_color_field(L, "g");
+				c->b = get_color_field(L, "b");
+			}
+		}
 	} else {
-		error(L, "'%s' is not a table\n", name);
+		error(L, "Expected color is not a table or valid color string\n");
 	}
 }
 
-// assume table background is on top of the stack
-int get_color_field(lua_State* L, const char* key)
+void load_global_color(lua_State* L, const char* name, Color* c)
 {
-	int result;
+	lua_getglobal(L, name);
+	convert_color(L, c, -1);
+}
 
-	// get background[key]
-	if (lua_getfield(L, -1, key) != LUA_TNUMBER) {
-		error(L, "invalid component in background color\n");
+// field is at index
+int convert_color_field(lua_State* L, int index)
+{
+	int result = 0;
+
+	if (lua_type(L, index) != LUA_TNUMBER) {
+		error(L, "invalid component in color, must be a number\n");
+		return 0;
 	}
-	if (lua_isinteger(L, -1)) {
-		result = lua_tointeger(L, -1);
+
+	if (lua_isinteger(L, index)) {
+		result = lua_tointeger(L, index);
 		//printf("Is integer: %d\n", result);
 	} else {
-		float tmp = (float)lua_tonumber(L, -1);
+		float tmp = (float)lua_tonumber(L, index);
 		//printf("is float: %f\n", tmp);
 		result = (int)(tmp*255);
 	}
@@ -353,8 +429,15 @@ int get_color_field(lua_State* L, const char* key)
 	if (result > 255) result = 255;
 
 	lua_pop(L, 1);
-
 	return result;
+}
+
+// assume table is on top of the stack
+int get_color_field(lua_State* L, const char* key)
+{
+	// get background[key]
+	lua_getfield(L, -1, key);
+	return convert_color_field(L, -1);
 }
 
 // assume table is top of stack
