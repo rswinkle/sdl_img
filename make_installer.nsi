@@ -152,11 +152,11 @@ SectionGroup /e "Optional" optional_id
 	SectionEnd
 
 	Section "Start Menu Shortuct" start_menu_id
-		CreateShortcut /NoWorkingDir "$STARTMENU\sdl_img.lnk" "$INSTDIR\sdl_img.exe"
+		CreateShortcut /NoWorkingDir "$STARTMENU\sdl_img.lnk" "$INSTDIR\sdl_img.exe" "" "$INSTDIR\sdl_img.ico" 0
 	SectionEnd
 
 	Section "Desktop Shortuct" desktop_shortcut_id
-		CreateShortcut /NoWorkingDir "$DESKTOP\sdl_img.lnk" "$INSTDIR\sdl_img.exe"
+		CreateShortcut /NoWorkingDir "$DESKTOP\sdl_img.lnk" "$INSTDIR\sdl_img.exe" "" "$INSTDIR\sdl_img.ico" 0
 	SectionEnd
 
 SectionGroupEnd
