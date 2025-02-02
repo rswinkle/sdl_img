@@ -2183,7 +2183,7 @@ void setup_dirs()
 	
 
 	t = time(NULL);
-	srand(t);
+	srand(t);  // we use rand() in do_shuffle()
 
 	char* prefpath = g->prefpath;
 
@@ -2573,7 +2573,11 @@ void setup(int argc, char** argv)
 // NOTE by doing it here we miss all log calls above but code above could change
 #ifdef USE_LOGFILE
 	char log_path[STRBUF_SZ];
-	snprintf(log_path, sizeof(log_path), "%slogs/log_%d.txt", g->prefpath, getpid());
+	char datebuf[200] = { 0 };
+	time_t t = time(NULL);
+	struct tm *tmp = localtime(&t);
+	strftime(datebuf, sizeof(datebuf), "%Y-%m-%d_%H-%M-%S", tmp);  // %F
+	snprintf(log_path, sizeof(log_path), "%s/log_%s.txt", g->logdir, datebuf);
 	g->logfile = fopen(log_path, "w");
 	SDL_LogSetOutputFunction(log_output_func, g->logfile);
 #endif
