@@ -2495,6 +2495,7 @@ void setup(int argc, char** argv)
 
 	g->thumb_highlight = nk_rgb(0, 255, 0);
 	memcpy(g->color_table, nk_default_color_style, sizeof(nk_default_color_style));
+	g->color_table[1].a *= 0.75;
 	
 
 

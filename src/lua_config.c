@@ -71,7 +71,7 @@ typedef struct ColorEntry {
 	Color c;
 } ColorEntry;
 
-void load_global_color(lua_State* L, const char* name, Color* c);
+int load_global_color(lua_State* L, const char* name, Color* c);
 void convert_color(lua_State* L, Color* c, int index);
 int convert_color_field(lua_State* L, int index);
 
@@ -159,11 +159,13 @@ int read_config_file(char* filename)
 	g->fullscreen_gui = load_fullscreen_gui(L);
 
 	Color background = {0}, thumb_hl = {0};
-	load_global_color(L, "background", &background);
-	g->bg = nk_rgb(background.r,background.g,background.b); // clamps for us
+	if (load_global_color(L, "background", &background)) {
+		g->bg = nk_rgb(background.r,background.g,background.b); // clamps for us
+	}
 
-	load_global_color(L, "thumb_highlight", &thumb_hl);
-	g->thumb_highlight = nk_rgb(thumb_hl.r, thumb_hl.g, thumb_hl.b);
+	if (load_global_color(L, "thumb_highlight", &thumb_hl)) {
+		g->thumb_highlight = nk_rgb(thumb_hl.r, thumb_hl.g, thumb_hl.b);
+	}
 
 	g->show_infobar = get_global_bool(L, "show_info_bar");
 	g->thumb_x_deletes  = get_global_bool(L, "x_deletes_thumb");
@@ -399,10 +401,13 @@ void convert_color(lua_State* L, Color* c, int index)
 	}
 }
 
-void load_global_color(lua_State* L, const char* name, Color* c)
+int load_global_color(lua_State* L, const char* name, Color* c)
 {
-	lua_getglobal(L, name);
-	convert_color(L, c, -1);
+	if (lua_getglobal(L, name)) {
+		convert_color(L, c, -1);
+		return 1;
+	}
+	return 0;
 }
 
 // field is at index

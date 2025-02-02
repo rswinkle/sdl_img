@@ -56,8 +56,10 @@ int do_color_setting(struct nk_context* ctx, const char* label, struct nk_color*
 
 		if (format == NK_RGBA) {
 			fcolor.a = nk_propertyf(ctx, "#A:", 0, fcolor.a, 1.0f, 0.01f,0.005f);
+			*color = nk_rgba_cf(fcolor);
+		} else {
+			*color = nk_rgb_cf(fcolor);
 		}
-		*color = nk_rgb_cf(fcolor);
 		nk_combo_end(ctx);
 		return 1;
 	}
@@ -1572,9 +1574,14 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 
 	if (nk_begin(ctx, "Preferences", s, popup_flags)) {
 		//bounds = nk_widget_bounds(ctx);
-		nk_layout_row(ctx, NK_STATIC, scr_h, 2, group_szs);
+		// header height is
+		// font height + 2*win.header.padding.y + 2*win.header.label_padding.y;
+		// or font_height + 16
+		// if no header, it's panel type.padding.y
+		int header_h = DFLT_FONT_SIZE+16;
+		nk_layout_row(ctx, NK_STATIC, scr_h-header_h, 2, group_szs);
 
-		if (nk_group_begin(ctx, "Pref Sidebar", 0)) {
+		if (nk_group_begin(ctx, "Pref Sidebar", NK_WINDOW_BORDER)) {
 
 			nk_layout_row_dynamic(ctx, 0, 1);
 			is_selected = cur_prefs == PREFS_APPEARANCE;
@@ -1600,7 +1607,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 			nk_group_end(ctx);
 		}
 
-		if (nk_group_begin(ctx, "Pref Panel", 0)) {
+		if (nk_group_begin(ctx, "Pref Panel", NK_WINDOW_BORDER)) {
 			if (cur_prefs == PREFS_APPEARANCE) {
 				nk_layout_row_dynamic(ctx, 0, 1);
 				nk_label(ctx, "sdl_img colors:", NK_TEXT_LEFT);
@@ -1612,13 +1619,17 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 				do_color_setting(ctx, "thumb highlight:", &g->thumb_highlight, NK_RGB);
 
 				nk_layout_row_dynamic(ctx, 0, 1);
-				nk_label(ctx, "GUI colors:", NK_TEXT_LEFT);
+				if (nk_button_label(ctx, "Reset sdl_img colors to defaults")) {
+					g->bg = nk_rgb(0,0,0);
+					g->thumb_highlight = nk_rgb(0,255,0);
+				}
 
+				nk_label(ctx, "GUI colors:", NK_TEXT_LEFT);
 				nk_layout_row_dynamic(ctx, 0, 2);
 				int clicked = SDL_FALSE;
 				for (int i=0; i<NK_COLOR_COUNT; i++) {
 					snprintf(label_buf, sizeof(label_buf), "%s:", color_labels[i]);
-					clicked |= do_color_setting(ctx, label_buf, &g->color_table[i], NK_RGB);
+					clicked |= do_color_setting(ctx, label_buf, &g->color_table[i], (i != 1) ? NK_RGB : NK_RGBA);
 				}
 				if (clicked) {
 					nk_style_from_table(ctx, g->color_table);
@@ -1631,7 +1642,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 					memcpy(g->color_table, nk_default_color_style, sizeof(nk_default_color_style));
 					nk_style_default(ctx);
 
-					// TODO have this be it's own setting?
+					// TODO have this be its own setting or keep part of window color?
 					g->ctx->style.window.fixed_background.data.color.a *= 0.75;
 				}
 
