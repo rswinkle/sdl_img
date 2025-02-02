@@ -1046,6 +1046,9 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 		nk_layout_row_template_push_static(ctx, 100);
 		nk_layout_row_template_end(ctx);
 
+		// NOTE Decided in that special cases, ie startup or after removing all
+		// current images, it makes sense to just exit
+
 		// Can't cancel if there are no files
 		//if (!g->files.size) {
 		//	nk_widget_disable_begin(ctx);
