@@ -173,12 +173,6 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 					}
 				}
 				break;
-
-			case SDLK_KP_ENTER:
-				// convert keypad enter to regular enter, mostly for nuklear
-				enter.type = SDL_KEYUP;
-				SDL_PushEvent(&enter);
-				break;
 			}
 			break;
 
@@ -198,12 +192,6 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 					fb->selection %= f->size;
 				// TODO don't set unless necessary
 				fb->list_setscroll = TRUE;
-				break;
-
-			case SDLK_KP_ENTER:
-				// convert keypad enter to regular enter for nuklear
-				enter.type = SDL_KEYDOWN;
-				SDL_PushEvent(&enter);
 				break;
 			}
 
@@ -434,6 +422,8 @@ int handle_thumb_events()
 					do_thumb_rem_del(sym == SDLK_x && g->thumb_x_deletes, ctrl_down);
 				}
 				break;
+
+			case SDLK_KP_ENTER:
 			case SDLK_RETURN:
 				// TODO why am I or'ing with THUMB_DFLT?
 				if (g->state & (THUMB_DFLT | SEARCH_RESULTS)) {
@@ -762,10 +752,6 @@ int handle_list_events()
 	int sym;
 	int code, sort_timer;
 	//SDL_Keymod mod_state = SDL_GetModState();
-	SDL_Event enter;
-	enter.type = SDL_KEYDOWN;
-	enter.key.keysym.scancode = SDL_SCANCODE_RETURN;
-	enter.key.keysym.sym = SDLK_RETURN;
 
 	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
@@ -901,6 +887,7 @@ int handle_list_events()
 
 			// switch to normal mode on that image
 			case SDLK_RETURN:
+			case SDLK_KP_ENTER:
 				if (g->selection >= 0) {
 					if (g->state & SEARCH_RESULTS) {
 						g->state |= NORMAL;
@@ -916,12 +903,6 @@ int handle_list_events()
 					g->status = REDRAW;
 					try_move(SELECTION);
 				}
-				break;
-
-			case SDLK_KP_ENTER:
-				// convert keypad enter to regular enter, mostly for nuklear
-				enter.type = SDL_KEYUP;
-				SDL_PushEvent(&enter);
 				break;
 			}
 			break;
@@ -948,12 +929,6 @@ int handle_list_events()
 				}
 				// TODO don't set unless necessary
 				g->list_setscroll = SDL_TRUE;
-				break;
-
-			case SDLK_KP_ENTER:
-				// convert keypad enter to regular enter for nuklear
-				enter.type = SDL_KEYDOWN;
-				SDL_PushEvent(&enter);
 				break;
 			}
 
@@ -1136,11 +1111,6 @@ int handle_popup_events()
 	SDL_Event e;
 	int sc;
 
-	SDL_Event enter;
-	enter.type = SDL_KEYDOWN;
-	enter.key.keysym.scancode = SDL_SCANCODE_RETURN;
-	enter.key.keysym.sym = SDLK_RETURN;
-
 	g->status = NOCHANGE;
 
 	SDL_Keymod mod_state = SDL_GetModState();
@@ -1199,21 +1169,12 @@ int handle_popup_events()
 					g->fullscreen = !g->fullscreen;
 					set_fullscreen();
 				}
-			case SDL_SCANCODE_KP_ENTER:
-				// convert keypad enter to regular enter, mostly for nuklear
-				enter.type = SDL_KEYUP;
-				SDL_PushEvent(&enter);
-				break;
 			}
 			break;
 		case SDL_KEYDOWN:
 			sc = e.key.keysym.scancode;
 			switch (sc) {
-			case SDL_SCANCODE_KP_ENTER:
-				// convert keypad enter to regular enter for nuklear
-				enter.type = SDL_KEYDOWN;
-				SDL_PushEvent(&enter);
-				break;
+				default: ;
 			}
 			break;
 		case SDL_WINDOWEVENT: {
