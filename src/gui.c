@@ -1584,6 +1584,8 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 
 		has_inited = 1;
 	}
+
+	const struct nk_input* in = &ctx->input;
 	
 	char label_buf[100];
 	static int cur_prefs = PREFS_APPEARANCE;
@@ -1711,7 +1713,11 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 				int path_flags = NK_EDIT_FIELD | NK_EDIT_AUTO_SELECT;
 
 				nk_layout_row_dynamic(ctx, 0, 1);
+				bounds = nk_widget_bounds(ctx);
 				nk_label(ctx, "Cache:", NK_TEXT_LEFT);
+				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+					nk_tooltip(ctx, "Where any URLs given to sdl_img are downloaded");
+				}
 				nk_edit_string(ctx, path_flags, g->cachedir, &cache_len, STRBUF_SZ, nk_filter_default);
 
 				nk_label(ctx, "Thumbnails:", NK_TEXT_LEFT);

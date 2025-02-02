@@ -59,11 +59,6 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 	int did_sort = 0;
 	//SDL_Keymod mod_state = SDL_GetModState();
 
-	SDL_Event enter;
-	enter.type = SDL_KEYDOWN;
-	enter.key.keysym.scancode = SDL_SCANCODE_RETURN;
-	enter.key.keysym.sym = SDLK_RETURN;
-	
 	cvector_file* f = &fb->files;
 
 	nk_input_begin(ctx);
@@ -161,7 +156,7 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 				}
 				break;
 
-			// switch to normal mode on that image
+			case SDLK_KP_ENTER:
 			case SDLK_RETURN:
 				if (fb->selection >= 0) {
 					int sel = (fb->is_search_results) ? fb->search_results.a[fb->selection] : fb->selection;
