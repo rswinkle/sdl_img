@@ -541,11 +541,10 @@ void draw_gui(struct nk_context* ctx)
 						nk_list_view_end(&rview);
 					}
 				}
-				if (g->list_setscroll) {
-					nk_uint x = 0, y;
+				if (g->list_setscroll && rview.total_height > list_height) {
 					int scroll_limit = rview.total_height - list_height; // little off
-					y = (g->selection/(float)(g->search_results.size-1) * scroll_limit) + 0.999f;
-					nk_group_set_scroll(ctx, "Result List", x, y);
+					nk_uint y = (g->selection/(float)(g->search_results.size-1) * scroll_limit) + 0.999f;
+					nk_group_set_scroll(ctx, "Result List", 0, y);
 					g->list_setscroll = SDL_FALSE;
 				}
 			} else {
@@ -585,12 +584,10 @@ void draw_gui(struct nk_context* ctx)
 					list_height = ctx->current->layout->clip.h; // ->bounds.h?
 					nk_list_view_end(&lview);
 				}
-				if (g->list_setscroll) {
-					nk_uint x = 0, y;
+				if (g->list_setscroll && lview.total_height > list_height) {
 					int scroll_limit = lview.total_height - list_height; // little off
-					y = (g->selection/(float)(g->files.size-1) * scroll_limit) + 0.999f;
-					//nk_group_get_scroll(ctx, "Image List", &x, &y);
-					nk_group_set_scroll(ctx, "Image List", x, y);
+					nk_uint y = (g->selection/(float)(g->files.size-1) * scroll_limit) + 0.999f;
+					nk_group_set_scroll(ctx, "Image List", 0, y);
 					g->list_setscroll = SDL_FALSE;
 				}
 				//printf("scroll %u %u\n", x, y);
@@ -1456,12 +1453,11 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 						nk_list_view_end(&rview);
 					}
 				}
-				if (fb->list_setscroll && (rview.end-rview.begin < f->size)) {
-					nk_uint x = 0, y;
+
+				if (fb->list_setscroll && rview.total_height > list_height) {
 					int scroll_limit = rview.total_height - list_height; // little off
-					y = (fb->selection/(float)(f->size-1) * scroll_limit) + 0.999f;
-					//nk_group_get_scroll(ctx, "Image List", &x, &y);
-					nk_group_set_scroll(ctx, "Result List", x, y);
+					nk_uint y = (fb->selection/(float)(fb->search_results.size-1) * scroll_limit) + 0.999f;
+					nk_group_set_scroll(ctx, "Result List", 0, y);
 					fb->list_setscroll = FALSE;
 				}
 			} else {
@@ -1492,12 +1488,10 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 					nk_list_view_end(&lview);
 				}
 
-				if (fb->list_setscroll && (lview.end-lview.begin < f->size)) {
-					nk_uint x = 0, y;
+				if (fb->list_setscroll && lview.total_height > list_height) {
 					int scroll_limit = lview.total_height - list_height; // little off
-					y = (fb->selection/(float)(f->size-1) * scroll_limit) + 0.999f;
-					//nk_group_get_scroll(ctx, "Image List", &x, &y);
-					nk_group_set_scroll(ctx, "File List", x, y);
+					nk_uint y = (fb->selection/(float)(f->size-1) * scroll_limit) + 0.999f;
+					nk_group_set_scroll(ctx, "File List", 0, y);
 					fb->list_setscroll = FALSE;
 				}
 			}
