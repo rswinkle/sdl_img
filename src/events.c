@@ -181,11 +181,17 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 			case SDLK_j:
 				//SDL_LogDebugApp("arrow up/down");
 				fb->selection += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
-				if (fb->selection < 0)
-					fb->selection += f->size;
-				else
-					fb->selection %= f->size;
-				// TODO don't set unless necessary
+				if (fb->is_search_results) {
+					if (fb->selection < 0)
+						fb->selection += fb->search_results.size;
+					else
+						fb->selection %= fb->search_results.size;
+				} else {
+					if (fb->selection < 0)
+						fb->selection += f->size;
+					else
+						fb->selection %= f->size;
+				}
 				fb->list_setscroll = TRUE;
 				break;
 			}
