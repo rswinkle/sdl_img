@@ -26,10 +26,13 @@ int empty_dir(const char* dirpath);
 
 enum { MENU_NONE, MENU_MISC, MENU_PLAYLIST, MENU_SORT, MENU_EDIT, MENU_VIEW };
 
-void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h);
+void draw_rotate(struct nk_context* ctx, int scr_w, int scr_h, int win_flags);
+void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags);
+void draw_about(struct nk_context* ctx, int scr_w, int scr_h, int win_flags);
+void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win_flags);
+
 void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h);
-void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h);
 int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h);
 void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h);
 
@@ -202,7 +205,6 @@ void draw_gui(struct nk_context* ctx)
 	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
 
 	SDL_Event event = { .type = g->userevent };
-	img_state* img;
 	char buf[STRBUF_SZ];
 
 	// Can't use actual screen size g->scr_w/h have to
@@ -254,97 +256,19 @@ void draw_gui(struct nk_context* ctx)
 	// Do popups first so I can return early if eather is up
 	// TODO I can just return after a popup since they're all fullscreen now right?
 	if (g->show_rotate) {
-		// TODO make full screen or adjust for font size
-		int tmp;
-		struct nk_rect s = {0, 0, scr_w, scr_h};
-		img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
-
-		if (nk_begin(ctx, "Arbitrary Rotation", s, popup_flags)) {
-
-			nk_layout_row_dynamic(ctx, 0, 1);
-
-			nk_label_wrap(ctx, "Click and drag, type, or use the arrows to select the desired degree of rotation");
-
-			tmp = nk_propertyi(ctx, "Degrees:", -180, img->rotdegs, 180, 1, 0.5);
-			if (tmp != img->rotdegs) {
-				img->edited = TO_ROTATE;
-				img->rotdegs = tmp;
-			}
-			//nk_label(ctx, "Degrees:", NK_TEXT_LEFT);
-			//nk_slider_int(ctx, -180, &slider_degs, 180, 1);
-
-			//nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
-			nk_layout_row_dynamic(ctx, 0, 2);
-			if (nk_button_label(ctx, "Preview")) {
-				if (img->edited == TO_ROTATE) {
-					event.user.code = ROT360;
-					SDL_PushEvent(&event);
-				}
-			}
-			if (nk_button_label(ctx, "Ok")) {
-				if (img->edited == TO_ROTATE) {
-					event.user.code = ROT360;
-					SDL_PushEvent(&event);
-				} else {
-					// clear state here since we don't need it
-					// anymore and rotate_img won't be called
-					free(g->orig_pix);
-					g->orig_pix = NULL;
-					g->orig_w = 0;
-					g->orig_h = 0;
-				}
-				g->show_rotate = SDL_FALSE;;
-			}
-		}
-		nk_end(ctx);
+		draw_rotate(ctx, scr_w, scr_h, popup_flags);
 	}
 
-
 	if (g->show_about) {
-		// TODO make full screen or adjust for font_size
-		struct nk_rect s = { 0, 0, scr_w, scr_h };
-
-		if (nk_begin(ctx, "About sdl_img", s, popup_flags))
-		{
-			nk_layout_row_dynamic(ctx, 0, 1);
-			nk_label(ctx, VERSION_STR, NK_TEXT_CENTERED);
-			nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
-			nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
-			nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
-
-			nk_label(ctx, "Credits:", NK_TEXT_CENTERED);
-
-			//nk_layout_row_dynamic(ctx, 10, 2);
-			float ratios[] = { 0.3f, 0.7f, 0.2f, 0.8f };
-			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
-
-			nk_label(ctx, "stb_image*", NK_TEXT_LEFT);
-			nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
-			nk_label(ctx, "SDL2", NK_TEXT_LEFT);
-			nk_label(ctx, "libsdl.org", NK_TEXT_RIGHT);
-			nk_label(ctx, "nuklear GUI", NK_TEXT_LEFT);
-			nk_label(ctx, "github.com/Immediate-Mode-UI/Nuklear", NK_TEXT_RIGHT);
-			nk_label(ctx, "libcurl", NK_TEXT_LEFT);
-			nk_label(ctx, "curl.haxx.se/libcurl/", NK_TEXT_RIGHT);
-			nk_label(ctx, "WjCryptLib_Md5", NK_TEXT_LEFT);
-			nk_label(ctx, "github.com/WaterJuice/WjCryptLib", NK_TEXT_RIGHT);
-
-			// My own cvector lib
-
-			nk_layout_row_dynamic(ctx, 0, 1);
-			if (nk_button_label(ctx, "Ok")) {
-				g->show_about = SDL_FALSE;;
-			}
-		}
-		nk_end(ctx);
+		draw_about(ctx, scr_w, scr_h, popup_flags);
 	}
 
 	if (g->show_prefs) {
-		draw_prefs(ctx, scr_w, scr_h);
+		draw_prefs(ctx, scr_w, scr_h, popup_flags);
 	}
 
 	if (g->show_pm) {
-		draw_playlist_manager(ctx, scr_w, scr_h);
+		draw_playlist_manager(ctx, scr_w, scr_h, popup_flags);
 	}
 
 	if (g->fullscreen && g->fullscreen_gui == NEVER) {
@@ -602,6 +526,7 @@ void draw_gui(struct nk_context* ctx)
 
 	if (nk_begin(ctx, "Controls", nk_rect(0, 0, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR))
 	{
+		//printf("Controls has focus = %d\n", nk_window_has_focus(ctx));
 		nk_layout_row_template_begin(ctx, 0);
 
 		// menu
@@ -1165,6 +1090,8 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 #ifndef _WIN32
 					if (s != dir_buf) {
 						*s = 0;
+						my_switch_dir(dir_buf);
+					}
 #else
 					if (s[1]) {
 						// Don't want to turn "C:/" into "C:" since that isn't actually a proper path
@@ -1174,9 +1101,11 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 						} else {
 							*s = 0;
 						}
-#endif
 						my_switch_dir(dir_buf);
-					} else {
+					}
+#endif
+					// stupid windows make my braces ugly but at least this way doesn't break code folding
+					else {
 						my_switch_dir("/");
 					}
 				}
@@ -1516,6 +1445,200 @@ void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h)
 	nk_end(ctx);
 }
 
+void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
+{
+	char info_buf[STRBUF_SZ];
+	char gif_buf[32];
+	char* size_str;
+	unsigned long index, total;
+	float ratios[] = { 0.5f, 0.1, 0.4f };
+
+	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR))
+	{
+		img_state* img = g->img_focus;
+
+		if (g->n_imgs == 1) {
+			img = &g->img[0];
+		}
+
+		if (img) {
+			size_str = g->files.a[img->index].size_str;
+
+			// 2 options when viewing results, showing n/total like normal (so it'd jump between matches)
+			// or showing n/results which is more useful imo
+			//
+			// Method 1
+			//index = (IS_VIEW_RESULTS()) ? g->search_results.a[img->index] : img->index;
+			//total = g->files.size;
+
+			// Method 2
+			index = img->index;
+			total = (IS_VIEW_RESULTS()) ? g->search_results.size : g->files.size;
+
+			int len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total);
+			if (len >= STRBUF_SZ) {
+				SDL_LogCriticalApp("info path too long\n");
+				cleanup(1, 1);
+			}
+			if (img->frames > 1) {
+				snprintf(gif_buf, 32, "%d/%d", (int)img->frame_i+1, img->frames);
+
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
+				//nk_layout_row_static(ctx, 0, 3);
+				nk_label(ctx, info_buf, NK_TEXT_LEFT);
+				nk_label(ctx, gif_buf, NK_TEXT_RIGHT);
+
+				// don't hide the GUI if you're interacting with it
+				if ((g->progress_hovered = nk_widget_is_hovered(ctx))) {
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = SDL_TRUE;
+				}
+				nk_progress(ctx, &img->frame_i, img->frames-1, NK_MODIFIABLE);
+			} else {
+				nk_layout_row_static(ctx, 0, scr_w, 1);
+				nk_label(ctx, info_buf, NK_TEXT_LEFT);
+			}
+		}
+	}
+	nk_end(ctx);
+}
+
+void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
+{
+	char info_buf[STRBUF_SZ];
+	int len;
+	int num_rows = (g->files.size+g->thumb_cols-1)/g->thumb_cols;
+	int row;
+
+	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR)) {
+		if (!(g->state & SEARCH_RESULTS)) {
+			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
+			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
+			if (len >= STRBUF_SZ) {
+				SDL_LogCriticalApp("info path too long\n");
+				cleanup(1, 1);
+			}
+		} else {
+			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
+
+			int i;
+			if (g->thumb_sel == g->search_results.a[g->cur_result]) {
+				i = g->cur_result + 1;
+				len = snprintf(info_buf, STRBUF_SZ, "result: %d / %d  rows: %d / %d  image %d / %d", i, (int)g->search_results.size, row, num_rows, g->thumb_sel+1, (int)g->files.size);
+			} else {
+				len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
+			}
+			if (len >= STRBUF_SZ) {
+				SDL_LogCriticalApp("info path too long\n");
+				cleanup(1, 1);
+			}
+		}
+
+		if (g->state != THUMB_SEARCH) {
+			nk_layout_row_dynamic(ctx, 0, 1);
+			nk_label(ctx, info_buf, NK_TEXT_RIGHT);
+		} else {
+			// keep GUI up to show what they've typed
+			g->gui_timer = SDL_GetTicks();
+			nk_layout_row_dynamic(ctx, 0, 2);
+			nk_label(ctx, text_buf, NK_TEXT_LEFT);
+			nk_label(ctx, info_buf, NK_TEXT_RIGHT);
+		}
+	}
+	nk_end(ctx);
+}
+
+
+
+
+// popup windows
+void draw_rotate(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
+{
+	int tmp;
+	struct nk_rect s = {0, 0, scr_w, scr_h};
+	img_state* img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
+
+	SDL_Event event = { .type = g->userevent };
+
+	if (nk_begin(ctx, "Arbitrary Rotation", s, win_flags)) {
+
+		nk_layout_row_dynamic(ctx, 0, 1);
+
+		nk_label_wrap(ctx, "Click and drag, type, or use the arrows to select the desired degree of rotation");
+
+		tmp = nk_propertyi(ctx, "Degrees:", -180, img->rotdegs, 180, 1, 0.5);
+		if (tmp != img->rotdegs) {
+			img->edited = TO_ROTATE;
+			img->rotdegs = tmp;
+		}
+		//nk_label(ctx, "Degrees:", NK_TEXT_LEFT);
+		//nk_slider_int(ctx, -180, &slider_degs, 180, 1);
+
+		//nk_button_set_behavior(ctx, NK_BUTTON_DEFAULT);
+		nk_layout_row_dynamic(ctx, 0, 2);
+		if (nk_button_label(ctx, "Preview")) {
+			if (img->edited == TO_ROTATE) {
+				event.user.code = ROT360;
+				SDL_PushEvent(&event);
+			}
+		}
+		if (nk_button_label(ctx, "Ok")) {
+			if (img->edited == TO_ROTATE) {
+				event.user.code = ROT360;
+				SDL_PushEvent(&event);
+			} else {
+				// clear state here since we don't need it
+				// anymore and rotate_img won't be called
+				free(g->orig_pix);
+				g->orig_pix = NULL;
+				g->orig_w = 0;
+				g->orig_h = 0;
+			}
+			g->show_rotate = SDL_FALSE;;
+		}
+	}
+	nk_end(ctx);
+}
+
+void draw_about(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
+{
+	struct nk_rect s = { 0, 0, scr_w, scr_h };
+
+	if (nk_begin(ctx, "About sdl_img", s, win_flags))
+	{
+		nk_layout_row_dynamic(ctx, 0, 1);
+		nk_label(ctx, VERSION_STR, NK_TEXT_CENTERED);
+		nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
+		nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
+		nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
+
+		nk_label(ctx, "Credits:", NK_TEXT_CENTERED);
+
+		//nk_layout_row_dynamic(ctx, 10, 2);
+		float ratios[] = { 0.3f, 0.7f, 0.2f, 0.8f };
+		nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+
+		nk_label(ctx, "stb_image*", NK_TEXT_LEFT);
+		nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
+		nk_label(ctx, "SDL2", NK_TEXT_LEFT);
+		nk_label(ctx, "libsdl.org", NK_TEXT_RIGHT);
+		nk_label(ctx, "nuklear GUI", NK_TEXT_LEFT);
+		nk_label(ctx, "github.com/Immediate-Mode-UI/Nuklear", NK_TEXT_RIGHT);
+		nk_label(ctx, "libcurl", NK_TEXT_LEFT);
+		nk_label(ctx, "curl.haxx.se/libcurl/", NK_TEXT_RIGHT);
+		nk_label(ctx, "WjCryptLib_Md5", NK_TEXT_LEFT);
+		nk_label(ctx, "github.com/WaterJuice/WjCryptLib", NK_TEXT_RIGHT);
+
+		// My own cvector lib
+
+		nk_layout_row_dynamic(ctx, 0, 1);
+		if (nk_button_label(ctx, "Ok")) {
+			g->show_about = SDL_FALSE;;
+		}
+	}
+	nk_end(ctx);
+}
 
 enum { PREFS_APPEARANCE, PREFS_BEHAVIOR, PREFS_DATA };
 
@@ -1555,10 +1678,8 @@ const char* color_labels[NK_COLOR_COUNT] =
 	"KNOB_CURSOR_ACTIVE"
 };
 
-
-void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
+void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 {
-	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 
 	struct nk_rect bounds;
 	struct nk_rect s = {0, 0, scr_w, scr_h };
@@ -1588,7 +1709,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 	static int cur_prefs = PREFS_APPEARANCE;
 	nk_bool is_selected;
 
-	if (nk_begin(ctx, "Preferences", s, popup_flags)) {
+	if (nk_begin(ctx, "Preferences", s, win_flags)) {
 		//bounds = nk_widget_bounds(ctx);
 		// header height is
 		// font height + 2*win.header.padding.y + 2*win.header.label_padding.y;
@@ -1767,153 +1888,14 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h)
 	nk_end(ctx);
 }
 
-void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
-{
-	char info_buf[STRBUF_SZ];
-	char gif_buf[32];
-	char* size_str;
-	unsigned long index, total;
-	float ratios[] = { 0.5f, 0.1, 0.4f };
-
-	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR))
-	{
-		img_state* img = g->img_focus;
-
-		if (g->n_imgs == 1) {
-			img = &g->img[0];
-		}
-
-		if (img) {
-			size_str = g->files.a[img->index].size_str;
-
-			// 2 options when viewing results, showing n/total like normal (so it'd jump between matches)
-			// or showing n/results which is more useful imo
-			//
-			// Method 1
-			//index = (IS_VIEW_RESULTS()) ? g->search_results.a[img->index] : img->index;
-			//total = g->files.size;
-
-			// Method 2
-			index = img->index;
-			total = (IS_VIEW_RESULTS()) ? g->search_results.size : g->files.size;
-
-			int len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total);
-			if (len >= STRBUF_SZ) {
-				SDL_LogCriticalApp("info path too long\n");
-				cleanup(1, 1);
-			}
-			if (img->frames > 1) {
-				snprintf(gif_buf, 32, "%d/%d", (int)img->frame_i+1, img->frames);
-
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
-				//nk_layout_row_static(ctx, 0, 3);
-				nk_label(ctx, info_buf, NK_TEXT_LEFT);
-				nk_label(ctx, gif_buf, NK_TEXT_RIGHT);
-
-				// don't hide the GUI if you're interacting with it
-				if ((g->progress_hovered = nk_widget_is_hovered(ctx))) {
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
-					g->show_gui = SDL_TRUE;
-				}
-				nk_progress(ctx, &img->frame_i, img->frames-1, NK_MODIFIABLE);
-			} else {
-				nk_layout_row_static(ctx, 0, scr_w, 1);
-				nk_label(ctx, info_buf, NK_TEXT_LEFT);
-			}
-		}
-	}
-	nk_end(ctx);
-}
-
-void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
-{
-	char info_buf[STRBUF_SZ];
-	int len;
-	int num_rows = (g->files.size+g->thumb_cols-1)/g->thumb_cols;
-	int row;
-
-	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR)) {
-		if (!(g->state & SEARCH_RESULTS)) {
-			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
-			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
-			if (len >= STRBUF_SZ) {
-				SDL_LogCriticalApp("info path too long\n");
-				cleanup(1, 1);
-			}
-		} else {
-			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
-
-			int i;
-			if (g->thumb_sel == g->search_results.a[g->cur_result]) {
-				i = g->cur_result + 1;
-				len = snprintf(info_buf, STRBUF_SZ, "result: %d / %d  rows: %d / %d  image %d / %d", i, (int)g->search_results.size, row, num_rows, g->thumb_sel+1, (int)g->files.size);
-			} else {
-				len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
-			}
-			if (len >= STRBUF_SZ) {
-				SDL_LogCriticalApp("info path too long\n");
-				cleanup(1, 1);
-			}
-		}
-
-		if (g->state != THUMB_SEARCH) {
-			nk_layout_row_dynamic(ctx, 0, 1);
-			nk_label(ctx, info_buf, NK_TEXT_RIGHT);
-		} else {
-			// keep GUI up to show what they've typed
-			g->gui_timer = SDL_GetTicks();
-			nk_layout_row_dynamic(ctx, 0, 2);
-			nk_label(ctx, text_buf, NK_TEXT_LEFT);
-			nk_label(ctx, info_buf, NK_TEXT_RIGHT);
-		}
-	}
-	nk_end(ctx);
-}
-
-
-// removes all top level normal files from dirpath
-int empty_dir(const char* dirpath)
-{
-	char fullpath[STRBUF_SZ] = { 0 };
-	struct dirent* entry;
-	DIR* dir;
-	int ret;
-
-	dir = opendir(dirpath);
-	if (!dir) {
-		// I feel like this func could be moved to a utilities library
-		// so exiting here would be wrong
-		perror("opendir");
-		return 0;
-	}
-
-	while ((entry = readdir(dir))) {
-		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, entry->d_name);
-		if (ret >= STRBUF_SZ) {
-			printf("path too long\n");
-		}
-		// don't care about failures, won't remove
-		// non-empty subdirs etc.
-		remove(fullpath);
-	}
-	closedir(dir);
-
-	return 1;
-}
-
-
 // inline macro?
 void get_playlist_path(char* path_buf, char* name)
 {
 	snprintf(path_buf, STRBUF_SZ, "%s/%s", g->playlistdir, name);
 }
 
-
-
-void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
+void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 {
-	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;
 	int edit_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
 	int is_selected = SDL_FALSE;
 	int active, button_pressed;
@@ -1944,7 +1926,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 		nr_idx = 1;
 	}
 
-	if (nk_begin(ctx, "Playlist Manager", nk_rect(0, 0, scr_w, scr_h), popup_flags)) {
+	if (nk_begin(ctx, "Playlist Manager", nk_rect(0, 0, scr_w, scr_h), win_flags)) {
 
 		nk_layout_row(ctx, NK_STATIC, 0, 2, group_szs);
 		nk_label(ctx, "Active:", NK_TEXT_LEFT);
@@ -2064,5 +2046,38 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h)
 	
 	nk_end(ctx);
 }
+
+
+// removes all top level normal files from dirpath
+int empty_dir(const char* dirpath)
+{
+	char fullpath[STRBUF_SZ] = { 0 };
+	struct dirent* entry;
+	DIR* dir;
+	int ret;
+
+	dir = opendir(dirpath);
+	if (!dir) {
+		// I feel like this func could be moved to a utilities library
+		// so exiting here would be wrong
+		perror("opendir");
+		return 0;
+	}
+
+	while ((entry = readdir(dir))) {
+		ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, entry->d_name);
+		if (ret >= STRBUF_SZ) {
+			printf("path too long\n");
+		}
+		// don't care about failures, won't remove
+		// non-empty subdirs etc.
+		remove(fullpath);
+	}
+	closedir(dir);
+
+	return 1;
+}
+
+
 
 
