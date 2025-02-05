@@ -751,86 +751,13 @@ int handle_list_events()
 {
 	SDL_Event e;
 	int sym;
-	int code, sort_timer;
 	//SDL_Keymod mod_state = SDL_GetModState();
 
 	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
-		// TODO edit menu/GUI as appropriate for list mode, see which
-		// actions make sense or are worth supporting (re-evaluate if I
-		// have some sort of preview)
-		if (e.type == g->userevent) {
-			code = e.user.code;
-			switch (code) {
-			case THUMB_MODE:
-				// TODO manage state switching between list mode and thumb mode
-				// ie viewing search results of the former seamlessly moving to
-				// the latter
-				//do_thumbmode();
-				break;
-			case SHUFFLE:
-				do_shuffle();
-				break;
-			case SORT_NAME:
-				SDL_Log("Starting sort by name\n");
-				sort_timer = SDL_GetTicks();
-				if (g->sorted_state != NAME_UP) {
-					do_sort(filename_cmp_lt);
-					g->sorted_state = NAME_UP;
-				} else {
-					do_sort(filename_cmp_gt);
-					g->sorted_state = NAME_DOWN;
-				}
-				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
-				break;
-			case SORT_PATH:
-				SDL_Log("Starting sort by path\n");
-				sort_timer = SDL_GetTicks();
-				if (g->sorted_state != PATH_UP) {
-					do_sort(filepath_cmp_lt);
-					g->sorted_state = PATH_UP;
-				} else {
-					do_sort(filepath_cmp_gt);
-					g->sorted_state = PATH_DOWN;
-				}
-				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
-				break;
-			case SORT_SIZE:
-				SDL_Log("Starting sort by size\n");
-				sort_timer = SDL_GetTicks();
-				if (g->sorted_state != SIZE_UP) {
-					do_sort(filesize_cmp_lt);
-					g->sorted_state = SIZE_UP;
-				} else {
-					do_sort(filesize_cmp_gt);
-					g->sorted_state = SIZE_DOWN;
-				}
-				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
-				break;
-			case SORT_MODIFIED:
-				SDL_Log("Starting sort by modified\n");
-				sort_timer = SDL_GetTicks();
-				if (g->sorted_state != MODIFIED_UP) {
-					do_sort(filemodified_cmp_lt);
-					g->sorted_state = MODIFIED_UP;
-				} else {
-					do_sort(filemodified_cmp_gt);
-					g->sorted_state = MODIFIED_DOWN;
-				}
-				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
-				break;
-				/*
-				 // TODO support delete in list mode?
-			case DELETE_IMG:
-				do_delete(&space);
-				break;
-				*/
-			default:
-				SDL_Log("Unknown user event!");
-			}
-			continue;
-		}
+		// For now since I got rid of the controls in list mode, there's no need for user events since
+		// they're only used to send events from the GUI
 		switch (e.type) {
 		case SDL_QUIT:
 			// don't think I really need these since we'll be exiting anyway
