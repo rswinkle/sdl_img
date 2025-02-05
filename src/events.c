@@ -841,11 +841,6 @@ int handle_list_events()
 			switch (sym) {
 			case SDLK_ESCAPE:
 				if (g->state & SEARCH_RESULTS) {
-					text_buf[0] = 0;
-
-					//memset(text_buf, 0, text_len+1);
-					text_len = 0;
-
 					// if nothing was selected among search results set back
 					// to current image
 					if (g->selection < 0) {
@@ -878,6 +873,12 @@ int handle_list_events()
 					g->status = REDRAW;
 					try_move(SELECTION);
 				}
+
+				// always clear search field
+				text_buf[0] = 0;
+				//memset(text_buf, 0, text_len+1);
+				text_len = 0;
+
 				break;
 
 			// TODO removal and deletion in list mode?
