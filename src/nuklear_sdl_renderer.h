@@ -329,6 +329,11 @@ nk_sdl_handle_event(SDL_Event *evt)
                             nk_input_key(ctx, NK_KEY_TEXT_WORD_RIGHT, down);
                         else nk_input_key(ctx, NK_KEY_RIGHT, down);
                         break;
+                    case SDLK_a:
+                        if(state[SDL_SCANCODE_LCTRL])
+                            nk_input_key(ctx,NK_KEY_TEXT_SELECT_ALL, down);
+                        break;
+
                 }
             }
             return 1;
