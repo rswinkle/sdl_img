@@ -325,6 +325,7 @@ void draw_gui(struct nk_context* ctx)
 
 			if (!IS_RESULTS()) {
 				nk_edit_focus(ctx, NK_EDIT_DEFAULT);
+				g->list_search_active = SDL_TRUE;
 			}
 			active = nk_edit_string(ctx, search_flags, text_buf, &text_len, STRBUF_SZ, nk_filter_default);
 			if (active & NK_EDIT_COMMITED && text_len) {
@@ -336,7 +337,8 @@ void draw_gui(struct nk_context* ctx)
 				// use no selection to ignore the "Enter" in events so we don't exit
 				// list mode.  Could add state to handle keeping the selection but meh
 				g->selection = -1;  // no selection among search
-				//nk_edit_unfocus(ctx);
+				nk_edit_unfocus(ctx);
+				g->list_search_active = SDL_FALSE;
 			}
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 5, header_ratios);
 
@@ -616,8 +618,9 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			// use no selection to ignore the "Enter" in events so we don't exit
 			// list mode.  Could add state to handle keeping the selection but meh
 			fb->selection = -1;  // no selection among search
-			//nk_edit_unfocus(ctx);
+			nk_edit_unfocus(ctx);
 		}
+		g->list_search_active = active & NK_EDIT_ACTIVE;
 
 		// only enable "Open" button if you have a selection
 		if (fb->selection < 0) {

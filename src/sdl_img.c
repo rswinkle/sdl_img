@@ -359,6 +359,7 @@ typedef struct global_state
 	int confirm_delete;
 	int confirm_rotation;
 
+	int list_search_active; // text field has focus in gui
 	int list_setscroll;
 
 	int thumbs_done;
