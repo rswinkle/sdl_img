@@ -385,6 +385,7 @@ typedef struct global_state
 	// for now this is used for regular box and visual mode
 	// with alpha hardcoded as 255 and 100 respectively
 	struct nk_color thumb_highlight;
+	int thumb_visual_opacity;
 
 	// Nuklear colors
 	struct nk_color color_table[NK_COLOR_COUNT];
@@ -2495,6 +2496,7 @@ void setup(int argc, char** argv)
 	g->playlistdir = g->playlistdir_buf;
 
 	g->thumb_highlight = nk_rgb(0, 255, 0);
+	g->thumb_visual_opacity = 100;
 	memcpy(g->color_table, nk_default_color_style, sizeof(nk_default_color_style));
 	g->color_table[1].a *= 0.75;
 	

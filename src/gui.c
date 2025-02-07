@@ -471,7 +471,7 @@ void draw_gui(struct nk_context* ctx)
 					}
 				}
 				if (g->list_setscroll && rview.total_height > list_height &&
-				    (g->selection <= rview.begin || g->selection >= rview.end)) {
+				    (g->selection <= rview.begin || g->selection >= rview.end-1)) {
 					int scroll_limit = rview.total_height - list_height; // little off
 					nk_uint y = (g->selection/(float)(g->search_results.size-1) * scroll_limit) + 0.999f;
 					nk_group_set_scroll(ctx, "Result List", 0, y);
@@ -515,7 +515,7 @@ void draw_gui(struct nk_context* ctx)
 					nk_list_view_end(&lview);
 				}
 				if (g->list_setscroll && lview.total_height > list_height &&
-				    (g->selection <= lview.begin || g->selection >= lview.end)) {
+				    (g->selection <= lview.begin || g->selection >= lview.end-1)) {
 					int scroll_limit = lview.total_height - list_height; // little off
 					nk_uint y = (g->selection/(float)(g->files.size-1) * scroll_limit) + 0.999f;
 					nk_group_set_scroll(ctx, "Image List", 0, y);
@@ -1690,11 +1690,11 @@ const char* color_labels[NK_COLOR_COUNT] =
 
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 {
-
 	struct nk_rect bounds;
 	struct nk_rect s = {0, 0, scr_w, scr_h };
 
 	const float group_szs[] = { FB_SIDEBAR_W, scr_w-FB_SIDEBAR_W };
+	int horizontal_rule_ht = 4;
 
 	// for data directory edit_strings
 	static int cache_len;
@@ -1756,24 +1756,52 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 		if (nk_group_begin(ctx, "Pref Panel", NK_WINDOW_BORDER)) {
 			if (cur_prefs == PREFS_APPEARANCE) {
+				int clicked = SDL_FALSE;
+
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
 				nk_layout_row_dynamic(ctx, 0, 1);
 				nk_label(ctx, "sdl_img colors:", NK_TEXT_LEFT);
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
 
 				nk_layout_row_dynamic(ctx, 0, 2);
 				do_color_setting(ctx, "background:", &g->bg, NK_RGB);
 
+				// TODO tooltip explaining this is the same as window alpha below?
+				nk_label(ctx, "GUI window opacity:", NK_TEXT_LEFT);
+				int tmp = nk_propertyi(ctx, "#", 0, g->color_table[NK_COLOR_WINDOW].a, 255, 1, 1);
+				if (tmp != g->color_table[NK_COLOR_WINDOW].a) {
+					clicked = SDL_TRUE;
+					g->color_table[NK_COLOR_WINDOW].a = tmp;
+				}
+
 				// TODO split into normal and visual with visual controlling alpha?
 				do_color_setting(ctx, "thumb highlight:", &g->thumb_highlight, NK_RGB);
+
+				// Only applicable to selections (visual, search, CTRL/SHIFT clicks)
+				nk_label(ctx, "thumb mode opacity:", NK_TEXT_LEFT);
+				nk_property_int(ctx, "#", 0, &g->thumb_visual_opacity, 255, 1, 1);
+
 
 				nk_layout_row_dynamic(ctx, 0, 1);
 				if (nk_button_label(ctx, "Reset sdl_img colors to defaults")) {
 					g->bg = nk_rgb(0,0,0);
 					g->thumb_highlight = nk_rgb(0,255,0);
+					g->thumb_visual_opacity = 100;
+
+					// Should this be here?  As long is can be adjusted in this section I think so
+					g->color_table[NK_COLOR_WINDOW].a = 0.75 * 255;
 				}
 
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+				nk_layout_row_dynamic(ctx, 0, 1);
 				nk_label(ctx, "GUI colors:", NK_TEXT_LEFT);
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+
 				nk_layout_row_dynamic(ctx, 0, 2);
-				int clicked = SDL_FALSE;
 				for (int i=0; i<NK_COLOR_COUNT; i++) {
 					snprintf(label_buf, sizeof(label_buf), "%s:", color_labels[i]);
 					clicked |= do_color_setting(ctx, label_buf, &g->color_table[i], (i != 1) ? NK_RGB : NK_RGBA);
@@ -1792,6 +1820,12 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					// TODO have this be its own setting or keep part of window color?
 					g->ctx->style.window.fixed_background.data.color.a *= 0.75;
 				}
+
+				// Ugly hack so you can scroll far enough past the last dropdown so it doesn't go
+				// off the screen
+				// TODO make Nuklear smart enough to do drop *up* when necessary
+				nk_layout_row_dynamic(ctx, 350, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_WINDOW], nk_true);
 
 
 

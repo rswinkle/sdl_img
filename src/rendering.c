@@ -56,7 +56,7 @@ void render_thumbs()
 					// TODO why doesn't setting this in setup work?  Where else is it changed?
 					SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
 
-					SDL_SetRenderDrawColor(g->ren, th.r, th.g, th.b, 100);
+					SDL_SetRenderDrawColor(g->ren, th.r, th.g, th.b, g->thumb_visual_opacity);
 					// have selection box take up whole screen space, easier to see
 					r.x = ((i-start) % g->thumb_cols) * w;
 					r.y = ((i-start) / g->thumb_cols) * h;
@@ -77,7 +77,7 @@ void render_thumbs()
 				if (cur_row >= r1 && cur_row <= r2) {
 					SDL_SetRenderDrawBlendMode(g->ren, SDL_BLENDMODE_BLEND);
 
-					SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 100);
+					SDL_SetRenderDrawColor(g->ren, 0, 255, 0, g->thumb_visual_opacity);
 					// have selection box take up whole screen space, easier to see
 					r.x = ((i-start) % g->thumb_cols) * w;
 					r.y = ((i-start) / g->thumb_cols) * h;
