@@ -186,7 +186,7 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 				// to prevent arrows from moving through the list and the text at the same time
 				if (!fb->text_len || !g->list_search_active) {
 					fb->selection += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
-					if (fb->is_search_results) {
+					if (fb->is_search_results && fb->search_results.size) {
 						if (fb->selection < 0)
 							fb->selection += fb->search_results.size;
 						else
@@ -857,7 +857,7 @@ int handle_list_events()
 				// to prevent arrows from moving through the list and the text at the same time
 				if (!text_len || !g->list_search_active) {
 					g->selection += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
-					if (g->state & SEARCH_RESULTS) {
+					if ((g->state & SEARCH_RESULTS) && g->search_results.size) {
 						if (g->selection < 0)
 							g->selection += g->search_results.size;
 						else
