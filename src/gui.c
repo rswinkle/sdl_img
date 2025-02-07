@@ -1780,18 +1780,19 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				do_color_setting(ctx, "thumb highlight:", &g->thumb_highlight, NK_RGB);
 
 				// Only applicable to selections (visual, search, CTRL/SHIFT clicks)
-				nk_label(ctx, "thumb mode opacity:", NK_TEXT_LEFT);
-				nk_property_int(ctx, "#", 0, &g->thumb_visual_opacity, 255, 1, 1);
+				nk_label(ctx, "thumb opacity:", NK_TEXT_LEFT);
+				nk_property_int(ctx, "#", MIN_THUMB_OPACITY, &g->thumb_opacity, 255, 1, 1);
 
 
 				nk_layout_row_dynamic(ctx, 0, 1);
 				if (nk_button_label(ctx, "Reset sdl_img colors to defaults")) {
 					g->bg = nk_rgb(0,0,0);
 					g->thumb_highlight = nk_rgb(0,255,0);
-					g->thumb_visual_opacity = 100;
+					g->thumb_opacity = 100;
 
 					// Should this be here?  As long is can be adjusted in this section I think so
 					g->color_table[NK_COLOR_WINDOW].a = 0.75 * 255;
+					clicked = SDL_TRUE;
 				}
 
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);

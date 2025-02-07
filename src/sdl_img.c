@@ -133,6 +133,7 @@ enum {
 #define MIN_THUMB_COLS 4
 #define MAX_THUMB_ROWS 8
 #define MAX_THUMB_COLS 15
+#define MIN_THUMB_OPACITY 32  // Below 32 it gets too transparent imo
 #define SIZE_STR_BUF 16
 #define MOD_STR_BUF 24
 #define DFLT_FONT_SIZE 24
@@ -383,9 +384,11 @@ typedef struct global_state
 	// sdl_img colors
 	struct nk_color bg;
 	// for now this is used for regular box and visual mode
-	// with alpha hardcoded as 255 and 100 respectively
+	// with alpha hardcoded as 255 for regular mode
 	struct nk_color thumb_highlight;
-	int thumb_visual_opacity;
+
+	// alpha for above color in search/selection/visual
+	int thumb_opacity;
 
 	// Nuklear colors
 	struct nk_color color_table[NK_COLOR_COUNT];
@@ -2496,7 +2499,7 @@ void setup(int argc, char** argv)
 	g->playlistdir = g->playlistdir_buf;
 
 	g->thumb_highlight = nk_rgb(0, 255, 0);
-	g->thumb_visual_opacity = 100;
+	g->thumb_opacity = 100;
 	memcpy(g->color_table, nk_default_color_style, sizeof(nk_default_color_style));
 	g->color_table[1].a *= 0.75;
 	

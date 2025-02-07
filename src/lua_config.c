@@ -15,6 +15,7 @@ enum {
 	FONT_SIZE,
 	BACKGROUND,
 	THUMB_HIGHLIGHT,
+	THUMB_OPACITY,
 	SLIDE_DELAY,
 	HIDE_GUI_DELAY,
 	BUTTON_REPEAT_DELAY,
@@ -41,6 +42,7 @@ char* keys[] =
 	"font_size",
 	"background",
 	"thumb_highlight",
+	"thumb_opacity",
 	"slide_delay",
 	"hide_gui_delay",
 	"button_repeat_delay",
@@ -167,6 +169,8 @@ int read_config_file(char* filename)
 		g->thumb_highlight = nk_rgb(thumb_hl.r, thumb_hl.g, thumb_hl.b);
 	}
 
+	g->thumb_opacity = get_global_int_clamp(L, "thumb_opacity", MIN_THUMB_OPACITY, 255);
+
 	g->show_infobar = get_global_bool(L, "show_info_bar");
 	g->thumb_x_deletes  = get_global_bool(L, "x_deletes_thumb");
 	g->confirm_delete  = get_global_bool(L, "confirm_delete");
@@ -253,6 +257,9 @@ void write_config(FILE* cfg_file)
 			break;
 		case THUMB_HIGHLIGHT:
 			fprintf(cfg_file, "{ red = %u, green = %u, blue = %u }\n", g->thumb_highlight.r, g->thumb_highlight.g, g->thumb_highlight.b);
+			break;
+		case THUMB_OPACITY:
+			fprintf(cfg_file, "%d\n", g->thumb_opacity);
 			break;
 		case SLIDE_DELAY:
 			fprintf(cfg_file, "%d\n", g->slide_delay);
