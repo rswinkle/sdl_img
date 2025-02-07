@@ -107,11 +107,7 @@ enum {
 
 #ifdef _WIN32
 #define mkdir(A, B) mkdir(A)
-#define myrealpath(A, B) _fullpath(B, A, 0)
-#else
-#define myrealpath(A, B) realpath(A, B)
 #endif
-
 
 #define VERSION 1.0
 #define VERSION_STR "sdl_img 1.0-RC3"
@@ -3583,11 +3579,7 @@ int do_copy()
 	if (!img)
 		return 0;
 
-#ifndef _WIN32
-	SDL_SetClipboardText(img->fullpath);
-#else
 	SDL_SetClipboardText(g->files.a[img->index].path);
-#endif
 
 	SDL_MessageBoxButtonData buttons[] = {
 		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "yes" },

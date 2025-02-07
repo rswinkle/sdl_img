@@ -20,6 +20,11 @@
 #include <windows.h>
 #endif
 
+#ifdef _WIN32
+#define myrealpath(A, B) _fullpath(B, A, 0)
+#else
+#define myrealpath(A, B) realpath(A, B)
+#endif
 
 // inline edited filebrowser.h starting here
 
@@ -413,16 +418,10 @@ int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int 
 			f.size = -1;
 		}
 
-		// have to use fullpath not d_name in case we're in a recursive call
-#ifndef _WIN32
-		// resize to exact length to save memory, reduce internal
-		// fragmentation.  This dropped memory use by 80% in certain
-		// extreme cases.
-		//f.path = realpath(fullpath, NULL);
-		char* tmp = realpath(fullpath, NULL);
+		char* tmp = myrealpath(fullpath, NULL);
 		f.path = realloc(tmp, strlen(tmp)+1);
-#else
-		f.path = CVEC_STRDUP(fullpath);
+#ifdef _WIN32
+		normalize_path(f.path);
 #endif
 
 		f.modified = file_stat.st_mtime;
