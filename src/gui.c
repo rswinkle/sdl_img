@@ -556,10 +556,10 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 	// TODO move to browser?
 	static struct nk_list_view lview, rview;
 	static int splitter_down = 0;
+	static float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
 	char dir_buf[STRBUF_SZ];
 
 #define UP_WIDTH 100
-	float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
 	float path_szs[2] = { 0, UP_WIDTH };
 
 	int search_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
@@ -880,7 +880,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			nk_group_end(ctx);
 		}
 
-		if (nk_group_begin(ctx, "List", 0)) {
+		if (nk_group_begin(ctx, "FB List", 0)) {
 
 			// main list column headers and splitters
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 5, header_ratios);
@@ -972,7 +972,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 						fb->list_setscroll = TRUE;
 					}
 				} else {
-					if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, DFLT_FONT_SIZE+16, fb->search_results.size)) {
+					if (nk_list_view_begin(ctx, &rview, "FB Result List", NK_WINDOW_BORDER, DFLT_FONT_SIZE+16, fb->search_results.size)) {
 						nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 						int i;
 						for (int j=rview.begin; j<rview.end; ++j) {
@@ -1011,7 +1011,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				    (fb->selection <= rview.begin || fb->selection >= rview.end)) {
 					int scroll_limit = rview.total_height - list_height; // little off
 					nk_uint y = (fb->selection/(float)(fb->search_results.size-1) * scroll_limit) + 0.999f;
-					nk_group_set_scroll(ctx, "Result List", 0, y);
+					nk_group_set_scroll(ctx, "FB Result List", 0, y);
 					fb->list_setscroll = FALSE;
 				}
 			} else {
