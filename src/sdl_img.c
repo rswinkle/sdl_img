@@ -2447,6 +2447,37 @@ int linux_recents(cvector_str* recents, void* userdata)
 	return i;
 }
 
+#include "clnk.c"
+
+int windows_recents(cvector_str* recents, void* userdata)
+{
+	assert(recents);
+
+	char recents_dir_buf[STRBUF_SZ];
+	int ret = snprintf(recents_dir_buf, STRBUF_SZ, "%s\\Microsoft\\Windows\\Recent", getenv("APPDATA"));
+	if (ret >= STRBUF_SZ) {
+		return 0;
+	}
+
+	// TODO could just use scandir or inline opendir/readdir since all the extra file work is wasted...
+	// Or have windows and lnk files be a special case and just switch to the directory but when they
+	// click on a lnk file extract the path right then...?
+	cvector_file links = {0};
+	const char* exts[] = { ".lnk" }; // shouldn't be anything else in the directory but jic
+
+	fb_scandir(&links, recents_dir_buf, exts, 1, 0);
+
+	char* tmp;
+	for (int i=0; i<links.size; ++i) {
+		if ((tmp = clnk_get_path(links.a[i].path))) {
+			normalize_path(tmp);
+			cvec_pushm_str(recents, tmp);
+		}
+	}
+	cvec_free_file(&links);
+	return recents->size;
+}
+
 void setup(int argc, char** argv)
 {
 	char error_str[STRBUF_SZ] = { 0 };
@@ -2708,7 +2739,7 @@ void setup(int argc, char** argv)
 	// TODO handle different recents functions for linux/windows
 	init_file_browser(&g->filebrowser, default_exts, NUM_DFLT_EXTS, NULL, linux_recents, NULL);
 #else
-	init_file_browser(&g->filebrowser, g->img_exts, g->n_exts, NULL, NULL, NULL);
+	init_file_browser(&g->filebrowser, g->img_exts, g->n_exts, NULL, windows_recents, NULL);
 #endif
 	g->filebrowser.selection = -1; // default to no selection
 	g->is_open_new = SDL_TRUE;
