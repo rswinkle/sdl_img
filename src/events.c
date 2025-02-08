@@ -161,7 +161,7 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 				if (fb->selection >= 0) {
 					int sel = (fb->is_search_results) ? fb->search_results.a[fb->selection] : fb->selection;
 					if (f->a[sel].size == -1) {
-						switch_dir(fb, f->a[sel].path);
+						my_switch_dir(f->a[sel].path);
 					} else {
 						strncpy(fb->file, f->a[sel].path, MAX_PATH_LEN);
 						ret = 1;

@@ -181,6 +181,11 @@ void transition_to_scanning(char* file)
 	if (g->open_playlist) {
 		cvec_push_str(&g->sources, "-l");
 	} else if (g->open_recursive) {
+		cvec_push_str(&g->sources, "-r");
+
+		// No longer support recursive mode on non-directory selections
+		//
+		/*
 		char* last_slash = strrchr(file, PATH_SEPARATOR);
 		if (last_slash) {
 			cvec_push_str(&g->sources, "-r");
@@ -194,6 +199,7 @@ void transition_to_scanning(char* file)
 		} else {
 			assert(last_slash); // should never get here
 		}
+		*/
 	}
 	cvec_push_str(&g->sources, file);
 	start_scanning();
@@ -559,6 +565,9 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 	static float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
 	char dir_buf[STRBUF_SZ];
 
+	// TODO "Open Directory", "Open Folder"?
+	const char* open_strs[] = { "Open", "Open Dir" };
+
 #define UP_WIDTH 100
 	float path_szs[2] = { 0, UP_WIDTH };
 
@@ -586,9 +595,9 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 		//printf("scr_w,scr_h = %d, %d\n%f %f\n", scr_w, scr_h, win_content_rect.w, win_content_rect.h);
 
 		nk_layout_row_template_begin(ctx, 0);
-		nk_layout_row_template_push_static(ctx, 100);
+		nk_layout_row_template_push_static(ctx, 150);
 		nk_layout_row_template_push_dynamic(ctx);
-		nk_layout_row_template_push_static(ctx, 100);
+		nk_layout_row_template_push_static(ctx, 150);
 		nk_layout_row_template_end(ctx);
 
 		// NOTE Decided in that special cases, ie startup or after removing all
@@ -626,8 +635,8 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 		if (fb->selection < 0) {
 			nk_widget_disable_begin(ctx);
 		}
-		if (nk_button_label(ctx, "Open")) {
-			if (f->a[fb->selection].size == -1) {
+		if (nk_button_label(ctx, open_strs[fb->select_dir])) {
+			if (f->a[fb->selection].size == -1 && !fb->select_dir) {
 				my_switch_dir(f->a[fb->selection].path);
 			} else {
 				strncpy(fb->file, f->a[fb->selection].path, MAX_PATH_LEN);
@@ -770,14 +779,18 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				struct nk_rect bounds = nk_widget_bounds(ctx);
 				fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, DFLT_FONT_SIZE, nk_vec2(bounds.w, 300));
 
-				if (nk_checkbox_label(ctx, "Show Hidden", &g->filebrowser.show_hidden)) {
+				if (nk_checkbox_label(ctx, "Show Hidden", &fb->show_hidden)) {
 					my_switch_dir(NULL);
 				}
 
+				// TODO think about interactions switching back and forth between all these
 				bounds = nk_widget_bounds(ctx);
 				if (nk_checkbox_label(ctx, "Single Image", &g->open_single) && g->open_single) {
 					g->open_playlist = SDL_FALSE;
 					g->open_recursive = SDL_FALSE;
+					fb->select_dir = SDL_FALSE;
+					// handle recents
+					my_switch_dir(NULL);
 				}
 				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
 					nk_tooltip(ctx, "Only open the image you select, not all images in the same directory");
@@ -791,10 +804,12 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				if (g->open_playlist) {
 					g->open_single = SDL_FALSE;
 					g->open_recursive = SDL_FALSE;
+					int old_dir = fb->select_dir;
+					fb->select_dir = SDL_FALSE;
 
 					old = fb->ignore_exts;
 					fb->ignore_exts = SDL_TRUE;
-					if (fb->ignore_exts != old) {
+					if (fb->ignore_exts != old || fb->select_dir != old_dir) {
 						if (!fb->is_recents) {
 							my_switch_dir(NULL);
 						} else {
@@ -803,13 +818,23 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 					}
 				}
 
-				bounds = nk_widget_bounds(ctx);
-				if (nk_checkbox_label(ctx, "Recursive", &g->open_recursive) && g->open_recursive) {
-					g->open_playlist = SDL_FALSE;
-					g->open_single = SDL_FALSE;
+				//bounds = nk_widget_bounds(ctx);
+				if (nk_checkbox_label(ctx, "Open Dir", &fb->select_dir)) {
+					my_switch_dir(NULL);
 				}
 				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
-					nk_tooltip(ctx, "Include images in all subdirectories");
+					nk_tooltip(ctx, "Opens all images in selected directory");
+				}
+
+				// TODO should I even show this if !fb->select_dir?
+				if (fb->select_dir) {
+					g->open_playlist = SDL_FALSE;
+					g->open_single = SDL_FALSE;
+					bounds = nk_widget_bounds(ctx);
+					nk_checkbox_label(ctx, "Recursive", &g->open_recursive);
+					if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+						nk_tooltip(ctx, "Include images in all subdirectories");
+					}
 				}
 
 				nk_tree_pop(ctx);
@@ -1008,7 +1033,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				}
 
 				if (fb->list_setscroll && rview.total_height > list_height &&
-				    (fb->selection <= rview.begin || fb->selection >= rview.end)) {
+				    (fb->selection <= rview.begin || fb->selection >= rview.end-1)) {
 					int scroll_limit = rview.total_height - list_height; // little off
 					nk_uint y = (fb->selection/(float)(fb->search_results.size-1) * scroll_limit) + 0.999f;
 					nk_group_set_scroll(ctx, "FB Result List", 0, y);
@@ -1043,7 +1068,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				}
 
 				if (fb->list_setscroll && lview.total_height > list_height &&
-				    (fb->selection <= lview.begin || fb->selection >= lview.end)) {
+				    (fb->selection <= lview.begin || fb->selection >= lview.end-1)) {
 					int scroll_limit = lview.total_height - list_height; // little off
 					nk_uint y = (fb->selection/(float)(f->size-1) * scroll_limit) + 0.999f;
 					nk_group_set_scroll(ctx, "File List", 0, y);

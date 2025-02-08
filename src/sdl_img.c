@@ -322,10 +322,12 @@ typedef struct global_state
 
 	// for file selection
 	file_browser filebrowser;
-	int open_single;  // boolean (should I move it to file_browser?)
-	int open_playlist; // boolean
+
+	// (should I move these to file_browser?)
+	int open_single;    // boolean
+	int open_playlist;  // boolean
 	int open_recursive; // boolean
-	int is_open_new;  // boolean
+	int is_open_new;    // boolean
 	int old_state;
 	cvector_str bookmarks;
 
@@ -1276,7 +1278,10 @@ void my_switch_dir(const char* dir)
 			g->open_single = SDL_FALSE;
 			g->open_recursive = SDL_FALSE;
 			g->filebrowser.ignore_exts = SDL_TRUE;
-		} else {
+			g->filebrowser.select_dir = SDL_FALSE;
+		} else if (!strcmp(g->filebrowser.dir, g->playlistdir)) {
+			// Only turn it off when leaving playlistdir explicitly
+			// not when entering any non-playlistdir
 			g->open_playlist = SDL_FALSE;
 		}
 	}
@@ -2042,6 +2047,10 @@ int scan_sources(void* data)
 			} else if (!strcmp(a[i], "-R")) {
 				recurse = 1;
 			} else if (!strcmp(a[i], "-r") || !strcmp(a[i], "--recursive")) {
+				// TODO decide if I'll support -r for non-directories (ie same as calling on
+				// containing dir -r /some/dir/myimage.jpg == -r /some/dir
+				// For now I don't, commented that code out in gui.c but could move here and
+				// only run if a[++i] is not already a dir
 				myscandir(a[++i], g->img_exts, g->n_exts, SDL_TRUE);
 				given_dir |= 1;
 			} else {
@@ -2465,7 +2474,7 @@ int windows_recents(cvector_str* recents, void* userdata)
 	cvector_file links = {0};
 	const char* exts[] = { ".lnk" }; // shouldn't be anything else in the directory but jic
 
-	fb_scandir(&links, recents_dir_buf, exts, 1, 0);
+	fb_scandir(&links, recents_dir_buf, exts, 1, SDL_FALSE, SDL_FALSE);
 
 	char* tmp;
 	for (int i=0; i<links.size; ++i) {

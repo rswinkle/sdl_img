@@ -72,6 +72,7 @@ typedef struct file_browser
 	int is_text_path; // could change to flag if I add a third option
 	int list_setscroll;
 	int show_hidden;
+	int select_dir;
 
 	// does not own memory
 	const char** exts;
@@ -102,7 +103,7 @@ void handle_recents(file_browser* fb);
 
 void fb_search_filenames(file_browser* fb);
 const char* get_homedir();
-int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts, int show_hidden);
+int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts, int show_hidden, int select_dir);
 char* mydirname(const char* path, char* dirpath);
 char* mybasename(const char* path, char* base);
 void normalize_path(char* path);
@@ -169,7 +170,7 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 	browser->num_exts = num_exts;
 
 	// TODO this is unnecessary on initial startup if you passed some sources with images...
-	fb_scandir(&browser->files, browser->dir, exts, num_exts, browser->show_hidden);
+	fb_scandir(&browser->files, browser->dir, exts, num_exts, browser->show_hidden, browser->select_dir);
 
 	qsort(browser->files.a, browser->files.size, sizeof(file), filename_cmp_lt);
 	browser->sorted_state = NAME_UP;
@@ -190,6 +191,7 @@ void reset_file_browser(file_browser* fb, char* start_dir)
 
 	// clear vectors and prior selection
 	fb->is_search_results = FALSE;
+	fb->select_dir = FALSE;
 	fb->file[0] = 0;
 	fb->text_len = 0;
 	fb->text_buf[0] = 0;
@@ -220,7 +222,7 @@ void reset_file_browser(file_browser* fb, char* start_dir)
 	}
 
 	// scan and sort
-	fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts, fb->show_hidden);
+	fb_scandir(&fb->files, fb->dir, fb->exts, fb->num_exts, fb->show_hidden, fb->select_dir);
 
 	qsort(fb->files.a, fb->files.size, sizeof(file), filename_cmp_lt);
 	fb->sorted_state = NAME_UP;
@@ -347,7 +349,8 @@ void fb_search_filenames(file_browser* fb)
 
 // TODO would it be better to just use scandir + an extra pass to fill cvector of files?
 // How portable would that be?  Windows? etc.
-int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts, int show_hidden)
+// Enough arguments now that I'm thinking of just passing file_browser* and accessing them as members
+int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts, int show_hidden, int select_dir)
 {
 	assert(!num_exts || exts);
 
@@ -400,6 +403,9 @@ int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int 
 		}
 
 		if (S_ISREG(file_stat.st_mode)) {
+			if (select_dir) {
+				continue;
+			}
 			f.size = file_stat.st_size;
 
 			ext = strrchr(entry->d_name, '.');
@@ -554,10 +560,10 @@ void switch_dir(file_browser* fb, const char* dir)
 
 	FB_LOG("switching to '%s'\n", fb->dir);
 #ifndef _WIN32
-	fb_scandir(&fb->files, fb->dir, fb->exts, (fb->ignore_exts) ? 0 : fb->num_exts, fb->show_hidden);
+	fb_scandir(&fb->files, fb->dir, fb->exts, (fb->ignore_exts) ? 0 : fb->num_exts, fb->show_hidden, fb->select_dir);
 #else
 	if (fb->dir[1]) {
-		fb_scandir(&fb->files, fb->dir, fb->exts, (fb->ignore_exts) ? 0 : fb->num_exts, fb->show_hidden);
+		fb_scandir(&fb->files, fb->dir, fb->exts, (fb->ignore_exts) ? 0 : fb->num_exts, fb->show_hidden, fb->select_dir);
 	} else {
 		// have to handle "root" special on windows since it doesn't have a unified filesystem
 		// like *nix
