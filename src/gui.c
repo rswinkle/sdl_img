@@ -780,7 +780,9 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, DFLT_FONT_SIZE, nk_vec2(bounds.w, 300));
 
 				if (nk_checkbox_label(ctx, "Show Hidden", &fb->show_hidden)) {
-					my_switch_dir(NULL);
+					if (!fb->is_recents) {
+						my_switch_dir(NULL);
+					}
 				}
 
 				// TODO think about interactions switching back and forth between all these
@@ -788,9 +790,10 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				if (nk_checkbox_label(ctx, "Single Image", &g->open_single) && g->open_single) {
 					g->open_playlist = SDL_FALSE;
 					g->open_recursive = SDL_FALSE;
-					fb->select_dir = SDL_FALSE;
-					// handle recents
-					my_switch_dir(NULL);
+					if (fb->select_dir) {
+						fb->select_dir = SDL_FALSE;
+						my_switch_dir(NULL);
+					}
 				}
 				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
 					nk_tooltip(ctx, "Only open the image you select, not all images in the same directory");
@@ -1471,7 +1474,13 @@ void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	char scan_buf[STRBUF_SZ] = {0};
 
-	snprintf(scan_buf, STRBUF_SZ, "Collected %"PRIcv_sz" files...", g->files.size);
+	// TODO show different string for loading?  Only really relevant when the start image
+	// is a large GIF that takes a second
+	if (g->done_scanning) {
+		snprintf(scan_buf, STRBUF_SZ, "Loading %s", g->files.a[(g->selection + 1) % g->files.size].path);
+	} else {
+		snprintf(scan_buf, STRBUF_SZ, "Collected %"PRIcv_sz" files...", g->files.size);
+	}
 	if (nk_begin(ctx, "Scanning", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
 		
 		nk_layout_row_dynamic(ctx, 0, 1);

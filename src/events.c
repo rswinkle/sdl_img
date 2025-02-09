@@ -209,8 +209,9 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_RESIZED:
-				g->scr_w = e.window.data1;
-				g->scr_h = e.window.data2;
+				// this event is always preceded by WINOWEVENT_SIZE_CHANGED
+				//g->scr_w = e.window.data1;
+				//g->scr_h = e.window.data2;
 				break;
 			case SDL_WINDOWEVENT_SIZE_CHANGED:
 				g->scr_w = e.window.data1;
