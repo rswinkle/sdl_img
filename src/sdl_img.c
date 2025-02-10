@@ -1516,6 +1516,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 
 		ext = GET_EXT(entry->d_name);
 
+		// TODO think about this, test with/without defined
 #ifndef CHECK_IF_NO_EXTENSION
 		// only add supported extensions
 		if (!ext)

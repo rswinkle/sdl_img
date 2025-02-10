@@ -1478,7 +1478,7 @@ void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h)
 
 	// TODO show different string for loading?  Only really relevant when the start image
 	// is a large GIF that takes a second
-	if (g->done_scanning) {
+	if (g->done_scanning && g->files.size) {
 		snprintf(scan_buf, STRBUF_SZ, "Loading %s", g->files.a[(g->selection + 1) % g->files.size].path);
 	} else {
 		snprintf(scan_buf, STRBUF_SZ, "Collected %"PRIcv_sz" files...", g->files.size);
