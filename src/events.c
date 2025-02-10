@@ -204,8 +204,8 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 
 		case SDL_WINDOWEVENT: {
 			//g->status = REDRAW;
-			int x, y;
-			SDL_GetWindowSize(g->win, &x, &y);
+			//int x, y;
+			//SDL_GetWindowSize(g->win, &x, &y);
 			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_RESIZED:
@@ -216,6 +216,8 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 			case SDL_WINDOWEVENT_SIZE_CHANGED:
 				g->scr_w = e.window.data1;
 				g->scr_h = e.window.data2;
+				g->needs_scr_rect_update = SDL_TRUE;
+				SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "fb windowed %d %d\n", g->scr_w, g->scr_h);
 
 				break;
 			}
@@ -876,13 +878,13 @@ int handle_list_events()
 
 		case SDL_WINDOWEVENT: {
 			g->status = REDRAW;
-			int x, y;
-			SDL_GetWindowSize(g->win, &x, &y);
+			//int x, y;
+			//SDL_GetWindowSize(g->win, &x, &y);
 			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_RESIZED:
-				g->scr_w = e.window.data1;
-				g->scr_h = e.window.data2;
+				//g->scr_w = e.window.data1;
+				//g->scr_h = e.window.data2;
 				break;
 			case SDL_WINDOWEVENT_SIZE_CHANGED:
 				g->scr_w = e.window.data1;
@@ -995,8 +997,8 @@ int handle_scanning_events()
 			break;
 		case SDL_WINDOWEVENT: {
 			g->status = REDRAW;
-			int x, y;
-			SDL_GetWindowSize(g->win, &x, &y);
+			//int x, y;
+			//SDL_GetWindowSize(g->win, &x, &y);
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_RESIZED:
 				// keep GUI visible while resizing
@@ -1010,6 +1012,8 @@ int handle_scanning_events()
 			case SDL_WINDOWEVENT_SIZE_CHANGED:
 				g->scr_w = e.window.data1;
 				g->scr_h = e.window.data2;
+				g->needs_scr_rect_update = SDL_TRUE;
+				SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "scanning windowed %d %d\n", g->scr_w, g->scr_h);
 				break;
 			case SDL_WINDOWEVENT_EXPOSED:
 				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "exposed event");
@@ -1208,6 +1212,16 @@ int handle_events_normally()
 					clear_img(&g->img[i]);
 				}
 				g->img = img;
+			}
+
+			if (g->needs_scr_rect_update) {
+				switch (g->n_imgs) {
+				case 1: SET_MODE1_SCR_RECT(); break;
+				case 2: SET_MODE2_SCR_RECTS(); break;
+				case 4: SET_MODE4_SCR_RECTS(); break;
+				case 8: SET_MODE8_SCR_RECTS(); break;
+				}
+				g->needs_scr_rect_update = SDL_FALSE;
 			}
 		} else {
 			for (int i=g->n_imgs; i<g->done_loading; ++i)
@@ -1884,6 +1898,12 @@ int handle_events_normally()
 				} else if (g->n_imgs == 8) {
 					SET_MODE8_SCR_RECTS();
 				}
+				// TODO not sure if this will really catch everything without a mtx lock
+				// but good enough imo
+				if (g->loading || g->done_loading) {
+					g->needs_scr_rect_update = SDL_TRUE;
+				}
+
 				break;
 			case SDL_WINDOWEVENT_EXPOSED:
 				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "exposed event");

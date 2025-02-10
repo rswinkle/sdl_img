@@ -276,6 +276,7 @@ typedef struct global_state
 
 	int scr_w;
 	int scr_h;
+	int needs_scr_rect_update;
 
 	// stupid hack for arbitrary rotation
 	u8* orig_pix;
@@ -4065,6 +4066,7 @@ int main(int argc, char** argv)
 		// TODO ?
 		if (IS_FS_MODE() || IS_SCANNING_MODE() || (IS_LIST_MODE() && !IS_VIEW_RESULTS()) || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
+			// TODO try it off?
 			nk_sdl_render(NK_ANTI_ALIASING_ON);
 			SDL_RenderSetScale(g->ren, 1, 1);
 		}
