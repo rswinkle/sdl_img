@@ -340,7 +340,8 @@ typedef struct global_state
 	int state; // better name?
 	int is_exiting;
 
-	// flag to do load returning from thumb mode
+	// flag to do load right returning from thumb mode
+	// TODO different name? cur_img_was_removed?
 	int do_next;
 
 	// whether you're hovering over GIF progress bar

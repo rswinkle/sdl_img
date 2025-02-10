@@ -335,6 +335,7 @@ int handle_thumb_events()
 					SDL_ShowCursor(SDL_ENABLE);
 					g->gui_timer = SDL_GetTicks();
 
+					// if current image was removed/deleted need to load next image
 					if (g->do_next) {
 						try_move(RIGHT);
 						g->do_next = nk_false;
@@ -800,14 +801,13 @@ int handle_list_events()
 					// redundant since we clear before doing the search atm
 					g->search_results.size = 0;
 				} else {
-					g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
-
+					// NOTE UI decision: don't move to selection if they hit ESC, only
+					// if they hit Enter (this is also how it works in thumb mode)
 					g->state = NORMAL;
 					SDL_ShowCursor(SDL_ENABLE);
 					g->gui_timer = SDL_GetTicks();
 					g->show_gui = SDL_TRUE;
 					g->status = REDRAW;
-					try_move(SELECTION);
 				}
 
 				// always clear search field
