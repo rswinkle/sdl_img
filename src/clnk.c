@@ -15,6 +15,8 @@ int validate_lnk_file(FILE* f)
 {
 	uint8_t sig[4];
 	uint8_t guid[16] = {0};
+
+	rewind(f);
 	fread(sig, 4, 1, f);
 
 	if (memcmp(sig, "L\0\0\0", 4)) {
@@ -155,11 +157,14 @@ char* clnk_get_path_buf(const char* lnk_file, char* buf, int size)
 
 char* clnk_get_path_buf_from_file(FILE* f, char* buf, int size)
 {
+	long pos = ftell(f);
 	if (!validate_lnk_file(f)) {
 		return NULL;
 	}
 	int base_path_off = get_path_offset(f);
-	return extract_cstring_buf(f, base_path_off, buf, size);
+	char* ret = extract_cstring_buf(f, base_path_off, buf, size);
+	fseek(f, pos, SEEK_SET);
+	return ret;
 }
 
 char* clnk_get_path(const char* lnk_file)
@@ -176,11 +181,14 @@ char* clnk_get_path(const char* lnk_file)
 
 char* clnk_get_path_from_file(FILE* f)
 {
+	long pos = ftell(f);
 	if (!validate_lnk_file(f)) {
 		return NULL;
 	}
 	int base_path_off = get_path_offset(f);
-	return extract_cstring(f, base_path_off);
+	char* ret = extract_cstring(f, base_path_off);
+	fseek(f, pos, SEEK_SET);
+	return ret;
 }
 
 /*

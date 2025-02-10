@@ -1457,10 +1457,6 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 	DIR* dir;
 	struct tm* tmp_tm;
 
-	// can be used if I call stbi_info for files without extensions
-	// or I could just pass NULLs
-	int x, y, n;
-
 	int start_size = g->files.size;
 
 
@@ -1516,7 +1512,6 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 
 		ext = GET_EXT(entry->d_name);
 
-		// TODO think about this, test with/without defined
 #ifndef CHECK_IF_NO_EXTENSION
 		// only add supported extensions
 		if (!ext)
@@ -1529,6 +1524,9 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 				if (!strcasecmp(ext, exts[i]))
 					break;
 			}
+			// ignore unrecognized extensions
+			// (unless the image was specifically specified but that's handled at
+			// the bottom of scan_sources())
 			if (i == num_exts)
 				continue;
 		}
@@ -1544,7 +1542,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 #endif
 
 #ifdef CHECK_IF_NO_EXTENSION
-		if (!ext && !stbi_info(f.path, &x, &y, &n)) {
+		if (!ext && !stbi_info(f.path, NULL, NULL, NULL)) {
 			free(f.path);
 			continue;
 		}
@@ -1881,7 +1879,7 @@ int handle_selection(char* path, int recurse)
 		f.path = CVEC_STRDUP(path);
 		f.size = file_stat.st_size;
 		f.modified = file_stat.st_mtime;
-		// TODO list cache members
+		// TODO list cache members <-- what?
 
 		bytes2str(f.size, f.size_str, SIZE_STR_BUF);
 		struct tm* tmp = localtime(&f.modified);
@@ -2086,6 +2084,8 @@ int scan_sources(void* data)
 				} else {
 					mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 					start_index = find_file_simple(f.path);
+					// NOTE it will always be there in open single because there was no
+					// removal + myscandir() like below so not subject to extension filtering
 				}
 				g->selection = (start_index) ? start_index-1 : g->files.size-1;
 				try_move(SELECTION);
