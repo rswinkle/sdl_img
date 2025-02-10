@@ -319,7 +319,8 @@ void draw_gui(struct nk_context* ctx)
 		splitter_down = 0;
 
 	if (IS_LIST_MODE() && !IS_VIEW_RESULTS()) {
-		if (nk_begin(ctx, "List", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
+		// TODO why do I need + 2 to reach the edges?
+		if (nk_begin(ctx, "List", nk_rect(0, 0, scr_w+2, scr_h+2), NK_WINDOW_NO_SCROLLBAR)) {
 
 			// TODO With Enter to search, should I even have the Search button?  It's more of a label now... maybe put it on
 			// the left?  and make it smaller?
@@ -1094,7 +1095,8 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 	char buf[STRBUF_SZ];
 	snprintf(buf, STRBUF_SZ, "Active: %s", strrchr(g->cur_playlist, '/')+1);
 
-	if (nk_begin(ctx, "Controls", nk_rect(0, 0, win_w, win_h), NK_WINDOW_NO_SCROLLBAR))
+	// TODO why +2?
+	if (nk_begin(ctx, "Controls", nk_rect(0, 0, win_w+2, win_h), NK_WINDOW_NO_SCROLLBAR))
 	{
 		//printf("Controls has focus = %d\n", nk_window_has_focus(ctx));
 		nk_layout_row_template_begin(ctx, 0);
@@ -1497,7 +1499,8 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	unsigned long index, total;
 	float ratios[] = { 0.5f, 0.1, 0.4f };
 
-	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NO_SCROLLBAR))
+	// TODO why scr_h + 2 to prevent a sliver below it?
+	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w+2, GUI_BAR_HEIGHT+2), NK_WINDOW_NO_SCROLLBAR))
 	{
 		img_state* img = g->img_focus;
 
@@ -1555,7 +1558,8 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	int num_rows = (g->files.size+g->thumb_cols-1)/g->thumb_cols;
 	int row;
 
-	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w, GUI_BAR_HEIGHT), NK_WINDOW_NOT_INTERACTIVE)) {
+	// TODO why the +1/2 to fill to edges?
+	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w+1, GUI_BAR_HEIGHT+2), NK_WINDOW_NOT_INTERACTIVE|NK_WINDOW_NO_SCROLLBAR)) {
 		if (!(g->state & SEARCH_RESULTS)) {
 			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
 			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
