@@ -637,10 +637,11 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			nk_widget_disable_begin(ctx);
 		}
 		if (nk_button_label(ctx, open_strs[fb->select_dir])) {
-			if (f->a[fb->selection].size == -1 && !fb->select_dir) {
-				my_switch_dir(f->a[fb->selection].path);
+			int sel = (fb->is_search_results) ? fb->search_results.a[fb->selection] : fb->selection;
+			if (f->a[sel].size == -1 && !fb->select_dir) {
+				my_switch_dir(f->a[sel].path);
 			} else {
-				strncpy(fb->file, f->a[fb->selection].path, MAX_PATH_LEN);
+				strncpy(fb->file, f->a[sel].path, MAX_PATH_LEN);
 				ret = 0;
 			}
 		}
