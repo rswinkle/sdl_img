@@ -761,14 +761,42 @@ int handle_thumb_events()
 int handle_list_events()
 {
 	SDL_Event e;
-	int sym;
+	int sym, code;
+	int sort_timer;
 	//SDL_Keymod mod_state = SDL_GetModState();
 
 	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
-		// For now since I got rid of the controls in list mode, there's no need for user events since
-		// they're only used to send events from the GUI
+		// Oops, got rid of all controls when I got rid of the Menu, still need these sorting events
+		// for the column header buttons
+		if (e.type == g->userevent) {
+
+			code = e.user.code;
+			switch (code) {
+			case SORT_NAME:
+				SDL_Log("Starting sort by name\n");
+				sort_timer = SDL_GetTicks();
+				do_sort(filename_cmp_lt);
+				g->sorted_state = NAME_UP;
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
+				break;
+			case SORT_SIZE:
+				SDL_Log("Starting sort by size\n");
+				sort_timer = SDL_GetTicks();
+				do_sort(filesize_cmp_lt);
+				g->sorted_state = SIZE_UP;
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
+				break;
+			case SORT_MODIFIED:
+				SDL_Log("Starting sort by modified\n");
+				sort_timer = SDL_GetTicks();
+				do_sort(filemodified_cmp_lt);
+				g->sorted_state = MODIFIED_UP;
+				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
+				break;
+			}
+		}
 		switch (e.type) {
 		case SDL_QUIT:
 			// don't think I really need these since we'll be exiting anyway

@@ -1266,7 +1266,7 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Sort Actions", &state)) {
 				g->menu_state = MENU_SORT;
 
-				if (g->n_imgs == 1 && !g->generating_thumbs && g->state == NORMAL) {
+				if (g->n_imgs == 1 && !g->generating_thumbs && g->state & NORMAL) {
 					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
 					if (nk_menu_item_label(ctx, "Mix images", NK_TEXT_LEFT)) {
 						event.user.code = SHUFFLE;
@@ -1303,7 +1303,6 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 					nk_layout_row_dynamic(ctx, 0, 1);
 					nk_label(ctx, "Only available in 1 image mode", NK_TEXT_LEFT);
 					nk_label(ctx, "while not generating thumbs", NK_TEXT_LEFT);
-					nk_label(ctx, "and not viewing search results", NK_TEXT_LEFT);
 				}
 
 				nk_tree_pop(ctx);

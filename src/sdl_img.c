@@ -292,7 +292,8 @@ typedef struct global_state
 
 	cvector_thumb_state thumbs;
 	cvector_i search_results;
-	int cur_result;
+	int cur_result; // keep track of which thumb result they're on
+	//int using_search_indices // whether img[].index refers to search indices
 
 	int status;
 
@@ -3141,8 +3142,8 @@ void do_file_open(int clear_files)
 
 void do_shuffle()
 {
-	if (g->n_imgs != 1 || g->generating_thumbs || IS_VIEW_RESULTS()) {
-		SDL_Log("Only support shuffling in 1 image mode while not generating thumbs or viewing search results\n");
+	if (g->n_imgs != 1 || g->generating_thumbs) {
+		SDL_Log("Only support shuffling in 1 image mode while not generating thumbs\n");
 		return;
 	}
 
@@ -3151,7 +3152,7 @@ void do_shuffle()
 		remove_bad_paths();
 	}
 
-	char* save = g->files.a[g->img[0].index].path;
+	char* save = g->img[0].fullpath;
 	file tmpf;
 
 	thumb_state tmp_thumb;
@@ -3171,12 +3172,32 @@ void do_shuffle()
 		}
 	}
 
-	for (int i=0; i<g->files.size; ++i) {
-		if (!strcmp(save, g->files.a[i].path)) {
-			g->img[0].index = i;
-			g->thumb_sel = i;
-			g->selection = i;
-			break;
+	if (g->state & RESULT_MASK) {
+		search_filenames(SDL_FALSE);
+
+		for (int j=0; j<g->search_results.size; ++j) {
+			int i = g->search_results.a[j];
+			if (!strcmp(save, g->files.a[i].path)) {
+				// selection is used in listmode results, = index in results
+				printf("Setting index to %d\n", j);
+				g->selection = g->img[0].index = j;
+
+				// thumb_sel is the actual index in g->files, since results are
+				// not separated out, just highlighted like vim
+				g->thumb_sel = i;
+				g->thumb_start_row = g->thumb_sel / g->thumb_cols;
+				break;
+
+			}
+		}
+	} else {
+		for (int i=0; i<g->files.size; ++i) {
+			if (!strcmp(save, g->files.a[i].path)) {
+				g->img[0].index = i;
+				g->thumb_sel = i;
+				g->selection = i;
+				break;
+			}
 		}
 	}
 
