@@ -824,6 +824,7 @@ void cleanup(int ret, int called_setup)
 			SDL_UnlockMutex(g->thumb_mtx);
 		}
 
+		// TODO do this even if it is scanning?
 		if (g->state != SCANNING) {
 			// have to signal it to exit since it's sleeping
 			SDL_LockMutex(g->scanning_mtx);
@@ -2748,10 +2749,9 @@ void setup(int argc, char** argv)
 
 	// init file browser
 #ifndef _WIN32
-	// TODO handle different recents functions for linux/windows
 	init_file_browser(&g->filebrowser, default_exts, NUM_DFLT_EXTS, NULL, linux_recents, NULL);
 #else
-	init_file_browser(&g->filebrowser, g->img_exts, g->n_exts, NULL, windows_recents, NULL);
+	init_file_browser(&g->filebrowser, default_exts, NUM_DFLT_EXTS, NULL, windows_recents, NULL);
 #endif
 	g->filebrowser.selection = -1; // default to no selection
 	g->is_open_new = SDL_TRUE;

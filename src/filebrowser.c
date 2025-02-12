@@ -125,7 +125,6 @@ const char* get_homedir()
 	return home;
 }
 
-// TODO pass extensions?
 int init_file_browser(file_browser* browser, const char** exts, int num_exts, const char* start_dir, recents_func r_func, void* userdata)
 {
 	memset(browser, 0, sizeof(file_browser));
@@ -415,9 +414,8 @@ int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int 
 
 			ext = strrchr(entry->d_name, '.');
 
-			// TODO
-			if (ext && num_exts)
-			{
+			// NOTE Purposely leaving files with no extension in
+			if (ext && num_exts) {
 				for (i=0; i<num_exts; ++i) {
 					if (!strcasecmp(ext, exts[i]))
 						break;
