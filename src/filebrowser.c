@@ -5,24 +5,24 @@
 
 #include <stdio.h>
 #include <ctype.h>
+
+// for realpath/_fullpath
 #include <stdlib.h>
 
 //POSIX (mostly) works with MinGW64
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
-#include <unistd.h>
 
-#ifndef _WIN32
-// for getpwuid and getuid
-#include <pwd.h>
-#else
-#include <windows.h>
-#endif
+// for getuid
+#include <unistd.h>
 
 #ifdef _WIN32
 #define myrealpath(A, B) _fullpath(B, A, 0)
 #else
+// for getpwuid
+#include <pwd.h>
+
 #define myrealpath(A, B) realpath(A, B)
 #endif
 
@@ -82,12 +82,14 @@ typedef struct file_browser
 	// list of files in cur directory
 	cvector_file files;
 
-	
 	cvector_i search_results;
 	int selection;
 
+#ifdef FILE_LIST_SZ
 	int begin;
 	int end;
+#endif
+
 	//int done; // true if a selection was made ie file[0] != 0
 
 	int sorted_state;
@@ -164,7 +166,9 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 
 	browser->files.elem_free = free_file;
 
-	browser->end = 20;
+#ifdef FILE_LIST_SZ
+	browser->end = FILE_LIST_SZ;
+#endif
 
 	browser->exts = exts;
 	browser->num_exts = num_exts;
@@ -369,6 +373,7 @@ int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int 
 		return 0;
 	}
 
+	char* tmp;
 	char* sep;
 	char* ext = NULL;
 	file f;
@@ -424,7 +429,7 @@ int fb_scandir(cvector_file* files, const char* dirpath, const char** exts, int 
 			f.size = -1;
 		}
 
-		char* tmp = myrealpath(fullpath, NULL);
+		tmp = myrealpath(fullpath, NULL);
 		f.path = realloc(tmp, strlen(tmp)+1);
 #ifdef _WIN32
 		normalize_path(f.path);
@@ -499,6 +504,7 @@ char* mybasename(const char* path, char* base)
 	return base;
 }
 
+//stupid windows
 void normalize_path(char* path)
 {
 	if (path) {
@@ -594,5 +600,7 @@ void switch_dir(file_browser* fb, const char* dir)
 	fb->list_setscroll = TRUE;
 	fb->selection = 0;
 
+#ifdef FILE_LIST_SZ
 	fb->begin = 0;
+#endif
 }

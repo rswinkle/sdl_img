@@ -201,6 +201,7 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 				}
 				break;
 			}
+			break; // KEYDOWN
 
 		case SDL_WINDOWEVENT: {
 			//g->status = REDRAW;
@@ -821,6 +822,9 @@ int handle_list_events()
 			case SDLK_BACKSPACE:
 			case SDLK_r:
 			case SDLK_x:
+				// If I do use g->do_next like thumb mode and it'll affect other code
+				// if I try to avoid unnecessary loading of current image (ie in 4-mode
+				// but I remove 1 of the 4, can't just check img[0])
 				break;
 
 			// switch to normal mode on that image
@@ -831,6 +835,7 @@ int handle_list_events()
 						g->state |= NORMAL;
 						g->selection = (g->selection) ? g->selection - 1 : g->search_results.size-1;
 					} else {
+						// TODO avoid unnecessary loads for current image
 						g->state = NORMAL;
 						g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
 					}

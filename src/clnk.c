@@ -115,7 +115,6 @@ char* extract_cstring(FILE* f, int offset)
 		if (i == cap) {
 			tmp = (char*)realloc(s, cap*2);
 			if (!tmp) {
-				//assert(tmp);
 				free(s);
 				return NULL;
 			}
