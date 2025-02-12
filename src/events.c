@@ -771,7 +771,6 @@ int handle_list_events()
 		// Oops, got rid of all controls when I got rid of the Menu, still need these sorting events
 		// for the column header buttons
 		if (e.type == g->userevent) {
-
 			code = e.user.code;
 			switch (code) {
 			case SORT_NAME:
@@ -810,19 +809,15 @@ int handle_list_events()
 					// if nothing was selected among search results set back
 					// to current image
 					if (g->selection < 0) {
-						g->selection = g->img[0].index;
+						g->selection = g->search_results.a[g->img[0].index];
 					} else {
 						// convert selection
 						g->selection = g->search_results.a[g->selection];
+					}
 
-						// TODO this can never happen ... right?  otherwise we'd
-						// be in handle_events_normally
-						if (IS_VIEW_RESULTS()) {
-							// TODO alternative, force switch to single mode?
-							for (int i=0; i<g->n_imgs; ++i) {
-								g->img[i].index = g->search_results.a[g->img[i].index];
-							}
-						}
+					// TODO alternative, force switch to single mode?
+					for (int i=0; i<g->n_imgs; ++i) {
+						g->img[i].index = g->search_results.a[g->img[i].index];
 					}
 					g->list_setscroll = SDL_TRUE;
 					g->state = LIST_DFLT;

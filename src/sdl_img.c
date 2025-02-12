@@ -3216,6 +3216,7 @@ void do_sort(compare_func cmp)
 		remove_bad_paths();
 	}
 
+	// TODO Should we also save selection separately?
 	char* save;
 	if (g->state & RESULT_MASK)
 		save = g->files.a[g->search_results.a[g->img[0].index]].path;
