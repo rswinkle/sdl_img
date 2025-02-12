@@ -799,10 +799,14 @@ void cleanup(int ret, int called_setup)
 {
 	//char buf[STRBUF_SZ] = { 0 };
 
+	int start_time, cur_time;;
 	g->is_exiting = SDL_TRUE;
 
 	SDL_LogDebugApp("In cleanup()");
 	if (called_setup) {
+
+		// not really necessary to exit detached threads but for completion's sake
+		// and to get rid of Valgrind's "possibly lost warnings"
 
 		if (g->generating_thumbs) {
 			// wait for thread to exit
@@ -824,29 +828,34 @@ void cleanup(int ret, int called_setup)
 			SDL_UnlockMutex(g->thumb_mtx);
 		}
 
-		// TODO do this even if it is scanning?
-		if (g->state != SCANNING) {
-			// have to signal it to exit since it's sleeping
+		if (g->done_scanning) {
+			SDL_LogDebugApp("Waking/Signaling Scanning thread so it can exit...\n");
 			SDL_LockMutex(g->scanning_mtx);
 			SDL_CondSignal(g->scanning_cnd);
 			SDL_UnlockMutex(g->scanning_mtx);
 		}
 
 		SDL_LockMutex(g->scanning_mtx);
+		start_time = SDL_GetTicks();
 		while (g->done_scanning != EXIT) {
-			SDL_LogDebugApp("Waiting for scanning thread to exit...\n");
+			if ((cur_time = SDL_GetTicks()) - start_time >= 2000) {
+				SDL_LogDebugApp("Waiting for scanning thread to exit...");
+				start_time = cur_time;
+			}
 			SDL_CondWait(g->scanning_cnd, g->scanning_mtx);
 		}
 		SDL_UnlockMutex(g->scanning_mtx);
 
 		// TODO get rid of this requirement
 		// First wait for anything currently loading to exit
+		start_time = SDL_GetTicks();
 		while (g->loading) {
-			SDL_LogDebugApp("Waiting for loading to finish\n");
+			if ((cur_time = SDL_GetTicks()) - start_time >= 2000) {
+				SDL_LogDebugApp("Waiting for loading to finish...");
+				start_time = cur_time;
+			}
 		}
 
-		// not really necessary to exit thread but for completion's sake
-		// and to get rid of Valgrind's "possibly lost warnings"
 		//try_move(EXIT); // can't do this because done_loading
 		SDL_LockMutex(g->img_loading_mtx);
 		g->loading = EXIT;
