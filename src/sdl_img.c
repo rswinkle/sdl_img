@@ -2646,8 +2646,16 @@ void setup(int argc, char** argv)
 	g->progress_hovered = nk_false;
 	g->fill_mode = 0;
 	g->sorted_state = NAME_UP;  // ie by name ascending
-	g->state = (g->sources.size) ? SCANNING : FILE_SELECTION; // setup is called after sources is filled
 	g->has_bad_paths = SDL_FALSE;
+	if (g->sources.size) {
+		g->state = SCANNING;
+	} else {
+		g->state = FILE_SELECTION;
+ 		// need this in case they exit FS so cleanup can signal it awake to exit
+		// plus it makes logical sense, there's nothing to scan yet so it's done till it gets
+		// set to 0 in start_scanning()
+		g->done_scanning = 1;
+	}
 
 	// read favorites
 	if (!g->default_playlist) {
