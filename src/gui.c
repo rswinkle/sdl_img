@@ -916,9 +916,9 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 5, header_ratios);
 
 			symbol = NK_SYMBOL_NONE; // 0
-			if (fb->sorted_state == NAME_UP)
+			if (fb->sorted_state == FB_NAME_UP)
 				symbol = NK_SYMBOL_TRIANGLE_UP;
-			else if (fb->sorted_state == NAME_DOWN)
+			else if (fb->sorted_state == FB_NAME_DOWN)
 				symbol = NK_SYMBOL_TRIANGLE_DOWN;
 
 			// TODO name or path?
@@ -947,9 +947,9 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			// I hate redundant logic but the alternative is repeated gui code
 			// TODO think of a better way
 			symbol = NK_SYMBOL_NONE; // 0
-			if (fb->sorted_state == SIZE_UP)
+			if (fb->sorted_state == FB_SIZE_UP)
 				symbol = NK_SYMBOL_TRIANGLE_UP;
-			else if (fb->sorted_state == SIZE_DOWN)
+			else if (fb->sorted_state == FB_SIZE_DOWN)
 				symbol = NK_SYMBOL_TRIANGLE_DOWN;
 
 			if (nk_button_symbol_label(ctx, symbol, "Size", NK_TEXT_LEFT)) {
@@ -975,9 +975,9 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			}
 
 			symbol = NK_SYMBOL_NONE; // 0
-			if (fb->sorted_state == MODIFIED_UP)
+			if (fb->sorted_state == FB_MODIFIED_UP)
 				symbol = NK_SYMBOL_TRIANGLE_UP;
-			else if (fb->sorted_state == MODIFIED_DOWN)
+			else if (fb->sorted_state == FB_MODIFIED_DOWN)
 				symbol = NK_SYMBOL_TRIANGLE_DOWN;
 
 			if (nk_button_symbol_label(ctx, symbol, "Modified", NK_TEXT_LEFT)) {
@@ -1389,14 +1389,17 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 				}
 				nk_label(ctx, "CTRL+8", NK_TEXT_RIGHT);
 
-				// have to treat switching back from list the same as I do switching
-				// back from thumb, selection is the 1st image, have to load following
-				// if in 2,4, or 8 mode
-				if (nk_menu_item_label(ctx, "List Mode", NK_TEXT_LEFT)) {
-					event.user.code = LIST_MODE;
-					SDL_PushEvent(&event);
+				// Actually we currenly don't support sorting when g->n_imgs != 1 or generating
+				// thumbs and list mode kind of depends on sorting working so...
+				//
+				// TODO could force change to 1 mode at least when switching? in do_listmode?
+				if (g->n_imgs == 1 && !g->generating_thumbs) {
+					if (nk_menu_item_label(ctx, "List Mode", NK_TEXT_LEFT)) {
+						event.user.code = LIST_MODE;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "CTRL+I", NK_TEXT_RIGHT);
 				}
-				nk_label(ctx, "CTRL+I", NK_TEXT_RIGHT);
 
 				if (nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT)) {
 					event.user.code = THUMB_MODE;

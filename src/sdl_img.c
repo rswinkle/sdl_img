@@ -15,14 +15,6 @@
 // CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
-#include "myinttypes.h"
-
-#define CVECTOR_IMPLEMENTATION
-#define CVEC_ONLY_INT
-#define CVEC_ONLY_STR
-#define CVEC_SIZE_T i64
-#define PRIcv_sz PRIiMAX
-#include "cvector.h"
 
 #include "WjCryptLib_Md5.c"
 
@@ -55,6 +47,24 @@
 #define SDL_MAIN_HANDLED
 //#define NK_SDL_RENDERER_IMPLEMENTATION
 #include "nuklear_sdl_renderer.h"
+
+// Putting this after SDL so it doesn't complain about SDL_LOG
+#define FILE_TYPE_STR "Images"
+#define FB_LOG(A, ...) SDL_Log(A, __VA_ARGS__)
+#define FILE_BROWSER_IMPLEMENTATION
+#include "file_browser.h"
+
+// it replaces these
+/*
+#include "myinttypes.h"
+
+#define CVECTOR_IMPLEMENTATION
+#define CVEC_ONLY_INT
+#define CVEC_ONLY_STR
+#define CVEC_SIZE_T i64
+#define PRIcv_sz PRIiMAX
+#include "cvector.h"
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -112,7 +122,10 @@ enum {
 #define VERSION 1.0
 #define VERSION_STR "sdl_img 1.0-RC3"
 
-#define PATH_SEPARATOR '/'
+// in file_browser.h
+//#define PATH_SEPARATOR '/'
+//#define STRBUF_SZ 1024
+
 #define PAN_RATE 0.05
 #define MAX_GIF_FPS 100
 #define MIN_GIF_DELAY (1000/MAX_GIF_FPS)
@@ -121,7 +134,6 @@ enum {
 #define DFLT_GUI_DELAY 2
 #define DFLT_BUTTON_REPEAT_DELAY 1.0f
 #define SLEEP_TIME 50
-#define STRBUF_SZ 1024
 #define START_WIDTH 1200
 #define START_HEIGHT 800
 #define THUMBSIZE 128
@@ -230,12 +242,12 @@ CVEC_NEW_DEFS2(thumb_state, RESIZE)
 #define SDL_LogCriticalApp(...) SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, __VA_ARGS__)
 
 // maybe I should just include the former in the latter...
-#include "string_compare.c"
-#include "file.c"
-
-#define FILE_TYPE_STR "Images"
-#define FB_LOG(A, ...) SDL_Log(A, __VA_ARGS__)
-#include "filebrowser.c"
+//#include "string_compare.c"
+//#include "file.c"
+//
+//#define FILE_TYPE_STR "Images"
+//#define FB_LOG(A, ...) SDL_Log(A, __VA_ARGS__)
+//#include "filebrowser.c"
 
 typedef struct img_state
 {
@@ -3212,6 +3224,8 @@ void do_shuffle()
 	g->sorted_state = NONE;
 }
 
+
+
 void do_sort(compare_func cmp)
 {
 	if (g->n_imgs != 1 || g->generating_thumbs) {
@@ -3224,12 +3238,20 @@ void do_sort(compare_func cmp)
 		remove_bad_paths();
 	}
 
-	// TODO Should we also save selection separately?
-	char* save;
-	if (g->state & RESULT_MASK)
-		save = g->files.a[g->search_results.a[g->img[0].index]].path;
-	else
-		save = g->files.a[g->img[0].index].path;
+	char* save_cur = g->img[0].fullpath;
+
+	// TODO Should we also save selection separately?  thumb_sel?
+	char* save_sel = NULL;
+	if (g->selection >= 0) {
+		if (g->state & RESULT_MASK) {
+			save_sel = g->files.a[g->search_results.a[g->selection]].path;
+		} else {
+			save_sel = g->files.a[g->selection].path;
+		}
+		if (save_cur == save_sel) {
+			save_sel = NULL;
+		}
+	}
 
 	// g->thumbs.a is either NULL or valid
 	if (g->thumbs.a) {
@@ -3242,20 +3264,33 @@ void do_sort(compare_func cmp)
 	// TODO use bsearch?
 	int i;
 	for (i=0; i<g->files.size; ++i) {
-		if (!strcmp(save, g->files.a[i].path)) {
+		if (!strcmp(save_cur, g->files.a[i].path)) {
 			break;
 		}
 	}
 
+	// TODO really think about all the different directions/interactions
+	//
 	// should work even while in result modes
 	if (g->state & RESULT_MASK) {
 		search_filenames(SDL_FALSE);
 
+		if (save_sel) {
+			for (int j=0; j<g->search_results.size; ++j) {
+				if (!strcmp(save_sel, g->files.a[g->search_results.a[j]].path)) {
+					g->selection = j;
+					break;
+				}
+			}
+		}
+
+		// convert current image index if found to search index?
+		/*
 		for (int j=0; j<g->search_results.size; ++j) {
 			if (g->search_results.a[j] == i) {
 
 				// selection is used in listmode results, = index in results
-				g->selection = g->img[0].index = j;
+				g->img[0].index = j;
 
 				// thumb_sel is the actual index in g->files, since results are
 				// not separated out, just highlighted like vim
@@ -3264,21 +3299,21 @@ void do_sort(compare_func cmp)
 				break;
 			}
 		}
+		*/
 	} else {
 		// In non-result modes, index and selection are the files index
-		g->img[0].index = i;
+		if (save_sel) {
+			for (j=0; j<g->files.size; ++j) {
+				if (!strcmp(save_sel, g->files.a[j].path)) {
+					break;
+				}
+			}
+			g->selection = j;
+		} else if (g->selection >= 0) {
+			g->selection = i;
+		}
 
-		// NOTE(rswinkle): Decided it's not worth preserving g->selection/g->thumb_sel
-		// partly because I can't even add consistent keyboard shortcuts in thumb_mode since thumb_mode
-		// uses keycodes (since the idea is to use typing muscle memory) and normal mode uses scancodes.
-		// And n is already used when going through search results so there'd have to be an additional state check.
-		//
-		// Plus, it's very fast to just hit enter/double click on an image (in list or thumb mode), do the sort you want
-		// and switch back to list/thumb mode.
-		//
-		// So we just keep current image (what they'll go back to if they hit
-		// ESC instead of double clicking or hitting Enter on another one)
-		g->selection = i;
+		g->img[0].index = i;
 	}
 
 }

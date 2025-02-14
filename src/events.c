@@ -56,7 +56,6 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 	int sym;
 	int code, sort_timer;
 	int ret = 0;
-	int did_sort = 0;
 	//SDL_Keymod mod_state = SDL_GetModState();
 
 	cvector_file* f = &fb->files;
@@ -72,53 +71,23 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 			case SORT_NAME:
 				SDL_Log("Starting sort by name\n");
 				sort_timer = SDL_GetTicks();
-				if (fb->sorted_state != NAME_UP) {
-					qsort(f->a, f->size, sizeof(file), filename_cmp_lt);
-					fb->sorted_state = NAME_UP;
-					fb->c_func = filename_cmp_lt;
-				} else {
-					qsort(f->a, f->size, sizeof(file), filename_cmp_gt);
-					fb->sorted_state = NAME_DOWN;
-					fb->c_func = filename_cmp_gt;
-				}
-				did_sort = TRUE;
+				fb_sort_name(fb);
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_SIZE:
 				SDL_Log("Starting sort by size\n");
 				sort_timer = SDL_GetTicks();
-				if (fb->sorted_state != SIZE_UP) {
-					qsort(f->a, f->size, sizeof(file), filesize_cmp_lt);
-					fb->sorted_state = SIZE_UP;
-					fb->c_func = filesize_cmp_lt;
-				} else {
-					qsort(f->a, f->size, sizeof(file), filesize_cmp_gt);
-					fb->sorted_state = SIZE_DOWN;
-					fb->c_func = filesize_cmp_gt;
-				}
-				did_sort = TRUE;
+				fb_sort_size(fb);
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_MODIFIED:
 				SDL_Log("Starting sort by modified\n");
 				sort_timer = SDL_GetTicks();
-				if (fb->sorted_state != MODIFIED_UP) {
-					qsort(f->a, f->size, sizeof(file), filemodified_cmp_lt);
-					fb->sorted_state = MODIFIED_UP;
-					fb->c_func = filemodified_cmp_lt;
-				} else {
-					qsort(f->a, f->size, sizeof(file), filemodified_cmp_gt);
-					fb->sorted_state = MODIFIED_DOWN;
-					fb->c_func = filemodified_cmp_gt;
-				}
-				did_sort = TRUE;
+				fb_sort_modified(fb);
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			default:
 				SDL_Log("Unknown user event! %d", code);
-			}
-			if (did_sort && fb->is_search_results) {
-				fb_search_filenames(fb);
 			}
 			continue;
 		}
@@ -776,22 +745,37 @@ int handle_list_events()
 			case SORT_NAME:
 				SDL_Log("Starting sort by name\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filename_cmp_lt);
-				g->sorted_state = NAME_UP;
+				if (g->sorted_state != NAME_UP) {
+					do_sort(filename_cmp_lt);
+					g->sorted_state = NAME_UP;
+				} else {
+					do_sort(filename_cmp_gt);
+					g->sorted_state = NAME_DOWN;
+				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_SIZE:
 				SDL_Log("Starting sort by size\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filesize_cmp_lt);
-				g->sorted_state = SIZE_UP;
+				if (g->sorted_state != SIZE_UP) {
+					do_sort(filesize_cmp_lt);
+					g->sorted_state = SIZE_UP;
+				} else {
+					do_sort(filesize_cmp_gt);
+					g->sorted_state = SIZE_DOWN;
+				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_MODIFIED:
 				SDL_Log("Starting sort by modified\n");
 				sort_timer = SDL_GetTicks();
-				do_sort(filemodified_cmp_lt);
-				g->sorted_state = MODIFIED_UP;
+				if (g->sorted_state != MODIFIED_UP) {
+					do_sort(filemodified_cmp_lt);
+					g->sorted_state = MODIFIED_UP;
+				} else {
+					do_sort(filemodified_cmp_gt);
+					g->sorted_state = MODIFIED_DOWN;
+				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			}
@@ -809,16 +793,21 @@ int handle_list_events()
 					// if nothing was selected among search results set back
 					// to current image
 					if (g->selection < 0) {
+						// TODO what if current image was still set to overall list index?
 						g->selection = g->search_results.a[g->img[0].index];
 					} else {
 						// convert selection
 						g->selection = g->search_results.a[g->selection];
 					}
 
+					g->img[0].index = g->search_results.a[g->img[0].index];
 					// TODO alternative, force switch to single mode?
+					// don't allow list mode in anything but single image mode
+					/*
 					for (int i=0; i<g->n_imgs; ++i) {
 						g->img[i].index = g->search_results.a[g->img[i].index];
 					}
+					*/
 					g->list_setscroll = SDL_TRUE;
 					g->state = LIST_DFLT;
 
@@ -1343,6 +1332,8 @@ int handle_events_normally()
 			case SHUFFLE:
 				do_shuffle();
 				break;
+
+				// TODO support toggling between ascending/descending in normal mode?
 			case SORT_NAME:
 				SDL_Log("Starting sort by name\n");
 				sort_timer = SDL_GetTicks();
@@ -1371,6 +1362,7 @@ int handle_events_normally()
 				g->sorted_state = MODIFIED_UP;
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
+
 			case SAVE_IMG:
 				do_save(SDL_FALSE);
 				break;
