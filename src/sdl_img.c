@@ -3162,8 +3162,8 @@ void do_file_open(int clear_files)
 
 void do_shuffle()
 {
-	if (g->n_imgs != 1 || g->generating_thumbs) {
-		SDL_Log("Only support shuffling in 1 image mode while not generating thumbs\n");
+	if (g->n_imgs != 1 || g->generating_thumbs || g->loading_thumbs) {
+		SDL_Log("Only support shuffling in 1 image mode while not generating/loading thumbs\n");
 		return;
 	}
 
@@ -3228,8 +3228,8 @@ void do_shuffle()
 
 void do_sort(compare_func cmp)
 {
-	if (g->n_imgs != 1 || g->generating_thumbs) {
-		SDL_Log("Can't sort in multi-image modes or while generating thumbs");
+	if (g->n_imgs != 1 || g->generating_thumbs || g->loading_thumbs) {
+		SDL_Log("Can't sort in multi-image modes or while generating/loading thumbs");
 		return;
 	}
 
@@ -3248,9 +3248,6 @@ void do_sort(compare_func cmp)
 		} else {
 			save_sel = g->files.a[g->selection].path;
 		}
-		if (save_cur == save_sel) {
-			save_sel = NULL;
-		}
 	}
 
 	// g->thumbs.a is either NULL or valid
@@ -3262,9 +3259,10 @@ void do_sort(compare_func cmp)
 
 	// find new index of img[0]
 	// TODO use bsearch?
-	int i;
-	for (i=0; i<g->files.size; ++i) {
+	int cur_idx;
+	for (int i=0; i<g->files.size; ++i) {
 		if (!strcmp(save_cur, g->files.a[i].path)) {
+			cur_idx = i;
 			break;
 		}
 	}
@@ -3284,38 +3282,45 @@ void do_sort(compare_func cmp)
 			}
 		}
 
-		// convert current image index if found to search index?
-		/*
-		for (int j=0; j<g->search_results.size; ++j) {
-			if (g->search_results.a[j] == i) {
+		// convert current image index if viewing results or not
+		if (g->state & NORMAL) {
+			for (int j=0; j<g->search_results.size; ++j) {
+				if (g->search_results.a[j] == cur_idx) {
 
-				// selection is used in listmode results, = index in results
-				g->img[0].index = j;
+					// selection is used in listmode results, = index in results
+					g->img[0].index = j;
 
-				// thumb_sel is the actual index in g->files, since results are
-				// not separated out, just highlighted like vim
-				g->thumb_sel = i;
-				g->thumb_start_row = g->thumb_sel / g->thumb_cols;
-				break;
-			}
-		}
-		*/
-	} else {
-		// In non-result modes, index and selection are the files index
-		if (save_sel) {
-			for (j=0; j<g->files.size; ++j) {
-				if (!strcmp(save_sel, g->files.a[j].path)) {
+					// TODO test all state changes to/from thumb mode with and w/o active search
+					// and are these even necessary?  Or are they correctly set when ESC back from
+					// view results to thumb mode
+					//
+					// thumb_sel is the actual index in g->files, since results are
+					// not separated out, just highlighted like vim
+					g->thumb_sel = cur_idx;
+					g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 					break;
 				}
 			}
-			g->selection = j;
-		} else if (g->selection >= 0) {
-			g->selection = i;
+		} else {
+			g->img[0].index = cur_idx;
+		}
+	} else {
+		// In non-result modes, index and selection are the files index
+		if (save_sel) {
+			if (save_sel != save_cur) {
+				for (int i=0; i<g->files.size; ++i) {
+					if (!strcmp(save_sel, g->files.a[i].path)) {
+						g->selection = i;
+						break;
+					}
+				}
+			} else {
+				g->selection = cur_idx;
+			}
 		}
 
-		g->img[0].index = i;
+		g->img[0].index = cur_idx;
 	}
-
 }
 
 void do_zoom(int dir, int use_mouse)
@@ -3731,6 +3736,15 @@ int do_copy()
 
 void do_listmode()
 {
+	// Automatically go to n_imgs = 1
+	// if (g->n_imgs != 1) {
+	// 	do_mode_change(1);
+	// }
+	if (g->n_imgs != 1 || g->generating_thumbs || g->loading_thumbs) {
+		SDL_Log("Can't go to listmode from multi-image modes or while generating/loading thumbs");
+		return;
+	}
+
 	// TODO hmm handle switching directly from thumb to list and vice versa
 	if (g->state == NORMAL) {
 		g->state = LIST_DFLT;

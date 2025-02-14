@@ -1393,7 +1393,7 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 				// thumbs and list mode kind of depends on sorting working so...
 				//
 				// TODO could force change to 1 mode at least when switching? in do_listmode?
-				if (g->n_imgs == 1 && !g->generating_thumbs) {
+				if (g->n_imgs == 1 && !g->generating_thumbs && !g->loading_thumbs) {
 					if (nk_menu_item_label(ctx, "List Mode", NK_TEXT_LEFT)) {
 						event.user.code = LIST_MODE;
 						SDL_PushEvent(&event);

@@ -420,11 +420,12 @@ int handle_thumb_events()
 						g->state = NORMAL;
 						// subtract 1 since we reuse RIGHT loading code
 						g->selection = (g->thumb_sel) ? g->thumb_sel - 1 : g->files.size-1;
-					}
 
-					g->search_results.size = 0;
-					text_buf[0] = 0;
-					text_len = 0;
+						// Only clear search when going back to normal mode
+						g->search_results.size = 0;
+						text_buf[0] = 0;
+						text_len = 0;
+					}
 
 					SDL_ShowCursor(SDL_ENABLE);
 					g->gui_timer = SDL_GetTicks();
@@ -800,7 +801,12 @@ int handle_list_events()
 						g->selection = g->search_results.a[g->selection];
 					}
 
-					g->img[0].index = g->search_results.a[g->img[0].index];
+					// if they went to view results image index is no longer files index
+					// and need to convert back
+					if (g->img[0].fullpath != g->files.a[g->img[0].index].path) {
+						g->img[0].index = g->search_results.a[g->img[0].index];
+					}
+
 					// TODO alternative, force switch to single mode?
 					// don't allow list mode in anything but single image mode
 					/*
