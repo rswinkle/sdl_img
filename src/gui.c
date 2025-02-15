@@ -2066,12 +2066,14 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 			// Rename?
 			// Open New/More?  Or let FB handle that?
 
-			if (nk_button_label(ctx, "Make Active")) {
-				if (selected >= 0) {
-					strncpy(g->cur_playlist, path_buf, STRBUF_SZ);
-					read_cur_playlist();
-				}
+			if (selected < 0) {
+				nk_widget_disable_begin(ctx);
 			}
+			if (nk_button_label(ctx, "Make Active")) {
+				strncpy(g->cur_playlist, path_buf, STRBUF_SZ);
+				read_cur_playlist();
+			}
+			nk_widget_disable_end(ctx);
 
 			if (nk_button_label(ctx, "Open New")) {
 				if (selected >= 0) {

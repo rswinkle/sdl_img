@@ -807,13 +807,6 @@ int handle_list_events()
 						g->img[0].index = g->search_results.a[g->img[0].index];
 					}
 
-					// TODO alternative, force switch to single mode?
-					// don't allow list mode in anything but single image mode
-					/*
-					for (int i=0; i<g->n_imgs; ++i) {
-						g->img[i].index = g->search_results.a[g->img[i].index];
-					}
-					*/
 					g->list_setscroll = SDL_TRUE;
 					g->state = LIST_DFLT;
 
