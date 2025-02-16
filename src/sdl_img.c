@@ -131,21 +131,52 @@ enum {
 #define MIN_GIF_DELAY (1000/MAX_GIF_FPS)
 #define DFLT_GIF_FPS 20
 #define DFLT_GIF_DELAY (1000/DFLT_GIF_FPS)
-#define DFLT_GUI_DELAY 2
-#define DFLT_BUTTON_REPEAT_DELAY 1.0f
 #define SLEEP_TIME 50
 #define START_WIDTH 1200
 #define START_HEIGHT 800
 #define THUMBSIZE 128
+#define SIZE_STR_BUF 16
+#define MOD_STR_BUF 24
+
+// TODO make actually configurable via config file
+#define DFLT_FONT_SIZE 24
+
+// Used in config file
+
+// Even 3 seems excessive, can't imagine a screen than high density
+#define MIN_GUI_SCALE 0.5f
+#define MAX_GUI_SCALE 3.0f
+
+#define DFLT_GUI_DELAY 2
+#define MIN_GUI_DELAY 1
+#define MAX_GUI_DELAY 60
+
+#define DFLT_BUTTON_REPEAT_DELAY 1.0f
+#define MIN_BUTTON_RPT_DELAY 0.25f
+#define MAX_BUTTON_RPT_DELAY 3.0f
+
+#define DFLT_SLIDE_DELAY 3
+#define MIN_SLIDE_DELAY 1
+#define MAX_SLIDE_DELAY 10
+
 #define MIN_THUMB_ROWS 2
 #define MIN_THUMB_COLS 4
 #define MAX_THUMB_ROWS 8
 #define MAX_THUMB_COLS 15
+
 #define MIN_THUMB_OPACITY 32  // Below 32 it gets too transparent imo
-#define SIZE_STR_BUF 16
-#define MOD_STR_BUF 24
-#define DFLT_FONT_SIZE 24
+
+#define DFLT_FULLSCREEN_GUI DELAY
+#define DFLT_BG_COLOR nk_rgb(0,0,0)
+
+// Should I even use SDL_TRUE/nk_true or just put 1/0?
+#define DFLT_SHOW_INFOBAR SDL_TRUE
+#define DFLT_THUMB_X_DELETES SDL_FALSE
+#define DFLT_IND_MM SDL_FALSE
+
 #define NUM_DFLT_EXTS 11
+
+// End configuration related macros
 
 // If this is defined, sdl_img will add files without extensions
 // to the list in directory scans if stbi_info() returns true.
@@ -2299,14 +2330,14 @@ int load_config()
 	// extensions are set elsewhere too
 	//
 	// TODO compare with config enums
-	g->slide_delay = 3;
+	g->slide_delay = DFLT_SLIDE_DELAY;
 	g->gui_delay = DFLT_GUI_DELAY;
 	g->button_rpt_delay = DFLT_BUTTON_REPEAT_DELAY;
 	g->show_infobar = nk_true;
 	g->fullscreen_gui = DELAY;
 	g->thumb_x_deletes = nk_false;
 	g->ind_mm = nk_false;
-	g->bg = nk_rgb(0,0,0);
+	g->bg = DFLT_BG_COLOR;
 	g->thumb_rows = MAX_THUMB_ROWS;
 	g->thumb_cols = MAX_THUMB_COLS;
 	g->confirm_delete = SDL_TRUE;

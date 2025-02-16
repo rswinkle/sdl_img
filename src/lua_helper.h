@@ -28,6 +28,9 @@ int try_int_clamp_dflt(lua_State* L, const char* var, int min, int max, int dflt
 double try_number(lua_State* L, const char* var, int* success);
 double try_number_clamp_dflt(lua_State* L, const char* var, double min, double max, double dflt);
 
+int try_bool_dflt(lua_State* L, const char* var, int dflt);
+int try_bool(lua_State* L, const char* var, int* success);
+
 void call_va(lua_State* L, const char* func, const char* sig, ...);
 void stackDump(lua_State* L);
 
@@ -182,6 +185,37 @@ double get_number_clamp(lua_State* L, const char* var, double min, double max)
 		ret = max;
 	}
 	return ret;
+}
+
+int try_bool_dflt(lua_State* L, const char* var, int dflt)
+{
+	int success = 0;
+	int ret = try_bool(L, var, &success);
+	if (success) {
+		return ret;
+	}
+	return dflt;
+}
+
+int try_bool(lua_State* L, const char* var, int* success)
+{
+	if (success) {
+		*success = 0;
+	}
+	if (!lua_getglobal(L, var)) {
+		return 0;
+	}
+	if (!lua_isboolean(L, -1)) {
+		lh_log(L, "'%s', should be a boolean\n", var);
+		return 0;
+	}
+	int result = lua_toboolean(L, -1);
+	lua_pop(L, 1);  // remove result from stack
+	
+	if (success) {
+		*success = 1;
+	}
+	return result;
 }
 
 int get_bool(lua_State* L, const char* var)
