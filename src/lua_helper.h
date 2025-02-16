@@ -11,10 +11,24 @@
 
 void error(lua_State* L, const char *fmt, ...);
 
-int get_global_int(lua_State* L, const char* var);
-int get_global_int_clamp(lua_State* L, const char* var, int min, int max);
-void call_va(lua_State* L, const char* func, const char* sig, ...);
+int get_int(lua_State* L, const char* var);
+int get_int_clamp(lua_State* L, const char* var, int min, int max);
 
+double get_number(lua_State* L, const char* var);
+double get_number_clamp(lua_State* L, const char* var, double min, double max);
+
+int get_bool(lua_State* L, const char* var);
+char* get_str(lua_State* L, const char* var);
+int get_strbuf(lua_State* L, const char* var, char* buf, int buf_sz);
+int get_str_array(lua_State* L, const char* var, char*** out_array);
+
+int try_int(lua_State* L, const char* var, int* success);
+int try_int_clamp_dflt(lua_State* L, const char* var, int min, int max, int dflt);
+
+double try_number(lua_State* L, const char* var, int* success);
+double try_number_clamp_dflt(lua_State* L, const char* var, double min, double max, double dflt);
+
+void call_va(lua_State* L, const char* func, const char* sig, ...);
 void stackDump(lua_State* L);
 
 
@@ -32,9 +46,57 @@ void error(lua_State* L, const char *fmt, ...)
 #endif
 }
 
-int get_global_int_clamp(lua_State* L, const char* var, int min, int max)
+void lh_log(lua_State* L, const char *fmt, ...)
 {
-	int ret = get_global_int(L, var);
+	va_list argp;
+	va_start(argp, fmt);
+	vfprintf(stderr, fmt, argp);
+	va_end(argp);
+}
+
+int try_int_clamp_dflt(lua_State* L, const char* var, int min, int max, int dflt)
+{
+	int success = 0;
+	int ret = try_int(L, var, &success);
+	if (success) {
+		if (ret < min) {
+			ret = min;
+		}
+		if (ret > max) {
+			ret = max;
+		}
+	} else {
+		ret = dflt;
+	}
+	return ret;
+}
+
+int try_int(lua_State* L, const char* var, int* success)
+{
+	int isnum, result;
+	if (success) {
+		*success = 0;
+	}
+
+	if (!lua_getglobal(L, var)) {
+		return 0;
+	}
+	result = (int)lua_tointegerx(L, -1, &isnum);
+	if (!isnum) {
+		lh_log(L, "'%s', should be an integer\n", var);
+		return 0;
+	}
+	lua_pop(L, 1);  // remove result from stack
+	
+	if (success) {
+		*success = 1;
+	}
+	return result;
+}
+
+int get_int_clamp(lua_State* L, const char* var, int min, int max)
+{
+	int ret = get_int(L, var);
 	if (ret < min) {
 		ret = min;
 	}
@@ -44,7 +106,7 @@ int get_global_int_clamp(lua_State* L, const char* var, int min, int max)
 	return ret;
 }
 
-int get_global_int(lua_State* L, const char* var)
+int get_int(lua_State* L, const char* var)
 {
 	int isnum, result;
 	lua_getglobal(L, var);
@@ -56,7 +118,48 @@ int get_global_int(lua_State* L, const char* var)
 	return result;
 }
 
-double get_global_number(lua_State* L, const char* var)
+double try_number(lua_State* L, const char* var, int* success)
+{
+	int isnum;
+	double result;
+	if (success) {
+		*success = 0;
+	}
+
+	if (!lua_getglobal(L, var)) {
+		return 0;
+	}
+	result = (double)lua_tonumberx(L, -1, &isnum);
+	lua_pop(L, 1);  // remove result from stack
+	if (!isnum) {
+		lh_log(L, "'%s', should be an number\n", var);
+		return 0;
+	}
+	
+	if (success) {
+		*success = 1;
+	}
+	return result;
+}
+
+double try_number_clamp_dflt(lua_State* L, const char* var, double min, double max, double dflt)
+{
+	int success = 0;
+	double ret = try_number(L, var, &success);
+	if (success) {
+		if (ret < min) {
+			ret = min;
+		}
+		if (ret > max) {
+			ret = max;
+		}
+	} else {
+		ret = dflt;
+	}
+	return ret;
+}
+
+double get_number(lua_State* L, const char* var)
 {
 	int isnum;
 
@@ -69,9 +172,9 @@ double get_global_number(lua_State* L, const char* var)
 	return result;
 }
 
-double get_global_number_clamp(lua_State* L, const char* var, double min, double max)
+double get_number_clamp(lua_State* L, const char* var, double min, double max)
 {
-	double ret = get_global_number(L, var);
+	double ret = get_number(L, var);
 	if (ret < min) {
 		ret = min;
 	}
@@ -81,7 +184,7 @@ double get_global_number_clamp(lua_State* L, const char* var, double min, double
 	return ret;
 }
 
-int get_global_bool(lua_State* L, const char* var)
+int get_bool(lua_State* L, const char* var)
 {
 	lua_getglobal(L, var);
 	if (!lua_isboolean(L, -1)) {
@@ -92,7 +195,7 @@ int get_global_bool(lua_State* L, const char* var)
 	return result;
 }
 
-char* get_global_str(lua_State* L, const char* var)
+char* get_str(lua_State* L, const char* var)
 {
 	lua_getglobal(L, var);
 	if (lua_type(L, -1) != LUA_TSTRING) {
@@ -105,7 +208,7 @@ char* get_global_str(lua_State* L, const char* var)
 	return result;
 }
 
-int get_global_strbuf(lua_State* L, const char* var, char* buf, int buf_sz)
+int get_strbuf(lua_State* L, const char* var, char* buf, int buf_sz)
 {
 	if (lua_getglobal(L, var) == LUA_TNIL) {
 		fprintf(stderr, "global var '%s' does not exist\n", var);
@@ -130,7 +233,7 @@ int get_global_strbuf(lua_State* L, const char* var, char* buf, int buf_sz)
 	return 1;
 }
 
-int get_global_str_array(lua_State* L, const char* var, char*** out_array)
+int get_str_array(lua_State* L, const char* var, char*** out_array)
 {
 	// Don't throw an error if the variable doesn't exist
 	if (lua_getglobal(L, var) == LUA_TNIL) {

@@ -73,7 +73,7 @@ typedef struct ColorEntry {
 	Color c;
 } ColorEntry;
 
-int load_global_color(lua_State* L, const char* name, Color* c);
+int load_color(lua_State* L, const char* name, Color* c);
 void convert_color(lua_State* L, Color* c, int index);
 int convert_color_field(lua_State* L, int index);
 
@@ -142,7 +142,7 @@ int read_config_file(char* filename)
 		return 0;
 	}
 
-	float scale = get_global_number_clamp(L, "gui_scale", 0.5, 5.0);
+	float scale = get_number_clamp(L, "gui_scale", MIN_GUI_SCALE, MAX_GUI_SCALE);
 
 	// make sure only 0.5 increments
 	float tmp = floor(scale);
@@ -151,53 +151,53 @@ int read_config_file(char* filename)
 	}
 	g->y_scale = g->x_scale = scale;
 
-	g->slide_delay = get_global_int_clamp(L, "slide_delay", 1, MAX_SLIDE_DELAY);
-	g->gui_delay = get_global_int_clamp(L, "hide_gui_delay", 1, MAX_GUI_DELAY);
-	g->button_rpt_delay = get_global_number_clamp(L, "button_repeat_delay", 0.25, MAX_BUTTON_RPT_DELAY);
-	g->thumb_rows = get_global_int_clamp(L, "thumb_rows", 2, 8);
-	g->thumb_cols = get_global_int_clamp(L, "thumb_cols", 4, 15);
+	g->slide_delay = get_int_clamp(L, "slide_delay", MIN_SLIDE_DELAY, MAX_SLIDE_DELAY);
+	g->gui_delay = get_int_clamp(L, "hide_gui_delay", MIN_GUI_DELAY, MAX_GUI_DELAY);
+	g->button_rpt_delay = get_number_clamp(L, "button_repeat_delay", MIN_BUTTON_RPT_DELAY, MAX_BUTTON_RPT_DELAY);
+	g->thumb_rows = get_int_clamp(L, "thumb_rows", MIN_THUMB_ROWS, MAX_THUMB_ROWS);
+	g->thumb_cols = get_int_clamp(L, "thumb_cols", MIN_THUMB_COLS, MAX_THUMB_COLS);
 
 	// enum
 	g->fullscreen_gui = load_fullscreen_gui(L);
 
 	Color background = {0}, thumb_hl = {0};
-	if (load_global_color(L, "background", &background)) {
+	if (load_color(L, "background", &background)) {
 		g->bg = nk_rgb(background.r,background.g,background.b); // clamps for us
 	}
 
-	if (load_global_color(L, "thumb_highlight", &thumb_hl)) {
+	if (load_color(L, "thumb_highlight", &thumb_hl)) {
 		g->thumb_highlight = nk_rgb(thumb_hl.r, thumb_hl.g, thumb_hl.b);
 	}
 
-	g->thumb_opacity = get_global_int_clamp(L, "thumb_opacity", MIN_THUMB_OPACITY, 255);
+	g->thumb_opacity = get_int_clamp(L, "thumb_opacity", MIN_THUMB_OPACITY, 255);
 
-	g->show_infobar = get_global_bool(L, "show_info_bar");
-	g->thumb_x_deletes  = get_global_bool(L, "x_deletes_thumb");
-	g->confirm_delete  = get_global_bool(L, "confirm_delete");
-	g->confirm_rotation  = get_global_bool(L, "confirm_rotation");
-	g->ind_mm = get_global_bool(L, "relative_offsets");
+	g->show_infobar = get_bool(L, "show_info_bar");
+	g->thumb_x_deletes  = get_bool(L, "x_deletes_thumb");
+	g->confirm_delete  = get_bool(L, "confirm_delete");
+	g->confirm_rotation  = get_bool(L, "confirm_rotation");
+	g->ind_mm = get_bool(L, "relative_offsets");
 
 
 	char** exts = NULL;
-	int n = get_global_str_array(L, "img_exts", &exts);
+	int n = get_str_array(L, "img_exts", &exts);
 	if (n) {
 		g->img_exts = (const char**)exts;
 		g->n_exts = n;
 		g->cfg_img_exts = SDL_TRUE;
 	}
 
-	g->bookmarks.size = get_global_str_array(L, "bookmarks", &g->bookmarks.a);
+	g->bookmarks.size = get_str_array(L, "bookmarks", &g->bookmarks.a);
 	g->bookmarks.capacity = g->bookmarks.size;
 
-	g->default_playlist = get_global_str(L, "default_playlist");
+	g->default_playlist = get_str(L, "default_playlist");
 
 	// TODO think about where I really want cachedir storage/ownership...maybe
 	// just make cachedir and thumbdir actual arrays in g and be done with it?
-	if (get_global_strbuf(L, "cache_dir", g->cachedir_buf, STRBUF_SZ)) {
+	if (get_strbuf(L, "cache_dir", g->cachedir_buf, STRBUF_SZ)) {
 		g->cfg_cachedir = SDL_TRUE;
 	}
 
-	get_global_strbuf(L, "thumb_dir", g->thumbdir, STRBUF_SZ);
+	get_strbuf(L, "thumb_dir", g->thumbdir, STRBUF_SZ);
 
 	if (lua_getglobal(L, "gui_colors") == LUA_TTABLE) {
 		map_table(L, -1, handle_gui_colors, NULL);
@@ -408,7 +408,7 @@ void convert_color(lua_State* L, Color* c, int index)
 	}
 }
 
-int load_global_color(lua_State* L, const char* name, Color* c)
+int load_color(lua_State* L, const char* name, Color* c)
 {
 	if (lua_getglobal(L, name)) {
 		convert_color(L, c, -1);

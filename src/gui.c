@@ -109,8 +109,15 @@ int do_color_setting(struct nk_context* ctx, const char* label, struct nk_color*
 #define GUI_PREV_NEXT_W 150
 #define GUI_ZOOM_ROTATE_W 50
 
+#define MIN_GUI_SCALE 0.5f
+#define MAX_GUI_SCALE 5.0f
+// 5 is excessive
+
+#define MIN_SLIDE_DELAY 1
 #define MAX_SLIDE_DELAY 10
+#define MIN_GUI_DELAY 1
 #define MAX_GUI_DELAY 60
+#define MIN_BUTTON_RPT_DELAY 0.25f
 #define MAX_BUTTON_RPT_DELAY 3.0f
 
 void search_filenames(int is_vimmode)
