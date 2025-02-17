@@ -54,18 +54,6 @@
 #define FILE_BROWSER_IMPLEMENTATION
 #include "file_browser.h"
 
-// it replaces these
-/*
-#include "myinttypes.h"
-
-#define CVECTOR_IMPLEMENTATION
-#define CVEC_ONLY_INT
-#define CVEC_ONLY_STR
-#define CVEC_SIZE_T i64
-#define PRIcv_sz PRIiMAX
-#include "cvector.h"
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -283,14 +271,6 @@ CVEC_NEW_DEFS2(thumb_state, RESIZE)
 
 #define SDL_LogDebugApp(...) SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, __VA_ARGS__)
 #define SDL_LogCriticalApp(...) SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, __VA_ARGS__)
-
-// maybe I should just include the former in the latter...
-//#include "string_compare.c"
-//#include "file.c"
-//
-//#define FILE_TYPE_STR "Images"
-//#define FB_LOG(A, ...) SDL_Log(A, __VA_ARGS__)
-//#include "filebrowser.c"
 
 typedef struct img_state
 {
