@@ -2603,8 +2603,6 @@ void setup(int argc, char** argv)
 	// TODO config
 	g->color_table[1].a = DFLT_WINDOW_OPACITY;
 	
-
-
 	for (int i=1; i<argc; ++i) {
 		if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {
 			int delay;

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define LUA_ERROR_NO_EXIT
+//#define LUA_ERROR_NO_EXIT
 #include "lua_helper.h"
 
 #include "lua.h"
@@ -14,6 +14,7 @@ enum {
 	GUI_SCALE,
 	FONT_SIZE,
 	BACKGROUND,
+	WINDOW_OPACITY,
 	THUMB_HIGHLIGHT,
 	THUMB_OPACITY,
 	SLIDE_DELAY,
@@ -41,6 +42,7 @@ char* keys[] =
 	"gui_scale",
 	"font_size",
 	"background",
+	"window_opacity",
 	"thumb_highlight",
 	"thumb_opacity",
 	"slide_delay",
@@ -193,7 +195,7 @@ int read_config_file(char* filename)
 
 	// TODO think about where I really want cachedir storage/ownership...maybe
 	// just make cachedir and thumbdir actual arrays in g and be done with it?
-	if (get_strbuf(L, "cache_dir", g->cachedir_buf, STRBUF_SZ)) {
+	if (try_strbuf(L, "cache_dir", g->cachedir_buf, STRBUF_SZ)) {
 		g->cfg_cachedir = SDL_TRUE;
 	}
 
@@ -202,6 +204,8 @@ int read_config_file(char* filename)
 	if (lua_getglobal(L, "gui_colors") == LUA_TTABLE) {
 		map_table(L, -1, handle_gui_colors, NULL);
 	}
+	// do this after gui_colors since that does 255 for all alphas
+	g->color_table[NK_COLOR_WINDOW].a = try_int_clamp_dflt(L, "window_opacity", 0, 255, DFLT_WINDOW_OPACITY);
 
 	// For debug purposes
 #ifndef NDEBUG
@@ -334,6 +338,10 @@ void write_config(FILE* cfg_file)
 
 			}
 			fprintf(cfg_file, "}\n");
+			break;
+
+		case WINDOW_OPACITY:
+			fprintf(cfg_file, "%d\n", g->color_table[NK_COLOR_WINDOW].a);
 			break;
 		}
 	}

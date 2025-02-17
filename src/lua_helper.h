@@ -31,9 +31,9 @@ double try_number_clamp_dflt(lua_State* L, const char* var, double min, double m
 int try_bool_dflt(lua_State* L, const char* var, int dflt);
 int try_bool(lua_State* L, const char* var, int* success);
 
-
 char* try_str(lua_State* L, const char* var, int* success);
-
+int try_strbuf(lua_State* L, const char* var, char* buf, int buf_sz);
+int try_str_array(lua_State* L, const char* var, char*** out_array);
 
 
 void call_va(lua_State* L, const char* func, const char* sig, ...);
@@ -47,11 +47,8 @@ void error(lua_State* L, const char *fmt, ...)
 	vfprintf(stderr, fmt, argp);
 	va_end(argp);
 
-	// TODO make this compile time configurable, think of good macro name
-#ifndef LUA_ERROR_NO_EXIT
 	lua_close(L);
 	exit(EXIT_FAILURE);
-#endif
 }
 
 void lh_log(lua_State* L, const char *fmt, ...)
@@ -87,14 +84,15 @@ int try_int(lua_State* L, const char* var, int* success)
 	}
 
 	if (!lua_getglobal(L, var)) {
+		lua_pop(L, 1);  // remove result from stack
 		return 0;
 	}
 	result = (int)lua_tointegerx(L, -1, &isnum);
+	lua_pop(L, 1);  // remove result from stack
 	if (!isnum) {
 		lh_log(L, "'%s', should be an integer\n", var);
 		return 0;
 	}
-	lua_pop(L, 1);  // remove result from stack
 	
 	if (success) {
 		*success = 1;
@@ -135,6 +133,7 @@ double try_number(lua_State* L, const char* var, int* success)
 	}
 
 	if (!lua_getglobal(L, var)) {
+		lua_pop(L, 1);  // remove result from stack
 		return 0;
 	}
 	result = (double)lua_tonumberx(L, -1, &isnum);
@@ -207,11 +206,14 @@ int try_bool(lua_State* L, const char* var, int* success)
 	if (success) {
 		*success = 0;
 	}
-	if (!lua_getglobal(L, var)) {
+	int type;
+	if (!(type = lua_getglobal(L, var))) {
+		lua_pop(L, 1);  // remove result from stack
 		return 0;
 	}
-	if (!lua_isboolean(L, -1)) {
+	if (type != LUA_TBOOLEAN) {
 		lh_log(L, "'%s', should be a boolean\n", var);
+		lua_pop(L, 1);  // remove result from stack
 		return 0;
 	}
 	int result = lua_toboolean(L, -1);
@@ -239,6 +241,7 @@ char* try_str(lua_State* L, const char* var, int* success)
 	if (success) *success = 0;
 	int type;
 	if (!(type = lua_getglobal(L, var))) {
+		lua_pop(L, 1);  // remove result from stack
 		return NULL;
 	}
 	if (type != LUA_TSTRING) {
@@ -256,20 +259,42 @@ char* get_str(lua_State* L, const char* var)
 	lua_getglobal(L, var);
 	if (lua_type(L, -1) != LUA_TSTRING) {
 		error(L, "'%s', should be a string\n", var);
-		lua_pop(L, 1);  // remove result from stack
-		return NULL;
 	}
 	char* result = strdup(lua_tostring(L, -1));
 	lua_pop(L, 1);  // remove result from stack
 	return result;
 }
 
+int try_strbuf(lua_State* L, const char* var, char* buf, int buf_sz)
+{
+	int type;
+	if (!(type = lua_getglobal(L, var))) {
+		lua_pop(L, 1);  // remove result from stack
+		return 0;
+	}
+
+	if (type != LUA_TSTRING) {
+		lh_log(L, "'%s', should be a string\n", var);
+		lua_pop(L, 1);  // remove result from stack
+		return 0;
+	}
+
+	size_t len;
+	const char* result = lua_tolstring(L, -1, &len);
+	lua_pop(L, 1);  // remove result from stack
+	if (len >= buf_sz) {
+		lh_log(L, "'%s' is too long for provided string buffer\n", var);
+		return 0;
+	}
+	memcpy(buf, result, len+1);
+
+	return 1;
+}
+
 int get_strbuf(lua_State* L, const char* var, char* buf, int buf_sz)
 {
-	if (lua_getglobal(L, var) == LUA_TNIL) {
-		fprintf(stderr, "global var '%s' does not exist\n", var);
-		lua_pop(L, 1); // remove nil from stack
-		return 0;
+	if (!lua_getglobal(L, var)) {
+		error(L, "global var '%s' does not exist\n", var);
 	}
 
 	if (lua_type(L, -1) != LUA_TSTRING) {
@@ -278,30 +303,73 @@ int get_strbuf(lua_State* L, const char* var, char* buf, int buf_sz)
 	size_t len;
 	const char* result = lua_tolstring(L, -1, &len);
 	if (len >= buf_sz) {
-		error(L, "'%s' is to long for provided string buffer\n", var);
-		// error or log?
-		return 0;
+		error(L, "'%s' is too long for provided string buffer\n", var);
 	}
-	//memcpy(buf, result, len+1);
-	strcpy(buf, result);
+	memcpy(buf, result, len+1);
 
 	lua_pop(L, 1);  // remove result from stack
 	return 1;
 }
 
-int get_str_array(lua_State* L, const char* var, char*** out_array)
+int try_str_array(lua_State* L, const char* var, char*** out_array)
 {
-	// Don't throw an error if the variable doesn't exist
-	if (lua_getglobal(L, var) == LUA_TNIL) {
-		fprintf(stderr, "global var '%s' does not exist\n", var);
+	int type;
+
+	if (!out_array) {
+		return 0;
+	}
+
+	if (!(type = lua_getglobal(L, var))) {
 		lua_pop(L, 1); // remove nil from stack
 		return 0;
+	}
+
+	if (type != LUA_TTABLE) {
+		lua_pop(L, 1);
+		lh_log(L, "'%s', should be a table (array of strings)\n", var);
+		return 0;
+	}
+
+	int n_strs = lua_rawlen(L, -1);
+	char** arr = malloc(n_strs * sizeof(char*));
+
+	const char* tmp;
+	size_t len;
+
+	for (int i=1; i<=n_strs; i++) {
+		if (lua_geti(L, -1, i) != LUA_TSTRING) {
+			lh_log(L, "expected a string\n");
+			// TODO fail entirely here or let it attempt to convert below?
+		}
+
+		// inline strdup that also handles
+		tmp = lua_tolstring(L, -1, &len);
+		arr[i-1] = malloc(len+1);
+		memcpy(arr[i-1], tmp, len+1);
+
+		lua_pop(L, 1); // remove string
+	}
+
+	// Pop table
+	lua_pop(L, 1);
+
+	*out_array = arr;
+
+	return n_strs;
+
+}
+
+int get_str_array(lua_State* L, const char* var, char*** out_array)
+{
+	if (!lua_getglobal(L, var)) {
+		error(L, "global var '%s' does not exist\n", var);
 	}
 
 	if (!lua_istable(L, -1)) {
 		error(L, "'%s', should be a table (array of strings)\n", var);
 	}
 	if (!out_array) {
+		lua_pop(L, 1); // remove table
 		return 0;
 	}
 
@@ -324,6 +392,7 @@ int get_str_array(lua_State* L, const char* var, char*** out_array)
 		lua_pop(L, 1);
 	}
 
+	lua_pop(L, 1); // remove table
 	*out_array = arr;
 
 	return n_strs;

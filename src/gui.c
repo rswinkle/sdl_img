@@ -1806,6 +1806,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				do_color_setting(ctx, "background:", &g->bg, NK_RGB);
 
 				// TODO tooltip explaining this is the same as window alpha below?
+				// Rename? "GUI opacity"?
 				nk_label(ctx, "GUI window opacity:", NK_TEXT_LEFT);
 				int tmp = nk_propertyi(ctx, "#", 0, g->color_table[NK_COLOR_WINDOW].a, 255, 1, 1);
 				if (tmp != g->color_table[NK_COLOR_WINDOW].a) {
@@ -1853,10 +1854,14 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				// TODO reset sdl_img colors too? or have a separet button for them
 				if (nk_button_label(ctx, "Reset GUI colors to defaults")) {
 					memcpy(g->color_table, nk_default_color_style, sizeof(nk_default_color_style));
-					nk_style_default(ctx);
+					g->color_table[NK_COLOR_WINDOW].a = DFLT_WINDOW_OPACITY;
+
+					// use this instead of style_default because of our change to alpha above
+					nk_style_from_table(ctx, g->color_table);
+					//nk_style_default(ctx);
 
 					// TODO have this be its own setting or keep part of window color?
-					g->ctx->style.window.fixed_background.data.color.a *= 0.75;
+					//g->ctx->style.window.fixed_background.data.color.a *= 0.75;
 				}
 
 				// Ugly hack so you can scroll far enough past the last dropdown so it doesn't go
