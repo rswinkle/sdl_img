@@ -164,10 +164,15 @@ enum {
 #define MAX_THUMB_ROWS 8
 #define MAX_THUMB_COLS 15
 
+#define DFLT_THUMB_OPACITY 100
 #define MIN_THUMB_OPACITY 32  // Below 32 it gets too transparent imo
+#define MAX_THUMB_OPACITY 255  // Should probably make it 200 or something
+							   //
+#define DFLT_THUMB_HIGHLIGHT_COLOR nk_rgb(0,255,0)
 
 #define DFLT_FULLSCREEN_GUI DELAY
 #define DFLT_BG_COLOR nk_rgb(0,0,0)
+#define DFLT_WINDOW_OPACITY 191
 
 // Should I even use SDL_TRUE/nk_true or just put 1/0?
 #define DFLT_SHOW_INFOBAR SDL_TRUE
@@ -2333,10 +2338,10 @@ int load_config()
 	g->slide_delay = DFLT_SLIDE_DELAY;
 	g->gui_delay = DFLT_GUI_DELAY;
 	g->button_rpt_delay = DFLT_BUTTON_REPEAT_DELAY;
-	g->show_infobar = nk_true;
+	g->show_infobar = DFLT_SHOW_INFOBAR;
 	g->fullscreen_gui = DELAY;
-	g->thumb_x_deletes = nk_false;
-	g->ind_mm = nk_false;
+	g->thumb_x_deletes = DFLT_THUMB_X_DELETES;
+	g->ind_mm = DFLT_IND_MM;
 	g->bg = DFLT_BG_COLOR;
 	g->thumb_rows = MAX_THUMB_ROWS;
 	g->thumb_cols = MAX_THUMB_COLS;
@@ -2591,10 +2596,12 @@ void setup(int argc, char** argv)
 	g->logdir = g->logdir_buf;
 	g->playlistdir = g->playlistdir_buf;
 
-	g->thumb_highlight = nk_rgb(0, 255, 0);
-	g->thumb_opacity = 100;
+	g->thumb_highlight = DFLT_THUMB_HIGHLIGHT_COLOR;
+	g->thumb_opacity = DFLT_THUMB_OPACITY;
+
 	memcpy(g->color_table, nk_default_color_style, sizeof(nk_default_color_style));
-	g->color_table[1].a *= 0.75;
+	// TODO config
+	g->color_table[1].a = DFLT_WINDOW_OPACITY;
 	
 
 
@@ -2823,13 +2830,17 @@ void setup(int argc, char** argv)
 	}
 
 	// TODO Font stuff, refactor/reorganize
-	if (!got_config || !g->x_scale || !g->y_scale) {
+	if (!got_config) {
 		int render_w, render_h;
 		int window_w, window_h;
 		SDL_GetRendererOutputSize(g->ren, &render_w, &render_h);
 		SDL_GetWindowSize(g->win, &window_w, &window_h);
 		g->x_scale = (float)(render_w) / (float)(window_w);
 		g->y_scale = (float)(render_h) / (float)(window_h);
+	} else {
+		// We might have read GUI colors from config so apply them
+		// (worst case it's a no-op since we initialize color_table to default above
+		nk_style_from_table(g->ctx, g->color_table);
 	}
 	// TODO could adjust for dpi, then adjust for font size if necessary
 	//g->x_scale = 2; //hdpi/72;

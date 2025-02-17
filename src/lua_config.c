@@ -330,7 +330,7 @@ void write_config(FILE* cfg_file)
 			fprintf(cfg_file, "{\n");
 			// not writing alpha, alpha always 255 for now
 			for (int j=0; j<NK_COLOR_COUNT; ++j) {
-				fprintf(cfg_file, "{ %u, %u, %u },\n", g->color_table[j].r, g->color_table[j].g, g->color_table[j].b);
+				fprintf(cfg_file, "%s = { %u, %u, %u },\n", color_labels[j], g->color_table[j].r, g->color_table[j].g, g->color_table[j].b);
 
 			}
 			fprintf(cfg_file, "}\n");
