@@ -84,9 +84,10 @@ int get_color_field(lua_State* L, const char* key);
 void set_color_field(lua_State* L, const char* index, int value);
 void set_color(lua_State* L, ColorEntry* ct);
 
-int load_fullscreen_gui(lua_State* L);
-
+void do_gui_colors(lua_State* L);
+int load_fullscreen_gui(lua_State* L, int dflt);
 char* fullscreen_gui_str(int fsg_enum);
+
 void write_config(FILE* cfg_file);
 
 ColorEntry colortable[] =
@@ -112,12 +113,12 @@ void handle_gui_colors(lua_State* L, void* userdata)
 {
 	// key at -2, value at -1
 	if (lua_type(L, -2) != LUA_TSTRING) {
-		//error(L, "")
-		return;
+		error(L, "gui_colors should have string keys\n");
 	}
 	Color c = {0};
 	const char* key = lua_tostring(L, -2);
-	printf("%s: %s\n", key, lua_tostring(L, -1));
+
+	//printf("Handling %s\n", key);
 	
 	struct nk_color* ct = g->color_table;
 	for (int i=0; i<NK_COLOR_COUNT; ++i) {
@@ -144,7 +145,7 @@ int read_config_file(char* filename)
 		return 0;
 	}
 
-	float scale = get_number_clamp(L, "gui_scale", MIN_GUI_SCALE, MAX_GUI_SCALE);
+	float scale = try_number_clamp_dflt(L, "gui_scale", MIN_GUI_SCALE, MAX_GUI_SCALE, DFLT_GUI_SCALE);
 
 	// make sure only 0.5 increments
 	float tmp = floor(scale);
@@ -153,14 +154,14 @@ int read_config_file(char* filename)
 	}
 	g->y_scale = g->x_scale = scale;
 
-	g->slide_delay = get_int_clamp(L, "slide_delay", MIN_SLIDE_DELAY, MAX_SLIDE_DELAY);
-	g->gui_delay = get_int_clamp(L, "hide_gui_delay", MIN_GUI_DELAY, MAX_GUI_DELAY);
-	g->button_rpt_delay = get_number_clamp(L, "button_repeat_delay", MIN_BUTTON_RPT_DELAY, MAX_BUTTON_RPT_DELAY);
-	g->thumb_rows = get_int_clamp(L, "thumb_rows", MIN_THUMB_ROWS, MAX_THUMB_ROWS);
-	g->thumb_cols = get_int_clamp(L, "thumb_cols", MIN_THUMB_COLS, MAX_THUMB_COLS);
+	g->slide_delay = try_int_clamp_dflt(L, "slide_delay", MIN_SLIDE_DELAY, MAX_SLIDE_DELAY, DFLT_SLIDE_DELAY);
+	g->gui_delay = try_int_clamp_dflt(L, "hide_gui_delay", MIN_GUI_DELAY, MAX_GUI_DELAY, DFLT_GUI_DELAY);
+	g->button_rpt_delay = try_number_clamp_dflt(L, "button_repeat_delay", MIN_BUTTON_RPT_DELAY, MAX_BUTTON_RPT_DELAY, DFLT_BUTTON_RPT_DELAY);
+	g->thumb_rows = try_int_clamp_dflt(L, "thumb_rows", MIN_THUMB_ROWS, MAX_THUMB_ROWS, DFLT_THUMB_ROWS);
+	g->thumb_cols = try_int_clamp_dflt(L, "thumb_cols", MIN_THUMB_COLS, MAX_THUMB_COLS, DFLT_THUMB_COLS);
 
 	// enum
-	g->fullscreen_gui = load_fullscreen_gui(L);
+	g->fullscreen_gui = load_fullscreen_gui(L, DFLT_FULLSCREEN_GUI);
 
 	Color background = {0}, thumb_hl = {0};
 	if (load_color(L, "background", &background)) {
@@ -171,27 +172,27 @@ int read_config_file(char* filename)
 		g->thumb_highlight = nk_rgb(thumb_hl.r, thumb_hl.g, thumb_hl.b);
 	}
 
-	g->thumb_opacity = get_int_clamp(L, "thumb_opacity", MIN_THUMB_OPACITY, 255);
+	g->thumb_opacity = try_int_clamp_dflt(L, "thumb_opacity", MIN_THUMB_OPACITY, MAX_THUMB_OPACITY, DFLT_THUMB_OPACITY);
 
-	g->show_infobar = get_bool(L, "show_info_bar");
-	g->thumb_x_deletes  = get_bool(L, "x_deletes_thumb");
-	g->confirm_delete  = get_bool(L, "confirm_delete");
-	g->confirm_rotation  = get_bool(L, "confirm_rotation");
-	g->ind_mm = get_bool(L, "relative_offsets");
+	g->show_infobar = try_bool_dflt(L, "show_info_bar", DFLT_SHOW_INFOBAR);
+	g->thumb_x_deletes  = try_bool_dflt(L, "x_deletes_thumb", DFLT_THUMB_X_DELETES);
+	g->confirm_delete  = try_bool_dflt(L, "confirm_delete", DFLT_CONFIRM_DELETE);
+	g->confirm_rotation  = try_bool_dflt(L, "confirm_rotation", DFLT_CONFIRM_ROTATION);
+	g->ind_mm = try_bool_dflt(L, "relative_offsets", DFLT_IND_MM);
 
 
 	char** exts = NULL;
-	int n = get_str_array(L, "img_exts", &exts);
+	int n = try_str_array(L, "img_exts", &exts);
 	if (n) {
 		g->img_exts = (const char**)exts;
 		g->n_exts = n;
 		g->cfg_img_exts = SDL_TRUE;
 	}
 
-	g->bookmarks.size = get_str_array(L, "bookmarks", &g->bookmarks.a);
+	g->bookmarks.size = try_str_array(L, "bookmarks", &g->bookmarks.a);
 	g->bookmarks.capacity = g->bookmarks.size;
 
-	g->default_playlist = get_str(L, "default_playlist");
+	g->default_playlist = try_str(L, "default_playlist", NULL);
 
 	// TODO think about where I really want cachedir storage/ownership...maybe
 	// just make cachedir and thumbdir actual arrays in g and be done with it?
@@ -199,13 +200,10 @@ int read_config_file(char* filename)
 		g->cfg_cachedir = SDL_TRUE;
 	}
 
-	get_strbuf(L, "thumb_dir", g->thumbdir, STRBUF_SZ);
+	try_strbuf(L, "thumb_dir", g->thumbdir, STRBUF_SZ);
+	// TODO playlistdir, logdir
 
-	if (lua_getglobal(L, "gui_colors") == LUA_TTABLE) {
-		map_table(L, -1, handle_gui_colors, NULL);
-	}
-	// do this after gui_colors since that does 255 for all alphas
-	g->color_table[NK_COLOR_WINDOW].a = try_int_clamp_dflt(L, "window_opacity", 0, 255, DFLT_WINDOW_OPACITY);
+	do_gui_colors(L);
 
 	// For debug purposes
 #ifndef NDEBUG
@@ -347,29 +345,37 @@ void write_config(FILE* cfg_file)
 	}
 }
 
-int load_str2enum(lua_State* L, const char* name, const char** enum_names, int* enum_values, int len)
+int convert_str2enum(lua_State* L, int idx, char* name, const char** enum_names, int* enum_values, int len)
 {
-	lua_getglobal(L, name);
-	if (lua_isstring(L, -1)) {
+	int type;
+	if ((type = lua_type(L, idx)) == LUA_TSTRING) {
 		const char* value = lua_tostring(L, -1);
+		// TODO can I call lua_pop here without invalidating value?
 		for (int i=0; i<len; i++) {
 			if (!strcasecmp(value, enum_names[i])) {
+				lua_pop(L, 1);
 				return enum_values[i];
 			}
 		}
+		// TODO list allowed values in error?
 		error(L, "invalid value for enum %s: '%s'\n", name, value);
 	} else {
-		stackDump(L);
-		error(L, "'%s' is not a string\n", name);
+		error(L, "%s is a %s not a string, expected a string value for enum\n", name, lua_typename(L, type));
 	}
+
+	// should never get here, just getting rid of compiler warning
 	return -1;
 }
 
-int load_fullscreen_gui(lua_State* L)
+int load_fullscreen_gui(lua_State* L, int dflt)
 {
 	const char* enum_names[] = { "delay", "always", "never" };
 	int enum_values[] = { 0, 1, 2 };
-	return load_str2enum(L, "fullscreen_gui", enum_names, enum_values, 3);
+
+	if (!lua_getglobal(L, "fullscreen_gui")) {
+		return dflt;
+	}
+	return convert_str2enum(L, -1, "fullscreen_gui", enum_names, enum_values, 3);
 }
 
 // TODO better function names
@@ -391,13 +397,14 @@ void convert_color(lua_State* L, Color* c, int index)
 		}
 	} else if (lua_istable(L, index)) {
 		if (lua_rawlen(L, index) >= 3) {
-
 			lua_geti(L, index, 1);
 			c->r = convert_color_field(L, -1);
-			lua_geti(L, index, 2);
+			lua_geti(L, index-1, 2);
 			c->g = convert_color_field(L, -1);
-			lua_geti(L, index, 3);
+			lua_geti(L, index-2, 3);
 			c->b = convert_color_field(L, -1);
+
+			lua_pop(L, 3);
 		} else {
 			if (lua_getfield(L, -1, "red") != LUA_TNIL) {
 				lua_pop(L, 1);
@@ -418,11 +425,12 @@ void convert_color(lua_State* L, Color* c, int index)
 
 int load_color(lua_State* L, const char* name, Color* c)
 {
-	if (lua_getglobal(L, name)) {
-		convert_color(L, c, -1);
-		return 1;
+	if (!lua_getglobal(L, name)) {
+		lua_pop(L, 1);
+		return 0;
 	}
-	return 0;
+	convert_color(L, c, -1);
+	return 1;
 }
 
 // field is at index
@@ -432,7 +440,6 @@ int convert_color_field(lua_State* L, int index)
 
 	if (lua_type(L, index) != LUA_TNUMBER) {
 		error(L, "invalid component in color, must be a number\n");
-		return 0;
 	}
 
 	if (lua_isinteger(L, index)) {
@@ -448,16 +455,16 @@ int convert_color_field(lua_State* L, int index)
 	if (result < 0) result = 0;
 	if (result > 255) result = 255;
 
-	lua_pop(L, 1);
 	return result;
 }
 
 // assume table is on top of the stack
 int get_color_field(lua_State* L, const char* key)
 {
-	// get background[key]
 	lua_getfield(L, -1, key);
-	return convert_color_field(L, -1);
+	int ret = convert_color_field(L, -1);
+	lua_pop(L, 1);
+	return ret;
 }
 
 // assume table is top of stack
@@ -486,5 +493,16 @@ char* fullscreen_gui_str(int fsg_enum)
 	default: return "INVALID";
 	}
 }
+
+void do_gui_colors(lua_State* L)
+{
+	if (lua_getglobal(L, "gui_colors") == LUA_TTABLE) {
+		map_table(L, -1, handle_gui_colors, NULL);
+		// do this after gui_colors since that does 255 for all alphas
+		g->color_table[NK_COLOR_WINDOW].a = try_int_clamp_dflt(L, "window_opacity", 0, 255, DFLT_WINDOW_OPACITY);
+	}
+	lua_pop(L, 1);
+}
+
 
 

@@ -144,6 +144,7 @@ enum {
 // Used in config file
 
 // Even 3 seems excessive, can't imagine a screen than high density
+#define DFLT_GUI_SCALE 1.0f
 #define MIN_GUI_SCALE 0.5f
 #define MAX_GUI_SCALE 3.0f
 
@@ -151,7 +152,7 @@ enum {
 #define MIN_GUI_DELAY 1
 #define MAX_GUI_DELAY 60
 
-#define DFLT_BUTTON_REPEAT_DELAY 1.0f
+#define DFLT_BUTTON_RPT_DELAY 1.0f
 #define MIN_BUTTON_RPT_DELAY 0.25f
 #define MAX_BUTTON_RPT_DELAY 3.0f
 
@@ -163,11 +164,13 @@ enum {
 #define MIN_THUMB_COLS 4
 #define MAX_THUMB_ROWS 8
 #define MAX_THUMB_COLS 15
+#define DFLT_THUMB_ROWS 8
+#define DFLT_THUMB_COLS 15
 
 #define DFLT_THUMB_OPACITY 100
 #define MIN_THUMB_OPACITY 32  // Below 32 it gets too transparent imo
 #define MAX_THUMB_OPACITY 255  // Should probably make it 200 or something
-							   //
+
 #define DFLT_THUMB_HIGHLIGHT_COLOR nk_rgb(0,255,0)
 
 #define DFLT_FULLSCREEN_GUI DELAY
@@ -178,6 +181,10 @@ enum {
 #define DFLT_SHOW_INFOBAR SDL_TRUE
 #define DFLT_THUMB_X_DELETES SDL_FALSE
 #define DFLT_IND_MM SDL_FALSE
+#define DFLT_CONFIRM_DELETE SDL_TRUE
+#define DFLT_CONFIRM_ROTATION SDL_TRUE
+
+#define DFLT_FULLSCREEN_GUI DELAY
 
 #define NUM_DFLT_EXTS 11
 
@@ -2330,23 +2337,22 @@ int load_config()
 	SDL_LogDebugApp("config file: %s\n", config_path);
 
 	// set default preferences ahead of time in case config file is missing
-	// or (more likely) some aren't set in the config
 	// NOTE cachedir will be set in setup_dirs() if necessary
 	// extensions are set elsewhere too
 	//
 	// TODO compare with config enums
 	g->slide_delay = DFLT_SLIDE_DELAY;
 	g->gui_delay = DFLT_GUI_DELAY;
-	g->button_rpt_delay = DFLT_BUTTON_REPEAT_DELAY;
+	g->button_rpt_delay = DFLT_BUTTON_RPT_DELAY;
 	g->show_infobar = DFLT_SHOW_INFOBAR;
-	g->fullscreen_gui = DELAY;
+	g->fullscreen_gui = DFLT_FULLSCREEN_GUI;
 	g->thumb_x_deletes = DFLT_THUMB_X_DELETES;
 	g->ind_mm = DFLT_IND_MM;
 	g->bg = DFLT_BG_COLOR;
 	g->thumb_rows = MAX_THUMB_ROWS;
 	g->thumb_cols = MAX_THUMB_COLS;
-	g->confirm_delete = SDL_TRUE;
-	g->confirm_rotation = SDL_TRUE;
+	g->confirm_delete = DFLT_CONFIRM_DELETE;
+	g->confirm_rotation = DFLT_CONFIRM_ROTATION;
 
 	if (!read_config_file(config_path)) {
 		return nk_false;

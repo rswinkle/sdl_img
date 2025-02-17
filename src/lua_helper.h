@@ -361,16 +361,17 @@ int try_str_array(lua_State* L, const char* var, char*** out_array)
 
 int get_str_array(lua_State* L, const char* var, char*** out_array)
 {
+	// assert(out_array); //?
+	if (!out_array) {
+		return 0;
+	}
+
 	if (!lua_getglobal(L, var)) {
 		error(L, "global var '%s' does not exist\n", var);
 	}
 
 	if (!lua_istable(L, -1)) {
 		error(L, "'%s', should be a table (array of strings)\n", var);
-	}
-	if (!out_array) {
-		lua_pop(L, 1); // remove table
-		return 0;
 	}
 
 	int n_strs = lua_rawlen(L, -1);
