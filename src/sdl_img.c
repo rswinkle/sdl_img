@@ -80,20 +80,30 @@ enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V, M
 enum { URL, DIRECTORY, IMAGE };
 
 // Better names/macros
+#define NK_FLAG(x) (1 << (x))
+
 enum {
-	NORMAL           = 0x1,
-	THUMB_DFLT       = 0x2,
-	THUMB_VISUAL     = 0x4,
-	THUMB_SEARCH     = 0x8,
-	LIST_DFLT        = 0x10,
-	SEARCH_RESULTS   = 0x20,
-	FILE_SELECTION   = 0x40,
-	SCANNING         = 0x80,
+	NORMAL           = NK_FLAG(0),
+	THUMB_DFLT       = NK_FLAG(1),
+	THUMB_VISUAL     = NK_FLAG(2),
+	THUMB_SEARCH     = NK_FLAG(3),
+	LIST_DFLT        = NK_FLAG(4),
+	SEARCH_RESULTS   = NK_FLAG(5),
+	FILE_SELECTION   = NK_FLAG(6),
+	SCANNING         = NK_FLAG(7),
+
+	// popups
+	ABOUT            = NK_FLAG(8),
+	PREFS            = NK_FLAG(9),
+	ROTATE           = NK_FLAG(10),
+	PLAYLIST_MANAGER = NK_FLAG(11),
+
 };
 
 #define THUMB_MASK (THUMB_DFLT | THUMB_VISUAL | THUMB_SEARCH)
 #define LIST_MASK (LIST_DFLT)
 #define RESULT_MASK (SEARCH_RESULTS)
+#define POPUP_MASK (ABOUT | PREFS | ROTATE | PLAYLIST_MANAGER)
 //#define VIEW_MASK (NORMAL)
 
 #define IS_THUMB_MODE() (g->state & THUMB_MASK)
@@ -102,6 +112,7 @@ enum {
 #define IS_VIEW_RESULTS() (g->state & NORMAL && g->state != NORMAL)
 #define IS_FS_MODE() (g->state == FILE_SELECTION)
 #define IS_SCANNING_MODE() (g->state == SCANNING)
+#define IS_POPUP_ACTIVE() (g->state & POPUP_MASK)
 
 #ifdef _WIN32
 #define mkdir(A, B) mkdir(A)
@@ -416,10 +427,6 @@ typedef struct global_state
 	int thumb_sel_end; // start or end of visual selection (_sel is other side)
 	int selection;  // actual selection made (switching to normal mode)
 
-	int show_about;
-	int show_prefs;
-	int show_rotate;
-	int show_pm;
 	int menu_state;
 	int sorted_state;
 
@@ -3110,7 +3117,7 @@ void rotate_img(img_state* img)
 	// Ok was pressed when a change hadn't been done
 	// so we couldn't clear in draw_gui because we still
 	// needed it
-	if (!g->show_rotate) {
+	if (!(g->state & ROTATE)) {
 		free(g->orig_pix);
 		g->orig_pix = NULL;
 		g->orig_w = 0;
@@ -3136,7 +3143,7 @@ int start_scanning(void)
 int try_move(int direction)
 {
 	// TODO prevent moves and some other
-	// actions while g->show_rotate.  Since we already
+	// actions while g->state & ROTATE.  Since we already
 	// hide the GUI while the popup's up, we really just have
 	// to worry about keyboard actions.
 	if (!g->loading && !g->done_loading) {
@@ -3447,7 +3454,7 @@ void do_rotate(int left, int is_90)
 				rotate_img90(img, left);
 				create_textures(img);
 			} else {
-				g->show_rotate = nk_true;
+				g->state |= ROTATE;
 				g->show_gui = nk_true;
 				g->gui_timer = SDL_GetTicks();
 				SDL_ShowCursor(SDL_ENABLE);

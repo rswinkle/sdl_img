@@ -246,19 +246,19 @@ void draw_gui(struct nk_context* ctx)
 
 	// Do popups first so I can return early if any is up
 	// TODO I can just return after a popup since they're all fullscreen now right?
-	if (g->show_rotate) {
+	if (g->state & ROTATE) {
 		draw_rotate(ctx, scr_w, scr_h, popup_flags);
 	}
 
-	if (g->show_about) {
+	if (g->state & ABOUT) {
 		draw_about(ctx, scr_w, scr_h, popup_flags);
 	}
 
-	if (g->show_prefs) {
+	if (g->state & PREFS) {
 		draw_prefs(ctx, scr_w, scr_h, popup_flags);
 	}
 
-	if (g->show_pm) {
+	if (g->state & PLAYLIST_MANAGER) {
 		draw_playlist_manager(ctx, scr_w, scr_h, popup_flags);
 	}
 
@@ -269,7 +269,7 @@ void draw_gui(struct nk_context* ctx)
 	// don't show main GUI if a popup is up, don't want user to
 	// be able to interact with it.  Could look up how to make them inactive
 	// but meh, this is simpler
-	if (g->show_about || g->show_prefs || g->show_rotate || g->show_pm) {
+	if (IS_POPUP_ACTIVE()) {
 		//SDL_ShowCursor(SDL_ENABLE);  // shouldn't be necessary
 		g->show_gui = SDL_TRUE;
 		g->gui_timer = SDL_GetTicks();
@@ -1143,10 +1143,10 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 			nk_layout_row_dynamic(ctx, 0, 1);
 
 			if (nk_menu_item_label(ctx, "Preferences", NK_TEXT_LEFT)) {
-				g->show_prefs = SDL_TRUE;
+				g->state |= PREFS;
 			}
 			if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
-				g->show_about = SDL_TRUE;
+				g->state |= ABOUT;
 			}
 			if (nk_menu_item_label(ctx, "Exit", NK_TEXT_LEFT)) {
 				event.type = SDL_QUIT;
@@ -1229,7 +1229,7 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 				nk_label(ctx, buf, NK_TEXT_LEFT);
 
 				if (nk_menu_item_label(ctx, "Manager", NK_TEXT_LEFT)) {
-					g->show_pm = SDL_TRUE;
+					g->state |= PLAYLIST_MANAGER;
 					//event.user.code = OPEN_PLAYLIST_MANAGER;
 					//SDL_PushEvent(&event);
 				}
@@ -1634,7 +1634,7 @@ void draw_rotate(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				g->orig_w = 0;
 				g->orig_h = 0;
 			}
-			g->show_rotate = SDL_FALSE;;
+			g->state &= ~ROTATE;
 		}
 	}
 	nk_end(ctx);
@@ -1673,7 +1673,7 @@ void draw_about(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 		nk_layout_row_dynamic(ctx, 0, 1);
 		if (nk_button_label(ctx, "Ok")) {
-			g->show_about = SDL_FALSE;;
+			g->state &= ~ABOUT;
 		}
 	}
 	nk_end(ctx);
@@ -1774,7 +1774,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 			}
 
 			if (nk_button_label(ctx, "Ok")) {
-				g->show_prefs = SDL_FALSE;;
+				g->state &= ~PREFS;
 			}
 			
 			// TODO think about names of categories and where individual
@@ -1989,7 +1989,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 		nk_layout_space_begin(ctx, NK_STATIC, 60, 1);
 		nk_layout_space_push(ctx, nk_rect(scr_w-OK_WIDTH-12, 20, OK_WIDTH, 40));
 		if (nk_button_label(ctx, "Ok")) {
-			g->show_prefs = SDL_FALSE;;
+			g->state &= ~PREFS;
 		}
 		nk_layout_space_end(ctx);
 #undef OK_WIDTH
@@ -2107,7 +2107,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 				if (selected >= 0) {
 					g->is_open_new = SDL_TRUE;
 					g->open_playlist = SDL_TRUE;
-					g->show_pm = SDL_FALSE;
+					g->state &= ~PLAYLIST_MANAGER;
 					transition_to_scanning(path_buf);
 				}
 			}
@@ -2115,7 +2115,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 			if (nk_button_label(ctx, "Open More")) {
 				if (selected >= 0) {
 					g->open_playlist = SDL_TRUE;
-					g->show_pm = SDL_FALSE;
+					g->state &= ~PLAYLIST_MANAGER;
 					transition_to_scanning(path_buf);
 				}
 			}
@@ -2135,7 +2135,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 			}
 
 			if (nk_button_label(ctx, "Done")) {
-				g->show_pm = SDL_FALSE;
+				g->state &= ~PLAYLIST_MANAGER;
 			}
 
 			nk_group_end(ctx);

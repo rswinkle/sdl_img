@@ -1110,16 +1110,13 @@ int handle_popup_events()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
-				if (g->show_rotate) {
+				if (g->state & ROTATE) {
 					// ESC discards all changes, including previewed changes which means
 					// we may have to clean up/free
 					discard_rotation((g->n_imgs == 1) ? &g->img[0] : g->img_focus);
-					g->show_rotate = nk_false;
 				}
 				// safe to just always set these to false, only 1 "popup" at a time
-				g->show_about = nk_false;
-				g->show_prefs = nk_false;
-				g->show_pm = nk_false;
+				g->state &= ~POPUP_MASK;
 				break;
 			case SDL_SCANCODE_F11:
 				g->fullscreen = !g->fullscreen;
@@ -1651,9 +1648,6 @@ int handle_events_normally()
 
 			// TODO merge RIGHT/DOWN and LEFT/UP?
 			case SDL_SCANCODE_RIGHT:
-				// TODO more elegant way
-				if (g->show_prefs)
-					break;
 				zoomed = SDL_FALSE;
 				g->status = REDRAW;
 				if (!ctrl_down) {
@@ -1711,8 +1705,6 @@ int handle_events_normally()
 				break;
 
 			case SDL_SCANCODE_LEFT:
-				if (g->show_prefs)
-					break;
 				zoomed = SDL_FALSE;
 				g->status = REDRAW;
 				if (!ctrl_down) {
@@ -1992,7 +1984,7 @@ int handle_events()
 	}
 
 	if (g->state & NORMAL) {
-		if (g->show_about || g->show_prefs || g->show_rotate || g->show_pm) {
+		if (IS_POPUP_ACTIVE()) {
 			return handle_popup_events();
 		}
 		return handle_events_normally();
