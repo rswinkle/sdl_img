@@ -31,6 +31,8 @@ enum {
 	IMG_EXTS,
 	BOOKMARKS,
 	DEFAULT_PLAYLIST,
+	PLAYLIST_DIR,
+	LOG_DIR,
 	CACHE_DIR,
 	THUMB_DIR,
 	GUI_COLORS,
@@ -59,6 +61,8 @@ char* keys[] =
 	"img_exts",
 	"bookmarks",
 	"default_playlist",
+	"playlist_dir",
+	"log_dir",
 	"cache_dir",
 	"thumb_dir",
 	"gui_colors"
@@ -194,6 +198,10 @@ int read_config_file(char* filename)
 
 	g->default_playlist = try_str(L, "default_playlist", NULL);
 
+	try_strbuf(L, "playlist_dir", g->playlistdir_buf, STRBUF_SZ);
+
+	try_strbuf(L, "log_dir", g->logdir_buf, STRBUF_SZ);
+
 	// TODO think about where I really want cachedir storage/ownership...maybe
 	// just make cachedir and thumbdir actual arrays in g and be done with it?
 	if (try_strbuf(L, "cache_dir", g->cachedir_buf, STRBUF_SZ)) {
@@ -302,6 +310,20 @@ void write_config(FILE* cfg_file)
 
 		case DEFAULT_PLAYLIST:
 			fprintf(cfg_file, "'%s'\n", g->default_playlist);
+			break;
+
+		case PLAYLIST_DIR:
+			// Will always be true unless/until I add a -p playlistdir arg
+			if (g->playlistdir == g->playlistdir_buf) {
+				fprintf(cfg_file, "'%s'\n", g->playlistdir);
+			}
+			break;
+
+		case LOG_DIR:
+			// Will always be true unless/until I add a --logdir logdir arg
+			if (g->logdir == g->logdir_buf) {
+				fprintf(cfg_file, "'%s'\n", g->logdir);
+			}
 			break;
 
 		case CACHE_DIR:

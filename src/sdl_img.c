@@ -333,7 +333,13 @@ typedef struct global_state
 	int status;
 
 	// booleans
+	
+	// needed because default cachedir changes every day so we don't by default
+	// save that to config file, only if the user manually adds it
 	int cfg_cachedir;
+
+	// Needed so we know to free them.  Having them as a config value rather than
+	// only hardcoded is so users can specify a subset of extensions supported
 	int cfg_img_exts;
 
 	char* cachedir;
@@ -2262,7 +2268,7 @@ void setup_dirs()
 		cleanup(1, 1);
 	}
 
-	// if thumbdir was not set from config file
+	// if thumbdir was not set from config file (not even possible yet)
 	if (!g->thumbdir[0]) {
 		len = snprintf(g->thumbdir, STRBUF_SZ, "%sthumbnails", prefpath);
 		if (len >= STRBUF_SZ) {

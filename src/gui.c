@@ -2074,6 +2074,10 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 				strncpy(g->cur_playlist, path_buf, STRBUF_SZ);
 				read_cur_playlist();
 			}
+			if (nk_button_label(ctx, "Make Default")) {
+				free(g->default_playlist);
+				g->default_playlist = CVEC_STRDUP(g->playlists.a[selected]);
+			}
 			nk_widget_disable_end(ctx);
 
 			if (nk_button_label(ctx, "Open New")) {
