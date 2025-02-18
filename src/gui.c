@@ -240,21 +240,11 @@ void draw_gui(struct nk_context* ctx)
 				event.type = SDL_QUIT;
 				SDL_PushEvent(&event);
 			}
-			
-			/*
-			 * Do I need to do all state transitions when procesing events? No
-			 * Should I keep all state transitions in the same place?  Probably
-			if (g->filebrowser.file[0]) {
-				start_scanning();
-				event.user.code = PROCESS_SELECTION;
-				SDL_PushEvent(&event);
-			} 
-			*/
 		}
 		return;
 	}
 
-	// Do popups first so I can return early if eather is up
+	// Do popups first so I can return early if any is up
 	// TODO I can just return after a popup since they're all fullscreen now right?
 	if (g->show_rotate) {
 		draw_rotate(ctx, scr_w, scr_h, popup_flags);
@@ -649,8 +639,10 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			strncpy(dir_buf, fb->dir, sizeof(dir_buf));
 			// method 1
 			// breadcrumb buttons
-			// I really hate Windows.  TODO Come up with a better way/compromise between visuals
+			// I really hate Windows.
+			// TODO Come up with a better way/compromise between visuals
 			// and code
+			// TODO use a horizontally scrolling group instead of multiple lines of buttons
 			if (!fb->is_text_path) {
 				int depth = 0; // number of breadcrumb buttons;
 				ctx->style.window.spacing.x = 0;
@@ -1912,12 +1904,15 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_checkbox_label(ctx, "Preserve relative offsets in multimode movement", &g->ind_mm);
 			} else if (cur_prefs == PREFS_DATA) {
 				// TODO make actually editable?  Have a folder selector popup?
-				//float ratios[] = { 0.20, 0.80 };
-				//nk_layout_row(ctx, NK_DYNAMIC, 60, 2, ratios);
-
+				float ratios[] = { 0.20, 0.80 };
 				int path_flags = NK_EDIT_FIELD | NK_EDIT_AUTO_SELECT;
 
-				nk_layout_row_dynamic(ctx, 0, 1);
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+				//nk_layout_row_dynamic(ctx, 0, 1);
+
 				bounds = nk_widget_bounds(ctx);
 				nk_label(ctx, "Cache:", NK_TEXT_LEFT);
 				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
@@ -1925,35 +1920,63 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				}
 				nk_edit_string(ctx, path_flags, g->cachedir, &cache_len, STRBUF_SZ, nk_filter_default);
 
-				nk_label(ctx, "Thumbnails:", NK_TEXT_LEFT);
-				nk_edit_string(ctx, path_flags, g->thumbdir, &thumb_len, STRBUF_SZ, nk_filter_default);
-
-				nk_label(ctx, "Logs:", NK_TEXT_LEFT);
-				nk_edit_string(ctx, path_flags, g->logdir, &log_len, STRBUF_SZ, nk_filter_default);
-
-				nk_label(ctx, "Playlists:", NK_TEXT_LEFT);
-				nk_edit_string(ctx, path_flags, g->playlistdir, &pl_len, STRBUF_SZ, nk_filter_default);
-
-				nk_layout_row_dynamic(ctx, 0, 1);
+				nk_layout_row_dynamic(ctx, 0, 2);
 				if (nk_button_label(ctx, "Clear cache")) {
 					SDL_Log("Clearing cache\n");
 					int ttimer = SDL_GetTicks();
 					empty_dir(g->cachedir);
 					SDL_Log("Clearing cache took %d\n", SDL_GetTicks()-ttimer);
 				}
+				if (nk_button_label(ctx, "Change cache dir")) {
+				}
+
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+				nk_label(ctx, "Thumbnails:", NK_TEXT_LEFT);
+				nk_edit_string(ctx, path_flags, g->thumbdir, &thumb_len, STRBUF_SZ, nk_filter_default);
+				nk_layout_row_dynamic(ctx, 0, 2);
 				if (nk_button_label(ctx, "Clear thumbnails")) {
 					SDL_Log("Clearing thumbnails\n");
 					int ttimer = SDL_GetTicks();
 					empty_dir(g->thumbdir);
 					SDL_Log("Clearing thumbnails took %d\n", SDL_GetTicks()-ttimer);
 				}
+				if (nk_button_label(ctx, "Change thumbnail dir")) {
+				}
 
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+				nk_label(ctx, "Logs:", NK_TEXT_LEFT);
+				nk_edit_string(ctx, path_flags, g->logdir, &log_len, STRBUF_SZ, nk_filter_default);
+				nk_layout_row_dynamic(ctx, 0, 2);
 				if (nk_button_label(ctx, "Clear logs")) {
 					SDL_Log("Clearing logs\n");
 					int ttimer = SDL_GetTicks();
 					empty_dir(g->logdir);
 					SDL_Log("Clearing logs took %d\n", SDL_GetTicks()-ttimer);
 				}
+				if (nk_button_label(ctx, "Change log dir")) {
+				}
+
+
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+				nk_label(ctx, "Playlists:", NK_TEXT_LEFT);
+				nk_edit_string(ctx, path_flags, g->playlistdir, &pl_len, STRBUF_SZ, nk_filter_default);
+				// TODO Clear/delete playlists?
+				nk_layout_row_dynamic(ctx, 0, 1);
+				if (nk_button_label(ctx, "Change playlist dir")) {
+				}
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+
+
 			}
 
 			nk_group_end(ctx);

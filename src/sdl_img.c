@@ -3150,6 +3150,44 @@ int try_move(int direction)
 	return 0;
 }
 
+// TODO finish
+void do_file_select(int select_dir)
+{
+	g->old_state = g->state;
+
+	g->state = FILE_SELECTION;
+
+	// TODO customize more with arg, "Select Playlist Dir", Select default playlist etc.
+	/*
+	if (select_dir) {
+		SDL_SetWindowTitle(g->win, "Select Directory");
+		g->state |= SELECT_DIR;
+	} else {
+		SDL_SetWindowTitle(g->win, "Select File");
+		g->state |= SELECT_FILE;
+	}
+
+	reset_file_browser(&g->filebrowser, NULL);
+	g->filebrowser.selection = -1; // default to no selection
+	
+
+	// If they're in playlistdir keep settings the same
+	if (strcmp(g->filebrowser.dir, g->playlistdir)) {
+		g->open_single = SDL_FALSE;
+		g->open_playlist = SDL_FALSE;
+		g->open_recursive = SDL_FALSE;
+	} else {
+		g->open_playlist = SDL_TRUE;  // should still be true but for clarity
+		g->filebrowser.ignore_exts = SDL_TRUE; // was reset by reset_file_browser
+	}
+
+	SDL_ShowCursor(SDL_ENABLE);
+
+	const char* fs_type_str[] = { "file", "dir" };
+	SDL_LogDebugApp("executing file select %s\n", fs_type_str[select_dir]);
+	*/
+}
+
 void do_file_open(int clear_files)
 {
 	// TODO support Open more while in view results
