@@ -1098,6 +1098,10 @@ int handle_popup_events()
 				// TODO
 				rotate_img((g->n_imgs == 1) ? &g->img[0] : g->img_focus);
 				break;
+			case SELECT_DIR:
+			case SELECT_FILE:
+				do_file_select(code == SELECT_DIR);
+				break;
 			default:
 				SDL_Log("Shouldn't get any other user event in popup mode!\n");
 			}
@@ -1969,15 +1973,27 @@ int handle_events()
 		}
 	}
 
+	// like in draw_gui FS takes precedence over any underlying popups
 	if (IS_FS_MODE()) {
 		// TODO multiple return codes?
 		if (handle_fb_events(&g->filebrowser, g->ctx)) {
-			if (g->filebrowser.file[0]) {
-				transition_to_scanning(g->filebrowser.file);
-				return 0;
+			if (g->state == FILE_SELECTION) {
+				if (g->filebrowser.file[0]) {
+					transition_to_scanning(g->filebrowser.file);
+					return 0;
+				} else {
+					// can only happen when SDL_QUIT or ESC on initial startup with no files
+					return 1;
+				}
 			} else {
-				// can only happen when SDL_QUIT or ESC on initial startup with no files
-				return 1;
+				// we're in a popup file browser for preferences or something
+				if (g->filebrowser.file[0]) {
+					strcpy(g->fs_output, g->filebrowser.file);
+				} else {
+					g->fs_output = NULL;
+				}
+				g->state = g->old_state;
+				//g->state &= ~FILE_SELECTION;
 			}
 		}
 		return 0;

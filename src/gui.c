@@ -223,22 +223,39 @@ void draw_gui(struct nk_context* ctx)
 		return;
 	}
 
+	// FS takes precedence over other popups since it can be triggered from
+	// them
 	if (IS_FS_MODE()) {
 		if (!draw_filebrowser(&g->filebrowser, g->ctx, scr_w, scr_h)) {
-			if (g->filebrowser.file[0]) {
-				transition_to_scanning(g->filebrowser.file);
-			} else if (g->files.size) {
-				// they canceled out but still have current images
+			if (g->state == FILE_SELECTION) {
+				if (g->filebrowser.file[0]) {
+					transition_to_scanning(g->filebrowser.file);
+				} else if (g->files.size) {
+					// they canceled out but still have current images
+					g->state = g->old_state;
+					SDL_ShowCursor(SDL_ENABLE);
+					g->gui_timer = SDL_GetTicks();
+					g->show_gui = SDL_TRUE;
+					g->status = REDRAW;
+					SDL_SetWindowTitle(g->win, g->files.a[g->img[0].index].name);
+				} else {
+					// They "Cancel"ed out of an initial startup with no files, so just exit
+					event.type = SDL_QUIT;
+					SDL_PushEvent(&event);
+				}
+			} else {
+				// we're in a popup file browser for preferences or something
+				if (g->filebrowser.file[0]) {
+					strcpy(g->fs_output, g->filebrowser.file);
+				} else {
+					g->fs_output = NULL;
+				}
 				g->state = g->old_state;
 				SDL_ShowCursor(SDL_ENABLE);
 				g->gui_timer = SDL_GetTicks();
 				g->show_gui = SDL_TRUE;
 				g->status = REDRAW;
 				SDL_SetWindowTitle(g->win, g->files.a[g->img[0].index].name);
-			} else {
-				// They "Cancel"ed out of an initial startup with no files, so just exit
-				event.type = SDL_QUIT;
-				SDL_PushEvent(&event);
 			}
 		}
 		return;
@@ -751,82 +768,87 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 				// would static be faster?
 				nk_layout_row_dynamic(ctx, 0, 1);
 
-				if (fb->num_exts) {
-					//nk_checkbox_label(ctx, "All Files", &fb->ignore_exts);
-					static const char* ext_opts[] = { FILE_TYPE_STR, "All Files" };
-					struct nk_rect bounds = nk_widget_bounds(ctx);
-					old = fb->ignore_exts;
-					fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, DFLT_FONT_SIZE, nk_vec2(bounds.w, 300));
-					if (fb->ignore_exts != old) {
-						if (!fb->is_recents) {
-							my_switch_dir(NULL);
-						} else {
-							handle_recents(fb);
-						}
-					}
-				}
-				static const char* path_opts[] = { "Breadcrumbs", "Text" };
-				struct nk_rect bounds = nk_widget_bounds(ctx);
-				fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, DFLT_FONT_SIZE, nk_vec2(bounds.w, 300));
-
 				if (nk_checkbox_label(ctx, "Show Hidden", &fb->show_hidden)) {
 					if (!fb->is_recents) {
 						my_switch_dir(NULL);
 					}
 				}
 
-				// TODO think about interactions switching back and forth between all these
-				bounds = nk_widget_bounds(ctx);
-				if (nk_checkbox_label(ctx, "Single Image", &g->open_single) && g->open_single) {
-					g->open_playlist = SDL_FALSE;
-					g->open_recursive = SDL_FALSE;
-					if (fb->select_dir) {
-						fb->select_dir = SDL_FALSE;
-						my_switch_dir(NULL);
-					}
-				}
-				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
-					nk_tooltip(ctx, "Only open the image you select, not all images in the same directory");
-				}
+				static const char* path_opts[] = { "Breadcrumbs", "Text" };
+				struct nk_rect bounds = nk_widget_bounds(ctx);
+				fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, DFLT_FONT_SIZE, nk_vec2(bounds.w, 300));
 
-				bounds = nk_widget_bounds(ctx);
-				nk_checkbox_label(ctx, "Playlist", &g->open_playlist);
-				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
-					nk_tooltip(ctx, "Select a playlist instead of an image");
-				}
-				if (g->open_playlist) {
-					g->open_single = SDL_FALSE;
-					g->open_recursive = SDL_FALSE;
-					int old_dir = fb->select_dir;
-					fb->select_dir = SDL_FALSE;
 
-					old = fb->ignore_exts;
-					fb->ignore_exts = SDL_TRUE;
-					if (fb->ignore_exts != old || fb->select_dir != old_dir) {
-						if (!fb->is_recents) {
-							my_switch_dir(NULL);
-						} else {
-							handle_recents(fb);
+				// or if g->state != FILE_SELECTION
+				if (!g->fs_output) {
+					if (fb->num_exts) {
+						//nk_checkbox_label(ctx, "All Files", &fb->ignore_exts);
+						static const char* ext_opts[] = { FILE_TYPE_STR, "All Files" };
+						struct nk_rect bounds = nk_widget_bounds(ctx);
+						old = fb->ignore_exts;
+						fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, DFLT_FONT_SIZE, nk_vec2(bounds.w, 300));
+						if (fb->ignore_exts != old) {
+							if (!fb->is_recents) {
+								my_switch_dir(NULL);
+							} else {
+								handle_recents(fb);
+							}
 						}
 					}
-				}
 
-				//bounds = nk_widget_bounds(ctx);
-				if (nk_checkbox_label(ctx, "Open Dir", &fb->select_dir)) {
-					my_switch_dir(NULL);
-				}
-				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
-					nk_tooltip(ctx, "Opens all images in selected directory");
-				}
-
-				// TODO should I even show this if !fb->select_dir?
-				if (fb->select_dir) {
-					g->open_playlist = SDL_FALSE;
-					g->open_single = SDL_FALSE;
+					// TODO think about interactions switching back and forth between all these
 					bounds = nk_widget_bounds(ctx);
-					nk_checkbox_label(ctx, "Recursive", &g->open_recursive);
+					if (nk_checkbox_label(ctx, "Single Image", &g->open_single) && g->open_single) {
+						g->open_playlist = SDL_FALSE;
+						g->open_recursive = SDL_FALSE;
+						if (fb->select_dir) {
+							fb->select_dir = SDL_FALSE;
+							my_switch_dir(NULL);
+						}
+					}
 					if (nk_input_is_mouse_hovering_rect(in, bounds)) {
-						nk_tooltip(ctx, "Include images in all subdirectories");
+						nk_tooltip(ctx, "Only open the image you select, not all images in the same directory");
+					}
+
+					bounds = nk_widget_bounds(ctx);
+					nk_checkbox_label(ctx, "Playlist", &g->open_playlist);
+					if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+						nk_tooltip(ctx, "Select a playlist instead of an image");
+					}
+					if (g->open_playlist) {
+						g->open_single = SDL_FALSE;
+						g->open_recursive = SDL_FALSE;
+						int old_dir = fb->select_dir;
+						fb->select_dir = SDL_FALSE;
+
+						old = fb->ignore_exts;
+						fb->ignore_exts = SDL_TRUE;
+						if (fb->ignore_exts != old || fb->select_dir != old_dir) {
+							if (!fb->is_recents) {
+								my_switch_dir(NULL);
+							} else {
+								handle_recents(fb);
+							}
+						}
+					}
+
+					//bounds = nk_widget_bounds(ctx);
+					if (nk_checkbox_label(ctx, "Open Dir", &fb->select_dir)) {
+						my_switch_dir(NULL);
+					}
+					if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+						nk_tooltip(ctx, "Opens all images in selected directory");
+					}
+
+					// TODO should I even show this if !fb->select_dir?
+					if (fb->select_dir) {
+						g->open_playlist = SDL_FALSE;
+						g->open_single = SDL_FALSE;
+						bounds = nk_widget_bounds(ctx);
+						nk_checkbox_label(ctx, "Recursive", &g->open_recursive);
+						if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+							nk_tooltip(ctx, "Include images in all subdirectories");
+						}
 					}
 				}
 
@@ -1733,12 +1755,16 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 	// ugly hack
 	static int has_inited = 0;
-	if (!has_inited) {
+	if (!has_inited || (g->fs_output && g->fs_output[0])) {
 		cache_len = strlen(g->cachedir);
 		thumb_len = strlen(g->thumbdir);
 		log_len = strlen(g->logdir);
 		pl_len = strlen(g->playlistdir);
 
+		if (g->fs_output == g->cachedir) {
+			g->cfg_cachedir = SDL_TRUE;
+		}
+		g->fs_output = NULL;
 		has_inited = 1;
 	}
 
@@ -1747,6 +1773,8 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 	char label_buf[100];
 	static int cur_prefs = PREFS_APPEARANCE;
 	nk_bool is_selected;
+
+	SDL_Event event = { .type = g->userevent };
 
 	if (nk_begin(ctx, "Preferences", s, win_flags)) {
 		//bounds = nk_widget_bounds(ctx);
@@ -1928,6 +1956,9 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					SDL_Log("Clearing cache took %d\n", SDL_GetTicks()-ttimer);
 				}
 				if (nk_button_label(ctx, "Change cache dir")) {
+					g->fs_output = g->cachedir;
+					event.user.code = SELECT_DIR;
+					SDL_PushEvent(&event);
 				}
 
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
@@ -1944,6 +1975,9 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					SDL_Log("Clearing thumbnails took %d\n", SDL_GetTicks()-ttimer);
 				}
 				if (nk_button_label(ctx, "Change thumbnail dir")) {
+					g->fs_output = g->thumbdir;
+					event.user.code = SELECT_DIR;
+					SDL_PushEvent(&event);
 				}
 
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
@@ -1960,6 +1994,9 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					SDL_Log("Clearing logs took %d\n", SDL_GetTicks()-ttimer);
 				}
 				if (nk_button_label(ctx, "Change log dir")) {
+					g->fs_output = g->logdir;
+					event.user.code = SELECT_DIR;
+					SDL_PushEvent(&event);
 				}
 
 
@@ -1972,11 +2009,12 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				// TODO Clear/delete playlists?
 				nk_layout_row_dynamic(ctx, 0, 1);
 				if (nk_button_label(ctx, "Change playlist dir")) {
+					g->fs_output = g->playlistdir;
+					event.user.code = SELECT_DIR;
+					SDL_PushEvent(&event);
 				}
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
-
-
 			}
 
 			nk_group_end(ctx);

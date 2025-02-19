@@ -73,8 +73,8 @@ enum { DELAY, ALWAYS, NEVER };
 enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V, MODE_CHANGE,
        THUMB_MODE, LIST_MODE, SAVE_IMG, UNSAVE_IMG, REMOVE_IMG, DELETE_IMG, ACTUAL_SIZE, ROT360, REMOVE_BAD,
-       SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, PROCESS_SELECTION, OPEN_FILE_NEW,
-       OPEN_FILE_MORE, OPEN_PLAYLIST_MANAGER, NUM_USEREVENTS };
+       SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, OPEN_FILE_NEW,
+       OPEN_FILE_MORE, OPEN_PLAYLIST_MANAGER, SELECT_FILE, SELECT_DIR, NUM_USEREVENTS };
 
 // return values for handle_selection(), says what the arg was
 enum { URL, DIRECTORY, IMAGE };
@@ -89,6 +89,8 @@ enum {
 	THUMB_SEARCH     = NK_FLAG(3),
 	LIST_DFLT        = NK_FLAG(4),
 	SEARCH_RESULTS   = NK_FLAG(5),
+
+	// rename?  FILE_BROWSER?
 	FILE_SELECTION   = NK_FLAG(6),
 	SCANNING         = NK_FLAG(7),
 
@@ -110,7 +112,7 @@ enum {
 #define IS_LIST_MODE() (g->state & LIST_MASK)
 #define IS_RESULTS() (g->state & RESULT_MASK)
 #define IS_VIEW_RESULTS() (g->state & NORMAL && g->state != NORMAL)
-#define IS_FS_MODE() (g->state == FILE_SELECTION)
+#define IS_FS_MODE() (g->state & FILE_SELECTION)
 #define IS_SCANNING_MODE() (g->state == SCANNING)
 #define IS_POPUP_ACTIVE() (g->state & POPUP_MASK)
 
@@ -382,7 +384,9 @@ typedef struct global_state
 	int open_playlist;  // boolean
 	int open_recursive; // boolean
 	int is_open_new;    // boolean
-	int old_state;
+
+	int old_state; // TODO remind myself why I need this?
+	char* fs_output;  // place to assign fb output
 	cvector_str bookmarks;
 
 	const char** img_exts;
@@ -1333,7 +1337,10 @@ void my_switch_dir(const char* dir)
 	// NOTE this doesn't occur if dir is NULL so don't modify fb->dir in place
 	// and call with dir == NULL; dir == NULL should only be used for refreshing
 	// the current dir
-	if (dir) {
+	
+	// NOTE we also don't do this if this is a regular file/dir selection
+	// popup not an "Open New/More"
+	if (dir && !g->fs_output) {
 		if (!strcmp(dir, g->playlistdir)) {
 			g->open_playlist = SDL_TRUE;
 			g->open_single = SDL_FALSE;
@@ -3160,39 +3167,34 @@ int try_move(int direction)
 // TODO finish
 void do_file_select(int select_dir)
 {
+	// TODO using this cause I have it, but do I need it at all, even for file_open?
 	g->old_state = g->state;
 
-	g->state = FILE_SELECTION;
+	g->state |= FILE_SELECTION;
 
 	// TODO customize more with arg, "Select Playlist Dir", Select default playlist etc.
-	/*
 	if (select_dir) {
 		SDL_SetWindowTitle(g->win, "Select Directory");
-		g->state |= SELECT_DIR;
+		//g->state |= SELECT_DIR;
 	} else {
 		SDL_SetWindowTitle(g->win, "Select File");
-		g->state |= SELECT_FILE;
+		//g->state |= SELECT_FILE;
 	}
 
+	// TODO think about this function, more args?  right now duplicating work
 	reset_file_browser(&g->filebrowser, NULL);
+
 	g->filebrowser.selection = -1; // default to no selection
+	g->filebrowser.select_dir = select_dir;
+	// whether we're selecting a directory or not we want to show all files
+	// for general selection (in this case playlists)
+	g->filebrowser.ignore_exts = SDL_TRUE; // was reset by reset_file_browser
+	switch_dir(&g->filebrowser, NULL);
 	
-
-	// If they're in playlistdir keep settings the same
-	if (strcmp(g->filebrowser.dir, g->playlistdir)) {
-		g->open_single = SDL_FALSE;
-		g->open_playlist = SDL_FALSE;
-		g->open_recursive = SDL_FALSE;
-	} else {
-		g->open_playlist = SDL_TRUE;  // should still be true but for clarity
-		g->filebrowser.ignore_exts = SDL_TRUE; // was reset by reset_file_browser
-	}
-
 	SDL_ShowCursor(SDL_ENABLE);
 
 	const char* fs_type_str[] = { "file", "dir" };
 	SDL_LogDebugApp("executing file select %s\n", fs_type_str[select_dir]);
-	*/
 }
 
 void do_file_open(int clear_files)
