@@ -488,6 +488,9 @@ Sint32 selection_len;
 int cvec_contains_str(cvector_str* list, char* s);
 void read_cur_playlist(void);
 void my_switch_dir(const char* dir);
+void reset_behavior_prefs(void);
+void update_playlists(void);
+void setup_dirs(void);
 
 // has to come after all the enums/macros/struct defs and bytes2str
 #include "gui.c"
@@ -990,7 +993,7 @@ void cleanup(int ret, int called_setup)
 	exit(ret);
 }
 
-void remove_bad_paths()
+void remove_bad_paths(void)
 {
 	if (!g->has_bad_paths) {
 		if (!g->thumbs_done) {
@@ -1484,6 +1487,9 @@ int get_playlists(const char* dirpath)
 	//int ret;
 	//char* ext = NULL;
 	//char buf[STRBUF_SZ];
+
+	// clear playlists first (this function is used on startup and if playlist dir changes)
+	cvec_clear_str(&g->playlists);
 
 	struct dirent* entry;
 	DIR* dir;
@@ -2254,7 +2260,7 @@ exit_scan_sources:
 	return 0;
 }
 
-void setup_dirs()
+void setup_dirs(void)
 {
 	char datebuf[200] = { 0 };
 	time_t t;
@@ -2292,12 +2298,11 @@ void setup_dirs()
 		}
 	}
 	if (mkdir_p(g->thumbdir, S_IRWXU) && errno != EEXIST) {
-		perror("Failed to make thumb directory");
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make thumb directory: %s\n", strerror(errno));
 		cleanup(1, 1);
 	}
 
-	printf("cache: %s\nthumbnails: %s\n", g->cachedir, g->thumbdir);
+	SDL_Log("cache: %s\nthumbnails: %s\n", g->cachedir, g->thumbdir);
 
 	if (!g->logdir[0]) {
 		len = snprintf(g->logdir, STRBUF_SZ, "%slogs", prefpath);
@@ -2306,13 +2311,12 @@ void setup_dirs()
 			cleanup(1, 1);
 		}
 		if (mkdir_p(g->logdir, S_IRWXU) && errno != EEXIST) {
-			perror("Failed to make log directory");
 			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make log directory: %s\n", strerror(errno));
 			cleanup(1, 1);
 		}
 	}
 
-	printf("logs: %s\n", g->logdir);
+	SDL_Log("logs: %s\n", g->logdir);
 
 	if (!g->playlistdir[0]) {
 		len = snprintf(g->playlistdir, STRBUF_SZ, "%splaylists", prefpath);
@@ -2331,7 +2335,27 @@ void setup_dirs()
 
 }
 
-int load_config()
+// TODO make a macro?
+void reset_behavior_prefs(void)
+{
+	g->slide_delay = DFLT_SLIDE_DELAY;
+	g->gui_delay = DFLT_GUI_DELAY;
+	g->button_rpt_delay = DFLT_BUTTON_RPT_DELAY;
+	g->fullscreen_gui = DFLT_FULLSCREEN_GUI;
+
+	g->thumb_rows = DFLT_THUMB_ROWS;
+	g->thumb_cols = DFLT_THUMB_COLS;
+
+	g->show_infobar = DFLT_SHOW_INFOBAR;
+	g->thumb_x_deletes = DFLT_THUMB_X_DELETES;
+	g->confirm_delete = DFLT_CONFIRM_DELETE;
+	g->confirm_rotation = DFLT_CONFIRM_ROTATION;
+
+	g->ind_mm = DFLT_IND_MM;
+}
+
+
+int load_config(void)
 {
 	char config_path[STRBUF_SZ] = { 0 };
 	snprintf(config_path, STRBUF_SZ, "%sconfig.lua", g->prefpath);
@@ -2342,18 +2366,9 @@ int load_config()
 	// extensions are set elsewhere too
 	//
 	// TODO compare with config enums
-	g->slide_delay = DFLT_SLIDE_DELAY;
-	g->gui_delay = DFLT_GUI_DELAY;
-	g->button_rpt_delay = DFLT_BUTTON_RPT_DELAY;
-	g->show_infobar = DFLT_SHOW_INFOBAR;
-	g->fullscreen_gui = DFLT_FULLSCREEN_GUI;
-	g->thumb_x_deletes = DFLT_THUMB_X_DELETES;
-	g->ind_mm = DFLT_IND_MM;
 	g->bg = DFLT_BG_COLOR;
-	g->thumb_rows = MAX_THUMB_ROWS;
-	g->thumb_cols = MAX_THUMB_COLS;
-	g->confirm_delete = DFLT_CONFIRM_DELETE;
-	g->confirm_rotation = DFLT_CONFIRM_ROTATION;
+
+	reset_behavior_prefs();
 
 	if (!read_config_file(config_path)) {
 		return nk_false;
@@ -2554,6 +2569,26 @@ int windows_recents(cvector_str* recents, void* userdata)
 	}
 	cvec_free_file(&links);
 	return recents->size;
+}
+
+// reads all playlists in playlistdir, finds default, reads it etc.
+void update_playlists(void)
+{
+	snprintf(g->cur_playlist, STRBUF_SZ, "%s/%s", g->playlistdir, g->default_playlist);
+	read_cur_playlist();
+
+	// TODO command line -p playlist.txt to be current playlist?
+	// --favorites to open favorites?
+	get_playlists(g->playlistdir);
+
+	int i=0; 
+	for (; i<g->playlists.size; ++i) {
+		if (!strcmp(g->default_playlist, g->playlists.a[i])) {
+			g->default_playlist_idx = i;
+			break;
+		}
+	}
+	assert(i != g->playlists.size);
 }
 
 void setup(int argc, char** argv)

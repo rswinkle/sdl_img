@@ -1766,6 +1766,11 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 		log_len = strlen(g->logdir);
 		pl_len = strlen(g->playlistdir);
 
+		// TODO better place to do this?  in event handling?
+		if (g->fs_output == g->playlistdir) {
+			update_playlists();
+		}
+
 		if (g->fs_output == g->cachedir) {
 			g->cfg_cachedir = SDL_TRUE;
 		}
@@ -1987,6 +1992,12 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				// TODO come up with better name/description
 				nk_layout_row_dynamic(ctx, 0, 1);
 				nk_checkbox_label(ctx, "Preserve relative offsets in multimode movement", &g->ind_mm);
+
+				if (nk_button_label(ctx, "Reset to defaults")) {
+					reset_behavior_prefs();
+				}
+
+
 			} else if (cur_prefs == PREFS_DATA) {
 				// TODO make actually editable?  Have a folder selector popup?
 				float ratios[] = { 0.20, 0.80 };
@@ -2072,6 +2083,29 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				}
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+
+				nk_layout_row_dynamic(ctx, 0, 1);
+				if (nk_button_label(ctx, "Reset to defaults")) {
+					// in case they passed cachedir as an argument
+					g->cachedir = g->cachedir_buf;
+
+					g->cfg_cachedir = SDL_FALSE;
+
+					g->cachedir[0] = 0;
+					g->thumbdir[0] = 0;
+					g->logdir[0] = 0;
+					g->playlistdir[0] = 0;
+					setup_dirs();
+					update_playlists();
+
+					// TODO
+					// abusing this to get draw_prefs to update lengths of strings same as I do with
+					// file selection
+					//
+					// doesn't matter as long as non-zero and not g->cachedir since we don't want to save
+					// the dflt cachedir to config or playlistdir since we already called update_playlists
+					// above...
+					g->fs_output = g->logdir;				}
 			}
 
 			nk_group_end(ctx);
