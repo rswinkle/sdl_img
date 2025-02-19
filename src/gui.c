@@ -2151,6 +2151,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 	static int selected = -1;
 	static char pm_buf[STRBUF_SZ];
 	static int pm_len = 0;
+	static char* active_playlist = NULL;
 	int nr_idx = 0;
 
 	// TODO think about multiple selections for operations like
@@ -2159,6 +2160,10 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 
 	// start with same setup as File Browser
 	const float group_szs[] = { FB_SIDEBAR_W, scr_w-FB_SIDEBAR_W };
+
+	if (!active_playlist) {
+		active_playlist = strrchr(g->cur_playlist, '/')+1;
+	}
 
 	if (selected >= 0) {
 		get_playlist_path(path_buf, g->playlists.a[selected]);
@@ -2169,7 +2174,12 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 
 		nk_layout_row(ctx, NK_STATIC, 0, 2, group_szs);
 		nk_label(ctx, "Active:", NK_TEXT_LEFT);
-		nk_label(ctx, g->cur_playlist, NK_TEXT_LEFT);
+		// don't want the full path just the file name
+		//nk_label(ctx, g->cur_playlist, NK_TEXT_LEFT);
+		nk_label(ctx, active_playlist, NK_TEXT_LEFT);
+
+		nk_label(ctx, "Default:", NK_TEXT_LEFT);
+		nk_label(ctx, g->default_playlist, NK_TEXT_LEFT);
 
 		// Not sure if this will work doing things sort of out of order
 		button_pressed = nk_button_label(ctx, new_rename[nr_idx]);
@@ -2224,6 +2234,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 			}
 			if (nk_button_label(ctx, "Make Active")) {
 				strncpy(g->cur_playlist, path_buf, STRBUF_SZ);
+				active_playlist = strrchr(g->cur_playlist, '/') + 1;
 				read_cur_playlist();
 			}
 			if (nk_button_label(ctx, "Make Default")) {

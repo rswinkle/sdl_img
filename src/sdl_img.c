@@ -368,7 +368,7 @@ typedef struct global_state
 	char playlistdir_buf[STRBUF_SZ];
 	char cur_playlist[STRBUF_SZ];
 	char* default_playlist;
-	int default_playlist_idx;
+	//int default_playlist_idx;
 
 	cvector_file files;
 	cvector_str favs;
@@ -1484,9 +1484,8 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 
 int get_playlists(const char* dirpath)
 {
-	//int ret;
-	//char* ext = NULL;
-	//char buf[STRBUF_SZ];
+	int i;
+	char* ext = NULL;
 
 	// clear playlists first (this function is used on startup and if playlist dir changes)
 	cvec_clear_str(&g->playlists);
@@ -1507,12 +1506,22 @@ int get_playlists(const char* dirpath)
 			continue;
 		}
 
-		//ret = snprintf(fullpath, STRBUF_SZ, "%s/%s", dirpath, entry->d_name);
-		//ret = snprintf(name, STRBUF_SZ, "%s", entry->d_name);
-		//ext = GET_EXT(name);
-		//if (ext) {
-		//	*ext = 0;
-		//}
+		// TODO could pick a standard playlist extension or a subset of allowed extensions
+		// (ie no extension, ".txt" ".dat" some others
+		//
+		// For now we just ignore at least the image extensions sdl_img has been configured to open
+		// maybe we should move default_exts to global and use that so we get the full list even if
+		// the user has configured a subset?
+		ext = GET_EXT(entry->d_name);
+		if (ext) {
+			for (i=0; i<g->n_exts; ++i) {
+				if (!strcasecmp(ext, g->img_exts[i]))
+					break;
+			}
+			// skip image extensions we support
+			if (i != g->n_exts)
+				continue;
+		}
 		cvec_push_str(&g->playlists, entry->d_name);
 	}
 
@@ -2581,6 +2590,8 @@ void update_playlists(void)
 	// --favorites to open favorites?
 	get_playlists(g->playlistdir);
 
+	/*
+	// If I add a prefs combo or list to change selection
 	int i=0; 
 	for (; i<g->playlists.size; ++i) {
 		if (!strcmp(g->default_playlist, g->playlists.a[i])) {
@@ -2589,6 +2600,7 @@ void update_playlists(void)
 		}
 	}
 	assert(i != g->playlists.size);
+	*/
 }
 
 void setup(int argc, char** argv)
@@ -2752,22 +2764,7 @@ void setup(int argc, char** argv)
 		g->default_playlist = CVEC_STRDUP("Favorites");
 	}
 
-	snprintf(g->cur_playlist, STRBUF_SZ, "%s/%s", g->playlistdir, g->default_playlist);
-	read_cur_playlist();
-
-	// TODO command line -p playlist.txt to be current playlist?
-	// --favorites to open favorites?
-	get_playlists(g->playlistdir);
-
-	int i=0; 
-	for (; i<g->playlists.size; ++i) {
-		if (!strcmp(g->default_playlist, g->playlists.a[i])) {
-			g->default_playlist_idx = i;
-			break;
-		}
-	}
-	assert(i != g->playlists.size);
-
+	update_playlists();
 
 	SDL_Rect r;
 	if (SDL_GetDisplayUsableBounds(0, &r)) {
