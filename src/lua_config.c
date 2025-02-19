@@ -11,7 +11,8 @@
 #define MAX_COLOR 255
 
 enum {
-	GUI_SCALE,
+	GUI_X_SCALE,
+	GUI_Y_SCALE,
 	FONT_SIZE,
 	BACKGROUND,
 	WINDOW_OPACITY,
@@ -41,7 +42,8 @@ enum {
 
 char* keys[] =
 {
-	"gui_scale",
+	"gui_x_scale",
+	"gui_y_scale",
 	"font_size",
 	"background",
 	"window_opacity",
@@ -149,14 +151,9 @@ int read_config_file(char* filename)
 		return 0;
 	}
 
-	float scale = try_number_clamp_dflt(L, "gui_scale", MIN_GUI_SCALE, MAX_GUI_SCALE, DFLT_GUI_SCALE);
-
-	// make sure only 0.5 increments
-	float tmp = floor(scale);
-	if (tmp != scale) {
-		scale = tmp + 0.5f;
-	}
-	g->y_scale = g->x_scale = scale;
+	// NOTE unlike GUI control, not trying to restrict to 0.25 or 0.5 increments
+	g->x_scale = try_number_clamp_dflt(L, "gui_x_scale", MIN_GUI_SCALE, MAX_GUI_SCALE, DFLT_GUI_SCALE);
+	g->y_scale = try_number_clamp_dflt(L, "gui_y_scale", MIN_GUI_SCALE, MAX_GUI_SCALE, DFLT_GUI_SCALE);
 
 	g->slide_delay = try_int_clamp_dflt(L, "slide_delay", MIN_SLIDE_DELAY, MAX_SLIDE_DELAY, DFLT_SLIDE_DELAY);
 	g->gui_delay = try_int_clamp_dflt(L, "hide_gui_delay", MIN_GUI_DELAY, MAX_GUI_DELAY, DFLT_GUI_DELAY);
@@ -254,10 +251,11 @@ void write_config(FILE* cfg_file)
 		}
 
 		switch (i) {
-		case GUI_SCALE:
-			// TODO either save x and y scale separately or combine
-			// into a single member g->scale if they're always the same
+		case GUI_X_SCALE:
 			fprintf(cfg_file, "%.1f\n", g->x_scale);
+			break;
+		case GUI_Y_SCALE:
+			fprintf(cfg_file, "%.1f\n", g->y_scale);
 			break;
 		case FONT_SIZE:
 			fprintf(cfg_file, "%d\n", DFLT_FONT_SIZE);

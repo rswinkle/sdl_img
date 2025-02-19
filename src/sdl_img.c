@@ -148,6 +148,7 @@ enum {
 #define DFLT_GUI_SCALE 1.0f
 #define MIN_GUI_SCALE 0.5f
 #define MAX_GUI_SCALE 3.0f
+#define GUI_SCALE_INCR 0.25f;
 
 #define DFLT_GUI_DELAY 2
 #define MIN_GUI_DELAY 1

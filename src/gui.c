@@ -1145,6 +1145,8 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 			enum nk_collapse_states state;
 			float ratios[] = { 0.7f, 0.3f, 0.8f, 0.2f };
 
+			/*
+			// moved to prefs
 			nk_layout_row_dynamic(ctx, 0, 3);
 			nk_label(ctx, "GUI:", NK_TEXT_LEFT);
 			if (nk_menu_item_label(ctx, "-", NK_TEXT_CENTERED)) {
@@ -1161,6 +1163,7 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 				g->y_scale += 0.5;
 				nk_sdl_scale(g->x_scale, g->y_scale);
 			}
+			*/
 
 			nk_layout_row_dynamic(ctx, 0, 1);
 
@@ -1426,6 +1429,8 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 		static int lbutton_pressed_time = 0;
 		static int rbutton_pressed_time = 0;
 		int ticks = SDL_GetTicks();
+		// TODO should I even have prev and next or just the arrow symbols?
+		// nk_button_symbol(ctx, NK_SYMBOL_TRIANGLE_LEFT);
 		nk_button_set_behavior(ctx, NK_BUTTON_REPEATER);
 		if (nk_button_symbol_label(ctx, NK_SYMBOL_TRIANGLE_LEFT, "prev", NK_TEXT_RIGHT)) {
 			g->gui_timer = ticks;
@@ -1818,6 +1823,58 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
 				nk_layout_row_dynamic(ctx, 0, 1);
+				nk_label(ctx, "GUI Scaling:", NK_TEXT_LEFT);
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+
+				nk_layout_row_dynamic(ctx, 0, 3);
+
+				int scale_changed = SDL_FALSE;
+				// TODO Horizontal/Vertical instead of X/Y?  Would have to change config to match
+				nk_label(ctx, "X scale:", NK_TEXT_LEFT);
+				if (nk_button_symbol(ctx, NK_SYMBOL_MINUS)) {
+					g->x_scale -= GUI_SCALE_INCR;
+					scale_changed = SDL_TRUE;
+					nk_sdl_scale(g->x_scale, g->y_scale);
+				}
+				//bounds = nk_widget_bounds(ctx);
+				if (nk_button_symbol(ctx, NK_SYMBOL_PLUS)) {
+					g->x_scale +=  GUI_SCALE_INCR;
+					scale_changed = SDL_TRUE;
+				}
+
+				nk_label(ctx, "Y scale:", NK_TEXT_LEFT);
+				if (nk_button_symbol(ctx, NK_SYMBOL_MINUS)) {
+					g->y_scale -= GUI_SCALE_INCR;
+					scale_changed = SDL_TRUE;
+				}
+				//bounds = nk_widget_bounds(ctx);
+				if (nk_button_symbol(ctx, NK_SYMBOL_PLUS)) {
+					g->y_scale += GUI_SCALE_INCR;
+					scale_changed = SDL_TRUE;
+				}
+
+				nk_layout_row_dynamic(ctx, 0, 1);
+				if (nk_button_label(ctx, "Reset to default scale")) {
+					int render_w, render_h;
+					int window_w, window_h;
+					SDL_GetRendererOutputSize(g->ren, &render_w, &render_h);
+					SDL_GetWindowSize(g->win, &window_w, &window_h);
+					g->x_scale = (float)(render_w) / (float)(window_w);
+					g->y_scale = (float)(render_h) / (float)(window_h);
+					scale_changed = SDL_TRUE;
+				}
+				if (scale_changed) {
+					if (g->x_scale < MIN_GUI_SCALE) g->x_scale = MIN_GUI_SCALE;
+					if (g->y_scale < MIN_GUI_SCALE) g->y_scale = MIN_GUI_SCALE;
+					if (g->x_scale > MAX_GUI_SCALE) g->x_scale = MAX_GUI_SCALE;
+					if (g->y_scale > MAX_GUI_SCALE) g->y_scale = MAX_GUI_SCALE;
+					nk_sdl_scale(g->x_scale, g->y_scale);
+				}
+
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+				nk_layout_row_dynamic(ctx, 0, 1);
 				nk_label(ctx, "sdl_img colors:", NK_TEXT_LEFT);
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
@@ -1902,7 +1959,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_property_int(ctx, "#", 1, &g->gui_delay, MAX_GUI_DELAY, 1, 0.3);
 
 				nk_label(ctx, "Button repeat delay:", NK_TEXT_LEFT);
-				nk_property_float(ctx, "#", 0.25f, &g->button_rpt_delay, MAX_BUTTON_RPT_DELAY, 0.25, 0.08333);
+				nk_property_float(ctx, "#", MIN_BUTTON_RPT_DELAY, &g->button_rpt_delay, MAX_BUTTON_RPT_DELAY, 0.25, 0.08333);
 
 				// TODO should this go in appearance?
 				nk_label(ctx, "GUI in Fullscreen mode:", NK_TEXT_LEFT);
