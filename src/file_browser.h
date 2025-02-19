@@ -4135,7 +4135,7 @@ void switch_dir(file_browser* fb, const char* dir)
 #endif
 	qsort(fb->files.a, fb->files.size, sizeof(file), fb->c_func);
 	fb->list_setscroll = TRUE;
-	fb->selection = 0;
+	fb->selection = (fb->files.size) ? 0 : -1;
 
 #ifdef FILE_LIST_SZ
 	fb->begin = 0;
