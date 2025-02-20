@@ -366,8 +366,12 @@ typedef struct global_state
 	char thumbdir_buf[STRBUF_SZ];
 	char logdir_buf[STRBUF_SZ];
 	char playlistdir_buf[STRBUF_SZ];
-	char cur_playlist[STRBUF_SZ];
-	char* default_playlist;
+
+	// TODO naming
+	char cur_playlist_path[STRBUF_SZ];
+	char* cur_playlist; // points into above
+
+	char* default_playlist;  // allocated
 	//int default_playlist_idx;
 
 	cvector_file files;
@@ -956,9 +960,9 @@ void cleanup(int ret, int called_setup)
 		}
 
 		if (g->favs.size) {
-			FILE* f = fopen(g->cur_playlist, "w");
+			FILE* f = fopen(g->cur_playlist_path, "w");
 			if (!f) {
-				SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to create %s: %s\nAborting save\n", g->cur_playlist, strerror(errno));
+				SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to create %s: %s\nAborting save\n", g->cur_playlist_path, strerror(errno));
 			} else {
 				for (int i=0; i<g->favs.size; i++) {
 					fprintf(f, "%s\n", g->favs.a[i]);
@@ -1912,19 +1916,18 @@ void read_cur_playlist(void)
 {
 	cvec_clear_str(&g->favs);
 	FILE* f = NULL;
-	if (!(f = fopen(g->cur_playlist, "r"))) {
-		SDL_Log("%s does not exist, will try creating it\n", g->cur_playlist);
-		f = fopen(g->cur_playlist, "w");
+	if (!(f = fopen(g->cur_playlist_path, "r"))) {
+		SDL_Log("%s does not exist, will try creating it\n", g->cur_playlist_path);
+		f = fopen(g->cur_playlist_path, "w");
 		if (!f) {
-			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to create %s: %s\n", g->cur_playlist, strerror(errno));
+			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to create %s: %s\n", g->cur_playlist_path, strerror(errno));
 		} else {
 			fclose(f);
-			char* tmp = strrchr(g->cur_playlist, '/');
-			cvec_push_str(&g->playlists, (tmp) ? &tmp[1] : g->cur_playlist);
+			cvec_push_str(&g->playlists, g->cur_playlist);
 		}
 	} else {
 		read_list(NULL, &g->favs, f);
-		SDL_Log("Read %"PRIcv_sz" favorites from %s\n", g->favs.size, g->cur_playlist);
+		SDL_Log("Read %"PRIcv_sz" favorites from %s\n", g->favs.size, g->cur_playlist_path);
 		fclose(f);
 	}
 
@@ -2583,7 +2586,16 @@ int windows_recents(cvector_str* recents, void* userdata)
 // reads all playlists in playlistdir, finds default, reads it etc.
 void update_playlists(void)
 {
-	snprintf(g->cur_playlist, STRBUF_SZ, "%s/%s", g->playlistdir, g->default_playlist);
+	char buf[STRBUF_SZ];
+	// have to do this in two steps because cur_playlist points into cur_playlist_path
+	if (!g->cur_playlist) {
+		snprintf(buf, STRBUF_SZ, "%s/%s", g->playlistdir, g->default_playlist);
+	} else {
+		snprintf(buf, STRBUF_SZ, "%s/%s", g->playlistdir, g->cur_playlist);
+	}
+	strcpy(g->cur_playlist_path, buf);
+	g->cur_playlist = strrchr(g->cur_playlist_path, '/') + 1;
+
 	read_cur_playlist();
 
 	// TODO command line -p playlist.txt to be current playlist?
@@ -3754,7 +3766,7 @@ void do_save(int removing)
 	if (g->loading)
 		return;
 
-	char* playlist = strrchr(g->cur_playlist, '/') + 1;
+	char* playlist = g->cur_playlist;
 	i64 loc;
 	if (removing) {
 		if (g->img_focus) {
@@ -4118,7 +4130,7 @@ void do_thumb_save(int removing)
 
 	SDL_Log("In do_thumb_save()\n");
 
-	char* playlist = strrchr(g->cur_playlist, '/') + 1;
+	char* playlist = g->cur_playlist;
 	i64 loc;
 	char* fullpath;
 

@@ -1104,7 +1104,7 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 	SDL_Event event = { .type = g->userevent };
 
 	char buf[STRBUF_SZ];
-	snprintf(buf, STRBUF_SZ, "Active: %s", strrchr(g->cur_playlist, '/')+1);
+	snprintf(buf, STRBUF_SZ, "Active: %s", g->cur_playlist);
 
 	// TODO why +2?
 	if (nk_begin(ctx, "Controls", nk_rect(0, 0, win_w+2, win_h), NK_WINDOW_NO_SCROLLBAR))
@@ -2151,7 +2151,6 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 	static int selected = -1;
 	static char pm_buf[STRBUF_SZ];
 	static int pm_len = 0;
-	static char* active_playlist = NULL;
 	int nr_idx = 0;
 
 	// TODO think about multiple selections for operations like
@@ -2161,28 +2160,32 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 	// start with same setup as File Browser
 	const float group_szs[] = { FB_SIDEBAR_W, scr_w-FB_SIDEBAR_W };
 
-	if (!active_playlist) {
-		active_playlist = strrchr(g->cur_playlist, '/')+1;
-	}
 
-	if (selected >= 0) {
+	if (selected >= 0 && selected < g->playlists.size) {
 		get_playlist_path(path_buf, g->playlists.a[selected]);
 		nr_idx = 1;
+	} else {
+		selected = -1;
 	}
 
 	if (nk_begin(ctx, "Playlist Manager", nk_rect(0, 0, scr_w, scr_h), win_flags)) {
 
 		nk_layout_row(ctx, NK_STATIC, 0, 2, group_szs);
 		nk_label(ctx, "Active:", NK_TEXT_LEFT);
-		// don't want the full path just the file name
-		//nk_label(ctx, g->cur_playlist, NK_TEXT_LEFT);
-		nk_label(ctx, active_playlist, NK_TEXT_LEFT);
+		nk_label(ctx, g->cur_playlist, NK_TEXT_LEFT);
 
 		nk_label(ctx, "Default:", NK_TEXT_LEFT);
 		nk_label(ctx, g->default_playlist, NK_TEXT_LEFT);
 
 		// Not sure if this will work doing things sort of out of order
+
+		// Should I disable it or just guard the if below with pm_len for button_pressed as well?
+		if (!pm_len) {
+			nk_widget_disable_begin(ctx);
+		}
 		button_pressed = nk_button_label(ctx, new_rename[nr_idx]);
+		nk_widget_disable_end(ctx);
+
 		active = nk_edit_string(ctx, edit_flags, pm_buf, &pm_len, STRBUF_SZ, nk_filter_default);
 		pm_buf[pm_len] = 0;
 		//printf("pm_len = %d\n", pm_len);
@@ -2233,8 +2236,8 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 				nk_widget_disable_begin(ctx);
 			}
 			if (nk_button_label(ctx, "Make Active")) {
-				strncpy(g->cur_playlist, path_buf, STRBUF_SZ);
-				active_playlist = strrchr(g->cur_playlist, '/') + 1;
+				strncpy(g->cur_playlist_path, path_buf, STRBUF_SZ);
+				g->cur_playlist = strrchr(g->cur_playlist_path, '/') + 1;
 				read_cur_playlist();
 			}
 			if (nk_button_label(ctx, "Make Default")) {
@@ -2262,14 +2265,18 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 
 			if (nk_button_label(ctx, "Delete")) {
 				if (selected >= 0) {
-					SDL_Log("Trying to remove %s\n", path_buf);
-					if (remove(path_buf)) {
-						SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to delete playlist: %s", strerror(errno));
+					if (!strcmp(g->playlists.a[selected], g->cur_playlist)) {
+						pm_len = snprintf(pm_buf, STRBUF_SZ, "Can't delete active playlist, change to another first");
 					} else {
-						SDL_Log("Deleted playlist %s\n", g->playlists.a[selected]);
-						cvec_erase_str(&g->playlists, selected, selected);
-						selected = -1;
-						path_buf[0] = 0;
+						SDL_Log("Trying to remove %s\n", path_buf);
+						if (remove(path_buf)) {
+							SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to delete playlist: %s", strerror(errno));
+						} else {
+							SDL_Log("Deleted playlist %s\n", g->playlists.a[selected]);
+							cvec_erase_str(&g->playlists, selected, selected);
+							selected = -1;
+							path_buf[0] = 0;
+						}
 					}
 				}
 			}
