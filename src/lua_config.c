@@ -25,6 +25,7 @@ enum {
 	THUMB_ROWS,
 	THUMB_COLS,
 	SHOW_INFO_BAR,
+	FILL_MODE,
 	X_DELETES_THUMB,
 	CONFIRM_DELETE,
 	CONFIRM_ROTATION,
@@ -56,6 +57,7 @@ char* keys[] =
 	"thumb_rows",
 	"thumb_cols",
 	"show_info_bar",
+	"fill_mode",
 	"x_deletes_thumb",
 	"confirm_delete",
 	"confirm_rotation",
@@ -176,6 +178,7 @@ int read_config_file(char* filename)
 	g->thumb_opacity = try_int_clamp_dflt(L, "thumb_opacity", MIN_THUMB_OPACITY, MAX_THUMB_OPACITY, DFLT_THUMB_OPACITY);
 
 	g->show_infobar = try_bool_dflt(L, "show_info_bar", DFLT_SHOW_INFOBAR);
+	g->fill_mode = try_bool_dflt(L, "show_info_bar", DFLT_FILL_MODE);
 	g->thumb_x_deletes  = try_bool_dflt(L, "x_deletes_thumb", DFLT_THUMB_X_DELETES);
 	g->confirm_delete  = try_bool_dflt(L, "confirm_delete", DFLT_CONFIRM_DELETE);
 	g->confirm_rotation  = try_bool_dflt(L, "confirm_rotation", DFLT_CONFIRM_ROTATION);
@@ -293,6 +296,9 @@ void write_config(FILE* cfg_file)
 		case SHOW_INFO_BAR:
 			fprintf(cfg_file, "%s\n", bool_str[g->show_infobar]);
 			break;
+		case FILL_MODE:
+			fprintf(cfg_file, "%s\n", bool_str[g->fill_mode]);
+			break;
 		case X_DELETES_THUMB:
 			fprintf(cfg_file, "%s\n", bool_str[g->thumb_x_deletes]);
 			break;
@@ -352,7 +358,7 @@ void write_config(FILE* cfg_file)
 			fprintf(cfg_file, "{\n");
 			// not writing alpha, alpha always 255 for now
 			for (int j=0; j<NK_COLOR_COUNT; ++j) {
-				fprintf(cfg_file, "%s = { %u, %u, %u },\n", color_labels[j], g->color_table[j].r, g->color_table[j].g, g->color_table[j].b);
+				fprintf(cfg_file, "\t%s = { %u, %u, %u },\n", color_labels[j], g->color_table[j].r, g->color_table[j].g, g->color_table[j].b);
 
 			}
 			fprintf(cfg_file, "}\n");

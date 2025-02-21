@@ -1985,6 +1985,16 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_property_int(ctx, "Thumb cols", MIN_THUMB_COLS, &g->thumb_cols, MAX_THUMB_COLS, 1, 0.2);
 
 				nk_checkbox_label(ctx, "Show info bar", &g->show_infobar);
+
+				if (nk_checkbox_label(ctx, "Best Fit (fill screen space)", &g->fill_mode)) {
+					if (!g->img_focus) {
+						for (int i=0; i<g->n_imgs; ++i)
+							set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);
+					} else {
+						set_rect_bestfit(g->img_focus, g->fullscreen | g->slideshow | g->fill_mode);
+					}
+				}
+
 				nk_checkbox_label(ctx, "x deletes in Thumb mode", &g->thumb_x_deletes);
 				nk_checkbox_label(ctx, "Confirm delete in Normal mode", &g->confirm_delete);
 				nk_checkbox_label(ctx, "Confirm rotation", &g->confirm_rotation);
