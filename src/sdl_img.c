@@ -3611,6 +3611,12 @@ void do_mode_change(intptr_t mode)
 			if (mode != MODE1 || !g->img_focus || g->img_focus == &g->img[0]) {
 				for (int i=g->n_imgs-1; i>mode-1; --i)
 					clear_img(&g->img[i]);
+
+				if (g->img_focus >= &g->img[mode]) {
+					g->img_focus = NULL;
+					int index = (IS_VIEW_RESULTS()) ? g->search_results.a[g->img[0].index] : g->img[0].index;
+					SDL_SetWindowTitle(g->win, g->files.a[index].name);
+				}
 			} else {
 				// if mode1 and focus and focus != img[0] have to
 				// clear the others and move focused img to img[0]
@@ -3620,6 +3626,7 @@ void do_mode_change(intptr_t mode)
 					}
 				}
 				replace_img(&g->img[0], g->img_focus);
+				g->img_focus = NULL;
 			}
 
 			if (mode == MODE1)
@@ -3632,7 +3639,10 @@ void do_mode_change(intptr_t mode)
 				SET_MODE8_SCR_RECTS();
 
 			g->n_imgs = mode;
-			g->img_focus = NULL;
+
+			// TODO don't always do this? seee above and in event done_loading code
+			//g->img_focus = NULL;
+			//SDL_SetWindowTitle(g->win, g->files.a[0].name);
 		}
 	}
 }

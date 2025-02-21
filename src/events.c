@@ -1045,14 +1045,14 @@ int handle_scanning_events()
 }
 
 // TODO macro?
-void mode_focus_change(intptr_t mode, SDL_Keymod mod_state, char* title_buf)
+void mode_focus_change(intptr_t mode, int ctrl_down, char* title_buf)
 {
 	// modes are 1,2,4,8
 	int is_mode = (mode == 1 || mode == 2 || mode == 4 || mode == 8) ? 1 : 0;
 
 	// parameter mode is used as mode or focus selection (1-8)
 
-	if (is_mode && !g->loading && mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+	if (is_mode && !g->loading && ctrl_down) {
 		do_mode_change(mode);
 	} else if (g->n_imgs >= mode && g->n_imgs >= 2) {
 		// we don't use/set img_focus in single image mode
@@ -1247,15 +1247,12 @@ int handle_events_normally()
 			if (g->done_loading == MODE2) {
 				SET_MODE2_SCR_RECTS();
 				g->n_imgs = 2;
-				g->img_focus = NULL;
 			} else if (g->done_loading == MODE4) {
 				SET_MODE4_SCR_RECTS();
 				g->n_imgs = 4;
-				g->img_focus = NULL;
 			} else {
 				SET_MODE8_SCR_RECTS();
 				g->n_imgs = 8;
-				g->img_focus = NULL;
 			}
 		}
 		g->done_loading = 0;
@@ -1484,32 +1481,32 @@ int handle_events_normally()
 					SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img[0].index].path, title_buf));
 				break;
 			case SDL_SCANCODE_1:
-				mode_focus_change(MODE1, mod_state, title_buf);
+				mode_focus_change(MODE1, ctrl_down, title_buf);
 				break;
 			case SDL_SCANCODE_2:
-				mode_focus_change(MODE2, mod_state, title_buf);
+				mode_focus_change(MODE2, ctrl_down, title_buf);
 				break;
 			case SDL_SCANCODE_3:
 				g->status = REDRAW;
-				mode_focus_change(3, mod_state, title_buf);
+				mode_focus_change(3, ctrl_down, title_buf);
 				break;
 			case SDL_SCANCODE_4:
-				mode_focus_change(MODE4, mod_state, title_buf);
+				mode_focus_change(MODE4, ctrl_down, title_buf);
 				break;
 			case SDL_SCANCODE_5:
 				g->status = REDRAW;
-				mode_focus_change(5, mod_state, title_buf);
+				mode_focus_change(5, ctrl_down, title_buf);
 				break;
 			case SDL_SCANCODE_6:
 				g->status = REDRAW;
-				mode_focus_change(6, mod_state, title_buf);
+				mode_focus_change(6, ctrl_down, title_buf);
 				break;
 			case SDL_SCANCODE_7:
 				g->status = REDRAW;
-				mode_focus_change(7, mod_state, title_buf);
+				mode_focus_change(7, ctrl_down, title_buf);
 				break;
 			case SDL_SCANCODE_8:
-				mode_focus_change(MODE8, mod_state, title_buf);
+				mode_focus_change(MODE8, ctrl_down, title_buf);
 				break;
 
 			case SDL_SCANCODE_A:
