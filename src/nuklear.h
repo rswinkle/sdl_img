@@ -3894,6 +3894,7 @@ enum nk_style_cursor {
     NK_CURSOR_COUNT
 };
 NK_API void nk_style_default(struct nk_context*);
+NK_API const struct nk_color* nk_get_default_color_table(void);
 NK_API void nk_style_from_table(struct nk_context*, const struct nk_color*);
 NK_API void nk_style_load_cursor(struct nk_context*, enum nk_style_cursor, const struct nk_cursor*);
 NK_API void nk_style_load_all_cursors(struct nk_context*, const struct nk_cursor*);
@@ -3980,11 +3981,6 @@ NK_API void nk_color_hsva_iv(int *hsva_out, struct nk_color);
 NK_API void nk_color_hsva_bv(nk_byte *hsva_out, struct nk_color);
 NK_API void nk_color_hsva_f(float *out_h, float *out_s, float *out_v, float *out_a, struct nk_color);
 NK_API void nk_color_hsva_fv(float *hsva_out, struct nk_color);
-
-
-
-extern const struct nk_color
-nk_default_color_style[NK_COLOR_COUNT];
 /* =============================================================================
  *
  *                                  IMAGE
@@ -4848,7 +4844,7 @@ struct nk_command_text {
     unsigned short w, h;
     float height;
     int length;
-    char string[1];
+    char string[2];
 };
 
 enum nk_command_clipping {
@@ -18511,8 +18507,7 @@ NK_API void nk_style_default(struct nk_context *ctx){nk_style_from_table(ctx, 0)
     NK_COLOR(NK_COLOR_KNOB_CURSOR_HOVER,        120,120,120,255) \
     NK_COLOR(NK_COLOR_KNOB_CURSOR_ACTIVE,       150,150,150,255)
 
-//NK_GLOBAL const struct nk_color
-const struct nk_color
+NK_GLOBAL const struct nk_color
 nk_default_color_style[NK_COLOR_COUNT] = {
 #define NK_COLOR(a,b,c,d,e) {b,c,d,e},
     NK_COLOR_MAP(NK_COLOR)
@@ -18524,6 +18519,12 @@ NK_GLOBAL const char *nk_color_names[NK_COLOR_COUNT] = {
 #undef NK_COLOR
 };
 
+
+NK_API const struct nk_color*
+nk_get_default_color_table(void)
+{
+	return nk_default_color_style;
+}
 NK_API const char*
 nk_style_get_color_by_name(enum nk_style_colors c)
 {
@@ -28743,7 +28744,7 @@ nk_draw_property(struct nk_command_buffer *out, const struct nk_style_property *
         case NK_STYLE_ITEM_COLOR:
             text.background = background->data.color;
             nk_fill_rect(out, *bounds, style->rounding, nk_rgb_factor(background->data.color, style->color_factor));
-            nk_stroke_rect(out, *bounds, style->rounding, style->border, nk_rgb_factor(background->data.color, style->color_factor));
+            nk_stroke_rect(out, *bounds, style->rounding, style->border, nk_rgb_factor(style->border_color, style->color_factor));
             break;
     }
 
@@ -30706,6 +30707,8 @@ nk_tooltipfv(struct nk_context *ctx, const char *fmt, va_list args)
 ///   - [y]: Minor version with non-breaking API and library changes
 ///   - [z]: Patch version with no direct changes to the API
 ///
+/// - 2024/12/11 (4.12.4) - Fix array subscript [0, 0] is outside array bounds of ‘char[1]’
+/// - 2024/12/11 (4.12.3) - Fix border color for property widgets
 /// - 2024/11/20 (4.12.2) - Fix int/float type conversion warnings in `nk_roundf`
 /// - 2024/03/07 (4.12.1) - Fix bitwise operations warnings in C++20
 /// - 2023/11/26 (4.12.0) - Added an alignment option to checkboxes and radio buttons.

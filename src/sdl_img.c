@@ -423,6 +423,10 @@ typedef struct global_state
 	int confirm_delete;
 	int confirm_rotation;
 
+	// TODO once stable bake into executable and remove
+	char* controls_text;
+	int ct_len;
+
 	int list_search_active; // text field has focus in gui
 	int list_setscroll;
 
@@ -2667,7 +2671,7 @@ void setup(int argc, char** argv)
 	g->thumb_highlight = DFLT_THUMB_HIGHLIGHT_COLOR;
 	g->thumb_opacity = DFLT_THUMB_OPACITY;
 
-	memcpy(g->color_table, nk_default_color_style, sizeof(nk_default_color_style));
+	memcpy(g->color_table, nk_get_default_color_table(), sizeof(g->color_table));
 	// TODO config
 	g->color_table[1].a = DFLT_WINDOW_OPACITY;
 	
@@ -2714,6 +2718,9 @@ void setup(int argc, char** argv)
 	}
 
 	int got_config = load_config();
+
+	FILE* controls_file = fopen("src/controls.txt", "r");
+	g->ct_len = file_read(controls_file, &g->controls_text);
 
 	// already NULL from static initialization
 	g->win = NULL;

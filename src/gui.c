@@ -1706,7 +1706,7 @@ void draw_about(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 	nk_end(ctx);
 }
 
-enum { PREFS_APPEARANCE, PREFS_BEHAVIOR, PREFS_DATA };
+enum { PREFS_APPEARANCE, PREFS_BEHAVIOR, PREFS_DATA, PREFS_CONTROLS };
 
 const char* color_labels[NK_COLOR_COUNT] =
 {
@@ -1809,6 +1809,10 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 			is_selected = cur_prefs == PREFS_DATA;
 			if (nk_selectable_label(ctx, "Data", NK_TEXT_LEFT, &is_selected)) {
 				cur_prefs = PREFS_DATA;
+			}
+			is_selected = cur_prefs == PREFS_CONTROLS;
+			if (nk_selectable_label(ctx, "Controls", NK_TEXT_LEFT, &is_selected)) {
+				cur_prefs = PREFS_CONTROLS;
 			}
 
 			if (nk_button_label(ctx, "Ok")) {
@@ -1935,7 +1939,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_layout_row_dynamic(ctx, 0, 1);
 				// TODO reset sdl_img colors too? or have a separet button for them
 				if (nk_button_label(ctx, "Reset GUI colors to defaults")) {
-					memcpy(g->color_table, nk_default_color_style, sizeof(nk_default_color_style));
+					memcpy(g->color_table, nk_get_default_color_table(), sizeof(g->color_table));
 					g->color_table[NK_COLOR_WINDOW].a = DFLT_WINDOW_OPACITY;
 
 					// use this instead of style_default because of our change to alpha above
@@ -2009,9 +2013,11 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 
 			} else if (cur_prefs == PREFS_DATA) {
-				// TODO make actually editable?  Have a folder selector popup?
 				float ratios[] = { 0.20, 0.80 };
-				int path_flags = NK_EDIT_FIELD | NK_EDIT_AUTO_SELECT;
+
+				// TODO apparently READ ONLY means I don't get any of the other 3
+				//
+				int path_flags = NK_EDIT_READ_ONLY | NK_EDIT_AUTO_SELECT | NK_EDIT_CLIPBOARD | NK_EDIT_GOTO_END_ON_ACTIVATE;
 
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
@@ -2116,6 +2122,10 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					// the dflt cachedir to config or playlistdir since we already called update_playlists
 					// above...
 					g->fs_output = g->logdir;				}
+			} else if (cur_prefs == PREFS_CONTROLS) {
+				int control_flags = NK_EDIT_READ_ONLY | NK_EDIT_CLIPBOARD | NK_EDIT_MULTILINE;
+				nk_layout_row_dynamic(ctx, 110*(DFLT_FONT_SIZE+4), 1);
+				nk_edit_string(ctx, control_flags, g->controls_text, &g->ct_len, g->ct_len+1, nk_filter_default);
 			}
 
 			nk_group_end(ctx);
