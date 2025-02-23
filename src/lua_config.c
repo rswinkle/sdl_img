@@ -157,6 +157,8 @@ int read_config_file(char* filename)
 	g->x_scale = try_number_clamp_dflt(L, "gui_x_scale", MIN_GUI_SCALE, MAX_GUI_SCALE, DFLT_GUI_SCALE);
 	g->y_scale = try_number_clamp_dflt(L, "gui_y_scale", MIN_GUI_SCALE, MAX_GUI_SCALE, DFLT_GUI_SCALE);
 
+	g->font_size = try_number_clamp_dflt(L, "font_size", MIN_FONT_SIZE, MAX_FONT_SIZE, DFLT_FONT_SIZE);
+
 	g->slide_delay = try_int_clamp_dflt(L, "slide_delay", MIN_SLIDE_DELAY, MAX_SLIDE_DELAY, DFLT_SLIDE_DELAY);
 	g->gui_delay = try_int_clamp_dflt(L, "hide_gui_delay", MIN_GUI_DELAY, MAX_GUI_DELAY, DFLT_GUI_DELAY);
 	g->button_rpt_delay = try_number_clamp_dflt(L, "button_repeat_delay", MIN_BUTTON_RPT_DELAY, MAX_BUTTON_RPT_DELAY, DFLT_BUTTON_RPT_DELAY);
@@ -261,7 +263,7 @@ void write_config(FILE* cfg_file)
 			fprintf(cfg_file, "%.1f\n", g->y_scale);
 			break;
 		case FONT_SIZE:
-			fprintf(cfg_file, "%d\n", DFLT_FONT_SIZE);
+			fprintf(cfg_file, "%f\n", DFLT_FONT_SIZE);
 			break;
 		case BACKGROUND:
 			fprintf(cfg_file, "{ red = %u, green = %u, blue = %u }\n", g->bg.r, g->bg.g, g->bg.b);

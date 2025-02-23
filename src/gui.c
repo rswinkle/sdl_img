@@ -1884,6 +1884,24 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
 				nk_layout_row_dynamic(ctx, 0, 1);
+				nk_label(ctx, "Font Settings:", NK_TEXT_LEFT);
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+
+				nk_layout_row_dynamic(ctx, 0, 2);
+				float old_font_size = g->font_size;
+				nk_label(ctx, "Font size:", NK_TEXT_LEFT);
+				nk_property_float(ctx, "#", MIN_FONT_SIZE, &g->font_size, MAX_FONT_SIZE, 0.05, 0.05);
+
+				// TODO make it an event?
+				if (g->font_size != old_font_size) {
+					event.user.code = FONT_CHANGE;
+					SDL_PushEvent(&event);
+				}
+
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+				nk_layout_row_dynamic(ctx, 0, 1);
 				nk_label(ctx, "sdl_img colors:", NK_TEXT_LEFT);
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);

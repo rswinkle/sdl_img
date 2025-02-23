@@ -74,7 +74,7 @@ enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIE
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V, MODE_CHANGE,
        THUMB_MODE, LIST_MODE, SAVE_IMG, UNSAVE_IMG, REMOVE_IMG, DELETE_IMG, ACTUAL_SIZE, ROT360, REMOVE_BAD,
        SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, OPEN_FILE_NEW,
-       OPEN_FILE_MORE, OPEN_PLAYLIST_MANAGER, SELECT_FILE, SELECT_DIR, NUM_USEREVENTS };
+       OPEN_FILE_MORE, OPEN_PLAYLIST_MANAGER, SELECT_FILE, SELECT_DIR, FONT_CHANGE, NUM_USEREVENTS };
 
 // return values for handle_selection(), says what the arg was
 enum { URL, DIRECTORY, IMAGE };
@@ -140,7 +140,9 @@ enum {
 #define MOD_STR_BUF 24
 
 // TODO make actually configurable via config file
-#define DFLT_FONT_SIZE 24
+#define DFLT_FONT_SIZE 24.0
+#define MIN_FONT_SIZE 16.0
+#define MAX_FONT_SIZE 40.0
 
 // Used in config file
 
@@ -423,6 +425,11 @@ typedef struct global_state
 	int confirm_delete;
 	int confirm_rotation;
 
+	struct nk_font_atlas* atlas;
+	struct nk_font_config config;
+	struct nk_font* font;
+	float font_size;
+
 	// TODO once stable bake into executable and remove
 	char* controls_text;
 	int ct_len;
@@ -500,6 +507,7 @@ void my_switch_dir(const char* dir);
 void reset_behavior_prefs(void);
 void update_playlists(void);
 void setup_dirs(void);
+void setup_font(char* font_file, float height);
 
 // has to come after all the enums/macros/struct defs and bytes2str
 #include "gui.c"
@@ -2621,6 +2629,32 @@ void update_playlists(void)
 	*/
 }
 
+// Need to dig deeper into font API before I finalize this function
+// Still not sure it doesn't leak memory
+void setup_font(char* font_file, float height)
+{
+	NK_UNUSED(font_file);
+	NK_UNUSED(height);
+
+	if (g->atlas) {
+    	nk_font_atlas_clear(g->atlas);
+		g->atlas = NULL;
+	}
+
+	g->config = nk_font_config(0);
+	g->font = NULL;
+
+	float font_scale = g->y_scale;
+
+	nk_sdl_font_stash_begin(&g->atlas);
+	g->font = nk_font_atlas_add_default(g->atlas, g->font_size*font_scale, &g->config);
+	//font = nk_font_atlas_add_from_file(g->atlas, "../fonts/kenvector_future_thin.ttf", 13 * font_scale, &config);
+	nk_sdl_font_stash_end();
+
+	g->font->handle.height /= font_scale;
+	nk_style_set_font(g->ctx, &g->font->handle);
+}
+
 void setup(int argc, char** argv)
 {
 	char error_str[STRBUF_SZ] = { 0 };
@@ -2903,14 +2937,21 @@ void setup(int argc, char** argv)
 	// TODO could adjust for dpi, then adjust for font size if necessary
 	//g->x_scale = 2; //hdpi/72;
 	//g->y_scale = 2; //vdpi/72;
-	float font_scale = g->y_scale;
 
 	printf("scale %f %f\n", g->x_scale, g->y_scale);
 	nk_sdl_scale(g->x_scale, g->y_scale);
 
+
+	setup_font(NULL, g->font_size);
+	/*
 	struct nk_font_atlas* atlas;
 	struct nk_font_config config = nk_font_config(0);
 	struct nk_font* font;
+	float font_scale = g->y_scale;
+
+	// default is false, 3, don't set ps to true without setting oversample to 1
+	//config.pixel_snap = nk_true;
+	//config.oversample_h = 1;
 
 	nk_sdl_font_stash_begin(&atlas);
 	font = nk_font_atlas_add_default(atlas, DFLT_FONT_SIZE*font_scale, &config);
@@ -2919,6 +2960,7 @@ void setup(int argc, char** argv)
 
 	font->handle.height /= font_scale;
 	nk_style_set_font(g->ctx, &font->handle);
+	*/
 
 
 	// Make GUI partially transparent

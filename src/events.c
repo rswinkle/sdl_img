@@ -1102,6 +1102,9 @@ int handle_popup_events()
 			case SELECT_FILE:
 				do_file_select(code == SELECT_DIR);
 				break;
+			case FONT_CHANGE:
+				setup_font(NULL, g->font_size);
+				break;
 			default:
 				SDL_Log("Shouldn't get any other user event in popup mode!\n");
 			}
