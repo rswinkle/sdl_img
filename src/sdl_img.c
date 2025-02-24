@@ -121,111 +121,11 @@ enum {
 #define mkdir(A, B) mkdir(A)
 #endif
 
-#define VERSION 1.0
-#define VERSION_STR "sdl_img 1.0-RC3"
+// baked in settings
+#include "compile_constants.h"
 
-// in file_browser.h
-//#define PATH_SEPARATOR '/'
-//#define STRBUF_SZ 1024
-
-#define PAN_RATE 0.05
-#define MAX_GIF_FPS 100
-#define MIN_GIF_DELAY (1000/MAX_GIF_FPS)
-#define DFLT_GIF_FPS 20
-#define DFLT_GIF_DELAY (1000/DFLT_GIF_FPS)
-#define SLEEP_TIME 50
-#define START_WIDTH 1200
-#define START_HEIGHT 800
-#define THUMBSIZE 128
-#define SIZE_STR_BUF 16
-#define MOD_STR_BUF 24
-
-// TODO make actually configurable via config file
-#define DFLT_FONT_SIZE 24.0
-#define MIN_FONT_SIZE 16.0
-#define MAX_FONT_SIZE 40.0
-
-#define DFLT_PIXEL_SNAP SDL_FALSE
-#define DFLT_OVERSAMPLE SDL_FALSE
-
-// Used in config file
-
-// Even 3 seems excessive, can't imagine a screen than high density
-#define DFLT_GUI_SCALE 1.0f
-#define MIN_GUI_SCALE 0.5f
-#define MAX_GUI_SCALE 3.0f
-#define GUI_SCALE_INCR 0.25f;
-
-#define DFLT_GUI_DELAY 2
-#define MIN_GUI_DELAY 1
-#define MAX_GUI_DELAY 60
-
-#define DFLT_BUTTON_RPT_DELAY 1.0f
-#define MIN_BUTTON_RPT_DELAY 0.25f
-#define MAX_BUTTON_RPT_DELAY 3.0f
-
-#define DFLT_SLIDE_DELAY 3
-#define MIN_SLIDE_DELAY 1
-#define MAX_SLIDE_DELAY 10
-
-#define MIN_THUMB_ROWS 2
-#define MIN_THUMB_COLS 4
-#define MAX_THUMB_ROWS 8
-#define MAX_THUMB_COLS 15
-#define DFLT_THUMB_ROWS 8
-#define DFLT_THUMB_COLS 15
-
-#define DFLT_THUMB_OPACITY 100
-#define MIN_THUMB_OPACITY 32  // Below 32 it gets too transparent imo
-#define MAX_THUMB_OPACITY 255  // Should probably make it 200 or something
-
-#define DFLT_THUMB_HIGHLIGHT_COLOR nk_rgb(0,255,0)
-
-#define DFLT_FULLSCREEN_GUI DELAY
-#define DFLT_BG_COLOR nk_rgb(0,0,0)
-#define DFLT_WINDOW_OPACITY 191
-
-// Should I even use SDL_TRUE/nk_true or just put 1/0?
-#define DFLT_FILL_MODE SDL_FALSE
-#define DFLT_SHOW_INFOBAR SDL_TRUE
-#define DFLT_THUMB_X_DELETES SDL_FALSE
-#define DFLT_IND_MM SDL_FALSE
-#define DFLT_CONFIRM_DELETE SDL_TRUE
-#define DFLT_CONFIRM_ROTATION SDL_TRUE
-
-#define DFLT_FULLSCREEN_GUI DELAY
-
-#define NUM_DFLT_EXTS 11
-
-// End configuration related macros
-
-// If this is defined, sdl_img will add files without extensions
-// to the list in directory scans if stbi_info() returns true.
-// This can make the startup a bit slower if you are scanning a
-// large directory (possibly recursively) with many files without
-// extensions since stbi_info actually has to open those files
-// to determine if they are a valid supported image type
-#define CHECK_IF_NO_EXTENSION
-
-// If defined, all log output goes to log.txt in the
-// same directory as config.lua
-//#define USE_LOGFILE
-
-// zoom is calculated
-// h = old_h * (1.0 + zoom*ZOOM_RATE)
-// zoom is divided by GIF_ZOOM_DIV if any
-// current image is gif because fps is higher
-// which speeds up GUI button repeat
-//
-// It doesn't affect mouse/keyboard so I should
-// probably change do_zoom to only divide in the
-// gif/gui case...
-#define ZOOM_RATE 0.01
-#define GUI_ZOOM 5
-#define SCROLL_ZOOM 12
-#define KEY_ZOOM 12
-#define PINCH_ZOOM 3
-#define GIF_ZOOM_DIV 3
+// Used for run-time settable preferences loaded/stored in config.lua
+#include "config_constants.h"
 
 #ifndef MAX
 #define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
