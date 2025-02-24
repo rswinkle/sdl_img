@@ -372,6 +372,7 @@ typedef struct global_state
 	char thumbdir_buf[STRBUF_SZ];
 	char logdir_buf[STRBUF_SZ];
 	char playlistdir_buf[STRBUF_SZ];
+	char font_path_buf[STRBUF_SZ];
 
 	// TODO naming
 	char cur_playlist_path[STRBUF_SZ];
@@ -2666,14 +2667,24 @@ void setup_font(char* font_file, float height)
 	float font_scale = g->y_scale;
 
 	nk_sdl_font_stash_begin(&g->atlas);
-	g->font = nk_font_atlas_add_default(g->atlas, g->font_size*font_scale, &g->config);
+
+	if (g->font_path_buf[0]) {
+		g->font = nk_font_atlas_add_from_file(g->atlas, g->font_path_buf, g->font_size * font_scale, &g->config);
+
+		if (!g->font) {
+			g->font_path_buf[0] = 0;
+			g->font = nk_font_atlas_add_default(g->atlas, g->font_size*font_scale, &g->config);
+		}
+	} else {
+		g->font = nk_font_atlas_add_default(g->atlas, g->font_size*font_scale, &g->config);
+	}
+
 	//font = nk_font_atlas_add_from_file(g->atlas, "../fonts/kenvector_future_thin.ttf", 13 * font_scale, &config);
+
 	nk_sdl_font_stash_end();
 
 	g->font->handle.height /= font_scale;
 	nk_style_set_font(g->ctx, &g->font->handle);
-
-
 	// adjust heights
 	g->gui_bar_ht = g->font_size + 28;
 
@@ -3295,7 +3306,7 @@ int try_move(int direction)
 }
 
 // TODO finish
-void do_file_select(int select_dir)
+void do_file_select(int select_dir, intptr_t num_exts, const char** exts)
 {
 	// TODO using this cause I have it, but do I need it at all, even for file_open?
 	g->old_state = g->state;
@@ -3316,9 +3327,15 @@ void do_file_select(int select_dir)
 
 	g->filebrowser.selection = -1; // default to no selection
 	g->filebrowser.select_dir = select_dir;
+
 	// whether we're selecting a directory or not we want to show all files
 	// for general selection (in this case playlists)
-	g->filebrowser.ignore_exts = SDL_TRUE; // was reset by reset_file_browser
+	if (!num_exts) {
+		g->filebrowser.ignore_exts = SDL_TRUE; // was reset by reset_file_browser
+	} else {
+		g->filebrowser.num_exts = num_exts;
+		g->filebrowser.exts = exts;
+	}
 	switch_dir(&g->filebrowser, NULL);
 	
 	SDL_ShowCursor(SDL_ENABLE);
@@ -3352,6 +3369,11 @@ void do_file_open(int clear_files)
 	g->state = FILE_SELECTION;
 	reset_file_browser(&g->filebrowser, NULL);
 	g->filebrowser.selection = -1; // default to no selection
+
+	// reset these in case we did a file select with a different
+	// type filter (ie specifying a .ttf font file)
+	g->filebrowser.exts = g->img_exts;
+	g->filebrowser.num_exts = g->n_exts;
 	//
 	// If they're in playlistdir keep settings the same
 	if (strcmp(g->filebrowser.dir, g->playlistdir)) {

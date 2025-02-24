@@ -14,6 +14,7 @@ enum {
 	GUI_X_SCALE,
 	GUI_Y_SCALE,
 	FONT_SIZE,
+	FONT_PATH,
 	PIXEL_SNAP,
 	OVERSAMPLE,
 	BACKGROUND,
@@ -48,6 +49,7 @@ char* keys[] =
 	"gui_x_scale",
 	"gui_y_scale",
 	"font_size",
+	"font_path",
 	"pixel_snap",
 	"oversample",
 	"background",
@@ -163,6 +165,8 @@ int read_config_file(char* filename)
 
 	g->font_size = try_number_clamp_dflt(L, "font_size", MIN_FONT_SIZE, MAX_FONT_SIZE, DFLT_FONT_SIZE);
 
+	try_strbuf(L, "font_path", g->font_path_buf, STRBUF_SZ);
+
 	g->pixel_snap = try_bool_dflt(L, "pixel_snap", DFLT_PIXEL_SNAP);
 	g->oversample = try_bool_dflt(L, "oversample", DFLT_OVERSAMPLE);
 
@@ -272,6 +276,10 @@ void write_config(FILE* cfg_file)
 			break;
 		case FONT_SIZE:
 			fprintf(cfg_file, "%.2f\n", g->font_size);
+			break;
+		case FONT_PATH:
+			// Purposely writing out the empty string for default case
+			fprintf(cfg_file, "'%s'\n", g->font_path_buf);
 			break;
 		case PIXEL_SNAP:
 			fprintf(cfg_file, "%s\n", bool_str[g->pixel_snap]);

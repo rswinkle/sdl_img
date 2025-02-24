@@ -1100,7 +1100,7 @@ int handle_popup_events()
 				break;
 			case SELECT_DIR:
 			case SELECT_FILE:
-				do_file_select(code == SELECT_DIR);
+				do_file_select(code == SELECT_DIR, (intptr_t)e.user.data1, (const char**)e.user.data2);
 				break;
 			case FONT_CHANGE:
 				setup_font(NULL, g->font_size);

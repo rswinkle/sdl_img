@@ -1749,15 +1749,20 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 {
 	struct nk_rect bounds;
 	struct nk_rect s = {0, 0, scr_w, scr_h };
+	float ratios[] = { 0.20, 0.80, 0.10, 0.70, 0.20 };
 
 	const float group_szs[] = { FB_SIDEBAR_W, scr_w-FB_SIDEBAR_W };
 	int horizontal_rule_ht = 4;
+
+	SDL_Event event = { .type = g->userevent };
+	static const char* ttf_exts[] = { ".ttf" };
 
 	// for data directory edit_strings
 	static int cache_len;
 	static int thumb_len;
 	static int log_len;
 	static int pl_len;
+	static int font_path_len;
 
 	// ugly hack
 	static int has_inited = 0;
@@ -1766,26 +1771,32 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 		thumb_len = strlen(g->thumbdir);
 		log_len = strlen(g->logdir);
 		pl_len = strlen(g->playlistdir);
+		font_path_len = strlen(g->font_path_buf);
 
 		// TODO better place to do this?  in event handling?
 		if (g->fs_output == g->playlistdir) {
 			update_playlists();
+		} else if (g->fs_output == g->cachedir) {
+			g->cfg_cachedir = SDL_TRUE;
+		} else if (g->fs_output == g->font_path_buf) {
+			event.user.code = FONT_CHANGE;
+			SDL_PushEvent(&event);
 		}
 
-		if (g->fs_output == g->cachedir) {
-			g->cfg_cachedir = SDL_TRUE;
-		}
 		g->fs_output = NULL;
 		has_inited = 1;
 	}
 
 	const struct nk_input* in = &ctx->input;
+
+	// TODO apparently READ ONLY means I don't get any of the other 3
+	int path_flags = NK_EDIT_READ_ONLY | NK_EDIT_AUTO_SELECT | NK_EDIT_CLIPBOARD | NK_EDIT_GOTO_END_ON_ACTIVATE;
+
 	
 	char label_buf[100];
 	static int cur_prefs = PREFS_APPEARANCE;
 	nk_bool is_selected;
 
-	SDL_Event event = { .type = g->userevent };
 
 	if (nk_begin(ctx, "Preferences", s, win_flags)) {
 		//bounds = nk_widget_bounds(ctx);
@@ -1904,11 +1915,28 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					//g->pixel_snap = !g->oversample
 					regen_font = SDL_TRUE;
 				}
+
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, &ratios[2]);
+				nk_label(ctx, "Font:", NK_TEXT_LEFT);
+				nk_edit_string(ctx, path_flags, g->font_path_buf, &font_path_len, STRBUF_SZ, nk_filter_default);
+				if (nk_button_label(ctx, "Change Font")) {
+					g->fs_output = g->font_path_buf;
+					// TODO New event type, select font to restrict to ttf files?
+					event.user.code = SELECT_FILE;
+					event.user.data1 = (void*)1;
+					event.user.data2 = ttf_exts;
+					SDL_PushEvent(&event);
+				}
+
 				nk_layout_row_dynamic(ctx, 0, 1);
 				if (nk_button_label(ctx, "Reset font settings to defaults")) {
+					g->font_path_buf[0] = 0; // force default font
+					font_path_len = 0;
 					g->font_size = DFLT_FONT_SIZE;
 					g->pixel_snap = SDL_TRUE;
 					g->oversample = SDL_FALSE;
+
+					regen_font = SDL_TRUE; // just in case
 				}
 
 				// TODO make it an event?
@@ -2049,11 +2077,6 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 
 			} else if (cur_prefs == PREFS_DATA) {
-				float ratios[] = { 0.20, 0.80 };
-
-				// TODO apparently READ ONLY means I don't get any of the other 3
-				//
-				int path_flags = NK_EDIT_READ_ONLY | NK_EDIT_AUTO_SELECT | NK_EDIT_CLIPBOARD | NK_EDIT_GOTO_END_ON_ACTIVATE;
 
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
