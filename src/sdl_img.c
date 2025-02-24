@@ -15,6 +15,7 @@
 // CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 // IN THE SOFTWARE.
 
+#include "controls_str.c"
 
 #include "WjCryptLib_Md5.c"
 
@@ -2796,8 +2797,11 @@ void setup(int argc, char** argv)
 
 	int got_config = load_config();
 
-	FILE* controls_file = fopen("src/controls.txt", "r");
-	g->ct_len = file_read(controls_file, &g->controls_text);
+	// TODO
+	//FILE* controls_file = fopen("src/controls.txt", "r");
+	//g->ct_len = file_read(controls_file, &g->controls_text);
+	g->controls_text = controls_text;
+	g->ct_len = strlen(controls_text);
 
 	// already NULL from static initialization
 	g->win = NULL;
