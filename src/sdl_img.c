@@ -2848,7 +2848,6 @@ void setup(int argc, char** argv)
 	g->img = g->img1;
 	g->do_next = nk_false;
 	g->progress_hovered = nk_false;
-	g->fill_mode = 0;
 	g->sorted_state = NAME_UP;  // ie by name ascending
 	g->has_bad_paths = SDL_FALSE;
 	if (g->sources.size) {
