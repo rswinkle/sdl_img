@@ -95,16 +95,17 @@ int do_color_setting(struct nk_context* ctx, const char* label, struct nk_color*
 // plus extra for borders?
 
 
-#define GUI_BAR_HEIGHT (DFLT_FONT_SIZE+28)
+// TODO need to be variables based on g->font_size
+//#define GUI_BAR_HEIGHT (DFLT_FONT_SIZE+28)
 #define GUI_MENU_WIN_W 550
-
-// Nuklear seems to use the min(necessary, given) for menus so just pick a big height
+//
+//// Nuklear seems to use the min(necessary, given) for menus so just pick a big height
 #define GUI_MENU_WIN_H 1000
-
-//#define GUI_PREFS_W 860
-//#define GUI_PREFS_H 580
-
-// button widths
+//
+////#define GUI_PREFS_W 860
+////#define GUI_PREFS_H 580
+//
+//// button widths
 #define GUI_MENU_W 80
 #define GUI_PREV_NEXT_W 150
 #define GUI_ZOOM_ROTATE_W 50
@@ -540,7 +541,7 @@ void draw_gui(struct nk_context* ctx)
 		//return;
 	} else {
 		// only draw controls (ie top bar, menu, buttons etc.) in NORMAL mode
-		draw_controls(ctx, scr_w, GUI_BAR_HEIGHT);
+		draw_controls(ctx, scr_w, g->gui_bar_ht);
 		if (g->show_infobar) {
 			draw_infobar(ctx, scr_w, scr_h);
 		}
@@ -1113,19 +1114,19 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 		nk_layout_row_template_begin(ctx, 0);
 
 		// menu
-		nk_layout_row_template_push_static(ctx, GUI_MENU_W);
+		nk_layout_row_template_push_static(ctx, g->gui_menu_w);
 
 		// prev next
-		nk_layout_row_template_push_static(ctx, GUI_PREV_NEXT_W);
-		nk_layout_row_template_push_static(ctx, GUI_PREV_NEXT_W);
+		nk_layout_row_template_push_static(ctx, g->gui_prev_next_w);
+		nk_layout_row_template_push_static(ctx, g->gui_prev_next_w);
 
 		// zoom, -, +
-		nk_layout_row_template_push_static(ctx, GUI_ZOOM_ROTATE_W);
-		nk_layout_row_template_push_static(ctx, GUI_ZOOM_ROTATE_W);
+		nk_layout_row_template_push_static(ctx, g->gui_zoom_rot_w);
+		nk_layout_row_template_push_static(ctx, g->gui_zoom_rot_w);
 
 		// Rotate left and right
-		nk_layout_row_template_push_static(ctx, GUI_ZOOM_ROTATE_W);
-		nk_layout_row_template_push_static(ctx, GUI_ZOOM_ROTATE_W);
+		nk_layout_row_template_push_static(ctx, g->gui_zoom_rot_w);
+		nk_layout_row_template_push_static(ctx, g->gui_zoom_rot_w);
 
 		// Mode 1 2 4 8
 		/*
@@ -1137,7 +1138,7 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 		*/
 		nk_layout_row_template_end(ctx);
 
-		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(GUI_MENU_WIN_W, GUI_MENU_WIN_H))) {
+		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(g->gui_menu_win_w, GUI_MENU_WIN_H))) {
 			// also don't let GUI disappear when the menu is active
 			g->show_gui = SDL_TRUE;
 			g->gui_timer = SDL_GetTicks();
@@ -1518,7 +1519,7 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	float ratios[] = { 0.5f, 0.1, 0.4f };
 
 	// TODO why scr_h + 2 to prevent a sliver below it?
-	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w+2, GUI_BAR_HEIGHT+2), NK_WINDOW_NO_SCROLLBAR))
+	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-g->gui_bar_ht, scr_w+2, g->gui_bar_ht+2), NK_WINDOW_NO_SCROLLBAR))
 	{
 		img_state* img = g->img_focus;
 
@@ -1577,7 +1578,7 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	int row;
 
 	// TODO why the +1/2 to fill to edges?
-	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-GUI_BAR_HEIGHT, scr_w+1, GUI_BAR_HEIGHT+2), NK_WINDOW_NOT_INTERACTIVE|NK_WINDOW_NO_SCROLLBAR)) {
+	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-g->gui_bar_ht, scr_w+1, g->gui_bar_ht+2), NK_WINDOW_NOT_INTERACTIVE|NK_WINDOW_NO_SCROLLBAR)) {
 		if (!(g->state & SEARCH_RESULTS)) {
 			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
 			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
@@ -1890,11 +1891,28 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 				nk_layout_row_dynamic(ctx, 0, 2);
 				float old_font_size = g->font_size;
+				int regen_font = SDL_FALSE;
 				nk_label(ctx, "Font size:", NK_TEXT_LEFT);
 				nk_property_float(ctx, "#", MIN_FONT_SIZE, &g->font_size, MAX_FONT_SIZE, 0.05, 0.05);
+				if (nk_checkbox_label(ctx, "Pixel Snap:", &g->pixel_snap)) {
+					// Should we let them have both or neither?  For now, I guess
+					// g->oversample = !g->pixel_snap;
+					regen_font = SDL_TRUE;
+				}
+
+				if (nk_checkbox_label(ctx, "Oversample:", &g->oversample)) {
+					//g->pixel_snap = !g->oversample
+					regen_font = SDL_TRUE;
+				}
+				nk_layout_row_dynamic(ctx, 0, 1);
+				if (nk_button_label(ctx, "Reset font settings to defaults")) {
+					g->font_size = DFLT_FONT_SIZE;
+					g->pixel_snap = SDL_TRUE;
+					g->oversample = SDL_FALSE;
+				}
 
 				// TODO make it an event?
-				if (g->font_size != old_font_size) {
+				if (g->font_size != old_font_size || regen_font) {
 					event.user.code = FONT_CHANGE;
 					SDL_PushEvent(&event);
 				}

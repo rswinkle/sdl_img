@@ -14,6 +14,8 @@ enum {
 	GUI_X_SCALE,
 	GUI_Y_SCALE,
 	FONT_SIZE,
+	PIXEL_SNAP,
+	OVERSAMPLE,
 	BACKGROUND,
 	WINDOW_OPACITY,
 	THUMB_HIGHLIGHT,
@@ -46,6 +48,8 @@ char* keys[] =
 	"gui_x_scale",
 	"gui_y_scale",
 	"font_size",
+	"pixel_snap",
+	"oversample",
 	"background",
 	"window_opacity",
 	"thumb_highlight",
@@ -159,6 +163,10 @@ int read_config_file(char* filename)
 
 	g->font_size = try_number_clamp_dflt(L, "font_size", MIN_FONT_SIZE, MAX_FONT_SIZE, DFLT_FONT_SIZE);
 
+	g->pixel_snap = try_bool_dflt(L, "pixel_snap", DFLT_PIXEL_SNAP);
+	g->oversample = try_bool_dflt(L, "oversample", DFLT_OVERSAMPLE);
+
+
 	g->slide_delay = try_int_clamp_dflt(L, "slide_delay", MIN_SLIDE_DELAY, MAX_SLIDE_DELAY, DFLT_SLIDE_DELAY);
 	g->gui_delay = try_int_clamp_dflt(L, "hide_gui_delay", MIN_GUI_DELAY, MAX_GUI_DELAY, DFLT_GUI_DELAY);
 	g->button_rpt_delay = try_number_clamp_dflt(L, "button_repeat_delay", MIN_BUTTON_RPT_DELAY, MAX_BUTTON_RPT_DELAY, DFLT_BUTTON_RPT_DELAY);
@@ -180,7 +188,7 @@ int read_config_file(char* filename)
 	g->thumb_opacity = try_int_clamp_dflt(L, "thumb_opacity", MIN_THUMB_OPACITY, MAX_THUMB_OPACITY, DFLT_THUMB_OPACITY);
 
 	g->show_infobar = try_bool_dflt(L, "show_info_bar", DFLT_SHOW_INFOBAR);
-	g->fill_mode = try_bool_dflt(L, "show_info_bar", DFLT_FILL_MODE);
+	g->fill_mode = try_bool_dflt(L, "fill_mode", DFLT_FILL_MODE);
 	g->thumb_x_deletes  = try_bool_dflt(L, "x_deletes_thumb", DFLT_THUMB_X_DELETES);
 	g->confirm_delete  = try_bool_dflt(L, "confirm_delete", DFLT_CONFIRM_DELETE);
 	g->confirm_rotation  = try_bool_dflt(L, "confirm_rotation", DFLT_CONFIRM_ROTATION);
@@ -263,8 +271,15 @@ void write_config(FILE* cfg_file)
 			fprintf(cfg_file, "%.1f\n", g->y_scale);
 			break;
 		case FONT_SIZE:
-			fprintf(cfg_file, "%f\n", DFLT_FONT_SIZE);
+			fprintf(cfg_file, "%.2f\n", g->font_size);
 			break;
+		case PIXEL_SNAP:
+			fprintf(cfg_file, "%s\n", bool_str[g->pixel_snap]);
+			break;
+		case OVERSAMPLE:
+			fprintf(cfg_file, "%s\n", bool_str[g->oversample]);
+			break;
+
 		case BACKGROUND:
 			fprintf(cfg_file, "{ red = %u, green = %u, blue = %u }\n", g->bg.r, g->bg.g, g->bg.b);
 			break;

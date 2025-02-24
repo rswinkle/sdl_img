@@ -144,6 +144,9 @@ enum {
 #define MIN_FONT_SIZE 16.0
 #define MAX_FONT_SIZE 40.0
 
+#define DFLT_PIXEL_SNAP SDL_FALSE
+#define DFLT_OVERSAMPLE SDL_FALSE
+
 // Used in config file
 
 // Even 3 seems excessive, can't imagine a screen than high density
@@ -429,6 +432,18 @@ typedef struct global_state
 	struct nk_font_config config;
 	struct nk_font* font;
 	float font_size;
+
+	// booleans
+	int pixel_snap;
+	int oversample;
+
+	// gui dimensions that have to be adjusted based on font size
+	int gui_bar_ht;
+	int gui_menu_win_w;
+	int gui_menu_w;  // menu button width
+	int gui_prev_next_w;
+	int gui_zoom_rot_w;
+
 
 	// TODO once stable bake into executable and remove
 	char* controls_text;
@@ -2642,6 +2657,10 @@ void setup_font(char* font_file, float height)
 	}
 
 	g->config = nk_font_config(0);
+	g->config.pixel_snap = g->pixel_snap;
+	if (!g->oversample) {
+		g->config.oversample_h = 1;
+	}
 	g->font = NULL;
 
 	float font_scale = g->y_scale;
@@ -2653,6 +2672,19 @@ void setup_font(char* font_file, float height)
 
 	g->font->handle.height /= font_scale;
 	nk_style_set_font(g->ctx, &g->font->handle);
+
+
+	// adjust heights
+	g->gui_bar_ht = g->font_size + 28;
+
+	// adjust widths
+	// until I write/find those text width functions in nuklear, best guess
+	float ratio = g->font_size / DFLT_FONT_SIZE;
+	
+	g->gui_menu_win_w = ratio * GUI_MENU_WIN_W;
+	g->gui_menu_w = ratio * GUI_MENU_W;
+	g->gui_prev_next_w = ratio * GUI_PREV_NEXT_W;
+	g->gui_zoom_rot_w = ratio * GUI_ZOOM_ROTATE_W;
 }
 
 void setup(int argc, char** argv)
@@ -2942,6 +2974,8 @@ void setup(int argc, char** argv)
 	nk_sdl_scale(g->x_scale, g->y_scale);
 
 
+	// by default nuklear has pixel_snap off, oversample_h = 3
+	// but things look better with oversample off (ie =1) and pixel_snap on so...
 	setup_font(NULL, g->font_size);
 	/*
 	struct nk_font_atlas* atlas;
