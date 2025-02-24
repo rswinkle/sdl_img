@@ -95,16 +95,17 @@ int do_color_setting(struct nk_context* ctx, const char* label, struct nk_color*
 // plus extra for borders?
 
 
-// TODO need to be variables based on g->font_size
+// All these numbers are based on a font size of 24 so they're all used to calculate
+// the actual size based on the current font size in setup_font()
 //#define GUI_BAR_HEIGHT (DFLT_FONT_SIZE+28)
 #define GUI_MENU_WIN_W 550
 //
 //// Nuklear seems to use the min(necessary, given) for menus so just pick a big height
 #define GUI_MENU_WIN_H 1000
-//
-////#define GUI_PREFS_W 860
-////#define GUI_PREFS_H 580
-//
+
+// used for filebrowser, playlist manager, and prefs
+#define FB_SIDEBAR_W 180
+
 //// button widths
 #define GUI_MENU_W 80
 #define GUI_PREV_NEXT_W 150
@@ -304,7 +305,7 @@ void draw_gui(struct nk_context* ctx)
 
 	int is_selected = SDL_FALSE;
 	int symbol;
-	float search_ratio[] = { 0.25f, 0.75f };
+	float search_ratio[] = { 0.15f, 0.85f };
 	int list_height;
 	int active;
 	float search_height;
@@ -325,14 +326,11 @@ void draw_gui(struct nk_context* ctx)
 	if (IS_LIST_MODE() && !IS_VIEW_RESULTS()) {
 		// TODO why do I need + 2 to reach the edges?
 		if (nk_begin(ctx, "List", nk_rect(0, 0, scr_w+2, scr_h+2), NK_WINDOW_NO_SCROLLBAR)) {
-
-			// TODO With Enter to search, should I even have the Search button?  It's more of a label now... maybe put it on
-			// the left?  and make it smaller?
 			// TODO How to automatically focus on the search box if they start typing?
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, search_ratio);
 			search_height = nk_widget_bounds(ctx).h;
 
-			nk_label(ctx, "Search Filenames:", NK_TEXT_LEFT);
+			nk_label(ctx, "Search:", NK_TEXT_LEFT);
 
 			if (!IS_RESULTS()) {
 				nk_edit_focus(ctx, NK_EDIT_DEFAULT);
@@ -429,7 +427,7 @@ void draw_gui(struct nk_context* ctx)
 			//nk_layout_row_dynamic(ctx, scr_h-2*search_height-8, 1);
 			// 2*(font_ht + 16 + win_spacing(4))
 			// 2 * win_padding (4)
-			nk_layout_row_dynamic(ctx, scr_h-2*44-8, 1);
+			nk_layout_row_dynamic(ctx, scr_h-2*(g->font_size + 20)-8, 1);
 
 			if (g->state & SEARCH_RESULTS) {
 				if (!g->search_results.size) {
@@ -443,7 +441,7 @@ void draw_gui(struct nk_context* ctx)
 						g->search_results.size = 0;
 					}
 				} else {
-					if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, DFLT_FONT_SIZE+16, g->search_results.size)) {
+					if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, g->font_size+16, g->search_results.size)) {
 						nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 						int i;
 						for (int j=rview.begin; j<rview.end; ++j) {
@@ -489,7 +487,7 @@ void draw_gui(struct nk_context* ctx)
 					g->list_setscroll = SDL_FALSE;
 				}
 			} else {
-				if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, DFLT_FONT_SIZE+16, g->files.size)) {
+				if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, g->font_size+16, g->files.size)) {
 					// TODO ratio layout 0.5 0.2 0.3 ? give or take
 					//nk_layout_row_dynamic(ctx, 0, 3);
 					nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
@@ -549,7 +547,6 @@ void draw_gui(struct nk_context* ctx)
 
 }
 
-#define FB_SIDEBAR_W 200
 
 //scr_w and scr_h are logical dimensions not raw pixels
 int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h)
@@ -753,7 +750,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			}
 		}
 
-		const float group_szs[] = { FB_SIDEBAR_W, scr_w-FB_SIDEBAR_W };
+		const float group_szs[] = { g->gui_sidebar_w, scr_w-g->gui_sidebar_w-8 };
 
 		bounds = nk_widget_bounds(ctx);
 		nk_layout_row(ctx, NK_STATIC, scr_h-bounds.y, 2, group_szs);
@@ -777,7 +774,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 				static const char* path_opts[] = { "Breadcrumbs", "Text" };
 				struct nk_rect bounds = nk_widget_bounds(ctx);
-				fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, DFLT_FONT_SIZE, nk_vec2(bounds.w, 300));
+				fb->is_text_path = nk_combo(ctx, path_opts, NK_LEN(path_opts), fb->is_text_path, g->font_size, nk_vec2(bounds.w, 300));
 
 
 				// or if g->state != FILE_SELECTION
@@ -787,7 +784,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 						static const char* ext_opts[] = { FILE_TYPE_STR, "All Files" };
 						struct nk_rect bounds = nk_widget_bounds(ctx);
 						old = fb->ignore_exts;
-						fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, DFLT_FONT_SIZE, nk_vec2(bounds.w, 300));
+						fb->ignore_exts = nk_combo(ctx, ext_opts, NK_LEN(ext_opts), old, g->font_size, nk_vec2(bounds.w, 300));
 						if (fb->ignore_exts != old) {
 							if (!fb->is_recents) {
 								my_switch_dir(NULL);
@@ -882,7 +879,8 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 			bounds = nk_widget_bounds(ctx);
 
-			nk_layout_row_static(ctx, scr_h-bounds.y, FB_SIDEBAR_W-win_spacing.x*2, 1);
+			// TODO spacing.x*2? or spacing.x+padding.x?  = 8 either way
+			nk_layout_row_static(ctx, scr_h-bounds.y, g->gui_sidebar_w-win_spacing.x*2, 1);
 			if (nk_group_begin(ctx, "User Bookmarks", 0)) {
 				nk_layout_row_dynamic(ctx, 0, 1);
 				char** bmarks = g->bookmarks.a;
@@ -1013,7 +1011,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 						fb->list_setscroll = TRUE;
 					}
 				} else {
-					if (nk_list_view_begin(ctx, &rview, "FB Result List", NK_WINDOW_BORDER, DFLT_FONT_SIZE+16, fb->search_results.size)) {
+					if (nk_list_view_begin(ctx, &rview, "FB Result List", NK_WINDOW_BORDER, g->font_size+16, fb->search_results.size)) {
 						nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
 						int i;
 						for (int j=rview.begin; j<rview.end; ++j) {
@@ -1056,7 +1054,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 					fb->list_setscroll = FALSE;
 				}
 			} else {
-				if (nk_list_view_begin(ctx, &lview, "File List", NK_WINDOW_BORDER, DFLT_FONT_SIZE+16, f->size)) {
+				if (nk_list_view_begin(ctx, &lview, "File List", NK_WINDOW_BORDER, g->font_size+16, f->size)) {
 					// TODO ratio layout 0.5 0.2 0.3 ? give or take
 					//nk_layout_row_dynamic(ctx, 0, 3);
 					nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
@@ -1751,7 +1749,8 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 	struct nk_rect s = {0, 0, scr_w, scr_h };
 	float ratios[] = { 0.20, 0.80, 0.10, 0.70, 0.20 };
 
-	const float group_szs[] = { FB_SIDEBAR_W, scr_w-FB_SIDEBAR_W };
+	// -8 is win->spacing.x + win->padding.x
+	const float group_szs[] = { g->gui_sidebar_w, scr_w-g->gui_sidebar_w-8 };
 	int horizontal_rule_ht = 4;
 
 	SDL_Event event = { .type = g->userevent };
@@ -1804,7 +1803,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 		// font height + 2*win.header.padding.y + 2*win.header.label_padding.y;
 		// or font_height + 16
 		// if no header, it's panel type.padding.y
-		int header_h = DFLT_FONT_SIZE+16;
+		int header_h = g->font_size+16;
 		nk_layout_row(ctx, NK_STATIC, scr_h-header_h, 2, group_szs);
 
 		if (nk_group_begin(ctx, "Pref Sidebar", NK_WINDOW_BORDER)) {
@@ -1837,6 +1836,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 			nk_group_end(ctx);
 		}
 
+		// TODO Can I get a horizontal scrollbar for controls?
 		if (nk_group_begin(ctx, "Pref Panel", NK_WINDOW_BORDER)) {
 			if (cur_prefs == PREFS_APPEARANCE) {
 				int clicked = SDL_FALSE;
@@ -1905,13 +1905,13 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				int regen_font = SDL_FALSE;
 				nk_label(ctx, "Font size:", NK_TEXT_LEFT);
 				nk_property_float(ctx, "#", MIN_FONT_SIZE, &g->font_size, MAX_FONT_SIZE, 0.05, 0.05);
-				if (nk_checkbox_label(ctx, "Pixel Snap:", &g->pixel_snap)) {
+				if (nk_checkbox_label(ctx, "Pixel Snap", &g->pixel_snap)) {
 					// Should we let them have both or neither?  For now, I guess
 					// g->oversample = !g->pixel_snap;
 					regen_font = SDL_TRUE;
 				}
 
-				if (nk_checkbox_label(ctx, "Oversample:", &g->oversample)) {
+				if (nk_checkbox_label(ctx, "Oversample", &g->oversample)) {
 					//g->pixel_snap = !g->oversample
 					regen_font = SDL_TRUE;
 				}
@@ -1919,7 +1919,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, &ratios[2]);
 				nk_label(ctx, "Font:", NK_TEXT_LEFT);
 				nk_edit_string(ctx, path_flags, g->font_path_buf, &font_path_len, STRBUF_SZ, nk_filter_default);
-				if (nk_button_label(ctx, "Change Font")) {
+				if (nk_button_label(ctx, "Change")) {
 					g->fs_output = g->font_path_buf;
 					// TODO New event type, select font to restrict to ttf files?
 					event.user.code = SELECT_FILE;
@@ -2038,14 +2038,14 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_label(ctx, "GUI in Fullscreen mode:", NK_TEXT_LEFT);
 				static const char* gui_options[] = { "Delay", "Always", "Never" };
 				bounds = nk_widget_bounds(ctx);
-				g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, DFLT_FONT_SIZE+28, nk_vec2(bounds.w, 800));
+				g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, g->font_size+28, nk_vec2(bounds.w, 800));
 
 				/*
 				* This doesn't scale well, looks like it's time to do that total Prefs
 				* redesign
 				nk_label(ctx, "Default Playlist:", NK_TEXT_LEFT);
 				//bounds = nk_widget_bounds(ctx);
-				g->default_playlist_idx = nk_combo(ctx, (const char* const*)g->playlists.a, g->playlists.size, g->default_playlist_idx, DFLT_FONT_SIZE+28, nk_vec2(bounds.w, 800));
+				g->default_playlist_idx = nk_combo(ctx, (const char* const*)g->playlists.a, g->playlists.size, g->default_playlist_idx, g->font_size+28, nk_vec2(bounds.w, 800));
 				*/
 
 				// TODO should these go in appearance?
@@ -2081,9 +2081,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
 
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
-				//nk_layout_row_dynamic(ctx, 0, 1);
-
+				nk_layout_row_dynamic(ctx, 0, 1);
 				bounds = nk_widget_bounds(ctx);
 				nk_label(ctx, "Cache:", NK_TEXT_LEFT);
 				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
@@ -2107,7 +2105,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
 
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+				nk_layout_row_dynamic(ctx, 0, 1);
 				nk_label(ctx, "Thumbnails:", NK_TEXT_LEFT);
 				nk_edit_string(ctx, path_flags, g->thumbdir, &thumb_len, STRBUF_SZ, nk_filter_default);
 				nk_layout_row_dynamic(ctx, 0, 2);
@@ -2126,7 +2124,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
 
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+				nk_layout_row_dynamic(ctx, 0, 1);
 				nk_label(ctx, "Logs:", NK_TEXT_LEFT);
 				nk_edit_string(ctx, path_flags, g->logdir, &log_len, STRBUF_SZ, nk_filter_default);
 				nk_layout_row_dynamic(ctx, 0, 2);
@@ -2146,7 +2144,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
 
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+				nk_layout_row_dynamic(ctx, 0, 1);
 				nk_label(ctx, "Playlists:", NK_TEXT_LEFT);
 				nk_edit_string(ctx, path_flags, g->playlistdir, &pl_len, STRBUF_SZ, nk_filter_default);
 				// TODO Clear/delete playlists?
@@ -2183,7 +2181,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					g->fs_output = g->logdir;				}
 			} else if (cur_prefs == PREFS_CONTROLS) {
 				int control_flags = NK_EDIT_READ_ONLY | NK_EDIT_CLIPBOARD | NK_EDIT_MULTILINE;
-				nk_layout_row_dynamic(ctx, 110*(DFLT_FONT_SIZE+4), 1);
+				nk_layout_row_dynamic(ctx, 110*(g->font_size+4), 1);
 				nk_edit_string(ctx, control_flags, g->controls_text, &g->ct_len, g->ct_len+1, nk_filter_default);
 			}
 
@@ -2237,7 +2235,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 	// Other operations like Copy/Duplicate?
 
 	// start with same setup as File Browser
-	const float group_szs[] = { FB_SIDEBAR_W, scr_w-FB_SIDEBAR_W };
+	const float group_szs[] = { g->gui_sidebar_w, scr_w-g->gui_sidebar_w-8 };
 
 
 	if (selected >= 0 && selected < g->playlists.size) {

@@ -345,6 +345,7 @@ typedef struct global_state
 	int gui_menu_w;  // menu button width
 	int gui_prev_next_w;
 	int gui_zoom_rot_w;
+	int gui_sidebar_w;
 
 
 	// TODO once stable bake into executable and remove
@@ -2597,6 +2598,7 @@ void setup_font(char* font_file, float height)
 	g->gui_menu_w = ratio * GUI_MENU_W;
 	g->gui_prev_next_w = ratio * GUI_PREV_NEXT_W;
 	g->gui_zoom_rot_w = ratio * GUI_ZOOM_ROTATE_W;
+	g->gui_sidebar_w = ratio * FB_SIDEBAR_W;
 }
 
 void setup(int argc, char** argv)
@@ -2700,7 +2702,7 @@ void setup(int argc, char** argv)
 	// TODO
 	//FILE* controls_file = fopen("src/controls.txt", "r");
 	//g->ct_len = file_read(controls_file, &g->controls_text);
-	g->controls_text = controls_text;
+	g->controls_text = (char*)controls_text;
 	g->ct_len = strlen(controls_text);
 
 	// already NULL from static initialization
