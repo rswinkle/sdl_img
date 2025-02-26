@@ -1743,6 +1743,14 @@ const char* color_labels[NK_COLOR_COUNT] =
 	"KNOB_CURSOR_ACTIVE"
 };
 
+nk_bool
+nk_filter_nothing(const struct nk_text_edit *box, nk_rune unicode)
+{
+    NK_UNUSED(unicode);
+    NK_UNUSED(box);
+    return nk_false;
+}
+
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 {
 	struct nk_rect bounds;
@@ -1789,13 +1797,13 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 	const struct nk_input* in = &ctx->input;
 
 	// TODO apparently READ ONLY means I don't get any of the other 3
-	int path_flags = NK_EDIT_READ_ONLY | NK_EDIT_AUTO_SELECT | NK_EDIT_CLIPBOARD | NK_EDIT_GOTO_END_ON_ACTIVATE;
+	//int path_flags = NK_EDIT_READ_ONLY | NK_EDIT_SELECTABLE | NK_EDIT_AUTO_SELECT | NK_EDIT_CLIPBOARD;
+	int path_flags = NK_EDIT_SELECTABLE | NK_EDIT_AUTO_SELECT | NK_EDIT_CLIPBOARD;
 
 	
 	char label_buf[100];
 	static int cur_prefs = PREFS_APPEARANCE;
 	nk_bool is_selected;
-
 
 	if (nk_begin(ctx, "Preferences", s, win_flags)) {
 		//bounds = nk_widget_bounds(ctx);
@@ -1918,7 +1926,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, &ratios[2]);
 				nk_label(ctx, "Font:", NK_TEXT_LEFT);
-				nk_edit_string(ctx, path_flags, g->font_path_buf, &font_path_len, STRBUF_SZ, nk_filter_default);
+				nk_edit_string(ctx, path_flags, g->font_path_buf, &font_path_len, STRBUF_SZ, nk_filter_nothing);
 				if (nk_button_label(ctx, "Change")) {
 					g->fs_output = g->font_path_buf;
 					// TODO New event type, select font to restrict to ttf files?
@@ -2087,6 +2095,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
 					nk_tooltip(ctx, "Where any URLs given to sdl_img are downloaded");
 				}
+				//nk_edit_string(ctx, path_flags, g->cachedir, &cache_len, STRBUF_SZ, nk_filter_nothing);
 				nk_edit_string(ctx, path_flags, g->cachedir, &cache_len, STRBUF_SZ, nk_filter_default);
 
 				nk_layout_row_dynamic(ctx, 0, 2);
@@ -2107,7 +2116,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 				nk_layout_row_dynamic(ctx, 0, 1);
 				nk_label(ctx, "Thumbnails:", NK_TEXT_LEFT);
-				nk_edit_string(ctx, path_flags, g->thumbdir, &thumb_len, STRBUF_SZ, nk_filter_default);
+				nk_edit_string(ctx, path_flags, g->thumbdir, &thumb_len, STRBUF_SZ, nk_filter_nothing);
 				nk_layout_row_dynamic(ctx, 0, 2);
 				if (nk_button_label(ctx, "Clear thumbnails")) {
 					SDL_Log("Clearing thumbnails\n");
@@ -2126,7 +2135,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 				nk_layout_row_dynamic(ctx, 0, 1);
 				nk_label(ctx, "Logs:", NK_TEXT_LEFT);
-				nk_edit_string(ctx, path_flags, g->logdir, &log_len, STRBUF_SZ, nk_filter_default);
+				nk_edit_string(ctx, path_flags, g->logdir, &log_len, STRBUF_SZ, nk_filter_nothing);
 				nk_layout_row_dynamic(ctx, 0, 2);
 				if (nk_button_label(ctx, "Clear logs")) {
 					SDL_Log("Clearing logs\n");
@@ -2146,7 +2155,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 				nk_layout_row_dynamic(ctx, 0, 1);
 				nk_label(ctx, "Playlists:", NK_TEXT_LEFT);
-				nk_edit_string(ctx, path_flags, g->playlistdir, &pl_len, STRBUF_SZ, nk_filter_default);
+				nk_edit_string(ctx, path_flags, g->playlistdir, &pl_len, STRBUF_SZ, nk_filter_nothing);
 				// TODO Clear/delete playlists?
 				nk_layout_row_dynamic(ctx, 0, 1);
 				if (nk_button_label(ctx, "Change playlist dir")) {
@@ -2180,9 +2189,10 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					// above...
 					g->fs_output = g->logdir;				}
 			} else if (cur_prefs == PREFS_CONTROLS) {
-				int control_flags = NK_EDIT_READ_ONLY | NK_EDIT_CLIPBOARD | NK_EDIT_MULTILINE;
+				//int control_flags = NK_EDIT_READ_ONLY | NK_EDIT_CLIPBOARD | NK_EDIT_MULTILINE;
+				int control_flags = NK_EDIT_SELECTABLE | NK_EDIT_CLIPBOARD | NK_EDIT_MULTILINE;
 				nk_layout_row_dynamic(ctx, 110*(g->font_size+4), 1);
-				nk_edit_string(ctx, control_flags, g->controls_text, &g->ct_len, g->ct_len+1, nk_filter_default);
+				nk_edit_string(ctx, control_flags, g->controls_text, &g->ct_len, g->ct_len+1, nk_filter_nothing);
 			}
 
 			nk_group_end(ctx);
