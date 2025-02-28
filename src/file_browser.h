@@ -3840,13 +3840,44 @@ void fb_sort_toggle(file_browser* fb, int sort_type)
 	// convert to DOWN variant if already in UP variant
 	sort_type += fb->sorted_state == sort_type;
 
+	// TODO do I even want this behavior?  Yes, Gnome file selector preserves
+	// selection on sort, though it doesn't even support sorting on search results
+	char* save = NULL;
+	if (fb->selection >= 0) {
+		// NOTE would use name, except Recents could break the assumption that
+		// there can't be two identical names
+		if (fb->is_search_results) {
+			save = fb->files.a[fb->search_results.a[fb->selection]].path;
+		} else {
+			save = fb->files.a[fb->selection].path;
+		}
+	}
+
 	qsort(fb->files.a, fb->files.size, sizeof(file), cmps[sort_type]);
 	fb->sorted_state = sort_type;
 	fb->c_func = cmps[sort_type];
 
 	if (fb->is_search_results) {
 		fb_search_filenames(fb);
+		if (save) {
+			for (int i=0; i<fb->search_results.size; ++i) {
+				if (!strcmp(save, fb->files.a[fb->search_results.a[i]].path)) {
+					fb->selection = i;
+					break;
+				}
+			}
+		}
+	} else if (save) {
+		for (int i=0; i<fb->files.size; ++i) {
+			if (!strcmp(save, fb->files.a[i].path)) {
+				fb->selection = i;
+				break;
+			}
+		}
 	}
+	// Don't really need to convert it to 1 or 0 but just to clarify that I'm using
+	// it as a bool
+	fb->list_setscroll = !!save;
 }
 
 void fb_search_filenames(file_browser* fb)

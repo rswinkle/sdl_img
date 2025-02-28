@@ -2653,7 +2653,7 @@ void setup(int argc, char** argv)
 
 	memcpy(g->color_table, nk_get_default_color_table(), sizeof(g->color_table));
 	// TODO config
-	g->color_table[1].a = DFLT_WINDOW_OPACITY;
+	g->color_table[NK_COLOR_WINDOW].a = DFLT_WINDOW_OPACITY;
 	
 	for (int i=1; i<argc; ++i) {
 		if (!strcmp(argv[i], "-s") || !strcmp(argv[i], "--slide-show")) {

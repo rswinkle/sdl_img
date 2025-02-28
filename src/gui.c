@@ -1852,7 +1852,11 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
 				nk_layout_row_dynamic(ctx, 0, 1);
+				bounds = nk_widget_bounds(ctx);
 				nk_label(ctx, "GUI Scaling:", NK_TEXT_LEFT);
+				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+					nk_tooltip(ctx, "Set based on DPI by default (ie possibly > 1 on high-dpi displays)");
+				}
 				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
 
@@ -2026,7 +2030,9 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				// off the screen
 				// TODO make Nuklear smart enough to do drop *up* when necessary
 				nk_layout_row_dynamic(ctx, 350, 1);
-				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_WINDOW], nk_true);
+				struct nk_color filler_color = { 0 };
+				nk_rule_horizontal(ctx, filler_color, nk_false);
+				//nk_rule_horizontal(ctx, g->color_table[NK_COLOR_WINDOW], nk_false);
 
 
 
