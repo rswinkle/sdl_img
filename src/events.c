@@ -1395,12 +1395,25 @@ int handle_events_normally()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
-				if (!copy_escape && !g->fullscreen && !g->slideshow && g->state == NORMAL) {
+				// NOTE the order of else if's is purposeful, since you can have a
+				// slideshow while img_focus and it makes sense to end the former before
+				// "exiting" the latter, same with the rest
+				if (!g->img_focus && !copy_escape && !g->fullscreen && !g->slideshow && g->state == NORMAL) {
 					//nk_input_end(g->ctx);
 					return 1;
 				} else if (g->slideshow) {
 					SDL_Log("Ending slideshow");
 					g->slideshow = 0;
+				} else if (g->img_focus) {
+					g->img_focus = NULL;
+					if (g->n_imgs > 1) {
+						g->progress_hovered = SDL_FALSE;
+					}
+					if (IS_VIEW_RESULTS())
+						SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->search_results.a[g->img[0].index]].path, title_buf));
+					else
+						SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->img[0].index].path, title_buf));
+
 				} else if (g->fullscreen) {
 					g->fullscreen = 0;
 					set_fullscreen();
