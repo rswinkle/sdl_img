@@ -47,10 +47,11 @@
 #define GIF_ZOOM_DIV 3
 
 
-// TODO constants for most controls ie
+// TODO constants for some controls... that make more sense to be changeable
 // Have to think abount names and how I handle modifiers
 // most likely I'll leave the modifiers unchangeable so you only
 // specify SDL_SCANCODE_F for fullscreen which is CTRL+F
 #define CONTROL_NEXT_PAN_RIGHT SDL_SCANCODE_RIGHT
 #define CONTROL_NEXT_PAN_DOWN SDL_SCANCODE_DOWN
+
 

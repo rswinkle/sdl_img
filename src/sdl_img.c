@@ -329,6 +329,7 @@ typedef struct global_state
 	int show_infobar;
 	int confirm_delete;
 	int confirm_rotation;
+	int warn_text_copy;
 
 	struct nk_font_atlas* atlas;
 	struct nk_font_config config;
@@ -3838,8 +3839,6 @@ void do_save(int removing)
 // and trying to minimize external dependencies.
 int do_copy()
 {
-	static int show_warning = SDL_TRUE;
-
 	if (g->loading)
 		return 0;
 
@@ -3849,9 +3848,11 @@ int do_copy()
 
 	SDL_SetClipboardText(g->files.a[img->index].path);
 
+	// TODO what if I want ESC to mean no change?  third button cancel?
 	SDL_MessageBoxButtonData buttons[] = {
-		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "yes" },
-		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "no" }
+		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 2, "yes" },
+		{ 0,                                       1, "no" },
+		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "cancel" }
 	};
 
 	SDL_MessageBoxData messageboxdata = {
@@ -3863,7 +3864,7 @@ int do_copy()
 		buttons, /* .buttons */
 		NULL /* .colorScheme, NULL = system default */
 	};
-	int buttonid;
+	int buttonid = 123;
 
 	char msgbox_prompt[] =
 	"No visual copy supported. The path of the image has been copied to the clipboard.\n"
@@ -3871,10 +3872,18 @@ int do_copy()
 	"Show this warning next time?";
 	messageboxdata.message = msgbox_prompt;
 
-	if (show_warning) {
-		SDL_ShowMessageBox(&messageboxdata, &buttonid);
-		show_warning = !!buttonid;
-		return !buttonid;  // just means escape could have been hit, not that it did
+	if (g->warn_text_copy) {
+		// NOTE hitting x sets buttonid to -1 which we treat like cancel
+		// ESC sets it to 0, tabbing doesn't seem to work to switch buttons
+		if (SDL_ShowMessageBox(&messageboxdata, &buttonid)) {
+			SDL_Log("messagebox error: %s\n", SDL_GetError());
+			return 1; // probably an error big enough to exit but meh
+		}
+		SDL_Log("buttonid = %d\n", buttonid);
+		if (buttonid > 0) {
+			g->warn_text_copy = buttonid == 2;
+		}
+		return !buttonid;
 	}
 
 	return 0;

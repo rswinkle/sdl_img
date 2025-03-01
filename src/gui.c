@@ -2092,6 +2092,8 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_checkbox_label(ctx, "Confirm delete in Normal mode", &g->confirm_delete);
 				nk_checkbox_label(ctx, "Confirm rotation", &g->confirm_rotation);
 
+				nk_checkbox_label(ctx, "Warn about text copy", &g->warn_text_copy);
+
 				// TODO come up with better name/description
 				nk_layout_row_dynamic(ctx, 0, 1);
 				nk_checkbox_label(ctx, "Preserve relative offsets in multimode movement", &g->ind_mm);

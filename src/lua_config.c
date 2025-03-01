@@ -32,6 +32,7 @@ enum {
 	X_DELETES_THUMB,
 	CONFIRM_DELETE,
 	CONFIRM_ROTATION,
+	WARN_TEXT_COPY,
 	RELATIVE_OFFSETS,
 	IMG_EXTS,
 	BOOKMARKS,
@@ -67,6 +68,7 @@ char* keys[] =
 	"x_deletes_thumb",
 	"confirm_delete",
 	"confirm_rotation",
+	"warn_text_copy",
 	"relative_offsets",
 	"img_exts",
 	"bookmarks",
@@ -193,9 +195,10 @@ int read_config_file(char* filename)
 
 	g->show_infobar = try_bool_dflt(L, "show_info_bar", DFLT_SHOW_INFOBAR);
 	g->fill_mode = try_bool_dflt(L, "fill_mode", DFLT_FILL_MODE);
-	g->thumb_x_deletes  = try_bool_dflt(L, "x_deletes_thumb", DFLT_THUMB_X_DELETES);
-	g->confirm_delete  = try_bool_dflt(L, "confirm_delete", DFLT_CONFIRM_DELETE);
-	g->confirm_rotation  = try_bool_dflt(L, "confirm_rotation", DFLT_CONFIRM_ROTATION);
+	g->thumb_x_deletes = try_bool_dflt(L, "x_deletes_thumb", DFLT_THUMB_X_DELETES);
+	g->confirm_delete = try_bool_dflt(L, "confirm_delete", DFLT_CONFIRM_DELETE);
+	g->confirm_rotation = try_bool_dflt(L, "confirm_rotation", DFLT_CONFIRM_ROTATION);
+	g->warn_text_copy = try_bool_dflt(L, "warn_text_copy", DFLT_WARN_TEXT_COPY);
 	g->ind_mm = try_bool_dflt(L, "relative_offsets", DFLT_IND_MM);
 
 
@@ -332,6 +335,9 @@ void write_config(FILE* cfg_file)
 			break;
 		case CONFIRM_ROTATION:
 			fprintf(cfg_file, "%s\n", bool_str[g->confirm_rotation]);
+			break;
+		case WARN_TEXT_COPY:
+			fprintf(cfg_file, "%s\n", bool_str[g->warn_text_copy]);
 			break;
 		case RELATIVE_OFFSETS:
 			fprintf(cfg_file, "%s\n", bool_str[g->ind_mm]);
