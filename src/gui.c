@@ -440,9 +440,6 @@ void draw_gui(struct nk_context* ctx)
 						text_buf[0] = 0;
 						text_len = 0;
 						g->selection = g->img[0].index;
-						g->list_setscroll = SDL_TRUE;
-						// redundant since we clear before doing the search atm
-						g->search_results.size = 0;
 					}
 				} else {
 					if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, g->font_size+16, g->search_results.size)) {
@@ -483,14 +480,14 @@ void draw_gui(struct nk_context* ctx)
 						full_rows = list_height / row_height;
 						nk_list_view_end(&rview);
 					}
-				}
-				if (g->list_setscroll) {
-					if (g->selection < rview.begin) {
-						nk_group_set_scroll(ctx, "Result List", 0, g->selection*row_height);
-					} else if (g->selection >= rview.begin + full_rows) {
-						nk_group_set_scroll(ctx, "Result List", 0, (g->selection-full_rows+1)*row_height);
+					if (g->list_setscroll) {
+						if (g->selection < rview.begin) {
+							nk_group_set_scroll(ctx, "Result List", 0, g->selection*row_height);
+						} else if (g->selection >= rview.begin + full_rows) {
+							nk_group_set_scroll(ctx, "Result List", 0, (g->selection-full_rows+1)*row_height);
+						}
+						g->list_setscroll = FALSE;
 					}
-					g->list_setscroll = FALSE;
 				}
 			} else {
 				if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, g->font_size+16, g->files.size)) {
@@ -1016,8 +1013,6 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 						fb->is_search_results = FALSE;
 						fb->text_buf[0] = 0;
 						fb->text_len = 0;
-						fb->selection = -1;
-						fb->list_setscroll = TRUE;
 					}
 				} else {
 					if (nk_list_view_begin(ctx, &rview, "FB Result List", NK_WINDOW_BORDER, g->font_size+16, fb->search_results.size)) {
