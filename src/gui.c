@@ -216,6 +216,11 @@ void draw_gui(struct nk_context* ctx)
 	int scr_w = g->scr_w/g->x_scale;
 	int scr_h = g->scr_h/g->y_scale;
 
+	// 2*minrowpadding which is 8 + win.spacing.y which is 4 = 20
+	int row_height = g->font_size + 20;
+	// set to number of *fully visible* rows in the list_view
+	// ie clip.h or bounds.h / row_height
+	int full_rows;
 
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
@@ -308,7 +313,6 @@ void draw_gui(struct nk_context* ctx)
 	float search_ratio[] = { 0.15f, 0.85f };
 	int list_height;
 	int active;
-	float search_height;
 
 	char* name;
 
@@ -318,7 +322,6 @@ void draw_gui(struct nk_context* ctx)
 	static int splitter_down = 0;
 
 	int search_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
-	struct nk_window* search_text_field = NULL;
 
 	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
 		splitter_down = 0;
@@ -328,7 +331,6 @@ void draw_gui(struct nk_context* ctx)
 		if (nk_begin(ctx, "List", nk_rect(0, 0, scr_w+2, scr_h+2), NK_WINDOW_NO_SCROLLBAR)) {
 			// TODO How to automatically focus on the search box if they start typing?
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, search_ratio);
-			search_height = nk_widget_bounds(ctx).h;
 
 			nk_label(ctx, "Search:", NK_TEXT_LEFT);
 
@@ -427,7 +429,9 @@ void draw_gui(struct nk_context* ctx)
 			//nk_layout_row_dynamic(ctx, scr_h-2*search_height-8, 1);
 			// 2*(font_ht + 16 + win_spacing(4))
 			// 2 * win_padding (4)
-			nk_layout_row_dynamic(ctx, scr_h-2*(g->font_size + 20)-8, 1);
+			bounds = nk_widget_bounds(ctx);
+			nk_layout_row_dynamic(ctx, scr_h-bounds.y, 1);
+			//nk_layout_row_dynamic(ctx, scr_h-2*(g->font_size + 20)-8, 1);
 
 			if (g->state & SEARCH_RESULTS) {
 				if (!g->search_results.size) {
@@ -476,15 +480,17 @@ void draw_gui(struct nk_context* ctx)
 							nk_label(ctx, g->files.a[i].mod_str, NK_TEXT_RIGHT);
 						}
 						list_height = ctx->current->layout->clip.h; // ->bounds.h?
+						full_rows = list_height / row_height;
 						nk_list_view_end(&rview);
 					}
 				}
-				if (g->list_setscroll && rview.total_height > list_height &&
-				    (g->selection <= rview.begin || g->selection >= rview.end-1)) {
-					int scroll_limit = rview.total_height - list_height; // little off
-					nk_uint y = (g->selection/(float)(g->search_results.size-1) * scroll_limit) + 0.999f;
-					nk_group_set_scroll(ctx, "Result List", 0, y);
-					g->list_setscroll = SDL_FALSE;
+				if (g->list_setscroll) {
+					if (g->selection < rview.begin) {
+						nk_group_set_scroll(ctx, "Result List", 0, g->selection*row_height);
+					} else if (g->selection >= rview.begin + full_rows) {
+						nk_group_set_scroll(ctx, "Result List", 0, (g->selection-full_rows+1)*row_height);
+					}
+					g->list_setscroll = FALSE;
 				}
 			} else {
 				if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, g->font_size+16, g->files.size)) {
@@ -521,16 +527,17 @@ void draw_gui(struct nk_context* ctx)
 						nk_label(ctx, g->files.a[i].mod_str, NK_TEXT_RIGHT);
 					}
 					list_height = ctx->current->layout->clip.h; // ->bounds.h?
+					full_rows = list_height / row_height;
 					nk_list_view_end(&lview);
 				}
-				if (g->list_setscroll && lview.total_height > list_height &&
-				    (g->selection <= lview.begin || g->selection >= lview.end-1)) {
-					int scroll_limit = lview.total_height - list_height; // little off
-					nk_uint y = (g->selection/(float)(g->files.size-1) * scroll_limit) + 0.999f;
-					nk_group_set_scroll(ctx, "Image List", 0, y);
-					g->list_setscroll = SDL_FALSE;
+				if (g->list_setscroll) {
+					if (g->selection < lview.begin) {
+						nk_group_set_scroll(ctx, "Image List", 0, g->selection*row_height);
+					} else if (g->selection >= lview.begin + full_rows) {
+						nk_group_set_scroll(ctx, "Image List", 0, (g->selection-full_rows+1)*row_height);
+					}
+					g->list_setscroll = FALSE;
 				}
-				//printf("scroll %u %u\n", x, y);
 			} // end main list
 
 		}
@@ -555,8 +562,13 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 	int symbol;
 	int list_height;
 	int active;
-	float search_height = 0;
 	int ret = 1;
+
+	// 2*minrowpadding which is 8 + win.spacing.y which is 4 = 20
+	int row_height = g->font_size + 20;
+	// set to number of *fully visible* rows in the list_view
+	// ie clip.h or bounds.h / row_height
+	int full_rows;
 
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;
@@ -615,7 +627,6 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 		}
 		//nk_widget_disable_end(ctx);
 
-		search_height = nk_widget_bounds(ctx).h;
 		// Search field
 		// TODO
 		//nk_button_label(ctx, "Search");
@@ -648,7 +659,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 		}
 		nk_widget_disable_end(ctx);
 
-		int path_rows = 1; // default 1 for text path
+		//int path_rows = 1; // default 1 for text path
 		// don't show path if recents or in root directory "/"
 		if (!fb->is_recents && fb->dir[1]) {
 			strncpy(dir_buf, fb->dir, sizeof(dir_buf));
@@ -699,7 +710,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 						begin = d + 1;
 					}
 				}
-				path_rows = depth/6 + 1;
+				//path_rows = depth/6 + 1;
 				ctx->style.window.spacing.x = win_spacing.x;
 			} else {
 
@@ -996,10 +1007,8 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 			float ratios[] = { header_ratios[0]+0.01f, header_ratios[2], header_ratios[4]+0.01f };
 
-			// path_rows is 1 for text mode or >=1 for breadcrumb mode, +2 for
-			// the search bar and the column header buttons
-			nk_layout_row_dynamic(ctx, scr_h-(path_rows+2)*search_height, 1);
-
+			bounds = nk_widget_bounds(ctx);
+			nk_layout_row_dynamic(ctx, scr_h-bounds.y, 1);
 
 			if (fb->is_search_results) {
 				if (!fb->search_results.size) {
@@ -1042,15 +1051,16 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 							nk_label(ctx, f->a[i].mod_str, NK_TEXT_RIGHT);
 						}
 						list_height = ctx->current->layout->clip.h; // ->bounds.h?
+						full_rows = list_height / row_height;
 						nk_list_view_end(&rview);
 					}
 				}
-
-				if (fb->list_setscroll && rview.total_height > list_height &&
-				    (fb->selection <= rview.begin || fb->selection >= rview.end-1)) {
-					int scroll_limit = rview.total_height - list_height; // little off
-					nk_uint y = (fb->selection/(float)(fb->search_results.size-1) * scroll_limit) + 0.999f;
-					nk_group_set_scroll(ctx, "FB Result List", 0, y);
+				if (fb->list_setscroll) {
+					if (fb->selection < rview.begin) {
+						nk_group_set_scroll(ctx, "FB Result List", 0, fb->selection*row_height);
+					} else if (fb->selection >= rview.begin + full_rows) {
+						nk_group_set_scroll(ctx, "FB Result List", 0, (fb->selection-full_rows+1)*row_height);
+					}
 					fb->list_setscroll = FALSE;
 				}
 			} else {
@@ -1078,14 +1088,15 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 						nk_label(ctx, f->a[i].mod_str, NK_TEXT_RIGHT);
 					}
 					list_height = ctx->current->layout->clip.h; // ->bounds.h?
+					full_rows = list_height / row_height;
 					nk_list_view_end(&lview);
 				}
-
-				if (fb->list_setscroll && lview.total_height > list_height &&
-				    (fb->selection <= lview.begin || fb->selection >= lview.end-1)) {
-					int scroll_limit = lview.total_height - list_height; // little off
-					nk_uint y = (fb->selection/(float)(f->size-1) * scroll_limit) + 0.999f;
-					nk_group_set_scroll(ctx, "File List", 0, y);
+				if (fb->list_setscroll) {
+					if (fb->selection < lview.begin) {
+						nk_group_set_scroll(ctx, "File List", 0, fb->selection*row_height);
+					} else if (fb->selection >= lview.begin + full_rows) {
+						nk_group_set_scroll(ctx, "File List", 0, (fb->selection-full_rows+1)*row_height);
+					}
 					fb->list_setscroll = FALSE;
 				}
 			}

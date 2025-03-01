@@ -795,7 +795,7 @@ int handle_list_events()
 					// to current image
 					if (g->selection < 0) {
 						// TODO what if current image was still set to overall list index?
-						g->selection = g->search_results.a[g->img[0].index];
+						g->selection = g->img[0].index;
 					} else {
 						// convert selection
 						g->selection = g->search_results.a[g->selection];
