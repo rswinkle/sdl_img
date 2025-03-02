@@ -2485,7 +2485,8 @@ int linux_recents(cvector_str* recents, void* userdata)
 	return i;
 }
 
-#include "clnk.c"
+#define CLNK_IMPLEMENTATION
+#include "clnk.h"
 
 int windows_recents(cvector_str* recents, void* userdata)
 {

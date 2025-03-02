@@ -1,15 +1,83 @@
+/*
+clnk 0.90 MIT licensed Windows .lnk shortct file parser
+robertwinkler.com
+
+Do this:
+    #define CLNK_IMPLEMENTATION
+before you include this file in *one* C or C++ file to create the implementation.
+
+LICENSE
+
+    See end of file for license information.
+
+QUICK NOTES:
+
+    For now all it does is extract the path to the file the shortcut points at.
+    That seems the most relevant data and all I needed for my project.  If
+    someone requests more I'd consider adding it but for the life of me I can't
+    figure out what all that extra information is for let alone why they made the
+    format so complicated.
+
+	There are currently only 2 main functions with 2 variants each.  They
+	either allocate the buffer for you or accept a buffer and size parameter
+	and they either take a lnk file path or a FILE* to one already open.
+
+	The program below demonstrates:
+
+    int main(int argc, char** argv)
+    {
+        if (argc != 2) {
+            printf("Usage: %s some_shortcut.lnk\n", argv[0]);
+            return 0;
+        }
+
+        char path[1024] = {0};
+        if (clnk_get_path_buf(argv[1], path, sizeof(path))) {
+            printf("Path: %s\n", path);
+        }
+
+        char* path2 = clnk_get_path(argv[1]);
+        if (path2) {
+            printf("Path: %s\n", path2);
+            free(path2);
+        }
+
+        return 0;
+    }
+
+
+
+*/
+
+#ifndef CLNK_H
+#define CLNK_H
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include <assert.h>
+
+// TODO remove, make C89 compliant
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 char* clnk_get_path_buf(const char* lnk_file, char* buf, int size);
 char* clnk_get_path_buf_from_file(FILE* f, char* buf, int size);
 
 char* clnk_get_path_from_file(FILE* f);
 char* clnk_get_path(const char* lnk_file);
+
+#ifdef __cplusplus
+}
+#endif
+
+// end CLNK_H
+#endif
+
+#ifdef CLNK_IMPLEMENTATION
 
 int validate_lnk_file(FILE* f)
 {
@@ -190,29 +258,23 @@ char* clnk_get_path_from_file(FILE* f)
 	return ret;
 }
 
-/*
-int main(int argc, char** argv)
-{
-	if (argc != 2) {
-		printf("Usage: %s some_shortcut.lnk\n", argv[0]);
-		return 0;
-	}
-
-	char path[1024] = {0};
-	if (clnk_get_path_buf(argv[1], path, sizeof(path))) {
-		printf("Path: %s\n", path);
-	} else {
-		printf("Invalid Path: %s\n", path);
-	}
-
-	char* path2 = clnk_get_path(argv[1]);
-	if (path2) {
-		printf("Path: %s\n", path2);
-		free(path2);
-	}
+#undef CLNK_IMPLEMENTATION
+#endif
 
 
-
-	return 0;
-}
-*/
+// The MIT License (MIT)
+// 
+// Copyright (c) 2025 Robert Winkler
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+// documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and
+// to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+// TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+// CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// IN THE SOFTWARE.

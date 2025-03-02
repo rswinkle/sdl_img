@@ -9,7 +9,7 @@ PLAT=linux
 # cross_win: msys2 clang/ucrt64 cross compile env using
 # using https://github.com/HolyBlackCat/quasi-msys2
 
-PLATS=linux windows cross_win
+PLATS=linux cross_win
 
 #CC=tcc
 
@@ -17,6 +17,8 @@ PLATS=linux windows cross_win
 # for some reason the sanitizers aren't working in my cross compile environment
 # but it's really only for creating a windows release/package anyway
 ifeq ($(PLAT), cross_win)
+TARGET=sdl_img.exe
+
 ifeq ($(config), release)
 	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
 	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
@@ -27,6 +29,8 @@ endif
 endif
 
 ifeq ($(PLAT), linux)
+TARGET=sdl_img
+
 ifeq ($(config), release)
 	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
 	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
@@ -51,11 +55,24 @@ DESTDIR=/usr/local
 PKGDIR=package_linux
 PKG_DIR=$(PKGDIR)$(DESTDIR)
 
+SRCS=src/sdl_img.c src/events.c src/gui.c src/rendering.c src/lua_config.c src/sorting.c src/controls_str.c \
+	 src/compile_constants.h src/config_constants.h src/clnk.h src/file_browser.h src/lua_helper.h
 
-all: $(PLAT)
 
-linux: src/sdl_img.c src/events.c src/gui.c src/sorting.c nuklear.o minilua.o
-	$(CC) $(OPTS) src/sdl_img.c minilua.o nuklear.o -o sdl_img $(CFLAGS) $(LIBS)
+all: $(TARGET)
+
+sdl_img: $(SRCS) nuklear.o minilua.o
+	$(CC) $(OPTS) src/sdl_img.c minilua.o nuklear.o -o $@ $(CFLAGS) $(LIBS)
+
+sdl_img.exe: $(SRCS) nuklear.o minilua.o
+	$(CC) $(OPTS) src/sdl_img.c nuklear.o minilua.o -o $@ $(CFLAGS) $(LIBS)
+
+nuklear.o: src/nuklear.h src/nuklear_sdl_renderer.h
+	$(CC) $(OPTS) -c src/nuklear.c `pkg-config sdl2 --cflags`
+
+minilua.o: src/minilua.c
+	$(CC) $(OPTS) -c src/minilua.c -lm
+
 
 linux_package: sdl_img
 	mkdir -p $(PKG_DIR)/bin
@@ -80,39 +97,6 @@ linux_package: sdl_img
 	--description "A simple image viewer based on SDL2 and stb_image" \
 	--license MIT \
 	--url "https://github.com/rswinkle/sdl_img"
-
-nuklear.o: src/nuklear.h src/nuklear_sdl_renderer.h
-	$(CC) $(OPTS) -c src/nuklear.c `pkg-config sdl2 --cflags`
-
-minilua.o: src/minilua.c
-	$(CC) $(OPTS) -c src/minilua.c -lm
-
-windows: nuklear.o minilua.o
-	$(CC) $(OPTS) src/sdl_img.c nuklear.o minilua.o -o sdl_img.exe $(CFLAGS) $(LIBS)
-
-windows_package: windows
-	ldd sdl_img.exe | grep mingw64 | cut -d' ' -f3 | xargs -I{} cp {} package/
-	cp LICENSE.txt package/
-	cp LICENSE package/
-	cp README.md package/
-	unix2dos package/README.md package/LICENSE*
-	cp sdl_img.exe package/
-	makensis.exe make_installer.nsi
-
-
-
-lua:
-	$(MAKE) -C lua-5.4.7/
-
-lua_win:
-	cd lua-5.4.7/src && $(MAKE) PLAT=mingw
-
-# These are using https://github.com/HolyBlackCat/quasi-msys2
-lua_cross_win:
-	cd lua-5.4.7/src && $(MAKE) CC=win-clang PLAT=generic
-
-cross_win: nuklear.o minilua.o
-	$(CC) $(OPTS) src/sdl_img.c nuklear.o minilua.o -o sdl_img.exe $(CFLAGS) $(LIBS)
 
 cross_win_package: cross_win
 	#cat mingw_dll_list.txt | xargs -I{} cp {} package/
@@ -140,4 +124,30 @@ clean:
 	rm -f sdl_img *.o *.exe
 	$(MAKE) -C lua-5.4.7/ clean
 	rm package/*.dll
+
+
+# Below here are no longer used... unless/until I update them
+windows: nuklear.o minilua.o
+	$(CC) $(OPTS) src/sdl_img.c nuklear.o minilua.o -o sdl_img.exe $(CFLAGS) $(LIBS)
+
+windows_package: windows
+	ldd sdl_img.exe | grep mingw64 | cut -d' ' -f3 | xargs -I{} cp {} package/
+	cp LICENSE.txt package/
+	cp LICENSE package/
+	cp README.md package/
+	unix2dos package/README.md package/LICENSE*
+	cp sdl_img.exe package/
+	makensis.exe make_installer.nsi
+
+
+
+lua:
+	$(MAKE) -C lua-5.4.7/
+
+lua_win:
+	cd lua-5.4.7/src && $(MAKE) PLAT=mingw
+
+# These are using https://github.com/HolyBlackCat/quasi-msys2
+lua_cross_win:
+	cd lua-5.4.7/src && $(MAKE) CC=win-clang PLAT=generic
 

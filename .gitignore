@@ -40,6 +40,7 @@ build/*
 tags
 scratch/*
 references/*
+unused/*
 
 package/LICENSE*
 package/README.md
