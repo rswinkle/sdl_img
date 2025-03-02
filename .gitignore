@@ -42,6 +42,8 @@ scratch/*
 references/*
 unused/*
 
+!media/*.png
+
 package/LICENSE*
 package/README.md
 package_linux/*
