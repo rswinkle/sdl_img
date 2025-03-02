@@ -2233,7 +2233,6 @@ void setup_dirs(void)
 		cleanup(1, 1);
 	}
 
-	// if thumbdir was not set from config file (not even possible yet)
 	if (!g->thumbdir[0]) {
 		len = snprintf(g->thumbdir, STRBUF_SZ, "%sthumbnails", prefpath);
 		if (len >= STRBUF_SZ) {
@@ -2295,6 +2294,7 @@ void reset_behavior_prefs(void)
 	g->thumb_x_deletes = DFLT_THUMB_X_DELETES;
 	g->confirm_delete = DFLT_CONFIRM_DELETE;
 	g->confirm_rotation = DFLT_CONFIRM_ROTATION;
+	g->warn_text_copy = DFLT_WARN_TEXT_COPY;
 
 	g->ind_mm = DFLT_IND_MM;
 }
@@ -2306,16 +2306,18 @@ int load_config(void)
 	snprintf(config_path, STRBUF_SZ, "%sconfig.lua", g->prefpath);
 	SDL_LogDebugApp("config file: %s\n", config_path);
 
-	// set default preferences ahead of time in case config file is missing
-	// NOTE cachedir will be set in setup_dirs() if necessary
-	// extensions are set elsewhere too
-	//
-	// TODO compare with config enums
-	g->bg = DFLT_BG_COLOR;
-
-	reset_behavior_prefs();
-
 	if (!read_config_file(config_path)) {
+		// assume it means it doesn't exist create it, doesn't matter if it's
+		// blank
+		FILE* cfg_file = fopen(config_path, "w");
+		if (!cfg_file) {
+			perror("Failed to open config file for writing");
+			cleanup(1, 0);
+		}
+		fclose(cfg_file);
+
+		// read the blank config file to set everything to defaults
+		read_config_file(config_path);
 		return nk_false;
 	}
 	SDL_LogDebugApp("Successfully loaded config file\n");
@@ -2650,8 +2652,12 @@ void setup(int argc, char** argv)
 	g->logdir = g->logdir_buf;
 	g->playlistdir = g->playlistdir_buf;
 
+	// TODO all other prefs are set to defaults via load_config() if they
+	// don't exist in the file
 	g->thumb_highlight = DFLT_THUMB_HIGHLIGHT_COLOR;
 	g->thumb_opacity = DFLT_THUMB_OPACITY;
+	// TODO compare with config enums
+	g->bg = DFLT_BG_COLOR;
 
 	memcpy(g->color_table, nk_get_default_color_table(), sizeof(g->color_table));
 	// TODO config
@@ -2731,7 +2737,7 @@ void setup(int argc, char** argv)
 	cvec_str(&g->playlists, 0, 50);
 	// g->thumbs initialized if needed in generate_thumbs()
 
-	// Call this before creating logfile
+	// Call this after creating logfile
 	setup_dirs();
 
 // NOTE by doing it here we miss all log calls above but code above could change

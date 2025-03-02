@@ -2019,7 +2019,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 
 				nk_layout_row_dynamic(ctx, 0, 1);
-				// TODO reset sdl_img colors too? or have a separet button for them
+				// TODO reset sdl_img colors too? or have a separate button for them
 				if (nk_button_label(ctx, "Reset GUI colors to defaults")) {
 					memcpy(g->color_table, nk_get_default_color_table(), sizeof(g->color_table));
 					g->color_table[NK_COLOR_WINDOW].a = DFLT_WINDOW_OPACITY;
@@ -2027,13 +2027,10 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					// use this instead of style_default because of our change to alpha above
 					nk_style_from_table(ctx, g->color_table);
 					//nk_style_default(ctx);
-
-					// TODO have this be its own setting or keep part of window color?
-					//g->ctx->style.window.fixed_background.data.color.a *= 0.75;
 				}
 
-				// Ugly hack so you can scroll far enough past the last dropdown so it doesn't go
-				// off the screen
+				// Ugly hack so you can scroll far enough past the last dropdown so it doesn't
+				// go off the screen
 				// TODO make Nuklear smart enough to do drop *up* when necessary
 				nk_layout_row_dynamic(ctx, 350, 1);
 				struct nk_color filler_color = { 0 };
@@ -2201,7 +2198,8 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					// doesn't matter as long as non-zero and not g->cachedir since we don't want to save
 					// the dflt cachedir to config or playlistdir since we already called update_playlists
 					// above...
-					g->fs_output = g->logdir;				}
+					g->fs_output = g->logdir;
+				}
 			} else if (cur_prefs == PREFS_CONTROLS) {
 				//int control_flags = NK_EDIT_READ_ONLY | NK_EDIT_CLIPBOARD | NK_EDIT_MULTILINE;
 				int control_flags = NK_EDIT_SELECTABLE | NK_EDIT_CLIPBOARD | NK_EDIT_MULTILINE;

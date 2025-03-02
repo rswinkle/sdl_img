@@ -310,7 +310,7 @@ void write_config(FILE* cfg_file)
 			fprintf(cfg_file, "%f\n", g->button_rpt_delay);
 			break;
 		case FULLSCREEN_GUI:
-			fprintf(cfg_file, "\"%s\"\n", fullscreen_gui_str[g->fullscreen_gui]);
+			fprintf(cfg_file, "'%s'\n", fullscreen_gui_str[g->fullscreen_gui]);
 			break;
 		case THUMB_ROWS:
 			fprintf(cfg_file, "%d\n", g->thumb_rows);
