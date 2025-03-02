@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-//#define LUA_ERROR_NO_EXIT
+#define LH_LOG SDL_Log
 #include "lua_helper.h"
 
 #include "lua.h"
@@ -156,7 +156,8 @@ int read_config_file(char* filename)
 
 	if (luaL_dofile(L, filename)) {
 		//error(L, "cannot run config. file: %s\n", lua_tostring(L, -1));
-		fprintf(stderr, "lua error: %s\n", lua_tostring(L, -1));
+		g->lua_error = CVEC_STRDUP(lua_tostring(L, -1));
+		LH_LOG("1 lua error: %s\n", g->lua_error);
 		lua_close(L);
 		return 0;
 	}

@@ -386,6 +386,8 @@ typedef struct global_state
 	int slideshow;
 	int slide_timer;
 
+	char* lua_error;
+
 	// threading
 	int generating_thumbs;
 	int loading_thumbs;
@@ -919,6 +921,7 @@ void cleanup(int ret, int called_setup)
 		SDL_Quit();
 	}
 
+	free(g->lua_error);
 	free(g->prefpath);
 	free_file_browser(&g->filebrowser);
 	cvec_free_file(&g->files);
@@ -2303,15 +2306,30 @@ void reset_behavior_prefs(void)
 int load_config(void)
 {
 	char config_path[STRBUF_SZ] = { 0 };
+	char new_path[STRBUF_SZ] = { 0 };
+	char err_buf[STRBUF_SZ] = { 0 };
 	snprintf(config_path, STRBUF_SZ, "%sconfig.lua", g->prefpath);
 	SDL_LogDebugApp("config file: %s\n", config_path);
 
 	if (!read_config_file(config_path)) {
-		// assume it means it doesn't exist create it, doesn't matter if it's
-		// blank
+
+		if (!access(config_path, F_OK)) {
+			snprintf(new_path, STRBUF_SZ, "%s.err", config_path);
+			snprintf(err_buf, STRBUF_SZ, "Error attempting to load the config file: %s\nWill attempt to rename file to %s and create a new file for default settings", g->lua_error, new_path);
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error Loading Config File", err_buf, g->win);
+			if (rename(config_path, new_path)) {
+				SDL_Log("Could not rename config file %s", strerror(errno));
+			}
+		} else {
+			SDL_Log("%s did not exist, will create a new one with default settings\n");
+		}
+
+		// Create a blank config file
 		FILE* cfg_file = fopen(config_path, "w");
 		if (!cfg_file) {
-			perror("Failed to open config file for writing");
+			snprintf(err_buf, STRBUF_SZ, "Failed to open config file for writing: %s", strerror(errno));
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error Creating Config File", err_buf, g->win);
+			SDL_LogCriticalApp("%s", err_buf);
 			cleanup(1, 0);
 		}
 		fclose(cfg_file);

@@ -9,6 +9,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+// TODO Is there really any reason to do the variadic macro form like I do in
+// file_browser.h with FB_LOG?
+#ifndef LH_LOG
+#define LH_LOG lh_log
+#endif
+
 void error(lua_State* L, const char *fmt, ...);
 
 int get_int(lua_State* L, const char* var);
@@ -51,7 +57,7 @@ void error(lua_State* L, const char *fmt, ...)
 	exit(EXIT_FAILURE);
 }
 
-void lh_log(lua_State* L, const char *fmt, ...)
+void lh_log(const char *fmt, ...)
 {
 	va_list argp;
 	va_start(argp, fmt);
@@ -90,7 +96,7 @@ int try_int(lua_State* L, const char* var, int* success)
 	result = (int)lua_tointegerx(L, -1, &isnum);
 	lua_pop(L, 1);  // remove result from stack
 	if (!isnum) {
-		lh_log(L, "'%s', should be an integer\n", var);
+		LH_LOG("'%s', should be an integer\n", var);
 		return 0;
 	}
 	
@@ -139,7 +145,7 @@ double try_number(lua_State* L, const char* var, int* success)
 	result = (double)lua_tonumberx(L, -1, &isnum);
 	lua_pop(L, 1);  // remove result from stack
 	if (!isnum) {
-		lh_log(L, "'%s', should be an number\n", var);
+		LH_LOG("'%s', should be an number\n", var);
 		return 0;
 	}
 	
@@ -212,7 +218,7 @@ int try_bool(lua_State* L, const char* var, int* success)
 		return 0;
 	}
 	if (type != LUA_TBOOLEAN) {
-		lh_log(L, "'%s', should be a boolean\n", var);
+		LH_LOG("'%s', should be a boolean\n", var);
 		lua_pop(L, 1);  // remove result from stack
 		return 0;
 	}
@@ -245,7 +251,7 @@ char* try_str(lua_State* L, const char* var, int* success)
 		return NULL;
 	}
 	if (type != LUA_TSTRING) {
-		lh_log(L, "'%s', should be a string\n", var);
+		LH_LOG("'%s', should be a string\n", var);
 		lua_pop(L, 1);  // remove result from stack
 		return NULL;
 	}
@@ -274,7 +280,7 @@ int try_strbuf(lua_State* L, const char* var, char* buf, int buf_sz)
 	}
 
 	if (type != LUA_TSTRING) {
-		lh_log(L, "'%s', should be a string\n", var);
+		LH_LOG("'%s', should be a string\n", var);
 		lua_pop(L, 1);  // remove result from stack
 		return 0;
 	}
@@ -283,7 +289,7 @@ int try_strbuf(lua_State* L, const char* var, char* buf, int buf_sz)
 	const char* result = lua_tolstring(L, -1, &len);
 	lua_pop(L, 1);  // remove result from stack
 	if (len >= buf_sz) {
-		lh_log(L, "'%s' is too long for provided string buffer\n", var);
+		LH_LOG("'%s' is too long for provided string buffer\n", var);
 		return 0;
 	}
 	memcpy(buf, result, len+1);
@@ -326,7 +332,7 @@ int try_str_array(lua_State* L, const char* var, char*** out_array)
 
 	if (type != LUA_TTABLE) {
 		lua_pop(L, 1);
-		lh_log(L, "'%s', should be a table (array of strings)\n", var);
+		LH_LOG("'%s', should be a table (array of strings)\n", var);
 		return 0;
 	}
 
@@ -338,7 +344,7 @@ int try_str_array(lua_State* L, const char* var, char*** out_array)
 
 	for (int i=1; i<=n_strs; i++) {
 		if (lua_geti(L, -1, i) != LUA_TSTRING) {
-			lh_log(L, "expected a string\n");
+			LH_LOG("expected a string\n");
 			// TODO fail entirely here or let it attempt to convert below?
 		}
 
