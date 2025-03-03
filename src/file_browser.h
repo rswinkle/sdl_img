@@ -1244,6 +1244,7 @@ typedef struct file
 	//  caching for list mode
 	char mod_str[MOD_STR_BUF];
 	char size_str[SIZE_STR_BUF];
+	cvec_sz playlist_idx; // >= 0 if in current playlist
 	char* name;  // pointing at filename in path
 } file;
 

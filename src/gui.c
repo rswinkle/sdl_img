@@ -1520,6 +1520,8 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	char gif_buf[32];
 	char* size_str;
 	unsigned long index, total;
+	char saved_char[] = { ' ', 'X' };
+	int saved_status;
 	float ratios[] = { 0.5f, 0.1, 0.4f };
 
 	// TODO why scr_h + 2 to prevent a sliver below it?
@@ -1543,9 +1545,16 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 
 			// Method 2
 			index = img->index;
+			if (IS_VIEW_RESULTS()) {
+				total = g->search_results.size;
+				saved_status = g->files.a[g->search_results.a[index]].playlist_idx >= 0;
+			} else {
+				total = g->files.size;
+				saved_status = g->files.a[index].playlist_idx >= 0;
+			}
 			total = (IS_VIEW_RESULTS()) ? g->search_results.size : g->files.size;
 
-			int len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total);
+			int len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu [%c]", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total, saved_char[saved_status]);
 			if (len >= STRBUF_SZ) {
 				SDL_LogCriticalApp("info path too long\n");
 				cleanup(1, 1);
@@ -1580,6 +1589,8 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	int len;
 	int num_rows = (g->files.size+g->thumb_cols-1)/g->thumb_cols;
 	int row;
+	char saved_char[] = { ' ', 'X' };
+	int saved_status;
 
 	// TODO why the +1/2 to fill to edges?
 	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-g->gui_bar_ht, scr_w+1, g->gui_bar_ht+2), NK_WINDOW_NOT_INTERACTIVE|NK_WINDOW_NO_SCROLLBAR)) {

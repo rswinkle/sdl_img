@@ -112,7 +112,7 @@ enum {
 #define IS_THUMB_MODE() (g->state & THUMB_MASK)
 #define IS_LIST_MODE() (g->state & LIST_MASK)
 #define IS_RESULTS() (g->state & RESULT_MASK)
-#define IS_VIEW_RESULTS() (g->state & NORMAL && g->state != NORMAL)
+#define IS_VIEW_RESULTS() (g->state & NORMAL && g->state & SEARCH_RESULTS)
 #define IS_FS_MODE() (g->state & FILE_SELECTION)
 #define IS_SCANNING_MODE() (g->state == SCANNING)
 #define IS_POPUP_ACTIVE() (g->state & POPUP_MASK)
@@ -1866,6 +1866,12 @@ void read_cur_playlist(void)
 		fclose(f);
 	}
 
+		// update save status in new playlist
+		for (int i=0; i<g->files.size; ++i) {
+			g->files.a[i].playlist_idx = cvec_contains_str(&g->favs, g->files.a[i].path);
+
+		}
+
 }
 
 int handle_selection(char* path, int recurse)
@@ -2190,6 +2196,11 @@ int scan_sources(void* data)
 			SDL_Log("Found 0 images, switching to File Browser...\n");
 		}
 
+		// set save status in current playlist
+		for (int i=0; i<g->files.size; ++i) {
+			g->files.a[i].playlist_idx = cvec_contains_str(&g->favs, g->files.a[i].path);
+
+		}
 
 		g->is_open_new = SDL_FALSE;
 		SDL_LockMutex(g->scanning_mtx);
@@ -2321,7 +2332,7 @@ int load_config(void)
 				SDL_Log("Could not rename config file %s", strerror(errno));
 			}
 		} else {
-			SDL_Log("%s did not exist, will create a new one with default settings\n");
+			SDL_Log("%s did not exist, will create a new one with default settings\n", config_path);
 		}
 
 		// Create a blank config file
@@ -3809,52 +3820,92 @@ int cvec_contains_str(cvector_str* list, char* s)
 	return -1;
 }
 
+
 void do_save(int removing)
 {
 	if (g->loading)
 		return;
 
 	char* playlist = g->cur_playlist;
-	i64 loc;
+	int idx;
+	cvec_sz loc;
 	if (removing) {
 		if (g->img_focus) {
-			if ((loc = cvec_contains_str(&g->favs, g->img_focus->fullpath)) < 0) {
+			idx = g->img_focus->index;
+			if (IS_VIEW_RESULTS()) {
+				idx = g->search_results.a[idx];
+			}
+			if ((loc = g->files.a[idx].playlist_idx) < 0) {
 				SDL_Log("%s not in %s\n", g->img_focus->fullpath, playlist);
 			} else {
 				SDL_Log("removing %s\n", g->img_focus->fullpath);
 				cvec_erase_str(&g->favs, loc, loc);
+				g->files.a[idx].playlist_idx = -1;
 				SDL_Log("%"PRIcv_sz" left after removal\n", g->favs.size);
+
+				for (int i=0; i<g->files.size; ++i) {
+					if (g->files.a[i].playlist_idx > loc) {
+						g->files.a[i].playlist_idx--;
+					}
+				}
 			}
 		} else {
 			for (int i=0; i<g->n_imgs; ++i) {
-				if ((loc = cvec_contains_str(&g->favs, g->img[i].fullpath)) < 0) {
+				idx = g->img[i].index;
+				if (IS_VIEW_RESULTS()) {
+					idx = g->search_results.a[idx];
+				}
+				if ((loc = g->files.a[idx].playlist_idx) < 0) {
 					SDL_Log("%s not in %s\n", g->img[i].fullpath, playlist);
 				} else {
 					SDL_Log("removing %s\n", g->img[i].fullpath);
 					cvec_erase_str(&g->favs, loc, loc);
+					g->files.a[idx].playlist_idx = -1;
 					SDL_Log("%"PRIcv_sz" after removal\n", g->favs.size);
+
+					for (int i=0; i<g->files.size; ++i) {
+						if (g->files.a[i].playlist_idx > loc) {
+							g->files.a[i].playlist_idx--;
+						}
+					}
 				}
 			}
 		}
 	} else {
 		if (g->img_focus) {
-			if (cvec_contains_str(&g->favs, g->img_focus->fullpath) >= 0) {
+			idx = g->img_focus->index;
+			if (IS_VIEW_RESULTS()) {
+				idx = g->search_results.a[idx];
+			}
+			if (g->files.a[idx].playlist_idx >= 0) {
 				SDL_Log("%s already in %s\n", g->img_focus->fullpath, playlist);
 			} else {
 				SDL_Log("saving %s\n", g->img_focus->fullpath);
 				cvec_push_str(&g->favs, g->img_focus->fullpath);
+				g->files.a[idx].playlist_idx = g->favs.size-1;
 			}
 		} else {
 			for (int i=0; i<g->n_imgs; ++i) {
-				if (cvec_contains_str(&g->favs, g->img[i].fullpath) >= 0) {
+				idx = g->img[i].index;
+				if (IS_VIEW_RESULTS()) {
+					idx = g->search_results.a[idx];
+				}
+				if (g->files.a[idx].playlist_idx >= 0) {
 					SDL_Log("%s already in %s\n", g->img[i].fullpath, playlist);
 				} else {
 					SDL_Log("saving %s\n", g->img[i].fullpath);
 					cvec_push_str(&g->favs, g->img[i].fullpath);
+					g->files.a[idx].playlist_idx = g->favs.size-1;
 				}
 			}
 		}
 	}
+
+	// Make sure to show the GUI for a second so the user has visual confirmation
+	g->status = REDRAW;
+	SDL_ShowCursor(SDL_ENABLE);
+	g->gui_timer = SDL_GetTicks();
+	g->show_gui = SDL_TRUE;
 }
 
 // There is no easy way to do cross platform visual copy paste.
