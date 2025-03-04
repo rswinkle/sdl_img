@@ -207,14 +207,17 @@ There's a Makefile which is not great but gets the job done.
 On Linux just running `make` will create a debug build,
 while `make config=release` (after a `make clean`) will create an optimized build.
 
-On Windows I use [MSYS2](https://github.com/msys2/msys2/wiki/MSYS2-installation) and
-you can do `make PLAT=windows` or just change the default at the top of the makefile so
-you don't have to specify it every time. Unfortunately it seems to be broken no matter
-whith MSYS2 environment I choose at the moment so the last windows build was built
-using the cross compiling target which uses
+For Windows builds I use the cross compiling environment
 [quasi-msys2](https://github.com/HolyBlackCat/quasi-msys2). I'm using the default setup
-which is native clang with a ucrt environment but I'm still unclear why that works
-but clang and a ucrt environment on actual Windows doesn't.
+which is native clang with a UCRT environment.  Do `make PLAT=cross_win` for that.
+
+On Windows you can use the equivalent UCRT environment of
+[MSYS2](https://github.com/msys2/msys2/wiki/MSYS2-installation) (none of the other
+environments work curently) with `make PLAT=msys2` or just change the default
+at the top of the makefile so you don't have to specify it every time. Unfortunately it
+is broken for other MSYS2 environments (ie mingw64, clang64).  I think it's a
+platform mismatch issue with SDL2 but UCRT is the recommended environment so even
+if I figured it out I'd probably keep using UCRT.
 
 There are other targets for creating packages (ie installers) for each platform.
 
