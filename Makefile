@@ -129,6 +129,16 @@ install: sdl_img
 	cp sdl_img.desktop $(DESTDIR)/share/applications
 	cp ./package/sdl_img.png $(DESTDIR)/share/icons/hicolor/48x48/apps
 
+# Only do this on older distro like Ubuntu 22.04 for maximum
+# compatibility
+#
+# Prereq, download the latest version of the linuxdeploy appimage
+# here: https://github.com/linuxdeploy/linuxdeploy/releases 
+# put it in ~/Applications and make it executable with chmod +x  
+appimage:
+	make install DESTDIR=AppDir/usr
+	~/Applications/linuxdeploy-x86_64.AppImage --appdir AppDir/ -dAppDir/usr/share/applications/sdl_img.desktop -iAppDir/usr/share/icons/hicolor/48x48/apps/sdl_img.png -eAppDir/usr/bin/sdl_img --output appimage
+
 clean:
 	rm -f sdl_img *.o *.exe
 	$(MAKE) -C lua-5.4.7/ clean
