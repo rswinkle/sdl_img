@@ -718,14 +718,17 @@ void clear_img(img_state* img)
 			NULL /* .colorScheme, NULL = system default */
 		};
 
+		char* name;
 		char* full_img_path;
 		if (!IS_VIEW_RESULTS()) {
+			name = g->files.a[img->index].name;
 			full_img_path = g->files.a[img->index].path;
 		} else {
+			name = g->files.a[g->search_results.a[img->index]].name;
 			full_img_path = g->files.a[g->search_results.a[img->index]].path;
 		}
 
-		snprintf(msgbox_prompt, STRBUF_SZ, "Do you want to save changes to '%s'?", full_img_path);
+		snprintf(msgbox_prompt, STRBUF_SZ, "Do you want to save changes to '%s'?", name);
 		messageboxdata.message = msgbox_prompt;
 		if (g->confirm_rotation) {
 			SDL_ShowMessageBox(&messageboxdata, &buttonid);
@@ -4005,8 +4008,14 @@ void do_thumbmode()
 		g->state = THUMB_DFLT;
 		g->thumb_sel = g->img[0].index;
 	} else {
-		g->state = THUMB_SEARCH | SEARCH_RESULTS;
+		// clear NORMAL
+		g->state = THUMB_SEARCH | SEARCH_RESULTS; // ^= NORMAL;
 		g->thumb_sel = g->search_results.a[g->img[0].index];
+
+		// for thumb mode we switch indices back immediately on leaving VIEW_RESULTS
+		for (int i=0; i<g->n_imgs; ++i) {
+			g->img[i].index = g->search_results.a[g->img[i].index];
+		}
 	}
 
 	g->thumb_sel_end = g->thumb_sel;
@@ -4258,49 +4267,68 @@ void do_thumb_save(int removing)
 		end = (end / g->thumb_cols) * g->thumb_cols + g->thumb_cols - 1;
 	}
 
+	int idx;
 	if (removing) {
 		if (g->state & SEARCH_RESULTS) {
 			for (int i=0; i<g->search_results.size; ++i) {
-				fullpath = g->files.a[g->search_results.a[i]].path;
-				if ((loc = cvec_contains_str(&g->favs, fullpath)) < 0) {
+				idx = g->search_results.a[i];
+				fullpath = g->files.a[idx].path;
+				if ((loc = g->files.a[idx].playlist_idx) < 0) {
 					SDL_Log("%s not in %s\n", fullpath, playlist);
 				} else {
 					SDL_Log("removing %s\n", fullpath);
 					cvec_erase_str(&g->favs, loc, loc);
+					g->files.a[idx].playlist_idx = -1;
 					SDL_Log("%"PRIcv_sz" left after removal\n", g->favs.size);
+
+					for (int j=0; j<g->files.size; ++j) {
+						if (g->files.a[j].playlist_idx > loc) {
+							g->files.a[j].playlist_idx--;
+						}
+					}
 				}
 			}
 		} else {
 			for (int i=start; i<=end; ++i) {
 				fullpath = g->files.a[i].path;
-				if ((loc = cvec_contains_str(&g->favs, fullpath)) < 0) {
+				if ((loc = g->files.a[i].playlist_idx) < 0) {
 					SDL_Log("%s not in %s\n", fullpath, playlist);
 				} else {
 					SDL_Log("removing %s\n", fullpath);
 					cvec_erase_str(&g->favs, loc, loc);
+					g->files.a[i].playlist_idx = -1;
 					SDL_Log("%"PRIcv_sz" left after removal\n", g->favs.size);
+				}
+
+				for (int j=0; j<g->files.size; ++j) {
+					if (g->files.a[j].playlist_idx > loc) {
+						g->files.a[j].playlist_idx--;
+					}
 				}
 			}
 		}
 	} else {
 		if (g->state & SEARCH_RESULTS) {
 			for (int i=0; i<g->search_results.size; ++i) {
-				fullpath = g->files.a[g->search_results.a[i]].path;
-				if (cvec_contains_str(&g->favs, fullpath) >= 0) {
+				idx = g->search_results.a[i];
+				fullpath = g->files.a[idx].path;
+				if (g->files.a[idx].playlist_idx >= 0) {
 					SDL_Log("%s already in %s\n", fullpath, playlist);
 				} else {
 					SDL_Log("saving %s\n", fullpath);
 					cvec_push_str(&g->favs, fullpath);
+					g->files.a[idx].playlist_idx = g->favs.size-1;
 				}
 			}
 		} else {
 			for (int i=start; i<=end; ++i) {
 				fullpath = g->files.a[i].path;
-				if (cvec_contains_str(&g->favs, fullpath) >= 0) {
+				if (g->files.a[i].playlist_idx >= 0) {
 					SDL_Log("%s already in %s\n", fullpath, playlist);
 				} else {
 					SDL_Log("saving %s\n", fullpath);
 					cvec_push_str(&g->favs, fullpath);
+					g->files.a[i].playlist_idx = g->favs.size-1;
 				}
 			}
 		}

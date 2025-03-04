@@ -552,7 +552,7 @@ int handle_thumb_events()
 				}
 				break;
 			case SDLK_BACKSPACE:
-				if (text_len)
+				if (text_len > 1)
 					text_buf[--text_len] = 0;
 				SDL_Log("text is \"%s\"\n", text_buf);
 				break;

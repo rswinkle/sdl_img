@@ -1545,7 +1545,14 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 
 			// Method 2
 			index = img->index;
-			if (IS_VIEW_RESULTS()) {
+
+			// TODO make state transitions more clean.  Need to check
+			// for index < size because we switch to NORMAL mode before loading
+			// the image is necessarily complete so img->index is the old image
+			// index not the search index.
+			// Usually only happens on debug builds or large GIFs
+			// otherwise the load is fast enough
+			if (IS_VIEW_RESULTS() && index < g->search_results.size) {
 				total = g->search_results.size;
 				saved_status = g->files.a[g->search_results.a[index]].playlist_idx >= 0;
 			} else {
@@ -1587,34 +1594,27 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	char info_buf[STRBUF_SZ];
 	int len;
-	int num_rows = (g->files.size+g->thumb_cols-1)/g->thumb_cols;
-	int row;
 	char saved_char[] = { ' ', 'X' };
 	int saved_status;
 
+	int num_rows = (g->files.size+g->thumb_cols-1)/g->thumb_cols;
+	int row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
+
 	// TODO why the +1/2 to fill to edges?
 	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-g->gui_bar_ht, scr_w+1, g->gui_bar_ht+2), NK_WINDOW_NOT_INTERACTIVE|NK_WINDOW_NO_SCROLLBAR)) {
-		if (!(g->state & SEARCH_RESULTS)) {
-			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
-			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
-			if (len >= STRBUF_SZ) {
-				SDL_LogCriticalApp("info path too long\n");
-				cleanup(1, 1);
-			}
-		} else {
-			row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
 
-			int i;
-			if (g->thumb_sel == g->search_results.a[g->cur_result]) {
-				i = g->cur_result + 1;
-				len = snprintf(info_buf, STRBUF_SZ, "result: %d / %d  rows: %d / %d  image %d / %d", i, (int)g->search_results.size, row, num_rows, g->thumb_sel+1, (int)g->files.size);
-			} else {
-				len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
-			}
-			if (len >= STRBUF_SZ) {
-				SDL_LogCriticalApp("info path too long\n");
-				cleanup(1, 1);
-			}
+		if (g->state ==  THUMB_DFLT) {
+			saved_status = g->files.a[g->thumb_sel].playlist_idx >= 0;
+			len = snprintf(info_buf, STRBUF_SZ, "[%c] rows: %d / %d  image %d / %d", saved_char[saved_status], row, num_rows, g->thumb_sel+1, (int)g->files.size);
+		} else if (!(g->state & SEARCH_RESULTS) || g->thumb_sel != g->search_results.a[g->cur_result]) {
+			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
+		} else {
+			int i = g->cur_result + 1;
+			len = snprintf(info_buf, STRBUF_SZ, "result: %d / %d  rows: %d / %d  image %d / %d", i, (int)g->search_results.size, row, num_rows, g->thumb_sel+1, (int)g->files.size);
+		}
+		if (len >= STRBUF_SZ) {
+			SDL_LogCriticalApp("info path too long\n");
+			cleanup(1, 1);
 		}
 
 		if (g->state != THUMB_SEARCH) {
