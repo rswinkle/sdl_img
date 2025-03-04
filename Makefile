@@ -9,16 +9,14 @@ PLAT=linux
 # cross_win: msys2 clang/ucrt64 cross compile env using
 # using https://github.com/HolyBlackCat/quasi-msys2
 
-PLATS=linux cross_win
+PLATS=linux cross_win msys2
 
 #CC=tcc
-
 
 # for some reason the sanitizers aren't working in my cross compile environment
 # but it's really only for creating a windows release/package anyway
 ifeq ($(PLAT), cross_win)
 TARGET=sdl_img.exe
-
 ifeq ($(config), release)
 	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
 	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
@@ -26,11 +24,11 @@ else
 	-fsanitize=undefined -std=gnu99 -g -O0 -Wall
 	#OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall -DSDL_DISABLE_IMMINTRIN_H
 endif
+else
+TARGET=sdl_img
 endif
 
 ifeq ($(PLAT), linux)
-TARGET=sdl_img
-
 ifeq ($(config), release)
 	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
 	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
@@ -43,6 +41,17 @@ else
 	#OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall -DSDL_DISABLE_IMMINTRIN_H
 endif
 endif
+
+ifeq ($(PLAT), msys2)
+ifeq ($(config), release)
+	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
+	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
+else
+	OPTS=-std=gnu99 -g -O0 -Wall
+endif
+endif
+
+
 
 #CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.7/src
 #LIBS=`pkg-config sdl2 libcurl --libs` -lm -Llua-5.4.7/src -llua
