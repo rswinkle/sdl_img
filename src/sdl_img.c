@@ -2116,7 +2116,6 @@ int scan_sources(void* data)
 					// removal + myscandir() like below so not subject to extension filtering
 				}
 				g->selection = (start_index) ? start_index-1 : g->files.size-1;
-				try_move(SELECTION);
 				g->open_single = SDL_FALSE;
 			} else {
 				// This is right even if g->files.size != 1 (ie we did an "Open More")
@@ -2167,7 +2166,6 @@ int scan_sources(void* data)
 				// from ptrdiff_t (i64) to int here and use ints everywhere
 				int start_index =(int)(res - g->files.a);
 				g->selection = (start_index) ? start_index-1 : g->files.size-1;
-				try_move(SELECTION);
 			}
 		} else if (g->files.size) {
 			SDL_Log("Found %"PRIcv_sz" images total. Sorting by file name now...\n", g->files.size);
@@ -2179,7 +2177,6 @@ int scan_sources(void* data)
 
 			if (g->is_open_new) {
 				g->selection = g->files.size-1;
-				try_move(SELECTION);
 			} else {
 				// TODO is there a way to avoid the unecessary load with minimal code changes?
 				//
@@ -2191,17 +2188,20 @@ int scan_sources(void* data)
 
 				int idx = find_file_simple(path);
 				g->selection = idx-1;
-				try_move(SELECTION);
 			}
 		} else {
 			SDL_Log("Found 0 images, switching to File Browser...\n");
 		}
 
+		// Doing this before try_move to avoid bad urls/paths being freed out from
+		// under this loop
 		// set save status in current playlist
 		for (int i=0; i<g->files.size; ++i) {
 			g->files.a[i].playlist_idx = cvec_contains_str(&g->favs, g->files.a[i].path);
 
 		}
+		try_move(SELECTION);
+
 
 		g->is_open_new = SDL_FALSE;
 		SDL_LockMutex(g->scanning_mtx);
