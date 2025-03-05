@@ -2841,8 +2841,11 @@ void setup(int argc, char** argv)
 	// GetWindowBorderSize is only supported on X11 (as of 2019)
 	int top, bottom, left, right;
 	if (!g->fullscreen && !SDL_GetWindowBordersSize(g->win, &top, &bottom, &left, &right)) {
+		SDL_Log("border (lrtb): %d %d %d %d\n", left, right, top, bottom);
+		SDL_Log("scr_w scr_h before: %d %d\n", g->scr_w, g->scr_h);
 		g->scr_w -= left + right;
 		g->scr_h -= top + bottom;
+		SDL_Log("scr_w scr_h after: %d %d\n", g->scr_w, g->scr_h);
 		SDL_SetWindowSize(g->win, g->scr_w, g->scr_h);
 		SDL_SetWindowPosition(g->win, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 	}

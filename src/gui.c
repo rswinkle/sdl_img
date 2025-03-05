@@ -1500,13 +1500,9 @@ void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h)
 	char scan_buf[STRBUF_SZ] = {0};
 
 	// TODO show different string for loading?  Only really relevant when the start image
-	// is a large GIF that takes a second
-	// TODO possible threading/crash issue, loader clears g->files if they're all bad
-	if (g->done_scanning && g->files.size) {
-		snprintf(scan_buf, STRBUF_SZ, "Loading %s", g->files.a[(g->selection + 1) % g->files.size].path);
-	} else {
-		snprintf(scan_buf, STRBUF_SZ, "Collected %"PRIcv_sz" files...", g->files.size);
-	}
+	// is a large GIF that takes a second but then I need synchronization with loading
+	// thread to prevent a crash
+	snprintf(scan_buf, STRBUF_SZ, "Collected %"PRIcv_sz" files...", g->files.size);
 	if (nk_begin(ctx, "Scanning", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
 		
 		nk_layout_row_dynamic(ctx, 0, 1);
