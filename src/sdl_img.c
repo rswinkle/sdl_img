@@ -279,7 +279,6 @@ typedef struct global_state
 	char* cur_playlist; // points into above
 
 	char* default_playlist;  // allocated
-	//int default_playlist_idx;
 
 	cvector_file files;
 	cvector_str favs;
@@ -2789,11 +2788,6 @@ void setup(int argc, char** argv)
 		g->done_scanning = 1;
 	}
 
-	// read favorites
-	if (!g->default_playlist) {
-		g->default_playlist = CVEC_STRDUP("Favorites");
-	}
-
 	update_playlists();
 
 	SDL_Rect r;
@@ -2840,7 +2834,7 @@ void setup(int argc, char** argv)
 	if (!g->win) {
 		snprintf(error_str, STRBUF_SZ, "Couldn't create window: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
-		SDL_LOGCriticalApp(error_str);
+		SDL_LogCriticalApp("%s", error_str);
 		exit(1);
 	}
 
@@ -2875,7 +2869,7 @@ void setup(int argc, char** argv)
 	if (!g->ren) {
 		snprintf(error_str, STRBUF_SZ, "Software rendering failed: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
-		SDL_LogCriticalApp(error_str);
+		SDL_LogCriticalApp("%s", error_str);
 		cleanup(1, 1);
 	}
 

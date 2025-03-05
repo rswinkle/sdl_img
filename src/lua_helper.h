@@ -37,7 +37,9 @@ double try_number_clamp_dflt(lua_State* L, const char* var, double min, double m
 int try_bool_dflt(lua_State* L, const char* var, int dflt);
 int try_bool(lua_State* L, const char* var, int* success);
 
-char* try_str(lua_State* L, const char* var, int* success);
+char* try_str(lua_State* L, const char* var);
+char* try_str_dflt(lua_State* L, const char* var, const char* dflt);
+
 int try_strbuf(lua_State* L, const char* var, char* buf, int buf_sz);
 int try_str_array(lua_State* L, const char* var, char*** out_array);
 
@@ -242,9 +244,17 @@ int get_bool(lua_State* L, const char* var)
 	return result;
 }
 
-char* try_str(lua_State* L, const char* var, int* success)
+char* try_str_dflt(lua_State* L, const char* var, const char* dflt)
 {
-	if (success) *success = 0;
+	char* ret = try_str(L, var);
+	if (!ret) {
+		return strdup(dflt);
+	}
+	return ret;
+}
+
+char* try_str(lua_State* L, const char* var)
+{
 	int type;
 	if (!(type = lua_getglobal(L, var))) {
 		lua_pop(L, 1);  // remove result from stack

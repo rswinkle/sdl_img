@@ -57,4 +57,7 @@
 
 #define NUM_DFLT_EXTS 11
 
+// DFLT_PLIST_NAME_STR?
+#define DFLT_PLAYLIST_STR "Favorites"
+
 // End configuration related macros

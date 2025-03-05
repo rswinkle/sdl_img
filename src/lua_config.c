@@ -214,7 +214,7 @@ int read_config_file(char* filename)
 	g->bookmarks.size = try_str_array(L, "bookmarks", &g->bookmarks.a);
 	g->bookmarks.capacity = g->bookmarks.size;
 
-	g->default_playlist = try_str(L, "default_playlist", NULL);
+	g->default_playlist = try_str_dflt(L, "default_playlist", DFLT_PLAYLIST_STR);
 
 	try_strbuf(L, "playlist_dir", g->playlistdir_buf, STRBUF_SZ);
 
