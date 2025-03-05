@@ -1,7 +1,7 @@
 
 
 
-void render_thumbs()
+void render_thumbs(void)
 {
 	SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
 	SDL_RenderSetClipRect(g->ren, NULL);

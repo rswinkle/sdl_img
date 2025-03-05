@@ -81,7 +81,6 @@ enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V, M
 enum { URL, DIRECTORY, IMAGE };
 
 // Better names/macros
-#define NK_FLAG(x) (1 << (x))
 
 enum {
 	NORMAL           = NK_FLAG(0),
@@ -2291,7 +2290,7 @@ void setup_dirs(void)
 		}
 	}
 
-	printf("playlists: %s\n", g->playlistdir);
+	SDL_Log("playlists: %s\n", g->playlistdir);
 
 }
 
@@ -2569,18 +2568,6 @@ void update_playlists(void)
 	// TODO command line -p playlist.txt to be current playlist?
 	// --favorites to open favorites?
 	get_playlists(g->playlistdir);
-
-	/*
-	// If I add a prefs combo or list to change selection
-	int i=0; 
-	for (; i<g->playlists.size; ++i) {
-		if (!strcmp(g->default_playlist, g->playlists.a[i])) {
-			g->default_playlist_idx = i;
-			break;
-		}
-	}
-	assert(i != g->playlists.size);
-	*/
 }
 
 // Need to dig deeper into font API before I finalize this function
@@ -2853,7 +2840,7 @@ void setup(int argc, char** argv)
 	if (!g->win) {
 		snprintf(error_str, STRBUF_SZ, "Couldn't create window: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
-		puts(error_str);
+		SDL_LOGCriticalApp(error_str);
 		exit(1);
 	}
 
@@ -2888,7 +2875,7 @@ void setup(int argc, char** argv)
 	if (!g->ren) {
 		snprintf(error_str, STRBUF_SZ, "Software rendering failed: %s; exiting.", SDL_GetError());
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
-		puts(error_str);
+		SDL_LogCriticalApp(error_str);
 		cleanup(1, 1);
 	}
 
@@ -2926,7 +2913,7 @@ void setup(int argc, char** argv)
 	//g->x_scale = 2; //hdpi/72;
 	//g->y_scale = 2; //vdpi/72;
 
-	printf("scale %f %f\n", g->x_scale, g->y_scale);
+	SDL_Log("scale %f %f\n", g->x_scale, g->y_scale);
 	nk_sdl_scale(g->x_scale, g->y_scale);
 
 
@@ -3299,7 +3286,7 @@ void do_file_open(int clear_files)
 	g->old_state = g->state;
 
 	for (int i=0; i<g->sources.size; i++) {
-		printf("src %d: %s\n", i, g->sources.a[i]);
+		SDL_Log("src %d: %s\n", i, g->sources.a[i]);
 	}
 
 	// TODO Naming "Open" "Open New" "Open New Images" vs
@@ -3336,7 +3323,7 @@ void do_file_open(int clear_files)
 	SDL_LogDebugApp("executing OPEN_FILE%s\n", open_type_str[clear_files]);
 }
 
-void do_shuffle()
+void do_shuffle(void)
 {
 	if (g->n_imgs != 1 || g->generating_thumbs || g->loading_thumbs) {
 		SDL_Log("Only support shuffling in 1 image mode while not generating/loading thumbs\n");
@@ -3375,7 +3362,7 @@ void do_shuffle()
 			int i = g->search_results.a[j];
 			if (!strcmp(save, g->files.a[i].path)) {
 				// selection is used in listmode results, = index in results
-				printf("Setting index to %d\n", j);
+				SDL_Log("Setting index to %d\n", j);
 				g->selection = g->img[0].index = j;
 
 				// thumb_sel is the actual index in g->files, since results are
@@ -3801,7 +3788,7 @@ void do_delete(SDL_Event* next)
 	}
 }
 
-void do_actual_size()
+void do_actual_size(void)
 {
 	g->status = REDRAW;
 	if (!g->img_focus) {
@@ -3916,7 +3903,7 @@ void do_save(int removing)
 // like Qt, or start pulling in x11, winapi, etc. and write it myself
 // which defeats the purpose of using/preferring single header libraries
 // and trying to minimize external dependencies.
-int do_copy()
+int do_copy(void)
 {
 	if (g->loading)
 		return 0;
@@ -3968,7 +3955,7 @@ int do_copy()
 	return 0;
 }
 
-void do_listmode()
+void do_listmode(void)
 {
 	// Automatically go to n_imgs = 1
 	// if (g->n_imgs != 1) {
@@ -4001,7 +3988,7 @@ void do_listmode()
 	SDL_ShowCursor(SDL_ENABLE);
 }
 
-void do_thumbmode()
+void do_thumbmode(void)
 {
 	//possibly preserve SEARCH_RESULTS
 	if (g->state == NORMAL) {
