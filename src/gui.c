@@ -597,7 +597,12 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
 		splitter_down = 0;
 
+	// why + 2 to reach the edges?
+	// TODO only needed for software rendering, maybe an SDL bug?
+	// if it were Nuklear bug it always draws the backing rectangle assuming
+	// there will be a border (border is 2 pix wide by default)
 	if (nk_begin(ctx, "File Selector", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
+	//if (nk_begin(ctx, "File Selector", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER)) {
 
 		struct nk_rect win_content_rect = nk_window_get_content_region(ctx);
 		struct nk_vec2 win_spacing = ctx->style.window.spacing;
@@ -715,6 +720,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 				// method 2
 				// TODO how to make this look like method 3, submit issue/documentation
+				// win_content_rect.w already subtracted 2*win.padding.y
 				path_szs[0] = win_content_rect.w-win_spacing.x-UP_WIDTH;
 				nk_layout_row(ctx, NK_STATIC, 0, 2, path_szs);
 
@@ -889,6 +895,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 			// TODO spacing.x*2? or spacing.x+padding.x?  = 8 either way
 			nk_layout_row_static(ctx, scr_h-bounds.y, g->gui_sidebar_w-win_spacing.x*2, 1);
+			//nk_layout_row_static(ctx, scr_h-bounds.y, g->gui_sidebar_w-win_spacing.x*2, 1);
 			if (nk_group_begin(ctx, "User Bookmarks", 0)) {
 				nk_layout_row_dynamic(ctx, 0, 1);
 				char** bmarks = g->bookmarks.a;

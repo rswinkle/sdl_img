@@ -273,7 +273,6 @@ int handle_thumb_events()
 	char title_buf[STRBUF_SZ];
 	int code;
 
-	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
 		if (e.type == g->userevent) {
@@ -735,7 +734,6 @@ int handle_list_events()
 	int sort_timer;
 	//SDL_Keymod mod_state = SDL_GetModState();
 
-	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
 		// Oops, got rid of all controls when I got rid of the Menu, still need these sorting events
@@ -981,7 +979,6 @@ int handle_scanning_events()
 	}
 	SDL_UnlockMutex(g->scanning_mtx);
 
-	g->status = NOCHANGE;
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
 		if (e.type == g->userevent) {
@@ -1072,8 +1069,6 @@ int handle_popup_events()
 {
 	SDL_Event e;
 	int sc;
-
-	g->status = NOCHANGE;
 
 	SDL_Keymod mod_state = SDL_GetModState();
 
@@ -1197,8 +1192,6 @@ int handle_events_normally()
 
 	// eat all escapes this frame after copy dialog ended with "no"
 	int copy_escape = SDL_FALSE;
-
-	g->status = NOCHANGE;
 
 	SDL_Keymod mod_state = SDL_GetModState();
 	int ctrl_down = mod_state & (KMOD_LCTRL | KMOD_RCTRL);

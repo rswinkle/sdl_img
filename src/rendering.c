@@ -121,6 +121,8 @@ int render_normal(int ticks)
 		if (g->img[i].frames > 1) {
 			int frame = g->img[i].frame_i;
 			if (!g->img[i].paused && (!g->progress_hovered || (g->n_imgs > 1 && g->img_focus != &g->img[i]))) {
+				// TODO if I allow a higher MAX_GIF_FPS than screen FPS (especially if using ACCERATED renderer and VSYNC)
+				// should I show every frame or possibly skip frames if enough time has passed for 2+ frames?
 				if (ticks - g->img[i].frame_timer >= g->img[i].delays[frame]) {
 					g->img[i].frame_i = (frame + 1) % g->img[i].frames;
 					if (g->img[i].frame_i == 0)
@@ -133,8 +135,18 @@ int render_normal(int ticks)
 		}
 	}
 
-	if (g->show_gui || g->status == REDRAW) {
-		// gui drawing changes draw color so have to reset to black every time
+	// For ACCELERATED rendering with VSYNC it seems counter-intuitive but
+	// the computer seems to work harder (fan spins up) when I only RenderPresent
+	// when needed even if I also avoid all this extra work.
+	//
+	// And if I mix the two approaches, RenderPresent every frame but only do
+	// this work only when needed, there's weird ghosting/artifacts unless I
+	// render an extra frame to handle hardware double buffering... so that's 
+	// what I've ended up doing because an extra frame won't hurt software rendering
+	// TODO rename g->status g->render_status or frame_status or something
+	if (g->show_gui || g->status)
+	{
+		// gui drawing changes draw color so have to reset to background every time
 		SDL_SetRenderDrawColor(g->ren, g->bg.r, g->bg.g, g->bg.b, g->bg.a);
 		SDL_RenderSetClipRect(g->ren, NULL);
 		SDL_RenderClear(g->ren);
@@ -143,6 +155,9 @@ int render_normal(int ticks)
 			SDL_RenderCopy(g->ren, g->img[i].tex[g->img[i].frame_i], NULL, &g->img[i].disp_rect);
 		}
 		SDL_RenderSetClipRect(g->ren, NULL); // reset for gui drawing
+
+		// go from REDRAW to REDRAW2 to NOCHANGE ie (0)
+		g->status = (g->status + 1) % NUM_STATUSES;
 	}
 	
 	return is_a_gif;

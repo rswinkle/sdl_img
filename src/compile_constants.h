@@ -26,6 +26,17 @@
 // to determine if they are a valid supported image type
 #define CHECK_IF_NO_EXTENSION
 
+
+// Reasons to not use SDL's hardware accelerated rendering:
+// No texture dimension limit. Especially on older and/or mobile gpu's you can
+// run into images larger than the max texture size which will then fail to
+// load/display
+//
+// Reasons HW acceleration is the default: speed/power savings, real VSYNC instead
+// of fake adhoc SDL_Delay()s to save battery, Cleaner rendering, fewer artifacts.
+// There are some minor visual artifacts in the GUI for software rendering
+//#define USE_SOFTWARE_RENDERER
+
 // If defined, all log output goes to log.txt in the
 // same directory as config.lua
 //#define USE_LOGFILE

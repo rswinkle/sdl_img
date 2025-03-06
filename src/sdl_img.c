@@ -67,7 +67,8 @@
 #include <dirent.h>
 #include <curl/curl.h>
 
-enum { QUIT, REDRAW, NOCHANGE };
+// Add REDRAW2 to handle double buffering when doing accelerated rendering
+enum { NOCHANGE, REDRAW, REDRAW2, NUM_STATUSES };
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, SELECTION, EXIT };
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
@@ -2735,8 +2736,6 @@ void setup(int argc, char** argv)
 	g->win = NULL;
 	g->ren = NULL;
 
-	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
-
 	SDL_SetMainReady();
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
 		snprintf(error_str, STRBUF_SZ, "Couldn't initialize SDL: %s; exiting.", SDL_GetError());
@@ -2822,6 +2821,7 @@ void setup(int argc, char** argv)
 	}
 
 	u32 win_flags = (g->fullscreen) ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_RESIZABLE;
+	win_flags |= SDL_WINDOW_ALLOW_HIGHDPI;
 
 	// just experimenting
 	//win_flags |= SDL_WINDOW_BORDERLESS;
@@ -2837,6 +2837,13 @@ void setup(int argc, char** argv)
 		SDL_LogCriticalApp("%s", error_str);
 		exit(1);
 	}
+
+	if (!SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2")) {
+		SDL_Log("render quality hint was not set\n");
+	} else {
+		SDL_Log("render quality hint was set\n");
+	}
+
 
 	// GetWindowBorderSize is only supported on X11 (as of 2019)
 	int top, bottom, left, right;
@@ -2863,18 +2870,25 @@ void setup(int argc, char** argv)
 		g->img[0].scr_rect.h = r.h;
 	}
 
-	// No real reason for hardware acceleration and especially on older and/or mobile gpu's you can
-	// run into images larger than the max texture size which will then fail to load/display
-	//
-	// on the other hand, hardware rendering does decrease scaling artifacts...
-	//g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_ACCELERATED);
-	g->ren = SDL_CreateRenderer(g->win, -1, SDL_RENDERER_SOFTWARE);
+#ifdef USE_SOFTWARE_RENDERER
+	int ren_flags = SDL_RENDERER_SOFTWARE;
+#else
+	int ren_flags = SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC;
+#endif
+	g->ren = SDL_CreateRenderer(g->win, -1, ren_flags);
 	if (!g->ren) {
-		snprintf(error_str, STRBUF_SZ, "Software rendering failed: %s; exiting.", SDL_GetError());
+
+#ifdef USE_SOFTWARE_RENDERER
+		snprintf(error_str, STRBUF_SZ, "Creating a software renderer failed: %s; exiting.", SDL_GetError());
+#else
+		snprintf(error_str, STRBUF_SZ, "Creating a HW-accelerated renderer failed: %s; exiting.", SDL_GetError());
+#endif
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", error_str, g->win);
 		SDL_LogCriticalApp("%s", error_str);
 		cleanup(1, 1);
 	}
+
+	SDL_Log("Render hint %s\n", SDL_GetHint(SDL_HINT_RENDER_SCALE_QUALITY));
 
 	SDL_GetWindowMaximumSize(g->win, &max_w, &max_h);
 	SDL_Log("Window Max dimensions: %d %d\n", max_w, max_h);
@@ -4324,7 +4338,7 @@ void do_thumb_save(int removing)
 
 int main(int argc, char** argv)
 {
-	int ticks, len;
+	int ticks, old_ticks, len;
 	struct stat file_stat;
 
 	for (int i=1; i<argc; ++i) {
@@ -4364,6 +4378,8 @@ int main(int argc, char** argv)
 
 	setup(argc, argv);
 
+	old_ticks = SDL_GetTicks();
+	int frame_count;
 	int is_a_gif;
 	while (1) {
 		if (handle_events())
@@ -4372,6 +4388,13 @@ int main(int argc, char** argv)
 		//printf("g->state = %d\n", g->state);
 		is_a_gif = 0;
 		ticks = SDL_GetTicks();
+		if (ticks - old_ticks >= 1000) {
+			SDL_Log("FPS = %.2f\n", frame_count/((ticks-old_ticks)/1000.0f));
+			old_ticks = ticks;
+			frame_count = 0;
+		}
+		frame_count++;
+
 
 		// TODO this whole GUI logic system needs to be simplified a lot
 		if (!IS_FS_MODE() && !IS_SCANNING_MODE() && (!IS_LIST_MODE() || IS_VIEW_RESULTS()) && g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
@@ -4406,12 +4429,14 @@ int main(int argc, char** argv)
 		SDL_RenderPresent(g->ren);
 
 
+#ifdef USE_SOFTWARE_RENDERER
 		//"sleep" save CPU cycles/battery especially when not viewing animated gifs
 		if (!is_a_gif) { // && !g->loading)
 			SDL_Delay(SLEEP_TIME);
 		} else {
 			SDL_Delay(MIN_GIF_DELAY/2);
 		}
+#endif
 	}
 
 	cleanup(0, 1);
