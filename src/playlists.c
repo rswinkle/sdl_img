@@ -148,12 +148,27 @@ void read_cur_playlist(void)
 		fclose(f);
 	}
 
-		// update save status in new playlist
-		for (int i=0; i<g->files.size; ++i) {
-			g->files.a[i].playlist_idx = cvec_contains_str(&g->favs, g->files.a[i].path);
+	// update save status in new playlist
+	for (int i=0; i<g->files.size; ++i) {
+		g->files.a[i].playlist_idx = cvec_contains_str(&g->favs, g->files.a[i].path);
+	}
 
+}
+
+void write_cur_playlist(void)
+{
+	// TODO could add comments to the top of the file not sure what besides the name
+	// or a last modified time (for the list, not the file of course)
+	FILE* f = fopen(g->cur_playlist_path, "w");
+	if (!f) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to create %s: %s\nAborting save\n", g->cur_playlist_path, strerror(errno));
+	} else {
+		SDL_Log("Saving %"PRIcv_sz" favorites to %s\n", g->favs.size, g->cur_playlist_path);
+		for (int i=0; i<g->favs.size; i++) {
+			fprintf(f, "%s\n", g->favs.a[i]);
 		}
-
+		fclose(f);
+	}
 }
 
 // reads all playlists in playlistdir, finds default, reads it etc.
@@ -164,6 +179,9 @@ void update_playlists(void)
 	if (!g->cur_playlist) {
 		snprintf(buf, STRBUF_SZ, "%s/%s", g->playlistdir, g->default_playlist);
 	} else {
+		// save cur playlist before going to a new directory and reading a new playlist
+		// of the same name;
+		write_cur_playlist();
 		snprintf(buf, STRBUF_SZ, "%s/%s", g->playlistdir, g->cur_playlist);
 	}
 	strcpy(g->cur_playlist_path, buf);
@@ -176,17 +194,3 @@ void update_playlists(void)
 	get_playlists(g->playlistdir);
 }
 
-void write_cur_playlist(void)
-{
-	if (g->favs.size) {
-		FILE* f = fopen(g->cur_playlist_path, "w");
-		if (!f) {
-			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to create %s: %s\nAborting save\n", g->cur_playlist_path, strerror(errno));
-		} else {
-			for (int i=0; i<g->favs.size; i++) {
-				fprintf(f, "%s\n", g->favs.a[i]);
-			}
-			fclose(f);
-		}
-	}
-}

@@ -2351,6 +2351,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 			}
 			if (nk_button_label(ctx, "Make Active")) {
 				if (strcmp(g->playlists.a[selected], g->cur_playlist)) {
+					write_cur_playlist();
 					strncpy(g->cur_playlist_path, path_buf, STRBUF_SZ);
 					g->cur_playlist = strrchr(g->cur_playlist_path, '/') + 1;
 					read_cur_playlist();

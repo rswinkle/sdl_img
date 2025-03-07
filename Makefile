@@ -64,8 +64,10 @@ DESTDIR=/usr/local
 PKGDIR=package_linux
 PKG_DIR=$(PKGDIR)$(DESTDIR)
 
-SRCS=src/sdl_img.c src/events.c src/gui.c src/rendering.c src/lua_config.c src/sorting.c src/controls_str.c \
-	 src/compile_constants.h src/config_constants.h src/clnk.h src/file_browser.h src/lua_helper.h
+SRCS=src/sdl_img.c src/events.c src/gui.c src/rendering.c src/lua_config.c \
+	 src/playlists.c src/sorting.c src/controls_str.c \
+	 src/compile_constants.h src/config_constants.h \
+	 src/clnk.h src/file_browser.h src/lua_helper.h
 
 
 all: $(TARGET)
