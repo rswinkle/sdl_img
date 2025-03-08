@@ -217,7 +217,7 @@ void handle_mouse_selection(SDL_Keymod mod_state)
 	// Trying to make it work exactly like file browsers is
 	// too much of a pain
 	// You can do CTRL or SHIFT, or SHIFT and then CTRL but not SHIFT+CTRL
-	if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+	if (mod_state & KMOD_CTRL) {
 		if (!g->search_results.size) {
 			cvec_push_i(&g->search_results, g->selection);
 		} else {
@@ -238,7 +238,7 @@ void handle_mouse_selection(SDL_Keymod mod_state)
 		if (g->search_results.size) {
 			g->state = THUMB_SEARCH | SEARCH_RESULTS;  // Need both
 		}
-	} else if (mod_state & (KMOD_LSHIFT | KMOD_RSHIFT)) {
+	} else if (mod_state & KMOD_SHIFT) {
 		int start = g->thumb_sel_end;
 		int end = g->selection;
 		if (g->selection < g->thumb_sel_end) {
@@ -265,8 +265,8 @@ int handle_thumb_events()
 	int sym;
 	SDL_Keymod mod_state = SDL_GetModState();
 
-	int ctrl_down = mod_state & (KMOD_LCTRL | KMOD_RCTRL);
-	int shift_down = mod_state & (KMOD_LSHIFT | KMOD_RSHIFT);
+	int ctrl_down = mod_state & KMOD_CTRL;
+	int shift_down = mod_state & KMOD_SHIFT;
 
 	int mouse_x, mouse_y;
 	u32 mouse_state = SDL_GetMouseState(&mouse_x, &mouse_y);
@@ -1125,7 +1125,7 @@ int handle_popup_events()
 				set_fullscreen();
 				break;
 			case SDL_SCANCODE_F:
-				if (mod_state & (KMOD_LCTRL | KMOD_RCTRL)) {
+				if (mod_state & KMOD_CTRL) {
 					g->status = REDRAW;
 					g->fullscreen = !g->fullscreen;
 					set_fullscreen();
@@ -1194,8 +1194,8 @@ int handle_events_normally()
 	int copy_escape = SDL_FALSE;
 
 	SDL_Keymod mod_state = SDL_GetModState();
-	int ctrl_down = mod_state & (KMOD_LCTRL | KMOD_RCTRL);
-	int shift_down = mod_state & (KMOD_LSHIFT | KMOD_RSHIFT);
+	int ctrl_down = mod_state & KMOD_CTRL;
+	//int shift_down = mod_state & KMOD_SHIFT;
 
 	// use space to move to next image(s) even if zoomed in, ie during slideshow
 	SDL_Event space;

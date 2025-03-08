@@ -161,6 +161,7 @@ void transition_to_scanning(char* file)
 {
 	if (g->is_open_new) {
 		cvec_clear_file(&g->files);
+		g->bad_path_state = CLEAN;
 
 		// if we were in VIEW_RESULTS need to clear these
 		// TODO For now we don't support "Open More" in view results
@@ -1246,7 +1247,7 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 				}
 				nk_label(ctx, "A", NK_TEXT_RIGHT);
 
-				if (g->has_bad_paths) {
+				if (g->bad_path_state == HAS_BAD) {
 					// TODO "Clean List"?
 					if (nk_menu_item_label(ctx, "Remove Bad Paths", NK_TEXT_LEFT)) {
 						event.user.code = REMOVE_BAD;

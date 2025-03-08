@@ -129,6 +129,14 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 	}
 }
 
+#define UPDATE_PLAYLIST_SAVE_STATUS() \
+	do { \
+	for (int i=0; i<g->files.size; ++i) { \
+		g->files.a[i].playlist_idx = cvec_contains_str(&g->favs, g->files.a[i].path); \
+	} \
+	} while (0)
+
+
 void read_cur_playlist(void)
 {
 	cvec_clear_str(&g->favs);
@@ -149,9 +157,10 @@ void read_cur_playlist(void)
 	}
 
 	// update save status in new playlist
-	for (int i=0; i<g->files.size; ++i) {
-		g->files.a[i].playlist_idx = cvec_contains_str(&g->favs, g->files.a[i].path);
-	}
+	// could have bad paths, could be in the middle of generating thumbs ... unless I remove
+	// that feature only generating when switching to thumb mode where this code couldn't be
+	// executing, I have to assume path could be NULLed out from under me
+	UPDATE_PLAYLIST_SAVE_STATUS();
 
 }
 

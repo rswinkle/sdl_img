@@ -69,6 +69,10 @@
 
 // Add REDRAW2 to handle double buffering when doing accelerated rendering
 enum { NOCHANGE, REDRAW, REDRAW2, NUM_STATUSES };
+
+// file list state
+enum { CLEAN, UNKNOWN, HAS_BAD };
+
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, SELECTION, EXIT };
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
@@ -304,7 +308,7 @@ typedef struct global_state
 	const char** img_exts;
 	int n_exts;
 
-	int has_bad_paths;
+	int bad_path_state;
 
 	int state; // better name?
 	int is_exiting;
@@ -927,12 +931,17 @@ void cleanup(int ret, int called_setup)
 
 void remove_bad_paths(void)
 {
-	if (!g->has_bad_paths) {
+	if (g->bad_path_state == CLEAN) {
+		SDL_Log("No bad paths!\n");
+		return;
+	}
+
+	if (g->bad_path_state == UNKNOWN) {
 		if (!g->thumbs_done) {
 			SDL_Log("No bad paths to remove, have you generated thumbnails to check all images?\n");
-		} else {
-			SDL_Log("No bad paths!\n");
 		}
+		// TODO optionally loop through all of them using stbi_info()/curl to find
+		// bad paths and then remove any found
 		return;
 	}
 
@@ -974,7 +983,7 @@ void remove_bad_paths(void)
 			}
 		}
 	}
-	g->has_bad_paths = SDL_FALSE;
+	g->bad_path_state = CLEAN;
 	SDL_Log("Done removing bad paths\n");
 }
 
@@ -1117,7 +1126,7 @@ int gen_thumbs(void* data)
 				free(g->files.a[i].path);
 				g->files.a[i].path = NULL;
 				g->files.a[i].name = NULL;
-				g->has_bad_paths = SDL_TRUE;
+				g->bad_path_state = HAS_BAD;
 				continue;
 			}
 		}
@@ -1454,6 +1463,8 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "path too long\n");
 			cleanup(0, 1);
 		}
+
+		// TODO speedup with fstatat, compare timing for large recursive scan
 		if (stat(fullpath, &file_stat)) {
 			perror("stat");
 			continue;
@@ -1566,7 +1577,7 @@ int attempt_image_load(int last, img_state* img)
 			free(g->files.a[i].path);
 			g->files.a[i].path = NULL;
 			g->files.a[i].name = NULL;
-			g->has_bad_paths = SDL_TRUE;
+			g->bad_path_state = HAS_BAD;
 		}
 	}
 	return ret;
@@ -2028,15 +2039,15 @@ int scan_sources(void* data)
 			SDL_Log("Found 0 images, switching to File Browser...\n");
 		}
 
+		g->bad_path_state |= UNKNOWN;
+
+		// TODO protect this from generating..
 		// Doing this before try_move to avoid bad urls/paths being freed out from
 		// under this loop
 		// set save status in current playlist
-		for (int i=0; i<g->files.size; ++i) {
-			g->files.a[i].playlist_idx = cvec_contains_str(&g->favs, g->files.a[i].path);
+		UPDATE_PLAYLIST_SAVE_STATUS();
 
-		}
 		try_move(SELECTION);
-
 
 		g->is_open_new = SDL_FALSE;
 		SDL_LockMutex(g->scanning_mtx);
@@ -2590,7 +2601,7 @@ void setup(int argc, char** argv)
 	g->do_next = nk_false;
 	g->progress_hovered = nk_false;
 	g->sorted_state = NAME_UP;  // ie by name ascending
-	g->has_bad_paths = SDL_FALSE;
+	g->bad_path_state = CLEAN;
 	if (g->sources.size) {
 		g->state = SCANNING;
 	} else {
@@ -3155,7 +3166,7 @@ void do_shuffle(void)
 		return;
 	}
 
-	if (g->has_bad_paths) {
+	if (g->bad_path_state == HAS_BAD) {
 		SDL_Log("Removing bad paths before shuffling...\n");
 		remove_bad_paths();
 	}
@@ -3221,7 +3232,7 @@ void do_sort(compare_func cmp)
 		return;
 	}
 
-	if (g->has_bad_paths) {
+	if (g->bad_path_state == HAS_BAD) {
 		SDL_Log("Removing bad paths before sorting...");
 		remove_bad_paths();
 	}
@@ -4206,12 +4217,14 @@ int main(int argc, char** argv)
 		//printf("g->state = %d\n", g->state);
 		is_a_gif = 0;
 		ticks = SDL_GetTicks();
-		if (ticks - old_ticks >= 1000) {
+#ifndef NDEBUG
+		if (ticks - old_ticks >= 5000) {
 			SDL_Log("FPS = %.2f\n", frame_count/((ticks-old_ticks)/1000.0f));
 			old_ticks = ticks;
 			frame_count = 0;
 		}
 		frame_count++;
+#endif
 
 
 		// TODO this whole GUI logic system needs to be simplified a lot

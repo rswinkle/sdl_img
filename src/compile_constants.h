@@ -28,14 +28,17 @@
 
 
 // Reasons to not use SDL's hardware accelerated rendering:
-// No texture dimension limit. Especially on older and/or mobile gpu's you can
+// 1. No texture dimension limit. Especially on older and/or mobile gpu's you can
 // run into images larger than the max texture size which will then fail to
 // load/display
+// 2. No OpenGL thread issues, you can CreateTexture() etc. on any thread not just
+// the one you made the renderer (ie GL context) on
 //
-// Reasons HW acceleration is the default: speed/power savings, real VSYNC instead
+// Reasons for HW acceleration:
+// 1. Possibly speed/power savings, real VSYNC instead
 // of fake adhoc SDL_Delay()s to save battery, Cleaner rendering, fewer artifacts.
 // There are some minor visual artifacts in the GUI for software rendering
-//#define USE_SOFTWARE_RENDERER
+#define USE_SOFTWARE_RENDERER
 
 // If defined, all log output goes to log.txt in the
 // same directory as config.lua
