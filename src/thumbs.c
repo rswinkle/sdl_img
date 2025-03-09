@@ -12,17 +12,28 @@ extern inline void hash2str(char* str, MD5_HASH* h)
 	}
 }
 
-void get_thumbpath(const char* path, char* thumbpath, size_t thumbpath_len)
+void get_thumbfilename(const char* img_path, char* thm_name, size_t thmname_len)
 {
 	MD5_HASH hash;
-	char hash_str[MD5_HASH_SIZE*2+1] = { 0 };
+	//char hash_str[MD5_HASH_SIZE*2+1] = { 0 };
 
-	Md5Calculate(path, strlen(path), &hash);
-	hash_str[0] = 0;
-	hash2str(hash_str, &hash);
+	Md5Calculate(img_path, strlen(img_path), &hash);
+	//hash_str[0] = 0;
+	//hash2str(hash_str, &hash);
 	// could just do the %02x%02x etc. here but that'd be a long format string and 16 extra parameters
-	int ret = snprintf(thumbpath, thumbpath_len, "%s/%s.png", g->thumbdir, hash_str);
-	if (ret >= thumbpath_len) {
+	u8* h = hash.bytes;
+	snprintf(thm_name, thmname_len,
+	    "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x.png", h[0],
+	    h[1],h[2],h[3],h[4],h[5],h[6],h[7],h[8],h[9],h[10],h[11],h[12],h[13],h[14],h[15]);
+
+}
+
+void get_thumbpath(const char* img_path, char* thmpath, size_t thmpath_len)
+{
+	char name[MD5_HASH_SIZE*2+1] = {0};
+	get_thumbfilename(img_path, name, sizeof(name));
+	int ret = snprintf(thmpath, thmpath_len, "%s/%s", g->thumbdir, name);
+	if (ret >= thmpath_len) {
 		SDL_Log("path too long\n");
 		cleanup(0, 1);
 	}
@@ -96,6 +107,8 @@ int gen_thumbs(void* data)
 
 	intptr_t do_load = (intptr_t)data;
 
+	//int thumbdir_fd = open(g->thumbdir, O_RDONLY);
+
 	int start = SDL_GetTicks();
 	u8* pix;
 	u8* outpix;
@@ -166,6 +179,10 @@ int gen_thumbs(void* data)
 		g->thumb_sel_end = g->thumb_sel;
 		g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 	}
+	if (!g->save_status_uptodate) {
+		UPDATE_PLAYLIST_SAVE_STATUS();
+		g->save_status_uptodate = SDL_TRUE;
+	}
 
 exit_gen_thumbs:
 	SDL_LockMutex(g->thumb_mtx);
@@ -191,7 +208,7 @@ void free_thumb(void* t)
 
 void generate_thumbs(intptr_t do_load)
 {
-	if (g->thumbs_done)
+	if (g->generating_thumbs || g->thumbs_done)
 		return;
 
 	// still using separate calloc because calling vec constructor uses
@@ -258,6 +275,11 @@ int load_thumbs(void* data)
 	g->thumb_sel_end = g->thumb_sel;
 	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 
+	if (!g->save_status_uptodate) {
+		UPDATE_PLAYLIST_SAVE_STATUS();
+		g->save_status_uptodate = SDL_TRUE;
+	}
+
 exit_load_thumbs:
 	SDL_LockMutex(g->thumb_mtx);
 	g->thumbs_loaded = SDL_TRUE;
@@ -272,6 +294,11 @@ exit_load_thumbs:
 
 void do_thumbmode(void)
 {
+	if (g->generating_thumbs) {
+		SDL_Log("Cannot switch to thumbmode when generating thumbs already active\n");
+		return;
+	}
+
 	//possibly preserve SEARCH_RESULTS
 	if (g->state == NORMAL) {
 		g->state = THUMB_DFLT;
@@ -329,6 +356,7 @@ void fix_thumb_sel(int dir)
 	}
 }
 
+// TODO doing rem/del while generating/loading problematic
 void do_thumb_rem_del_search(int do_delete, int invert)
 {
 	int i;
@@ -542,6 +570,10 @@ void do_thumb_save(int removing)
 			for (int i=0; i<g->search_results.size; ++i) {
 				idx = g->search_results.a[i];
 				fullpath = g->files.a[idx].path;
+
+				if (!g->save_status_uptodate) {
+					g->files.a[idx].playlist_idx = cvec_contains_str(&g->favs, g->files.a[idx].path);
+				}
 				if ((loc = g->files.a[idx].playlist_idx) < 0) {
 					SDL_Log("%s not in %s\n", fullpath, playlist);
 				} else {
@@ -550,9 +582,11 @@ void do_thumb_save(int removing)
 					g->files.a[idx].playlist_idx = -1;
 					SDL_Log("%"PRIcv_sz" left after removal\n", g->favs.size);
 
-					for (int j=0; j<g->files.size; ++j) {
-						if (g->files.a[j].playlist_idx > loc) {
-							g->files.a[j].playlist_idx--;
+					if (g->save_status_uptodate) {
+						for (int j=0; j<g->files.size; ++j) {
+							if (g->files.a[j].playlist_idx > loc) {
+								g->files.a[j].playlist_idx--;
+							}
 						}
 					}
 				}
@@ -560,6 +594,9 @@ void do_thumb_save(int removing)
 		} else {
 			for (int i=start; i<=end; ++i) {
 				fullpath = g->files.a[i].path;
+				if (!g->save_status_uptodate) {
+					g->files.a[i].playlist_idx = cvec_contains_str(&g->favs, g->files.a[i].path);
+				}
 				if ((loc = g->files.a[i].playlist_idx) < 0) {
 					SDL_Log("%s not in %s\n", fullpath, playlist);
 				} else {
@@ -569,9 +606,11 @@ void do_thumb_save(int removing)
 					SDL_Log("%"PRIcv_sz" left after removal\n", g->favs.size);
 				}
 
-				for (int j=0; j<g->files.size; ++j) {
-					if (g->files.a[j].playlist_idx > loc) {
-						g->files.a[j].playlist_idx--;
+				if (g->save_status_uptodate) {
+					for (int j=0; j<g->files.size; ++j) {
+						if (g->files.a[j].playlist_idx > loc) {
+							g->files.a[j].playlist_idx--;
+						}
 					}
 				}
 			}
@@ -581,6 +620,9 @@ void do_thumb_save(int removing)
 			for (int i=0; i<g->search_results.size; ++i) {
 				idx = g->search_results.a[i];
 				fullpath = g->files.a[idx].path;
+				if (!g->save_status_uptodate) {
+					g->files.a[idx].playlist_idx = cvec_contains_str(&g->favs, g->files.a[idx].path);
+				}
 				if (g->files.a[idx].playlist_idx >= 0) {
 					SDL_Log("%s already in %s\n", fullpath, playlist);
 				} else {
@@ -592,6 +634,9 @@ void do_thumb_save(int removing)
 		} else {
 			for (int i=start; i<=end; ++i) {
 				fullpath = g->files.a[i].path;
+				if (!g->save_status_uptodate) {
+					g->files.a[i].playlist_idx = cvec_contains_str(&g->favs, g->files.a[i].path);
+				}
 				if (g->files.a[i].playlist_idx >= 0) {
 					SDL_Log("%s already in %s\n", fullpath, playlist);
 				} else {

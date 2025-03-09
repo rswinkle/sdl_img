@@ -1427,11 +1427,17 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 					nk_label(ctx, "CTRL+I", NK_TEXT_RIGHT);
 				}
 
-				if (nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT)) {
-					event.user.code = THUMB_MODE;
-					SDL_PushEvent(&event);
+				// TODO make it possible
+				if (!g->generating_thumbs) {
+					if (nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT)) {
+						event.user.code = THUMB_MODE;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "CTRL+U", NK_TEXT_RIGHT);
+				} else {
+					nk_layout_row_dynamic(ctx, 0, 1);
+					nk_label(ctx, "Generating thumbs...", NK_TEXT_LEFT);
 				}
-				nk_label(ctx, "CTRL+U", NK_TEXT_RIGHT);
 
 				nk_tree_pop(ctx);
 			} else g->menu_state = (g->menu_state == MENU_VIEW) ? MENU_NONE: g->menu_state;
@@ -1526,7 +1532,7 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	char* size_str;
 	unsigned long index, total;
 	char saved_char[] = { ' ', 'X' };
-	int saved_status;
+	int saved_status = 0;
 	float ratios[] = { 0.5f, 0.1, 0.4f };
 
 	// TODO why scr_h + 2 to prevent a sliver below it?
@@ -1559,14 +1565,23 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 			// otherwise the load is fast enough
 			if (IS_VIEW_RESULTS() && index < g->search_results.size) {
 				total = g->search_results.size;
-				saved_status = g->files.a[g->search_results.a[index]].playlist_idx >= 0;
+				if (g->save_status_uptodate) {
+					saved_status = g->files.a[g->search_results.a[index]].playlist_idx >= 0;
+				}
 			} else {
 				total = g->files.size;
-				saved_status = g->files.a[index].playlist_idx >= 0;
+				if (g->save_status_uptodate) {
+					saved_status = g->files.a[index].playlist_idx >= 0;
+				}
 			}
 			total = (IS_VIEW_RESULTS()) ? g->search_results.size : g->files.size;
 
-			int len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu [%c]", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total, saved_char[saved_status]);
+			int len;
+			if (g->save_status_uptodate) {
+				len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu [%c]", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total, saved_char[saved_status]);
+			} else {
+				len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total);
+			}
 			if (len >= STRBUF_SZ) {
 				SDL_LogCriticalApp("info path too long\n");
 				cleanup(1, 1);

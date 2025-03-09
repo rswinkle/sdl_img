@@ -160,7 +160,11 @@ void read_cur_playlist(void)
 	// could have bad paths, could be in the middle of generating thumbs ... unless I remove
 	// that feature only generating when switching to thumb mode where this code couldn't be
 	// executing, I have to assume path could be NULLed out from under me
-	UPDATE_PLAYLIST_SAVE_STATUS();
+	g->save_status_uptodate = SDL_FALSE;
+	if (!g->generating_thumbs && !g->loading_thumbs) {
+		UPDATE_PLAYLIST_SAVE_STATUS();
+		g->save_status_uptodate = SDL_TRUE;
+	}
 
 }
 

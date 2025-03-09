@@ -278,6 +278,7 @@ typedef struct global_state
 	cvector_file files;
 	cvector_str favs;
 	cvector_str playlists;
+	int save_status_uptodate;  // bool
 
 	cvector_str sources;  // files/directories to scan etc.
 	int done_scanning;
@@ -422,8 +423,8 @@ void setup_dirs(void);
 void setup_font(char* font_file, float height);
 void cleanup(int ret, int called_setup);
 
-#include "thumbs.c"
 #include "playlists.c"
+#include "thumbs.c"
 #include "curl_stuff.c"
 
 // has to come after all the enums/macros/struct defs and bytes2str
@@ -1660,7 +1661,11 @@ int scan_sources(void* data)
 		// Doing this before try_move to avoid bad urls/paths being freed out from
 		// under this loop
 		// set save status in current playlist
-		UPDATE_PLAYLIST_SAVE_STATUS();
+		g->save_status_uptodate = SDL_FALSE;
+		if (!g->generating_thumbs && !g->loading_thumbs) {
+			UPDATE_PLAYLIST_SAVE_STATUS();
+			g->save_status_uptodate = SDL_TRUE;
+		}
 
 		try_move(SELECTION);
 
@@ -3276,6 +3281,10 @@ void do_save(int removing)
 			if (IS_VIEW_RESULTS()) {
 				idx = g->search_results.a[idx];
 			}
+			if (!g->save_status_uptodate) {
+				g->files.a[idx].playlist_idx = cvec_contains_str(&g->favs, g->files.a[idx].path);
+			}
+
 			if ((loc = g->files.a[idx].playlist_idx) < 0) {
 				SDL_Log("%s not in %s\n", g->img_focus->fullpath, playlist);
 			} else {
@@ -3284,9 +3293,11 @@ void do_save(int removing)
 				g->files.a[idx].playlist_idx = -1;
 				SDL_Log("%"PRIcv_sz" left after removal\n", g->favs.size);
 
-				for (int i=0; i<g->files.size; ++i) {
-					if (g->files.a[i].playlist_idx > loc) {
-						g->files.a[i].playlist_idx--;
+				if (g->save_status_uptodate) {
+					for (int i=0; i<g->files.size; ++i) {
+						if (g->files.a[i].playlist_idx > loc) {
+							g->files.a[i].playlist_idx--;
+						}
 					}
 				}
 			}
@@ -3296,6 +3307,9 @@ void do_save(int removing)
 				if (IS_VIEW_RESULTS()) {
 					idx = g->search_results.a[idx];
 				}
+				if (!g->save_status_uptodate) {
+					g->files.a[idx].playlist_idx = cvec_contains_str(&g->favs, g->files.a[idx].path);
+				}
 				if ((loc = g->files.a[idx].playlist_idx) < 0) {
 					SDL_Log("%s not in %s\n", g->img[i].fullpath, playlist);
 				} else {
@@ -3304,9 +3318,11 @@ void do_save(int removing)
 					g->files.a[idx].playlist_idx = -1;
 					SDL_Log("%"PRIcv_sz" after removal\n", g->favs.size);
 
-					for (int i=0; i<g->files.size; ++i) {
-						if (g->files.a[i].playlist_idx > loc) {
-							g->files.a[i].playlist_idx--;
+					if (g->save_status_uptodate) {
+						for (int i=0; i<g->files.size; ++i) {
+							if (g->files.a[i].playlist_idx > loc) {
+								g->files.a[i].playlist_idx--;
+							}
 						}
 					}
 				}
@@ -3317,6 +3333,9 @@ void do_save(int removing)
 			idx = g->img_focus->index;
 			if (IS_VIEW_RESULTS()) {
 				idx = g->search_results.a[idx];
+			}
+			if (!g->save_status_uptodate) {
+				g->files.a[idx].playlist_idx = cvec_contains_str(&g->favs, g->files.a[idx].path);
 			}
 			if (g->files.a[idx].playlist_idx >= 0) {
 				SDL_Log("%s already in %s\n", g->img_focus->fullpath, playlist);
@@ -3330,6 +3349,9 @@ void do_save(int removing)
 				idx = g->img[i].index;
 				if (IS_VIEW_RESULTS()) {
 					idx = g->search_results.a[idx];
+				}
+				if (!g->save_status_uptodate) {
+					g->files.a[idx].playlist_idx = cvec_contains_str(&g->favs, g->files.a[idx].path);
 				}
 				if (g->files.a[idx].playlist_idx >= 0) {
 					SDL_Log("%s already in %s\n", g->img[i].fullpath, playlist);
