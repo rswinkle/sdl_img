@@ -31,6 +31,7 @@ endif
 ifeq ($(PLAT), linux)
 ifeq ($(config), release)
 	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
+	#OPTS=-std=gnu99 -msse -O3 -g -DNDEBUG
 	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
 else
 	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall
@@ -57,7 +58,7 @@ endif
 #LIBS=`pkg-config sdl2 libcurl --libs` -lm -Llua-5.4.7/src -llua
 
 CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.7/src
-LIBS=`pkg-config sdl2 libcurl --libs` -lm 
+LIBS=`pkg-config sdl2 libcurl --libs` -lm
 
 DESTDIR=/usr/local
 
@@ -65,7 +66,8 @@ PKGDIR=package_linux
 PKG_DIR=$(PKGDIR)$(DESTDIR)
 
 SRCS=src/sdl_img.c src/events.c src/gui.c src/rendering.c src/lua_config.c \
-	 src/playlists.c src/sorting.c src/controls_str.c \
+	 src/thumbs.c src/curl_stuff.c src/playlists.c src/sorting.c src/controls_str.c \
+	 src/thumbs.h src/curl_stuff.h \
 	 src/compile_constants.h src/config_constants.h \
 	 src/clnk.h src/file_browser.h src/lua_helper.h
 
