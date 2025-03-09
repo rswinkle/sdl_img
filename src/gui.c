@@ -329,7 +329,7 @@ void draw_gui(struct nk_context* ctx)
 
 	if (IS_LIST_MODE() && !IS_VIEW_RESULTS()) {
 		// TODO why do I need + 2 to reach the edges?
-		if (nk_begin(ctx, "List", nk_rect(0, 0, scr_w+2, scr_h+2), NK_WINDOW_NO_SCROLLBAR)) {
+		if (nk_begin(ctx, "List", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
 			// TODO How to automatically focus on the search box if they start typing?
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, search_ratio);
 
@@ -1120,7 +1120,7 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 	snprintf(buf, STRBUF_SZ, "Active: %s", g->cur_playlist);
 
 	// TODO why +2?
-	if (nk_begin(ctx, "Controls", nk_rect(0, 0, win_w+2, win_h), NK_WINDOW_NO_SCROLLBAR))
+	if (nk_begin(ctx, "Controls", nk_rect(0, 0, win_w, win_h), NK_WINDOW_NO_SCROLLBAR))
 	{
 		//printf("Controls has focus = %d\n", nk_window_has_focus(ctx));
 		nk_layout_row_template_begin(ctx, 0);
@@ -1535,8 +1535,15 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	int saved_status = 0;
 	float ratios[] = { 0.5f, 0.1, 0.4f };
 
-	// TODO why scr_h + 2 to prevent a sliver below it?
-	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-g->gui_bar_ht, scr_w+2, g->gui_bar_ht+2), NK_WINDOW_NO_SCROLLBAR))
+	// TODO why scr_h + 2 to prevent a sliver below it? only with SW AA, bug
+	// still need g->gui_bar_ht+1 for SW renderer even with AA off
+#ifdef USE_SOFTWARE_RENDERER
+	int height = g->gui_bar_ht+1;
+#else
+	int height = g->gui_bar_ht;
+#endif
+
+	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-g->gui_bar_ht, scr_w, height), NK_WINDOW_NO_SCROLLBAR))
 	{
 		img_state* img = g->img_focus;
 
@@ -1621,7 +1628,14 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	int row = (g->thumb_sel + g->thumb_cols)/g->thumb_cols;
 
 	// TODO why the +1/2 to fill to edges?
-	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-g->gui_bar_ht, scr_w+1, g->gui_bar_ht+2), NK_WINDOW_NOT_INTERACTIVE|NK_WINDOW_NO_SCROLLBAR)) {
+	// still need g->gui_bar_ht+1 for SW renderer even with AA off
+#ifdef USE_SOFTWARE_RENDERER
+	int height = g->gui_bar_ht+1;
+#else
+	int height = g->gui_bar_ht;
+#endif
+
+	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-g->gui_bar_ht, scr_w, height), NK_WINDOW_NOT_INTERACTIVE|NK_WINDOW_NO_SCROLLBAR)) {
 
 		if (g->state ==  THUMB_DFLT) {
 			saved_status = g->files.a[g->thumb_sel].playlist_idx >= 0;

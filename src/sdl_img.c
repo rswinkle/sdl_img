@@ -3558,7 +3558,11 @@ int main(int argc, char** argv)
 		if (IS_FS_MODE() || IS_SCANNING_MODE() || (IS_LIST_MODE() && !IS_VIEW_RESULTS()) || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
 			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
 			// TODO try it off?
+#ifndef USE_SOFTWARE_RENDERER
 			nk_sdl_render(NK_ANTI_ALIASING_ON);
+#else
+			nk_sdl_render(NK_ANTI_ALIASING_OFF);
+#endif
 			SDL_RenderSetScale(g->ren, 1, 1);
 		}
 		SDL_RenderPresent(g->ren);
