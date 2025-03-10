@@ -15,7 +15,7 @@
 #define MAX_GUI_SCALE 3.0f
 #define GUI_SCALE_INCR 0.25f;
 
-#define DFLT_GUI_DELAY 2
+#define DFLT_GUI_DELAY 30
 #define MIN_GUI_DELAY 1
 #define MAX_GUI_DELAY 60
 
@@ -42,7 +42,7 @@
 
 #define DFLT_FULLSCREEN_GUI DELAY
 #define DFLT_BG_COLOR nk_rgb(0,0,0)
-#define DFLT_WINDOW_OPACITY 191
+#define DFLT_WINDOW_OPACITY 220
 
 // Should I even use SDL_TRUE/nk_true or just put 1/0?
 #define DFLT_FILL_MODE SDL_FALSE

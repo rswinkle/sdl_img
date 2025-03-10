@@ -113,10 +113,7 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 					set_fullscreen();
 				} else if (g->files.size) {
 					g->state = g->old_state;
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
-					g->show_gui = SDL_TRUE;
-					g->status = REDRAW;
+					set_show_gui(SDL_TRUE);
 					SDL_SetWindowTitle(g->win, g->files.a[g->img[0].index].name);
 				} else {
 					// ESC from an initial startup with no files, just exit
@@ -300,9 +297,7 @@ int handle_thumb_events()
 				if (g->state & THUMB_DFLT) {
 					g->state = NORMAL;
 					g->thumb_start_row = 0;
-					g->show_gui = SDL_TRUE;
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
+					set_show_gui(SDL_TRUE);
 
 					// if current image was removed/deleted need to load next image
 					if (g->do_next) {
@@ -343,8 +338,7 @@ int handle_thumb_events()
 				g->search_results.size = 0;
 				SDL_StartTextInput();
 
-				g->gui_timer = SDL_GetTicks();
-				g->show_gui = SDL_TRUE;
+				set_show_gui(SDL_TRUE);
 				break;
 			case SDLK_v:
 				if (g->state & THUMB_DFLT) {
@@ -368,9 +362,7 @@ int handle_thumb_events()
 						g->thumb_start_row = 0;;
 						g->thumb_sel = 0;
 					}
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
-					g->show_gui = SDL_TRUE;
+					set_show_gui(SDL_TRUE);
 				}
 				break;
 			case SDLK_HOME:
@@ -426,10 +418,7 @@ int handle_thumb_events()
 						text_len = 0;
 					}
 
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
-					g->show_gui = SDL_TRUE;
-					g->status = REDRAW;
+					set_show_gui(SDL_TRUE);
 					try_move(SELECTION);
 				} else if (g->state == THUMB_SEARCH) {
 					SDL_StopTextInput();
@@ -468,9 +457,7 @@ int handle_thumb_events()
 				} else if (g->state != THUMB_SEARCH) {
 					g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? g->thumb_cols : -g->thumb_cols;
 					fix_thumb_sel((sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1);
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
-					g->show_gui = SDL_TRUE;
+					set_show_gui(SDL_TRUE);
 				}
 				break;
 			case SDLK_LEFT:
@@ -487,9 +474,7 @@ int handle_thumb_events()
 					if (g->state != THUMB_SEARCH) {
 						g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
 						fix_thumb_sel((sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1);
-						SDL_ShowCursor(SDL_ENABLE);
-						g->gui_timer = SDL_GetTicks();
-						g->show_gui = SDL_TRUE;
+						set_show_gui(SDL_TRUE);
 					}
 				}
 				break;
@@ -505,9 +490,7 @@ int handle_thumb_events()
 					g->thumb_sel = g->thumb_start_row * g->thumb_cols + tmp;
 					g->thumb_sel += (sym == SDLK_b) ? (rows-1)*g->thumb_cols : 0;
 					fix_thumb_sel((sym == SDLK_f) ? 1 : -1);
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
-					g->show_gui = SDL_TRUE;
+					set_show_gui(SDL_TRUE);
 				}
 
 				break;
@@ -545,9 +528,7 @@ int handle_thumb_events()
 						}
 					}
 					g->thumb_sel = g->search_results.a[g->cur_result];
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
-					g->show_gui = SDL_TRUE;
+					set_show_gui(TRUE);
 				}
 				break;
 			case SDLK_BACKSPACE:
@@ -558,9 +539,7 @@ int handle_thumb_events()
 			}
 			break;
 		case SDL_MOUSEMOTION:
-			SDL_ShowCursor(SDL_ENABLE);
-			g->gui_timer = SDL_GetTicks();
-			g->show_gui = SDL_TRUE;
+			set_show_gui(SDL_TRUE);
 
 			// TODO
 			// Have to think about this, best way to do drag select while still supporting
@@ -596,9 +575,7 @@ int handle_thumb_events()
 					// "move right" to the selection
 					g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
 					g->state = NORMAL;
-					g->show_gui = SDL_TRUE;
 					g->thumb_start_row = 0;
-					g->status = REDRAW;
 					try_move(SELECTION);
 				} else {
 					handle_mouse_selection(mod_state);
@@ -607,9 +584,7 @@ int handle_thumb_events()
 					g->thumb_sel = g->selection;
 				}
 			}
-			SDL_ShowCursor(SDL_ENABLE);
-			g->gui_timer = SDL_GetTicks();
-			g->show_gui = SDL_TRUE;
+			set_show_gui(SDL_TRUE);
 			break;
 		case SDL_MOUSEWHEEL:
 			g->status = REDRAW;
@@ -621,9 +596,7 @@ int handle_thumb_events()
 					g->thumb_sel += e.wheel.y * g->thumb_cols;
 					fix_thumb_sel(e.wheel.y);
 				}
-				SDL_ShowCursor(SDL_ENABLE);
-				g->gui_timer = SDL_GetTicks();
-				g->show_gui = SDL_TRUE;
+				set_show_gui(SDL_TRUE);
 			}
 			break;
 
@@ -825,10 +798,7 @@ int handle_list_events()
 					// NOTE UI decision: don't move to selection if they hit ESC, only
 					// if they hit Enter (this is also how it works in thumb mode)
 					g->state = NORMAL;
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
-					g->show_gui = SDL_TRUE;
-					g->status = REDRAW;
+					set_show_gui(SDL_TRUE);
 				}
 
 				// always clear search field
@@ -860,10 +830,7 @@ int handle_list_events()
 						g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
 					}
 					// Same as switching from thumbmode
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
-					g->show_gui = SDL_TRUE;
-					g->status = REDRAW;
+					set_show_gui(SDL_TRUE);
 					try_move(SELECTION);
 				}
 				break;
@@ -1026,9 +993,7 @@ int handle_scanning_events()
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_RESIZED:
 				// keep GUI visible while resizing
-				g->show_gui = SDL_TRUE;
-				SDL_ShowCursor(SDL_ENABLE);
-				g->gui_timer = SDL_GetTicks();
+				set_show_gui(SDL_TRUE);
 				// this event is always preceded by WINOWEVENT_SIZE_CHANGED
 				//g->scr_w = e.window.data1;
 				//g->scr_h = e.window.data2;
@@ -1242,17 +1207,6 @@ int handle_events_normally()
 				}
 				g->img = img;
 			}
-
-			if (g->needs_scr_rect_update) {
-				puts("update after loading");
-				switch (g->n_imgs) {
-				case 1: SET_MODE1_SCR_RECT(); break;
-				case 2: SET_MODE2_SCR_RECTS(); break;
-				case 4: SET_MODE4_SCR_RECTS(); break;
-				case 8: SET_MODE8_SCR_RECTS(); break;
-				}
-				g->needs_scr_rect_update = SDL_FALSE;
-			}
 		} else {
 			for (int i=g->n_imgs; i<g->done_loading; ++i)
 				create_textures(&g->img[i]);
@@ -1274,6 +1228,19 @@ int handle_events_normally()
 			g->slide_timer =  SDL_GetTicks();
 	}
 	SDL_UnlockMutex(g->img_loading_mtx);
+	
+	if (!g->loading) {
+		if (g->needs_scr_rect_update) {
+			puts("update after loading");
+			switch (g->n_imgs) {
+			case 1: SET_MODE1_SCR_RECT(); break;
+			case 2: SET_MODE2_SCR_RECTS(); break;
+			case 4: SET_MODE4_SCR_RECTS(); break;
+			case 8: SET_MODE8_SCR_RECTS(); break;
+			}
+			g->needs_scr_rect_update = SDL_FALSE;
+		}
+	}
 
 	if (g->slideshow) {
 		if (!g->loading && ticks - g->slide_timer > g->slideshow) {
@@ -1449,12 +1416,7 @@ int handle_events_normally()
 						}
 					}
 
-					// TODO macro or function?  check how many uses
-					SDL_ShowCursor(SDL_ENABLE);
-					g->gui_timer = SDL_GetTicks();
-					g->show_gui = SDL_TRUE;
-
-					g->status = REDRAW; // necessary here or below?
+					set_show_gui(SDL_TRUE);
 				} else if (IS_THUMB_MODE() || IS_LIST_MODE()) {
 					// TODO this can't be reached! ... right?
 					g->state = NORMAL;
@@ -1844,21 +1806,15 @@ int handle_events_normally()
 			if (mouse_button_mask & SDL_BUTTON(SDL_BUTTON_LEFT)) {
 				do_pan(e.motion.xrel, e.motion.yrel);
 			}
-			g->status = REDRAW;
 
-			SDL_ShowCursor(SDL_ENABLE);
-			g->gui_timer = SDL_GetTicks();
-			g->show_gui = SDL_TRUE;
+			set_show_gui(SDL_TRUE);
 			break;
 
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
 			if (e.button.which == SDL_TOUCH_MOUSEID)
 				SDL_LogDebugApp("mouse button touch\n");
-			g->status = REDRAW;
-			SDL_ShowCursor(SDL_ENABLE);
-			g->gui_timer = SDL_GetTicks();
-			g->show_gui = SDL_TRUE;
+			set_show_gui(SDL_TRUE);
 			break;
 
 		case SDL_MOUSEWHEEL:
@@ -1916,9 +1872,6 @@ int handle_events_normally()
 			case SDL_WINDOWEVENT_RESIZED:
 				puts("resized");
 				// keep GUI visible while resizing
-				g->show_gui = SDL_TRUE;
-				SDL_ShowCursor(SDL_ENABLE);
-				g->gui_timer = SDL_GetTicks();
 				// this event is always preceded by WINOWEVENT_SIZE_CHANGED
 				//g->scr_w = e.window.data1;
 				//g->scr_h = e.window.data2;
@@ -1928,9 +1881,7 @@ int handle_events_normally()
 				g->scr_w = e.window.data1;
 				g->scr_h = e.window.data2;
 
-				g->scr_rect.y = g->gui_bar_ht;
-				g->scr_rect.w = g->scr_w;
-				g->scr_rect.h = g->scr_h - 2*g->gui_bar_ht;
+				set_show_gui(SDL_TRUE);
 
 				if (!g->loading && !g->done_loading) {
 					puts("should be updated here\n");
@@ -1944,8 +1895,7 @@ int handle_events_normally()
 					} else if (g->n_imgs == 8) {
 						SET_MODE8_SCR_RECTS();
 					}
-				} else {
-					g->needs_scr_rect_update = SDL_TRUE;
+					g->needs_scr_rect_update = SDL_FALSE;
 				}
 
 				break;

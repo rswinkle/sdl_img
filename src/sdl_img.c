@@ -1737,6 +1737,35 @@ void setup_font(char* font_file, float height)
 	g->gui_sidebar_w = ratio * FB_SIDEBAR_W;
 }
 
+extern inline void set_show_gui(int show)
+{
+	// We always set scr_rect because of window size changes
+	// we call this to make/keep the GUI visible even
+	// if it already is, but we always want to update
+	// the scr_rect if the window size changes
+	if (!show) {
+		g->scr_rect.x = 0;
+		g->scr_rect.y = 0;
+		g->scr_rect.w = g->scr_w;
+		g->scr_rect.h = g->scr_h;
+
+		SDL_ShowCursor(SDL_DISABLE);
+		g->progress_hovered = nk_false;
+	} else {
+		g->scr_rect.x = 0;
+		g->scr_rect.y = g->gui_bar_ht;
+		g->scr_rect.w = g->scr_w;
+		g->scr_rect.h = g->scr_h - 2*g->gui_bar_ht;
+		SDL_ShowCursor(SDL_ENABLE);
+		g->gui_timer = SDL_GetTicks();
+	}
+	if (show != g->show_gui) {
+		g->show_gui = show;
+		g->needs_scr_rect_update = SDL_TRUE;
+		g->status = REDRAW;
+	}
+}
+
 void setup(int argc, char** argv)
 {
 	char error_str[STRBUF_SZ] = { 0 };
@@ -2649,9 +2678,7 @@ void do_rotate(int left, int is_90)
 				create_textures(img);
 			} else {
 				g->state |= ROTATE;
-				g->show_gui = nk_true;
-				g->gui_timer = SDL_GetTicks();
-				SDL_ShowCursor(SDL_ENABLE);
+				set_show_gui(SDL_TRUE);
 				return;
 			}
 
@@ -3017,10 +3044,7 @@ void do_save(int removing)
 	}
 
 	// Make sure to show the GUI for a second so the user has visual confirmation
-	g->status = REDRAW;
-	SDL_ShowCursor(SDL_ENABLE);
-	g->gui_timer = SDL_GetTicks();
-	g->show_gui = SDL_TRUE;
+	set_show_gui(SDL_TRUE);
 }
 
 // There is no easy way to do cross platform visual copy paste.
@@ -3184,11 +3208,8 @@ int main(int argc, char** argv)
 
 
 		// TODO this whole GUI logic system needs to be simplified a lot
-		if (!IS_FS_MODE() && !IS_SCANNING_MODE() && (!IS_LIST_MODE() || IS_VIEW_RESULTS()) && g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
-			SDL_ShowCursor(SDL_DISABLE);
-			g->show_gui = nk_false;
-			g->progress_hovered = nk_false;
-			g->status = REDRAW;
+		if (!IS_FS_MODE() && !IS_SCANNING_MODE() && ((!IS_LIST_MODE() && !IS_THUMB_MODE()) || IS_VIEW_RESULTS()) && g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
+			set_show_gui(SDL_FALSE);
 		}
 
 		// TODO testing, naming/organization of showing/hiding GUI vs mouse
