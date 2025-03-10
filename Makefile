@@ -30,8 +30,8 @@ endif
 
 ifeq ($(PLAT), linux)
 ifeq ($(config), release)
-	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
-	#OPTS=-std=gnu99 -msse -O3 -g -DNDEBUG
+	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG
+	OPTS=-std=gnu99 -msse -O3 -g -DNDEBUG
 	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
 else
 	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall
@@ -67,7 +67,7 @@ PKG_DIR=$(PKGDIR)$(DESTDIR)
 
 SRCS=src/sdl_img.c src/events.c src/gui.c src/rendering.c src/lua_config.c \
 	 src/thumbs.c src/curl_stuff.c src/playlists.c src/sorting.c src/controls_str.c \
-	 src/thumbs.h src/curl_stuff.h \
+	 src/sdl_img.h src/thumbs.h src/curl_stuff.h \
 	 src/compile_constants.h src/config_constants.h \
 	 src/clnk.h src/file_browser.h src/lua_helper.h
 

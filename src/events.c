@@ -655,21 +655,32 @@ int handle_thumb_events()
 			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_RESIZED:
-				g->scr_w = e.window.data1;
-				g->scr_h = e.window.data2;
 				break;
 			case SDL_WINDOWEVENT_SIZE_CHANGED:
 				g->scr_w = e.window.data1;
 				g->scr_h = e.window.data2;
 
-				if (g->n_imgs == 1) {
-					SET_MODE1_SCR_RECT();
-				} else if (g->n_imgs == 2) {
-					SET_MODE2_SCR_RECTS();
-				} else if (g->n_imgs == 4) {
-					SET_MODE4_SCR_RECTS();
-				} else if (g->n_imgs == 8) {
-					SET_MODE8_SCR_RECTS();
+				g->scr_rect.y = g->gui_bar_ht;
+				g->scr_rect.w = g->scr_w;
+				g->scr_rect.h = g->scr_h - 2*g->gui_bar_ht;
+				
+				// TODO double check can this even happen...
+				// We initiate a load only when we switch to normal mode
+				// so...
+				if (!g->loading && !g->done_loading) {
+					puts("should be updated here\n");
+					// TODO how/where to reset all the "subscreens" rects
+					if (g->n_imgs == 1) {
+						SET_MODE1_SCR_RECT();
+					} else if (g->n_imgs == 2) {
+						SET_MODE2_SCR_RECTS();
+					} else if (g->n_imgs == 4) {
+						SET_MODE4_SCR_RECTS();
+					} else if (g->n_imgs == 8) {
+						SET_MODE8_SCR_RECTS();
+					}
+				} else {
+					g->needs_scr_rect_update = SDL_TRUE;
 				}
 				break;
 			}
@@ -1025,6 +1036,11 @@ int handle_scanning_events()
 			case SDL_WINDOWEVENT_SIZE_CHANGED:
 				g->scr_w = e.window.data1;
 				g->scr_h = e.window.data2;
+
+				g->scr_rect.y = g->gui_bar_ht;
+				g->scr_rect.w = g->scr_w;
+				g->scr_rect.h = g->scr_h - 2*g->gui_bar_ht;
+
 				g->needs_scr_rect_update = SDL_TRUE;
 				SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "scanning windowed %d %d\n", g->scr_w, g->scr_h);
 				break;
@@ -1228,6 +1244,7 @@ int handle_events_normally()
 			}
 
 			if (g->needs_scr_rect_update) {
+				puts("update after loading");
 				switch (g->n_imgs) {
 				case 1: SET_MODE1_SCR_RECT(); break;
 				case 2: SET_MODE2_SCR_RECTS(); break;
@@ -1894,9 +1911,10 @@ int handle_events_normally()
 			g->status = REDRAW;
 			int x, y;
 			SDL_GetWindowSize(g->win, &x, &y);
-			SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
+			SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "window event %d %d %d %d %d\n", e.window.event, g->scr_w, g->scr_h, x, y);
 			switch (e.window.event) {
 			case SDL_WINDOWEVENT_RESIZED:
+				puts("resized");
 				// keep GUI visible while resizing
 				g->show_gui = SDL_TRUE;
 				SDL_ShowCursor(SDL_ENABLE);
@@ -1906,28 +1924,33 @@ int handle_events_normally()
 				//g->scr_h = e.window.data2;
 				break;
 			case SDL_WINDOWEVENT_SIZE_CHANGED:
+				puts("size changed");
 				g->scr_w = e.window.data1;
 				g->scr_h = e.window.data2;
 
-				// TODO how/where to reset all the "subscreens" rects
-				if (g->n_imgs == 1) {
-					SET_MODE1_SCR_RECT();
-				} else if (g->n_imgs == 2) {
-					SET_MODE2_SCR_RECTS();
-				} else if (g->n_imgs == 4) {
-					SET_MODE4_SCR_RECTS();
-				} else if (g->n_imgs == 8) {
-					SET_MODE8_SCR_RECTS();
-				}
-				// TODO not sure if this will really catch everything without a mtx lock
-				// but good enough imo
-				if (g->loading || g->done_loading) {
+				g->scr_rect.y = g->gui_bar_ht;
+				g->scr_rect.w = g->scr_w;
+				g->scr_rect.h = g->scr_h - 2*g->gui_bar_ht;
+
+				if (!g->loading && !g->done_loading) {
+					puts("should be updated here\n");
+					// TODO how/where to reset all the "subscreens" rects
+					if (g->n_imgs == 1) {
+						SET_MODE1_SCR_RECT();
+					} else if (g->n_imgs == 2) {
+						SET_MODE2_SCR_RECTS();
+					} else if (g->n_imgs == 4) {
+						SET_MODE4_SCR_RECTS();
+					} else if (g->n_imgs == 8) {
+						SET_MODE8_SCR_RECTS();
+					}
+				} else {
 					g->needs_scr_rect_update = SDL_TRUE;
 				}
 
 				break;
 			case SDL_WINDOWEVENT_EXPOSED:
-				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "exposed event");
+				SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "exposed event");
 				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
 				break;
 			}
