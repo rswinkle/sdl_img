@@ -10,9 +10,13 @@ void render_thumbs(void)
 	struct nk_color th = g->thumb_highlight;
 	int start = g->thumb_start_row * g->thumb_cols;
 	int end = start + g->thumb_cols*g->thumb_rows;
-	int w = g->scr_w/(float)g->thumb_cols;
-	int h = g->scr_h/(float)g->thumb_rows;
-	SDL_Rect r = { 0, 0, w, h };
+	float w = g->scr_rect.w/(float)g->thumb_cols;
+	float h = (g->scr_rect.h + g->gui_bar_ht)/(float)g->thumb_rows;
+
+	SDL_FRect r = { g->scr_rect.x, g->scr_rect.y, w, h };
+	float w_over_thm_sz = w/(float)THUMBSIZE;
+	float h_over_thm_sz = h/(float)THUMBSIZE;
+
 	int cur_row = g->thumb_start_row - 1;
 	for (int i = start; i < end && i<g->files.size; ++i) {
 		cur_row += !(i % g->thumb_cols);
@@ -33,12 +37,12 @@ void render_thumbs(void)
 		//r.y = ((i-start) / g->thumb_cols) * h;
 
 		// scales and centers thumbs appropriately
-		r.w = g->thumbs.a[i].w/(float)THUMBSIZE * w;
-		r.h = g->thumbs.a[i].h/(float)THUMBSIZE * h;
-		r.x = (((i-start) % g->thumb_cols) * w) + (w-r.w)/2;
-		r.y = (((i-start) / g->thumb_cols) * h) + (h-r.h)/2;
+		r.w = g->thumbs.a[i].w * w_over_thm_sz;
+		r.h = g->thumbs.a[i].h * h_over_thm_sz;
+		r.x = (((i-start) % g->thumb_cols) * w) + (w-r.w)*0.5f;
+		r.y = (((i-start) / g->thumb_cols) * h) + (h-r.h)*0.5f;
 
-		SDL_RenderCopy(g->ren, g->thumbs.a[i].tex, NULL, &r);
+		SDL_RenderCopyF(g->ren, g->thumbs.a[i].tex, NULL, &r);
 		if (g->state & THUMB_DFLT) {
 			if (i == g->thumb_sel) {
 				SDL_SetRenderDrawColor(g->ren, th.r, th.g, th.b, 255);
@@ -47,7 +51,7 @@ void render_thumbs(void)
 				r.y = ((i-start) / g->thumb_cols) * h;
 				r.w = w;
 				r.h = h;
-				SDL_RenderDrawRect(g->ren, &r);
+				SDL_RenderDrawRectF(g->ren, &r);
 			}
 		} else if (g->state & THUMB_VISUAL) {
 			if (!g->is_thumb_visual_line) {
@@ -62,7 +66,7 @@ void render_thumbs(void)
 					r.y = ((i-start) / g->thumb_cols) * h;
 					r.w = w;
 					r.h = h;
-					SDL_RenderFillRect(g->ren, &r);
+					SDL_RenderFillRectF(g->ren, &r);
 				}
 			} else {
 				// Seems a bit stupid to do individual highlighting when we know
@@ -83,7 +87,7 @@ void render_thumbs(void)
 					r.y = ((i-start) / g->thumb_cols) * h;
 					r.w = w;
 					r.h = h;
-					SDL_RenderFillRect(g->ren, &r);
+					SDL_RenderFillRectF(g->ren, &r);
 				}
 			}
 		} else if (g->state & SEARCH_RESULTS) {
@@ -99,13 +103,13 @@ void render_thumbs(void)
 					r.y = ((i-start) / g->thumb_cols) * h;
 					r.w = w;
 					r.h = h;
-					SDL_RenderFillRect(g->ren, &r);
+					SDL_RenderFillRectF(g->ren, &r);
 					break;
 				}
 			}
 			if (g->thumb_sel == i) {
 				SDL_SetRenderDrawColor(g->ren, 0, 255, 0, 255);
-				SDL_RenderDrawRect(g->ren, &r);
+				SDL_RenderDrawRectF(g->ren, &r);
 			}
 
 		}
