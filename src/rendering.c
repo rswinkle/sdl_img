@@ -11,7 +11,7 @@ void render_thumbs(void)
 	int start = g->thumb_start_row * g->thumb_cols;
 	int end = start + g->thumb_cols*g->thumb_rows;
 	float w = g->scr_rect.w/(float)g->thumb_cols;
-	float h = (g->scr_rect.h + g->gui_bar_ht)/(float)g->thumb_rows;
+	float h = (g->scr_h - g->gui_bar_ht)/(float)g->thumb_rows;
 
 	SDL_FRect r = { g->scr_rect.x, g->scr_rect.y, w, h };
 	float w_over_thm_sz = w/(float)THUMBSIZE;

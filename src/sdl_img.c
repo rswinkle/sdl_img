@@ -89,6 +89,7 @@ void reset_behavior_prefs(void);
 void setup_dirs(void);
 void setup_font(char* font_file, float height);
 void cleanup(int ret, int called_setup);
+int handle_common_evts(void* userdata, SDL_Event* e);
 
 #include "playlists.c"
 #include "thumbs.c"
@@ -894,6 +895,8 @@ int load_new_images(void* data)
 			else
 				img = g->img1;
 
+			// TODO this is where we have to worry about the main
+			// thread writing to g->img[].scr_rect at the same time
 			for (int i=0; i<g->n_imgs; ++i)
 				img[i].scr_rect = g->img[i].scr_rect;
 
@@ -1759,11 +1762,11 @@ extern inline void set_show_gui(int show)
 		SDL_ShowCursor(SDL_ENABLE);
 		g->gui_timer = SDL_GetTicks();
 	}
-	if (show != g->show_gui) {
+//	if (show != g->show_gui) {
 		g->show_gui = show;
 		g->needs_scr_rect_update = SDL_TRUE;
 		g->status = REDRAW;
-	}
+//	}
 }
 
 void setup(int argc, char** argv)
@@ -1990,6 +1993,8 @@ void setup(int argc, char** argv)
 		SDL_Log("render quality hint was set\n");
 	}
 
+	// Handle window resizing etc. in a single place
+	SDL_SetEventFilter(handle_common_evts, NULL);
 
 	// GetWindowBorderSize is only supported on X11 (as of 2019)
 	int top, bottom, left, right;
@@ -2147,7 +2152,16 @@ void setup(int argc, char** argv)
 inline void set_fullscreen()
 {
 	g->status = REDRAW;
-	SDL_SetWindowFullscreen(g->win, g->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+
+	if (g->fullscreen) {
+		SDL_SetWindowFullscreen(g->win, SDL_WINDOW_FULLSCREEN_DESKTOP);
+		if (g->fullscreen_gui != NEVER) {
+			g->gui_timer = SDL_GetTicks();
+			g->show_gui = nk_true;
+		}
+	} else {
+		SDL_SetWindowFullscreen(g->win, 0);
+	}
 }
 
 void replace_img(img_state* i1, img_state* i2)
@@ -2320,6 +2334,7 @@ void rotate_img(img_state* img)
 		cleanup(0, 1);
 	}
 
+	g->adj_img_rects = SDL_TRUE;
 	// TODO refactor this, rotate_img90 and do_rotate
 	if (g->n_imgs == 1)
 		SET_MODE1_SCR_RECT();
@@ -2682,6 +2697,7 @@ void do_rotate(int left, int is_90)
 				return;
 			}
 
+			g->adj_img_rects = SDL_TRUE;
 			if (g->n_imgs == 1)
 				SET_MODE1_SCR_RECT();
 			else if (g->n_imgs == 2)
@@ -2754,6 +2770,7 @@ void do_flip(int is_vertical)
 
 		create_textures(img);
 
+		//g->adj_img_rects = SDL_TRUE;
 		if (g->n_imgs == 1)
 			SET_MODE1_SCR_RECT();
 		else if (g->n_imgs == 2)
@@ -2772,6 +2789,8 @@ void do_mode_change(intptr_t mode)
 	if (g->n_imgs != mode && g->files.size >= mode) {
 		g->status = REDRAW;
 		g->slide_timer =  SDL_GetTicks();
+		g->adj_img_rects = SDL_TRUE;
+		g->needs_scr_rect_update = SDL_TRUE;
 
 		if (g->n_imgs < mode) {
 			SDL_LockMutex(g->img_loading_mtx);
@@ -2800,16 +2819,6 @@ void do_mode_change(intptr_t mode)
 				replace_img(&g->img[0], g->img_focus);
 				g->img_focus = NULL;
 			}
-
-			if (mode == MODE1)
-				SET_MODE1_SCR_RECT();
-			if (mode == MODE2)
-				SET_MODE2_SCR_RECTS();
-			else if (mode == MODE4)
-				SET_MODE4_SCR_RECTS();
-			else if (mode == MODE8)
-				SET_MODE8_SCR_RECTS();
-
 			g->n_imgs = mode;
 
 			// TODO don't always do this? seee above and in event done_loading code
@@ -3208,12 +3217,14 @@ int main(int argc, char** argv)
 
 
 		// TODO this whole GUI logic system needs to be simplified a lot
-		if (!IS_FS_MODE() && !IS_SCANNING_MODE() && ((!IS_LIST_MODE() && !IS_THUMB_MODE()) || IS_VIEW_RESULTS()) && g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
+		//if (!IS_FS_MODE() && !IS_SCANNING_MODE() && ((!IS_LIST_MODE() && !IS_THUMB_MODE()) || IS_VIEW_RESULTS()) && g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
+		if (g->fullscreen && g->fullscreen_gui == DELAY && g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
 			set_show_gui(SDL_FALSE);
 		}
 
 		// TODO testing, naming/organization of showing/hiding GUI vs mouse
-		if (IS_FS_MODE() || IS_SCANNING_MODE() || (IS_LIST_MODE() && !IS_VIEW_RESULTS()) || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
+		//if (IS_FS_MODE() || IS_SCANNING_MODE() || (IS_LIST_MODE() && !IS_VIEW_RESULTS()) || g->show_gui || (g->fullscreen && g->fullscreen_gui == ALWAYS)) {
+		if (!g->fullscreen || !IS_NORMAL() || g->show_gui || g->fullscreen_gui == ALWAYS) {
 			draw_gui(g->ctx);
 			g->status = REDRAW; // maybe integrate this into draw_gui()?
 		}

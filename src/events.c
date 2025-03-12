@@ -50,6 +50,46 @@ void discard_rotation(img_state* img)
 		SET_MODE8_SCR_RECTS();
 }
 
+
+// From wiki: If the filter function returns 1 when called, then the event will be added to the internal queue. If it returns 0, then the event will be dropped from the queue, but the internal state will still be updated.
+//
+// There's a bug in SDL_RENDERER_SOFTWARE
+// because I return 0 and it breaks completely like it's not updating the internal
+// state anymore, complaining about an invalid SDL_Surface
+//
+// It works better with SDL_RENDERER ACCELERATED but is still broken
+// It doesn't complain that anything is invalid but if you make the window bigger
+// than the starting size it just clips the content to the original size
+
+// TODO rename?
+int handle_common_evts(void* userdata, SDL_Event* e)
+{
+	//int w, h;
+	// TODO technically this could run on a separate thread so
+	// anything in anything I read/write to in g should be atomic
+	// or guarded...
+	if (e->type == SDL_WINDOWEVENT) {
+		g->status = REDRAW;
+		switch (e->window.event) {
+		case SDL_WINDOWEVENT_SIZE_CHANGED:
+			g->scr_w = e->window.data1;
+			g->scr_h = e->window.data2;
+			SDL_Log("filter size change %d %d\n", g->scr_w, g->scr_h);
+
+			g->needs_scr_rect_update = TRUE;
+			g->adj_img_rects = TRUE;
+			set_show_gui(SDL_TRUE);
+			break;
+
+		}
+		// this breaks both renderers in different ways
+		// return 0
+	}
+	return 1;
+}
+
+
+
 int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 {
 	SDL_Event e;
@@ -168,38 +208,7 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 				break;
 			}
 			break; // KEYDOWN
-
-		case SDL_WINDOWEVENT: {
-			//g->status = REDRAW;
-			//int x, y;
-			//SDL_GetWindowSize(g->win, &x, &y);
-			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
-			switch (e.window.event) {
-			case SDL_WINDOWEVENT_RESIZED:
-				// this event is always preceded by WINOWEVENT_SIZE_CHANGED
-				//g->scr_w = e.window.data1;
-				//g->scr_h = e.window.data2;
-				break;
-			case SDL_WINDOWEVENT_SIZE_CHANGED:
-				g->scr_w = e.window.data1;
-				g->scr_h = e.window.data2;
-				g->needs_scr_rect_update = SDL_TRUE;
-				SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "fb windowed %d %d\n", g->scr_w, g->scr_h);
-
-				break;
-			}
-		} break;
-
-		//case SDL_MOUSEBUTTONUP:
-			//SDL_LogDebugApp("mouse click: %d, %d\n", e.button.x, e.button.y);
-
-		break;
-
-		// all other event types
-		default:
-			break;
 		}
-
 		nk_sdl_handle_event(&e);
 	}
 	nk_input_end(g->ctx);
@@ -297,7 +306,6 @@ int handle_thumb_events()
 				if (g->state & THUMB_DFLT) {
 					g->state = NORMAL;
 					g->thumb_start_row = 0;
-					set_show_gui(SDL_TRUE);
 
 					// if current image was removed/deleted need to load next image
 					if (g->do_next) {
@@ -337,8 +345,6 @@ int handle_thumb_events()
 				text_len = 1;
 				g->search_results.size = 0;
 				SDL_StartTextInput();
-
-				set_show_gui(SDL_TRUE);
 				break;
 			case SDLK_v:
 				if (g->state & THUMB_DFLT) {
@@ -362,7 +368,6 @@ int handle_thumb_events()
 						g->thumb_start_row = 0;;
 						g->thumb_sel = 0;
 					}
-					set_show_gui(SDL_TRUE);
 				}
 				break;
 			case SDLK_HOME:
@@ -418,7 +423,7 @@ int handle_thumb_events()
 						text_len = 0;
 					}
 
-					set_show_gui(SDL_TRUE);
+					g->adj_img_rects = SDL_TRUE;
 					try_move(SELECTION);
 				} else if (g->state == THUMB_SEARCH) {
 					SDL_StopTextInput();
@@ -457,7 +462,6 @@ int handle_thumb_events()
 				} else if (g->state != THUMB_SEARCH) {
 					g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? g->thumb_cols : -g->thumb_cols;
 					fix_thumb_sel((sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1);
-					set_show_gui(SDL_TRUE);
 				}
 				break;
 			case SDLK_LEFT:
@@ -474,7 +478,6 @@ int handle_thumb_events()
 					if (g->state != THUMB_SEARCH) {
 						g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
 						fix_thumb_sel((sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1);
-						set_show_gui(SDL_TRUE);
 					}
 				}
 				break;
@@ -490,7 +493,6 @@ int handle_thumb_events()
 					g->thumb_sel = g->thumb_start_row * g->thumb_cols + tmp;
 					g->thumb_sel += (sym == SDLK_b) ? (rows-1)*g->thumb_cols : 0;
 					fix_thumb_sel((sym == SDLK_f) ? 1 : -1);
-					set_show_gui(SDL_TRUE);
 				}
 
 				break;
@@ -528,7 +530,6 @@ int handle_thumb_events()
 						}
 					}
 					g->thumb_sel = g->search_results.a[g->cur_result];
-					set_show_gui(TRUE);
 				}
 				break;
 			case SDLK_BACKSPACE:
@@ -539,7 +540,6 @@ int handle_thumb_events()
 			}
 			break;
 		case SDL_MOUSEMOTION:
-			set_show_gui(SDL_TRUE);
 
 			// TODO
 			// Have to think about this, best way to do drag select while still supporting
@@ -584,7 +584,6 @@ int handle_thumb_events()
 					g->thumb_sel = g->selection;
 				}
 			}
-			set_show_gui(SDL_TRUE);
 			break;
 		case SDL_MOUSEWHEEL:
 			g->status = REDRAW;
@@ -596,7 +595,6 @@ int handle_thumb_events()
 					g->thumb_sel += e.wheel.y * g->thumb_cols;
 					fix_thumb_sel(e.wheel.y);
 				}
-				set_show_gui(SDL_TRUE);
 			}
 			break;
 
@@ -620,44 +618,6 @@ int handle_thumb_events()
 				selection_len = e.edit.length;
 			}
 			break;
-
-		case SDL_WINDOWEVENT: {
-			g->status = REDRAW;
-			int x, y;
-			SDL_GetWindowSize(g->win, &x, &y);
-			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
-			switch (e.window.event) {
-			case SDL_WINDOWEVENT_RESIZED:
-				break;
-			case SDL_WINDOWEVENT_SIZE_CHANGED:
-				g->scr_w = e.window.data1;
-				g->scr_h = e.window.data2;
-
-				g->scr_rect.y = g->gui_bar_ht;
-				g->scr_rect.w = g->scr_w;
-				g->scr_rect.h = g->scr_h - 2*g->gui_bar_ht;
-				
-				// TODO double check can this even happen...
-				// We initiate a load only when we switch to normal mode
-				// so...
-				if (!g->loading && !g->done_loading) {
-					puts("should be updated here\n");
-					// TODO how/where to reset all the "subscreens" rects
-					if (g->n_imgs == 1) {
-						SET_MODE1_SCR_RECT();
-					} else if (g->n_imgs == 2) {
-						SET_MODE2_SCR_RECTS();
-					} else if (g->n_imgs == 4) {
-						SET_MODE4_SCR_RECTS();
-					} else if (g->n_imgs == 8) {
-						SET_MODE8_SCR_RECTS();
-					}
-				} else {
-					g->needs_scr_rect_update = SDL_TRUE;
-				}
-				break;
-			}
-		} break;
 
 		default:
 			break;
@@ -868,34 +828,6 @@ int handle_list_events()
 				break;
 			}
 
-		case SDL_WINDOWEVENT: {
-			g->status = REDRAW;
-			//int x, y;
-			//SDL_GetWindowSize(g->win, &x, &y);
-			//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
-			switch (e.window.event) {
-			case SDL_WINDOWEVENT_RESIZED:
-				//g->scr_w = e.window.data1;
-				//g->scr_h = e.window.data2;
-				break;
-			case SDL_WINDOWEVENT_SIZE_CHANGED:
-				g->scr_w = e.window.data1;
-				g->scr_h = e.window.data2;
-
-				// TODO how/where to reset all the "subscreens" rects
-				if (g->n_imgs == 1) {
-					SET_MODE1_SCR_RECT();
-				} else if (g->n_imgs == 2) {
-					SET_MODE2_SCR_RECTS();
-				} else if (g->n_imgs == 4) {
-					SET_MODE4_SCR_RECTS();
-				} else if (g->n_imgs == 8) {
-					SET_MODE8_SCR_RECTS();
-				}
-				break;
-			}
-		} break;
-
 		// all other event types
 		default:
 			break;
@@ -986,36 +918,6 @@ int handle_scanning_events()
 				break;
 			}
 			break;
-		case SDL_WINDOWEVENT: {
-			g->status = REDRAW;
-			//int x, y;
-			//SDL_GetWindowSize(g->win, &x, &y);
-			switch (e.window.event) {
-			case SDL_WINDOWEVENT_RESIZED:
-				// keep GUI visible while resizing
-				set_show_gui(SDL_TRUE);
-				// this event is always preceded by WINOWEVENT_SIZE_CHANGED
-				//g->scr_w = e.window.data1;
-				//g->scr_h = e.window.data2;
-				break;
-			case SDL_WINDOWEVENT_SIZE_CHANGED:
-				g->scr_w = e.window.data1;
-				g->scr_h = e.window.data2;
-
-				g->scr_rect.y = g->gui_bar_ht;
-				g->scr_rect.w = g->scr_w;
-				g->scr_rect.h = g->scr_h - 2*g->gui_bar_ht;
-
-				g->needs_scr_rect_update = SDL_TRUE;
-				SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "scanning windowed %d %d\n", g->scr_w, g->scr_h);
-				break;
-			case SDL_WINDOWEVENT_EXPOSED:
-				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "exposed event");
-				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
-				break;
-			}
-		}
-		break;
 		}
 	}
 	nk_input_end(g->ctx);
@@ -1119,38 +1021,6 @@ int handle_popup_events()
 				default: ;
 			}
 			break;
-		case SDL_WINDOWEVENT: {
-			g->status = REDRAW;
-			int x, y;
-			SDL_GetWindowSize(g->win, &x, &y);
-			SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
-			switch (e.window.event) {
-			case SDL_WINDOWEVENT_RESIZED:
-				// this event is always preceded by WINOWEVENT_SIZE_CHANGED
-				break;
-			case SDL_WINDOWEVENT_SIZE_CHANGED:
-				g->scr_w = e.window.data1;
-				g->scr_h = e.window.data2;
-
-				// have to do this here too since images are "under" the popup otherwise
-				// when you go back, they'll look wrong
-				// TODO how/where to reset all the "subscreens" rects
-				if (g->n_imgs == 1) {
-					SET_MODE1_SCR_RECT();
-				} else if (g->n_imgs == 2) {
-					SET_MODE2_SCR_RECTS();
-				} else if (g->n_imgs == 4) {
-					SET_MODE4_SCR_RECTS();
-				} else if (g->n_imgs == 8) {
-					SET_MODE8_SCR_RECTS();
-				}
-				break;
-			case SDL_WINDOWEVENT_EXPOSED:
-				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "exposed event");
-				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
-				break;
-			}
-		} break; // end WINDOWEVENTS
 		} // end switch event type
 
 		// TODO leave it here where it calls for every event
@@ -1208,19 +1078,14 @@ int handle_events_normally()
 				g->img = img;
 			}
 		} else {
-			for (int i=g->n_imgs; i<g->done_loading; ++i)
+			for (int i=g->n_imgs; i<g->done_loading; ++i) {
 				create_textures(&g->img[i]);
-
-			if (g->done_loading == MODE2) {
-				SET_MODE2_SCR_RECTS();
-				g->n_imgs = 2;
-			} else if (g->done_loading == MODE4) {
-				SET_MODE4_SCR_RECTS();
-				g->n_imgs = 4;
-			} else {
-				SET_MODE8_SCR_RECTS();
-				g->n_imgs = 8;
 			}
+			// TODO duplication in do_mode_change
+			g->needs_scr_rect_update = SDL_TRUE;
+			g->adj_img_rects = SDL_TRUE;
+
+			g->n_imgs = g->done_loading;
 		}
 		g->done_loading = 0;
 		g->status = REDRAW;
@@ -1231,7 +1096,7 @@ int handle_events_normally()
 	
 	if (!g->loading) {
 		if (g->needs_scr_rect_update) {
-			puts("update after loading");
+			//SDL_Log("update after loading mode = %d %d", g->n_imgs, g->adj_img_rects);
 			switch (g->n_imgs) {
 			case 1: SET_MODE1_SCR_RECT(); break;
 			case 2: SET_MODE2_SCR_RECTS(); break;
@@ -1863,48 +1728,6 @@ int handle_events_normally()
 			}
 			break;
 
-		case SDL_WINDOWEVENT: {
-			g->status = REDRAW;
-			int x, y;
-			SDL_GetWindowSize(g->win, &x, &y);
-			SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "window event %d %d %d %d %d\n", e.window.event, g->scr_w, g->scr_h, x, y);
-			switch (e.window.event) {
-			case SDL_WINDOWEVENT_RESIZED:
-				puts("resized");
-				// keep GUI visible while resizing
-				// this event is always preceded by WINOWEVENT_SIZE_CHANGED
-				//g->scr_w = e.window.data1;
-				//g->scr_h = e.window.data2;
-				break;
-			case SDL_WINDOWEVENT_SIZE_CHANGED:
-				puts("size changed");
-				g->scr_w = e.window.data1;
-				g->scr_h = e.window.data2;
-
-				set_show_gui(SDL_TRUE);
-
-				if (!g->loading && !g->done_loading) {
-					puts("should be updated here\n");
-					// TODO how/where to reset all the "subscreens" rects
-					if (g->n_imgs == 1) {
-						SET_MODE1_SCR_RECT();
-					} else if (g->n_imgs == 2) {
-						SET_MODE2_SCR_RECTS();
-					} else if (g->n_imgs == 4) {
-						SET_MODE4_SCR_RECTS();
-					} else if (g->n_imgs == 8) {
-						SET_MODE8_SCR_RECTS();
-					}
-					g->needs_scr_rect_update = SDL_FALSE;
-				}
-
-				break;
-			case SDL_WINDOWEVENT_EXPOSED:
-				SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "exposed event");
-				//SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, "windowed %d %d %d %d\n", g->scr_w, g->scr_h, x, y);
-				break;
-			}
-		} break; // end WINDOWEVENTS
 		case SDL_FINGERDOWN:
 			SDL_LogDebugApp("finger down\n");
 			SDL_LogDebugApp("x y %f %f\n", e.tfinger.x, e.tfinger.y);

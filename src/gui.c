@@ -287,10 +287,6 @@ void draw_gui(struct nk_context* ctx)
 		draw_playlist_manager(ctx, scr_w, scr_h, popup_flags);
 	}
 
-	if (g->fullscreen && g->fullscreen_gui == NEVER) {
-		return;
-	}
-
 	// don't show main GUI if a popup is up, don't want user to
 	// be able to interact with it.  Could look up how to make them inactive
 	// but meh, this is simpler
@@ -2100,6 +2096,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_label(ctx, "GUI in Fullscreen mode:", NK_TEXT_LEFT);
 				static const char* gui_options[] = { "Delay", "Always", "Never" };
 				bounds = nk_widget_bounds(ctx);
+				int old = g->fullscreen_gui;
 				g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, g->font_size+28, nk_vec2(bounds.w, 800));
 
 				/*

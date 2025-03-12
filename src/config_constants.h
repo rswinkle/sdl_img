@@ -42,7 +42,7 @@
 
 #define DFLT_FULLSCREEN_GUI DELAY
 #define DFLT_BG_COLOR nk_rgb(0,0,0)
-#define DFLT_WINDOW_OPACITY 220
+#define DFLT_WINDOW_OPACITY 255
 
 // Should I even use SDL_TRUE/nk_true or just put 1/0?
 #define DFLT_FILL_MODE SDL_FALSE

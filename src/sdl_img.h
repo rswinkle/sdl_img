@@ -45,6 +45,7 @@ enum {
 #define POPUP_MASK (ABOUT | PREFS | ROTATE | PLAYLIST_MANAGER)
 //#define VIEW_MASK (NORMAL)
 
+#define IS_NORMAL() (g->state & NORMAL)
 #define IS_THUMB_MODE() (g->state & THUMB_MASK)
 #define IS_LIST_MODE() (g->state & LIST_MASK)
 #define IS_RESULTS() (g->state & RESULT_MASK)
@@ -68,53 +69,65 @@ enum {
 #endif
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 
-#define SET_MODE1_SCR_RECT()                                                   \
-	do {                                                                       \
-	g->img[0].scr_rect.x = g->scr_rect.x;                                      \
-	g->img[0].scr_rect.y = g->scr_rect.y;                                      \
-	g->img[0].scr_rect.w = g->scr_rect.w;                                      \
-	g->img[0].scr_rect.h = g->scr_rect.h;                                      \
-	set_rect_bestfit(&g->img[0], g->fullscreen | g->slideshow | g->fill_mode); \
+#define SET_MODE1_SCR_RECT()                                                       \
+	do {                                                                           \
+	g->img[0].scr_rect.x = g->scr_rect.x;                                          \
+	g->img[0].scr_rect.y = g->scr_rect.y;                                          \
+	g->img[0].scr_rect.w = g->scr_rect.w;                                          \
+	g->img[0].scr_rect.h = g->scr_rect.h;                                          \
+	if (g->adj_img_rects) {                                                        \
+		set_rect_bestfit(&g->img[0], g->fullscreen | g->slideshow | g->fill_mode); \
+		g->adj_img_rects = 0;                                                      \
+	}                                                                              \
 	} while (0)
 
-#define SET_MODE2_SCR_RECTS()                                                  \
-	do {                                                                       \
-	g->img[0].scr_rect.x = g->scr_rect.x;                                      \
-	g->img[0].scr_rect.y = g->scr_rect.y;                                      \
-	g->img[0].scr_rect.w = g->scr_rect.w/2;                                    \
-	g->img[0].scr_rect.h = g->scr_rect.h;                                      \
-	g->img[1].scr_rect.x = g->scr_rect.w/2;                                    \
-	g->img[1].scr_rect.y = g->scr_rect.y;                                      \
-	g->img[1].scr_rect.w = g->scr_rect.w/2;                                    \
-	g->img[1].scr_rect.h = g->scr_rect.h;                                      \
-	set_rect_bestfit(&g->img[0], g->fullscreen | g->slideshow | g->fill_mode); \
-	set_rect_bestfit(&g->img[1], g->fullscreen | g->slideshow | g->fill_mode); \
+#define SET_MODE2_SCR_RECTS()                                                      \
+	do {                                                                           \
+	g->img[0].scr_rect.x = g->scr_rect.x;                                          \
+	g->img[0].scr_rect.y = g->scr_rect.y;                                          \
+	g->img[0].scr_rect.w = g->scr_rect.w/2;                                        \
+	g->img[0].scr_rect.h = g->scr_rect.h;                                          \
+	g->img[1].scr_rect.x = g->scr_rect.w/2;                                        \
+	g->img[1].scr_rect.y = g->scr_rect.y;                                          \
+	g->img[1].scr_rect.w = g->scr_rect.w/2;                                        \
+	g->img[1].scr_rect.h = g->scr_rect.h;                                          \
+	if (g->adj_img_rects) {                                                        \
+		set_rect_bestfit(&g->img[0], g->fullscreen | g->slideshow | g->fill_mode); \
+		set_rect_bestfit(&g->img[1], g->fullscreen | g->slideshow | g->fill_mode); \
+		g->adj_img_rects = 0;                                                      \
+	}                                                                              \
 	} while (0)
 
-#define SET_MODE4_SCR_RECTS()                                                       \
-	do {                                                                            \
-	int w = g->scr_rect.w/2, h = g->scr_rect.h/2;                                   \
-	int x = g->scr_rect.x, y = g->scr_rect.y;                                       \
-	for (int i=0; i<4; ++i) {                                                       \
-		g->img[i].scr_rect.x = (i%2)*w + x;                                         \
-		g->img[i].scr_rect.y = (i/2)*h + y;                                         \
-		g->img[i].scr_rect.w = w;                                                   \
-		g->img[i].scr_rect.h = h;                                                   \
-		set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);  \
-	}                                                                               \
+#define SET_MODE4_SCR_RECTS()                                                          \
+	do {                                                                               \
+	int w = g->scr_rect.w/2, h = g->scr_rect.h/2;                                      \
+	int x = g->scr_rect.x, y = g->scr_rect.y;                                          \
+	for (int i=0; i<4; ++i) {                                                          \
+		g->img[i].scr_rect.x = (i%2)*w + x;                                            \
+		g->img[i].scr_rect.y = (i/2)*h + y;                                            \
+		g->img[i].scr_rect.w = w;                                                      \
+		g->img[i].scr_rect.h = h;                                                      \
+		if (g->adj_img_rects) {                                                        \
+			set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode); \
+		}                                                                              \
+	}                                                                                  \
+	g->adj_img_rects = 0;                                                              \
 	} while (0)
 
-#define SET_MODE8_SCR_RECTS()                                                       \
-	do {                                                                            \
-	int w = g->scr_rect.w/4, h = g->scr_rect.h/2;                                   \
-	int x = g->scr_rect.x, y = g->scr_rect.y;                                       \
-	for (int i=0; i<8; ++i) {                                                       \
-		g->img[i].scr_rect.x = (i%4)*w + x;                                         \
-		g->img[i].scr_rect.y = (i/4)*h + y;                                         \
-		g->img[i].scr_rect.w = w;                                                   \
-		g->img[i].scr_rect.h = h;                                                   \
-		set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);  \
-	}                                                                               \
+#define SET_MODE8_SCR_RECTS()                                                          \
+	do {                                                                               \
+	int w = g->scr_rect.w/4, h = g->scr_rect.h/2;                                      \
+	int x = g->scr_rect.x, y = g->scr_rect.y;                                          \
+	for (int i=0; i<8; ++i) {                                                          \
+		g->img[i].scr_rect.x = (i%4)*w + x;                                            \
+		g->img[i].scr_rect.y = (i/4)*h + y;                                            \
+		g->img[i].scr_rect.w = w;                                                      \
+		g->img[i].scr_rect.h = h;                                                      \
+		if (g->adj_img_rects) {                                                        \
+			set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode); \
+		}                                                                              \
+	}                                                                                  \
+	g->adj_img_rects = 0;                                                              \
 	} while (0)
 
 #define SDL_LogDebugApp(...) SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, __VA_ARGS__)
@@ -161,7 +174,8 @@ typedef struct global_state
 	int scr_h;
 
 	SDL_Rect scr_rect;
-	int needs_scr_rect_update; // true when need to update image_scr_rects
+	int needs_scr_rect_update; // true when need to update scr_rect
+	int adj_img_rects;         // true when also need to update img disp_rects
 
 	// stupid hack for arbitrary rotation
 	u8* orig_pix;
