@@ -143,9 +143,9 @@ int render_normal(int ticks)
 	// the computer seems to work harder (fan spins up) when I only RenderPresent
 	// when needed even if I also avoid all this extra work.
 	//
-	// And if I mix the two approaches, RenderPresent every frame but only do
+	// And if I mix the two approaches, RenderPresent every frame but do
 	// this work only when needed, there's weird ghosting/artifacts unless I
-	// render an extra frame to handle hardware double buffering... so that's 
+	// render an extra frame to handle hardware double buffering... so that's
 	// what I've ended up doing because an extra frame won't hurt software rendering
 	// TODO rename g->status g->render_status or frame_status or something
 	if (g->show_gui || g->status)

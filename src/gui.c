@@ -298,10 +298,7 @@ void draw_gui(struct nk_context* ctx)
 	}
 
 	if (IS_THUMB_MODE() && !IS_VIEW_RESULTS()) {
-		// TODO always show infobar in thumb_mode regardless of preference?
-		if (g->show_infobar) {
-			draw_thumb_infobar(ctx, scr_w, scr_h);
-		}
+		draw_thumb_infobar(ctx, scr_w, scr_h);
 		return;
 	}
 
@@ -541,9 +538,7 @@ void draw_gui(struct nk_context* ctx)
 	} else {
 		// only draw controls (ie top bar, menu, buttons etc.) in NORMAL mode
 		draw_controls(ctx, scr_w, g->gui_bar_ht);
-		if (g->show_infobar) {
-			draw_infobar(ctx, scr_w, scr_h);
-		}
+		draw_infobar(ctx, scr_w, scr_h);
 	}
 
 }

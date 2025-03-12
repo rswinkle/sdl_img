@@ -75,10 +75,6 @@ enum {
 	g->img[0].scr_rect.y = g->scr_rect.y;                                          \
 	g->img[0].scr_rect.w = g->scr_rect.w;                                          \
 	g->img[0].scr_rect.h = g->scr_rect.h;                                          \
-	if (g->adj_img_rects) {                                                        \
-		set_rect_bestfit(&g->img[0], g->fullscreen | g->slideshow | g->fill_mode); \
-		g->adj_img_rects = 0;                                                      \
-	}                                                                              \
 	} while (0)
 
 #define SET_MODE2_SCR_RECTS()                                                      \
@@ -91,11 +87,6 @@ enum {
 	g->img[1].scr_rect.y = g->scr_rect.y;                                          \
 	g->img[1].scr_rect.w = g->scr_rect.w/2;                                        \
 	g->img[1].scr_rect.h = g->scr_rect.h;                                          \
-	if (g->adj_img_rects) {                                                        \
-		set_rect_bestfit(&g->img[0], g->fullscreen | g->slideshow | g->fill_mode); \
-		set_rect_bestfit(&g->img[1], g->fullscreen | g->slideshow | g->fill_mode); \
-		g->adj_img_rects = 0;                                                      \
-	}                                                                              \
 	} while (0)
 
 #define SET_MODE4_SCR_RECTS()                                                          \
@@ -107,11 +98,7 @@ enum {
 		g->img[i].scr_rect.y = (i/2)*h + y;                                            \
 		g->img[i].scr_rect.w = w;                                                      \
 		g->img[i].scr_rect.h = h;                                                      \
-		if (g->adj_img_rects) {                                                        \
-			set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode); \
-		}                                                                              \
 	}                                                                                  \
-	g->adj_img_rects = 0;                                                              \
 	} while (0)
 
 #define SET_MODE8_SCR_RECTS()                                                          \
@@ -123,11 +110,7 @@ enum {
 		g->img[i].scr_rect.y = (i/4)*h + y;                                            \
 		g->img[i].scr_rect.w = w;                                                      \
 		g->img[i].scr_rect.h = h;                                                      \
-		if (g->adj_img_rects) {                                                        \
-			set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode); \
-		}                                                                              \
 	}                                                                                  \
-	g->adj_img_rects = 0;                                                              \
 	} while (0)
 
 #define SDL_LogDebugApp(...) SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, __VA_ARGS__)

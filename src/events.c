@@ -40,14 +40,7 @@ void discard_rotation(img_state* img)
 	}
 
 	// TODO refactor this, rotate_img90 and do_rotate
-	if (g->n_imgs == 1)
-		SET_MODE1_SCR_RECT();
-	else if (g->n_imgs == 2)
-		SET_MODE2_SCR_RECTS();
-	else if (g->n_imgs == 4)
-		SET_MODE4_SCR_RECTS();
-	else
-		SET_MODE8_SCR_RECTS();
+	g->adj_img_rects = SDL_TRUE;
 }
 
 
@@ -76,10 +69,26 @@ int handle_common_evts(void* userdata, SDL_Event* e)
 			g->scr_h = e->window.data2;
 			SDL_Log("filter size change %d %d\n", g->scr_w, g->scr_h);
 
+			g->progress_hovered = nk_false;
 			g->needs_scr_rect_update = TRUE;
 			g->adj_img_rects = TRUE;
-			set_show_gui(SDL_TRUE);
-			break;
+
+			//set_show_gui(SDL_TRUE);
+			if (g->fullscreen) {
+				// always use the full screen (even if we're showing the GUI)
+				// the images will be under the GUI in fullscreen mode
+				g->scr_rect.x = 0;
+				g->scr_rect.y = 0;
+				g->scr_rect.w = g->scr_w;
+				g->scr_rect.h = g->scr_h;
+			} else {
+				g->scr_rect.x = 0;
+				g->scr_rect.y = g->gui_bar_ht;
+				g->scr_rect.w = g->scr_w;
+				g->scr_rect.h = g->scr_h - 2*g->gui_bar_ht;
+			}
+
+		break;
 
 		}
 		// this breaks both renderers in different ways
@@ -208,6 +217,10 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 				break;
 			}
 			break; // KEYDOWN
+		case SDL_MOUSEMOTION:
+		case SDL_MOUSEBUTTONDOWN:
+			set_show_gui(SDL_TRUE);
+			break;
 		}
 		nk_sdl_handle_event(&e);
 	}
@@ -540,6 +553,7 @@ int handle_thumb_events()
 			}
 			break;
 		case SDL_MOUSEMOTION:
+			set_show_gui(SDL_TRUE);
 
 			// TODO
 			// Have to think about this, best way to do drag select while still supporting
@@ -557,6 +571,7 @@ int handle_thumb_events()
 			*/
 			break;
 		case SDL_MOUSEBUTTONDOWN:
+			set_show_gui(SDL_TRUE);
 			// TODO
 			break;
 		case SDL_MOUSEBUTTONUP:
@@ -827,6 +842,9 @@ int handle_list_events()
 				}
 				break;
 			}
+		case SDL_MOUSEMOTION:
+			set_show_gui(SDL_TRUE);
+			break;
 
 		// all other event types
 		default:
@@ -1104,6 +1122,12 @@ int handle_events_normally()
 			case 8: SET_MODE8_SCR_RECTS(); break;
 			}
 			g->needs_scr_rect_update = SDL_FALSE;
+		}
+		if (g->adj_img_rects) {
+			for (int i=0; i<g->n_imgs; ++i) {
+				set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);
+			}
+			g->adj_img_rects = SDL_FALSE;
 		}
 	}
 
