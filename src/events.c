@@ -85,7 +85,11 @@ int handle_common_evts(void* userdata, SDL_Event* e)
 				g->scr_rect.x = 0;
 				g->scr_rect.y = g->gui_bar_ht;
 				g->scr_rect.w = g->scr_w;
-				g->scr_rect.h = g->scr_h - 2*g->gui_bar_ht;
+
+				if (g->show_infobar)
+					g->scr_rect.h = g->scr_h - 2*g->gui_bar_ht;
+				else
+					g->scr_rect.h = g->scr_h - g->gui_bar_ht;
 			}
 
 		break;

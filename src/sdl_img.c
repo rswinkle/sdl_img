@@ -90,6 +90,7 @@ void setup_dirs(void);
 void setup_font(char* font_file, float height);
 void cleanup(int ret, int called_setup);
 int handle_common_evts(void* userdata, SDL_Event* e);
+void remove_bad_paths(void);
 
 #include "playlists.c"
 #include "thumbs.c"
@@ -2147,6 +2148,7 @@ inline void set_fullscreen()
 		SDL_SetWindowFullscreen(g->win, SDL_WINDOW_FULLSCREEN_DESKTOP);
 		if (g->fullscreen_gui != NEVER) {
 			g->gui_timer = SDL_GetTicks();
+			printf("Setting gui timer in fs %d\n", g->gui_timer);
 			g->show_gui = SDL_TRUE;
 		} else {
 			g->show_gui = SDL_FALSE;
@@ -2913,9 +2915,11 @@ void do_actual_size(void)
 
 int cvec_contains_str(cvector_str* list, char* s)
 {
-	for (int i=0; i<list->size; ++i) {
-		if (!strcmp(list->a[i], s)) {
-			return i;
+	if (s) {
+		for (int i=0; i<list->size; ++i) {
+			if (!strcmp(list->a[i], s)) {
+				return i;
+			}
 		}
 	}
 	return -1;
@@ -3182,38 +3186,31 @@ int main(int argc, char** argv)
 		frame_count++;
 #endif
 
-
-		// TODO this whole GUI logic system needs to be simplified a lot
 		if (g->show_gui && ticks - g->gui_timer > g->gui_delay*1000) {
+			printf("ticks = %d, gui_timer = %d\n", ticks, g->gui_timer);
 			set_show_gui(SDL_FALSE);
 		}
 
-		// TODO testing, naming/organization of showing/hiding GUI vs mouse
-		if (!g->fullscreen || !IS_NORMAL() || g->fullscreen_gui == ALWAYS || (g->fullscreen_gui == DELAY && g->show_gui)) {
-			draw_gui(g->ctx);
-			g->status = REDRAW; // maybe integrate this into draw_gui()?
+		draw_gui(g->ctx);
+		g->status = REDRAW; // maybe integrate this into draw_gui()?
+
+		// IS_NORMAL covers popups rendered over normal as well
+		// as VIEW_RESULSTS()
+		if (IS_NORMAL()) {
+			is_a_gif = render_normal(ticks);
+		} else if (IS_THUMB_MODE()) {
+			render_thumbs();
 		}
 
-		if (!IS_FS_MODE() && !IS_SCANNING_MODE()) {
-			if (IS_THUMB_MODE() && !IS_VIEW_RESULTS()) {
-				render_thumbs();
-			} else if (!IS_LIST_MODE() || IS_VIEW_RESULTS()) {
-				// make above plain else to do transparently show image beneath list, could work as a preview...
-				is_a_gif = render_normal(ticks);
-			}
-		}
-
-		// TODO ?
-		if (!g->fullscreen || !IS_NORMAL() || g->fullscreen_gui == ALWAYS || (g->fullscreen_gui == DELAY && g->show_gui)) {
-			SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
-			// TODO try it off?
+		SDL_RenderSetScale(g->ren, g->x_scale, g->y_scale);
+		// TODO try it off?
 #ifndef USE_SOFTWARE_RENDERER
-			nk_sdl_render(NK_ANTI_ALIASING_ON);
+		nk_sdl_render(NK_ANTI_ALIASING_ON);
 #else
-			nk_sdl_render(NK_ANTI_ALIASING_OFF);
+		nk_sdl_render(NK_ANTI_ALIASING_OFF);
 #endif
-			SDL_RenderSetScale(g->ren, 1, 1);
-		}
+		SDL_RenderSetScale(g->ren, 1, 1);
+
 		SDL_RenderPresent(g->ren);
 
 

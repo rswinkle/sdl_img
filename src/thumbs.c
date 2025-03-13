@@ -180,6 +180,9 @@ int gen_thumbs(void* data)
 		g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 	}
 	if (!g->save_status_uptodate) {
+		if (g->bad_path_state == HAS_BAD) {
+			remove_bad_paths();
+		}
 		UPDATE_PLAYLIST_SAVE_STATUS();
 		g->save_status_uptodate = SDL_TRUE;
 	}
@@ -276,6 +279,9 @@ int load_thumbs(void* data)
 	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 
 	if (!g->save_status_uptodate) {
+		if (g->bad_path_state == HAS_BAD) {
+			remove_bad_paths();
+		}
 		UPDATE_PLAYLIST_SAVE_STATUS();
 		g->save_status_uptodate = SDL_TRUE;
 	}

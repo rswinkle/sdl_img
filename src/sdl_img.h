@@ -157,6 +157,9 @@ typedef struct global_state
 	int scr_h;
 
 	SDL_Rect scr_rect;
+
+	// rename?  first is used for img[].scr_rect
+	// second for img[].disp_rect
 	int needs_scr_rect_update; // true when need to update scr_rect
 	int adj_img_rects;         // true when also need to update img disp_rects
 

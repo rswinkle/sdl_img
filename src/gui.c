@@ -535,10 +535,12 @@ void draw_gui(struct nk_context* ctx)
 		nk_end(ctx);
 
 		//return;
-	} else {
+	} else if (!g->fullscreen || g->fullscreen_gui == ALWAYS || (g->fullscreen_gui == DELAY && g->show_gui)) {
 		// only draw controls (ie top bar, menu, buttons etc.) in NORMAL mode
 		draw_controls(ctx, scr_w, g->gui_bar_ht);
-		draw_infobar(ctx, scr_w, scr_h);
+		if (g->show_infobar) {
+			draw_infobar(ctx, scr_w, scr_h);
+		}
 	}
 
 }
@@ -2081,9 +2083,6 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_label(ctx, "Slideshow delay:", NK_TEXT_LEFT);
 				nk_property_int(ctx, "#", 1, &g->slide_delay, MAX_SLIDE_DELAY, 1, 0.3);
 
-				nk_label(ctx, "Hide GUI delay:", NK_TEXT_LEFT);
-				nk_property_int(ctx, "#", 1, &g->gui_delay, MAX_GUI_DELAY, 1, 0.3);
-
 				nk_label(ctx, "Button repeat delay:", NK_TEXT_LEFT);
 				nk_property_float(ctx, "#", MIN_BUTTON_RPT_DELAY, &g->button_rpt_delay, MAX_BUTTON_RPT_DELAY, 0.25, 0.08333);
 
@@ -2093,6 +2092,13 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				bounds = nk_widget_bounds(ctx);
 				int old = g->fullscreen_gui;
 				g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, g->font_size+28, nk_vec2(bounds.w, 800));
+
+				// TODO show all the time?
+				if (g->fullscreen_gui == DELAY) {
+					nk_label(ctx, "Fullscreen GUI delay:", NK_TEXT_LEFT);
+					nk_property_int(ctx, "#", 1, &g->gui_delay, MAX_GUI_DELAY, 1, 0.3);
+				}
+
 
 				/*
 				* This doesn't scale well, looks like it's time to do that total Prefs
@@ -2106,7 +2112,16 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_property_int(ctx, "Thumb rows", MIN_THUMB_ROWS, &g->thumb_rows, MAX_THUMB_ROWS, 1, 0.2);
 				nk_property_int(ctx, "Thumb cols", MIN_THUMB_COLS, &g->thumb_cols, MAX_THUMB_COLS, 1, 0.2);
 
-				nk_checkbox_label(ctx, "Show info bar", &g->show_infobar);
+				// tooltip to say only for normal mode?  always shows for thumb
+				if (nk_checkbox_label(ctx, "Show Normal mode info bar", &g->show_infobar)) {
+					// could push window resize event instead..
+					if (g->show_infobar)
+						g->scr_rect.h = g->scr_h - 2*g->gui_bar_ht;
+					else
+						g->scr_rect.h = g->scr_h - g->gui_bar_ht;
+					g->needs_scr_rect_update = TRUE;
+					g->adj_img_rects = TRUE;
+				}
 
 				if (nk_checkbox_label(ctx, "Best Fit (fill screen space)", &g->fill_mode)) {
 					if (!g->img_focus) {

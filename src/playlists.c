@@ -162,6 +162,9 @@ void read_cur_playlist(void)
 	// executing, I have to assume path could be NULLed out from under me
 	g->save_status_uptodate = SDL_FALSE;
 	if (!g->generating_thumbs && !g->loading_thumbs) {
+		if (g->bad_path_state == HAS_BAD) {
+			remove_bad_paths();
+		}
 		UPDATE_PLAYLIST_SAVE_STATUS();
 		g->save_status_uptodate = SDL_TRUE;
 	}
