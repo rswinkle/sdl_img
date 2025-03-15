@@ -97,6 +97,23 @@ int handle_common_evts(void* userdata, SDL_Event* e)
 		}
 		// this breaks both renderers in different ways
 		// return 0
+	} else if (e->type == SDL_KEYUP) {
+		int sc = e->key.keysym.scancode;
+		switch (sc) {
+		case SDL_SCANCODE_F11:
+			g->status = REDRAW;
+			g->fullscreen = !g->fullscreen;
+			set_fullscreen();
+			break;
+		case SDL_SCANCODE_F:
+			if (e->key.keysym.mod & KMOD_CTRL) {
+				SDL_Log("filter CTRL+F\n");
+				g->status = REDRAW;
+				g->fullscreen = !g->fullscreen;
+				set_fullscreen();
+			}
+			break;
+		}
 	}
 	return 1;
 }
@@ -1025,16 +1042,6 @@ int handle_popup_events()
 				// safe to just always set these to false, only 1 "popup" at a time
 				g->state &= ~POPUP_MASK;
 				break;
-			case SDL_SCANCODE_F11:
-				g->fullscreen = !g->fullscreen;
-				set_fullscreen();
-				break;
-			case SDL_SCANCODE_F:
-				if (mod_state & KMOD_CTRL) {
-					g->status = REDRAW;
-					g->fullscreen = !g->fullscreen;
-					set_fullscreen();
-				}
 			}
 			break;
 		case SDL_KEYDOWN:
@@ -1346,11 +1353,6 @@ int handle_events_normally()
 				SDL_Log("Starting slideshow");
 				break;
 
-			case SDL_SCANCODE_F11:
-				g->fullscreen = !g->fullscreen;
-				set_fullscreen();
-				break;
-
 			case SDL_SCANCODE_0:
 				g->img_focus = NULL;
 				if (g->n_imgs > 1) {
@@ -1484,10 +1486,7 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_F: {
 				g->status = REDRAW;
-				if (ctrl_down) {
-					g->fullscreen = !g->fullscreen;
-					set_fullscreen();
-				} else {
+				if (!ctrl_down) {
 					g->fill_mode = !g->fill_mode;
 					if (!g->img_focus) {
 						for (int i=0; i<g->n_imgs; ++i)
