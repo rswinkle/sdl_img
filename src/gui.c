@@ -1578,7 +1578,7 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 
 			int len;
 			if (g->save_status_uptodate) {
-				len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu [%c]", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total, saved_char[saved_status]);
+				len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu [%c] %s", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total, saved_char[saved_status], g->cur_playlist);
 			} else {
 				len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total);
 			}
@@ -1632,7 +1632,7 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 
 		if (g->state ==  THUMB_DFLT) {
 			saved_status = g->files.a[g->thumb_sel].playlist_idx >= 0;
-			len = snprintf(info_buf, STRBUF_SZ, "[%c] rows: %d / %d  image %d / %d", saved_char[saved_status], row, num_rows, g->thumb_sel+1, (int)g->files.size);
+			len = snprintf(info_buf, STRBUF_SZ, "%s [%c] rows: %d / %d  image %d / %d", g->cur_playlist, saved_char[saved_status], row, num_rows, g->thumb_sel+1, (int)g->files.size);
 		} else if (!(g->state & SEARCH_RESULTS) || g->thumb_sel != g->search_results.a[g->cur_result]) {
 			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
 		} else {
