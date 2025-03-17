@@ -1,5 +1,5 @@
 /*
-clnk 0.90 MIT licensed Windows .lnk shortct file parser
+clnk 0.91.0 MIT licensed Windows .lnk shortct file parser
 robertwinkler.com
 
 Do this:
@@ -18,11 +18,11 @@ QUICK NOTES:
     figure out what all that extra information is for let alone why they made the
     format so complicated.
 
-	There are currently only 2 main functions with 2 variants each.  They
-	either allocate the buffer for you or accept a buffer and size parameter
-	and they either take a lnk file path or a FILE* to one already open.
+    There are currently only 2 main functions with 2 variants each.  They
+    either allocate the buffer for you or accept a buffer and size parameter
+    and they either take a lnk file path or a FILE* to one already open.
 
-	The program below demonstrates:
+    The program below demonstrates:
 
     int main(int argc, char** argv)
     {
@@ -34,19 +34,20 @@ QUICK NOTES:
         char path[1024] = {0};
         if (clnk_get_path_buf(argv[1], path, sizeof(path))) {
             printf("Path: %s\n", path);
+        } else {
+            printf("Error: %s\n", clnk_failure_reason());
         }
 
         char* path2 = clnk_get_path(argv[1]);
         if (path2) {
             printf("Path: %s\n", path2);
             free(path2);
+        } else {
+            printf("Error: %s\n", clnk_failure_reason());
         }
 
         return 0;
     }
-
-
-
 */
 
 #ifndef CLNK_H
@@ -57,7 +58,7 @@ QUICK NOTES:
 #include <string.h>
 #include <assert.h>
 
-// TODO remove, make C89 compliant
+// TODO remove, make C89 compliant?
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -70,6 +71,8 @@ char* clnk_get_path_buf_from_file(FILE* f, char* buf, int size);
 char* clnk_get_path_from_file(FILE* f);
 char* clnk_get_path(const char* lnk_file);
 
+const char* clnk_failure_reason(void);
+
 #ifdef __cplusplus
 }
 #endif
@@ -79,24 +82,50 @@ char* clnk_get_path(const char* lnk_file);
 
 #ifdef CLNK_IMPLEMENTATION
 
+static const char* clnk__g_failure_reason;
+
+const char* clnk_failure_reason(void)
+{
+	return clnk__g_failure_reason;
+}
+
+#ifndef CLNK_NO_FAILURE_STRINGS
+static int clnk__set_err(const char* str)
+{
+	clnk__g_failure_reason = str;
+	return 0;
+}
+#define clnk__err(x,y) (clnk__set_err(x) ? y : y)
+#define clnk__errpc(x,y) (clnk__set_err(x) ? (char*)y : (char*)y)
+#else
+#define clnk__err(x,y) y
+#define clnk__errpc(x,y) ((char*)y)
+#endif
+
 int validate_lnk_file(FILE* f)
 {
 	uint8_t sig[4];
 	uint8_t guid[16] = {0};
 
 	rewind(f);
-	fread(sig, 4, 1, f);
+	if (!fread(sig, 4, 1, f)) {
+		return clnk__err("fread failure", 0);
+	}
 
 	if (memcmp(sig, "L\0\0\0", 4)) {
-		puts("This is not a .lnk file!");
-		return 0;
+		return clnk__err("not a .lnk file", 0);
 	}
-	fread(guid, 16, 1, f);
+	if (!fread(guid, 16, 1, f)) {
+		return clnk__err("fread failure", 0);
+	}
 
-	char guid_valid[16] = "\x01\x14\x02\x00\x00\x00\x00\x00\xc0\x00\x00\x00\x00\x00\x00" "F";
+	// Learned there's a difference between C and C++ here. C is happy
+	// to allow 16 in the brackets and forgo the null terminator, C++ is not
+	// and complains the string is too long. Stupid C++.
+	const char guid_valid[] = "\x01\x14\x02\x00\x00\x00\x00\x00\xc0\x00\x00\x00\x00\x00\x00\x46";
+
 	if (memcmp(guid, guid_valid, 16)) {
-		puts("Cannot read this kind of .lnk file!");
-		return 0;
+		return clnk__err("cannot read this kind of .lnk file", 0);
 	}
 	return 1;
 }
@@ -130,7 +159,9 @@ int get_path_offset(FILE* f)
 
 	// assume LSB machine for now
 	uint16_t items;
-	fread(&items, 2, 1, f);
+	if (!fread(&items, 2, 1, f)) {
+		return clnk__err("fread failure", -1);
+	}
 	make_native_u16((char*)&items);
 
 	int struct_start = 78 + items;
@@ -138,7 +169,10 @@ int get_path_offset(FILE* f)
 
 	uint32_t base_path_off;
 	fseek(f, base_path_off_off, SEEK_SET);
-	fread(&base_path_off, 4, 1, f);
+
+	if (!fread(&base_path_off, 4, 1, f)) {
+		return clnk__err("fread failure", -1);
+	}
 	make_native_u32((char*)&base_path_off);
 
 	base_path_off += struct_start;
@@ -154,16 +188,14 @@ char* extract_cstring_buf(FILE* f, int offset, char* out_buf, int size)
 	do {
 		if (!fread(&s[i], 1, 1, f)) {
 			s[i] = 0;
-			puts("fread failed");
-			return NULL; // TODO hmm
+			return clnk__errpc("fread failure", NULL); // TODO hmm
 		}
 		i++;
 	} while (s[i-1] && i < size);
 
 	if (s[i-1]) {
 		s[i] = 0;
-		puts("ran out of space");
-		return NULL;
+		return clnk__errpc("insufficient buffer", NULL);
 	}
 	return s;
 }
@@ -184,7 +216,7 @@ char* extract_cstring(FILE* f, int offset)
 			tmp = (char*)realloc(s, cap*2);
 			if (!tmp) {
 				free(s);
-				return NULL;
+				return clnk__errpc("out of memory", NULL);
 			}
 			cap *= 2;
 			s = tmp;
@@ -192,15 +224,14 @@ char* extract_cstring(FILE* f, int offset)
 
 		if (!fread(&s[i], 1, 1, f)) {
 			s[i] = 0;
-			puts("fread failed");
 			free(s);
-			return NULL;
+			return clnk__errpc("fread failure", NULL);
 		}
 		i++;
 	} while (s[i-1]);
 
 	// resize to fit, shrinking should never fail imo but...
-	tmp = realloc(s, i);
+	tmp = (char*)realloc(s, i);
 	if (!tmp) {
 		// oh well better to have the string with the extra space
 		return s;
@@ -214,8 +245,7 @@ char* clnk_get_path_buf(const char* lnk_file, char* buf, int size)
 {
 	FILE* f = fopen(lnk_file, "rb");
 	if (!f) {
-		perror("Couldn't open file");
-		return NULL;
+		return clnk__errpc("fopen failure", NULL);
 	}
 	char* ret = clnk_get_path_buf_from_file(f, buf, size);
 	fclose(f);
@@ -238,8 +268,7 @@ char* clnk_get_path(const char* lnk_file)
 {
 	FILE* f = fopen(lnk_file, "rb");
 	if (!f) {
-		perror("Couldn't open file");
-		return NULL;
+		return clnk__errpc("fopen failure", NULL);
 	}
 	char* ret = clnk_get_path_from_file(f);
 	fclose(f);
