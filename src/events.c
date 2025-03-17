@@ -666,7 +666,7 @@ int handle_thumb_events()
 	nk_input_end(g->ctx);
 
 	if (g->thumb_start_row*g->thumb_cols + g->thumb_rows*g->thumb_cols >= g->files.size+g->thumb_cols) {
-		g->thumb_start_row = g->files.size / g->thumb_cols - g->thumb_rows+1;
+		g->thumb_start_row = g->files.size / g->thumb_cols - g->thumb_rows + !!(g->files.size % g->thumb_cols);
 	}
 	if (g->thumb_start_row < 0) {
 		g->thumb_start_row = 0;
