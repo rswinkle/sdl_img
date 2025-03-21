@@ -1736,8 +1736,14 @@ void draw_about(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 		nk_label(ctx, "github.com/Immediate-Mode-UI/Nuklear", NK_TEXT_RIGHT);
 		nk_label(ctx, "libcurl", NK_TEXT_LEFT);
 		nk_label(ctx, "curl.haxx.se/libcurl/", NK_TEXT_RIGHT);
+		nk_label(ctx, "minilua", NK_TEXT_LEFT);
+		nk_label(ctx, "github.com/edubart/minilua", NK_TEXT_RIGHT);
 		nk_label(ctx, "WjCryptLib_Md5", NK_TEXT_LEFT);
 		nk_label(ctx, "github.com/WaterJuice/WjCryptLib", NK_TEXT_RIGHT);
+		nk_label(ctx, "file_browser", NK_TEXT_LEFT);
+		nk_label(ctx, "github.com/rswinkle/file_browser", NK_TEXT_RIGHT);
+		nk_label(ctx, "clnk", NK_TEXT_LEFT);
+		nk_label(ctx, "github.com/rswinkle/clnk", NK_TEXT_RIGHT);
 
 		// My own cvector lib
 
