@@ -655,7 +655,6 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 		}
 		nk_widget_disable_end(ctx);
 
-		//int path_rows = 1; // default 1 for text path
 		// don't show path if recents or in root directory "/"
 		if (!fb->is_recents && fb->dir[1]) {
 			strncpy(dir_buf, fb->dir, sizeof(dir_buf));
@@ -666,7 +665,6 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			// and code
 			// TODO use a horizontally scrolling group instead of multiple lines of buttons
 			if (!fb->is_text_path) {
-				int depth = 0; // number of breadcrumb buttons;
 				ctx->style.window.spacing.x = 0;
 
 				char *d = dir_buf;
@@ -696,7 +694,6 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 							my_switch_dir(dir_buf);
 							break;
 						}
-						depth++;
 						if (tmp) *d = '/';
 
 #ifdef _WIN32
@@ -706,7 +703,6 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 						begin = d + 1;
 					}
 				}
-				//path_rows = depth/6 + 1;
 				ctx->style.window.spacing.x = win_spacing.x;
 			} else {
 
@@ -2096,7 +2092,6 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_label(ctx, "GUI in Fullscreen mode:", NK_TEXT_LEFT);
 				static const char* gui_options[] = { "Delay", "Always", "Never" };
 				bounds = nk_widget_bounds(ctx);
-				int old = g->fullscreen_gui;
 				g->fullscreen_gui = nk_combo(ctx, gui_options, NK_LEN(gui_options), g->fullscreen_gui, g->font_size+28, nk_vec2(bounds.w, 800));
 
 				// TODO show all the time?

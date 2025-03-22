@@ -541,23 +541,26 @@ void stackDump(lua_State* L)
 }
 
 // TODO better name
-typedef void (*table_member_callback)(lua_State* L, void* userdata);
+typedef int (*table_member_callback)(lua_State* L, void* userdata);
 
 // table is at stack idx
-void map_table(lua_State* L, int idx, table_member_callback callback, void* userdata)
+int map_table(lua_State* L, int idx, table_member_callback callback, void* userdata)
 {
 	lua_pushnil(L); // first "key"
 	idx--;
 	while (lua_next(L, idx)) {
-		callback(L, userdata);
+		if (!callback(L, userdata)) {
+			return 0;
+		}
 		lua_pop(L, 1);  // pop value, keeps key
 	}
+	return 1;
 }
 
-void loop_globals(lua_State* L, table_member_callback callback, void* userdata)
+int loop_globals(lua_State* L, table_member_callback callback, void* userdata)
 {
 	lua_pushglobaltable(L);
-	map_table(L, -1, callback, userdata);
+	return map_table(L, -1, callback, userdata);
 }
 
 

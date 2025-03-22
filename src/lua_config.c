@@ -100,7 +100,7 @@ int get_color_field(lua_State* L, const char* key);
 void set_color_field(lua_State* L, const char* index, int value);
 void set_color(lua_State* L, ColorEntry* ct);
 
-void do_gui_colors(lua_State* L);
+int do_gui_colors(lua_State* L);
 int load_fullscreen_gui(lua_State* L, int dflt);
 char* fullscreen_gui_str(int fsg_enum);
 
@@ -125,11 +125,13 @@ ColorEntry colortable[] =
 };
 
 
-void handle_gui_colors(lua_State* L, void* userdata)
+int handle_gui_colors(lua_State* L, void* userdata)
 {
 	// key at -2, value at -1
 	if (lua_type(L, -2) != LUA_TSTRING) {
-		error(L, "gui_colors should have string keys\n");
+		g->lua_error = CVEC_STRDUP("gui_colors table should have string keys");
+		LH_LOG("%s\n", g->lua_error);
+		return 0;
 	}
 	Color c = {0};
 	const char* key = lua_tostring(L, -2);
@@ -144,9 +146,12 @@ void handle_gui_colors(lua_State* L, void* userdata)
 			ct[i].g = c.g;
 			ct[i].b = c.b;
 			ct[i].a = 255;
-			break;
+			return 1;
 		}
 	}
+	g->lua_error = CVEC_STRDUP("Unrecognized key in gui_colors table");
+	LH_LOG("%s\n", g->lua_error);
+	return 0;
 }
 
 int read_config_file(char* filename)
@@ -229,7 +234,10 @@ int read_config_file(char* filename)
 	try_strbuf(L, "thumb_dir", g->thumbdir, STRBUF_SZ);
 	// TODO playlistdir, logdir
 
-	do_gui_colors(L);
+	if (!do_gui_colors(L)) {
+		lua_close(L);
+		return 0;
+	}
 
 	// For debug purposes
 #ifndef NDEBUG
@@ -552,14 +560,19 @@ char* fullscreen_gui_str(int fsg_enum)
 	}
 }
 
-void do_gui_colors(lua_State* L)
+int do_gui_colors(lua_State* L)
 {
 	if (lua_getglobal(L, "gui_colors") == LUA_TTABLE) {
-		map_table(L, -1, handle_gui_colors, NULL);
+		if (!map_table(L, -1, handle_gui_colors, NULL)) {
+			lua_pop(L, 2); // clear last key/value pair
+			return 0;
+		}
+
 		// do this after gui_colors since that does 255 for all alphas
 		g->color_table[NK_COLOR_WINDOW].a = try_int_clamp_dflt(L, "window_opacity", 0, 255, DFLT_WINDOW_OPACITY);
 	}
 	lua_pop(L, 1);
+	return 1;
 }
 
 

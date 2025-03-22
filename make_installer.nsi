@@ -2,6 +2,7 @@
 
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
+!include "FileAssociation.nsh"
 
 ; --------------------------------
 
@@ -146,9 +147,18 @@ SectionEnd
 
 ; I'll put back the group if I ever add other optional sections
 SectionGroup /e "Optional" optional_id
-	Section "Source Code" source_id
-		SetOutPath "$INSTDIR\src"
-		FILE src\*
+	Section "File Associations" file_assoc_id
+		${RegisterExtension} "$INSTDIR\\sdl_img.exe" ".jpg" "JPG_File"
+		${RegisterExtension} "$INSTDIR\\sdl_img.exe" ".jpeg" "JPEG_File"
+		${RegisterExtension} "$INSTDIR\\sdl_img.exe" ".gif" "GIF_File"
+		${RegisterExtension} "$INSTDIR\\sdl_img.exe" ".png" "PNG_File"
+		${RegisterExtension} "$INSTDIR\\sdl_img.exe" ".bmp" "BMP_File"
+		${RegisterExtension} "$INSTDIR\\sdl_img.exe" ".ppm" "PPM_File"
+		${RegisterExtension} "$INSTDIR\\sdl_img.exe" ".pgm" "PGM_File"
+		${RegisterExtension} "$INSTDIR\\sdl_img.exe" ".tga" "TGA_File"
+		${RegisterExtension} "$INSTDIR\\sdl_img.exe" ".hdr" "HDR_File"
+		${RegisterExtension} "$INSTDIR\\sdl_img.exe" ".pic" "PIC_File"
+		${RegisterExtension} "$INSTDIR\\sdl_img.exe" ".psd" "PSD_File"
 	SectionEnd
 
 	Section "Start Menu Shortuct" start_menu_id
@@ -159,6 +169,12 @@ SectionGroup /e "Optional" optional_id
 		CreateShortcut /NoWorkingDir "$DESKTOP\sdl_img.lnk" "$INSTDIR\sdl_img.exe" "" "$INSTDIR\sdl_img.ico" 0
 	SectionEnd
 
+	Section "Source Code" source_id
+		SetOutPath "$INSTDIR\src"
+		FILE src\*
+	SectionEnd
+
+
 SectionGroupEnd
 
 
@@ -167,9 +183,10 @@ SectionGroupEnd
 ; Descriptions
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-	!insertmacro MUI_DESCRIPTION_TEXT ${source_id} "Include the sdl_img source code."
+	!insertmacro MUI_DESCRIPTION_TEXT ${file_assoc_id} "Make the default program for supported filetypes"
 	!insertmacro MUI_DESCRIPTION_TEXT ${start_menu_id} "Create a start menu shortcut."
 	!insertmacro MUI_DESCRIPTION_TEXT ${desktop_shortcut_id} "Create a desktop shortcut."
+	!insertmacro MUI_DESCRIPTION_TEXT ${source_id} "Include the sdl_img source code."
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 
@@ -212,6 +229,20 @@ Section "Uninstall"
 
 	; Does this delete all the registry stuff I did?  I guess it's sort of a directory thing
 	DeleteRegKey ${REGHKEY} "${REGPATH_WINUNINST}\\${REGUNINSTKEY}"
+
+	; these might not exist...
+	${UnRegisterExtension} ".jpg" "JPG_File"
+	${UnRegisterExtension} ".jpeg" "JPEG_File"
+	${UnRegisterExtension} ".gif" "GIF_File"
+	${UnRegisterExtension} ".png" "PNG_File"
+	${UnRegisterExtension} ".bmp" "BMP_File"
+	${UnRegisterExtension} ".ppm" "PPM_File"
+	${UnRegisterExtension} ".pgm" "PGM_File"
+	${UnRegisterExtension} ".tga" "TGA_File"
+	${UnRegisterExtension} ".hdr" "HDR_File"
+	${UnRegisterExtension} ".pic" "PIC_File"
+	${UnRegisterExtension} ".psd" "PSD_File"
+
 
 	; Don't actually have a folder
 	;RMDir /r $STARTMENU\sdl_img

@@ -21,12 +21,13 @@ ifeq ($(config), release)
 	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
 	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
 else
-	-fsanitize=undefined -std=gnu99 -g -O0 -Wall
-	#OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall -DSDL_DISABLE_IMMINTRIN_H
+	# asan and ubsan are not supported apparently
+	OPTS=-std=gnu99 -g -O0 -Wall
 endif
 else
 TARGET=sdl_img
 endif
+
 
 ifeq ($(PLAT), linux)
 ifeq ($(config), release)
@@ -111,7 +112,7 @@ linux_package: sdl_img
 	--license MIT \
 	--url "https://github.com/rswinkle/sdl_img"
 
-cross_win_package: cross_win
+cross_win_package: sdl_img.exe
 	#cat mingw_dll_list.txt | xargs -I{} cp {} package/
 	#win-ldd sdl_img.exe | grep mingw64 | awk '{print $$3}' | xargs -I{} cp {} package/
 	win-ldd sdl_img.exe | grep ucrt64 | awk '{print $$3}' | xargs -I{} cp {} package/
