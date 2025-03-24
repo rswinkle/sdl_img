@@ -159,6 +159,9 @@ clean:
 	rm -f sdl_img *.o *.exe
 	$(MAKE) -C lua-5.4.7/ clean
 	rm -rf $(PKGDIR)
+	rm -rf AppDir
+	rm *.deb
+	rm *.tar
 
 
 # Below here are no longer used... unless/until I update them
