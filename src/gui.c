@@ -1710,14 +1710,16 @@ void draw_about(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 {
 	struct nk_rect s = { 0, 0, scr_w, scr_h };
 
+	// TODO tabs like terminal About, License, Credits?
 	if (nk_begin(ctx, "About sdl_img", s, win_flags))
 	{
 		nk_layout_row_dynamic(ctx, 0, 1);
 		nk_label(ctx, VERSION_STR, NK_TEXT_CENTERED);
-		nk_label(ctx, "By Robert Winkler", NK_TEXT_LEFT);
+		nk_label(ctx, "Copyright (c) 2017-2025 Robert Winkler", NK_TEXT_LEFT);
 		nk_label(ctx, "robertwinkler.com", NK_TEXT_LEFT);  //TODO project website
-		nk_label(ctx, "sdl_img is licensed under the MIT License.",  NK_TEXT_LEFT);
+		nk_label(ctx, "sdl_img is licensed under the MIT License",  NK_TEXT_LEFT);
 
+		// Libraries instead of Credits?
 		nk_label(ctx, "Credits:", NK_TEXT_CENTERED);
 
 		//nk_layout_row_dynamic(ctx, 10, 2);
@@ -1975,7 +1977,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				}
 
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, &ratios[2]);
-				nk_label(ctx, "Font:", NK_TEXT_LEFT);
+				nk_label(ctx, "TTF Font:", NK_TEXT_LEFT);
 				nk_edit_string(ctx, path_flags, g->font_path_buf, &font_path_len, STRBUF_SZ, nk_filter_nothing);
 				if (nk_button_label(ctx, "Change")) {
 					g->fs_output = g->font_path_buf;
