@@ -18,11 +18,11 @@ PLATS=linux cross_win msys2
 ifeq ($(PLAT), cross_win)
 TARGET=sdl_img.exe
 ifeq ($(config), release)
-	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
+	OPTS=-std=gnu99 -msse -O3 -g -DNDEBUG
 	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
 else
-	# asan and ubsan are not supported apparently
-	OPTS=-std=gnu99 -g -O0 -Wall
+	# asan and ubsan are not supported so no separate sanitize config
+	OPTS=-std=gnu99 -g -Og -Wall
 endif
 else
 TARGET=sdl_img
@@ -34,13 +34,10 @@ ifeq ($(config), release)
 	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG
 	OPTS=-std=gnu99 -msse -O3 -g -DNDEBUG
 	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
+else ifeq ($(config), sanitize)
+	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -Og -Wall
 else
-	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall
-
-	#for valgrind or gdb
-	#OPTS=-std=gnu99 -g -O0 -Wall
-
-	#OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -O0 -Wall -DSDL_DISABLE_IMMINTRIN_H
+	OPTS=-std=gnu99 -g -Og -Wall
 endif
 endif
 
@@ -48,8 +45,10 @@ ifeq ($(PLAT), msys2)
 ifeq ($(config), release)
 	OPTS=-std=gnu99 -msse -O3 -DNDEBUG
 	#OPTS=-std=gnu99 -msse -O3 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
+else ifeq ($(config), sanitize)
+	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -Og -Wall
 else
-	OPTS=-std=gnu99 -g -O0 -Wall
+	OPTS=-std=gnu99 -g -Og -Wall
 endif
 endif
 
