@@ -124,7 +124,11 @@ linux_package: sdl_img
 	--url "https://github.com/rswinkle/sdl_img"
 
 cross_win_package: sdl_img.exe
+	mkdir $(PKGDIR)
 	win-ldd sdl_img.exe | grep ucrt64 | awk '{print $$3}' | xargs -I{} cp {} $(PKGDIR)
+	cp $(PKGSRC)/sdl_img.ico $(PKGDIR)
+	cp $(PKGSRC)/*.bmp $(PKGDIR)
+	cp $(PKGSRC)/ca-bundle.crt $(PKGDIR)
 	cp LICENSE $(PKGDIR)
 	cp LICENSE $(PKGDIR)/LICENSE.txt
 	cp README.md $(PKGDIR)
