@@ -27,7 +27,6 @@ lua-5.4.7/src/luac
 *.ppm
 *.gif
 *.jpg
-*.png
 *.tar
 *.kate-swp
 CMakeFiles/*
@@ -42,12 +41,7 @@ scratch/*
 references/*
 unused/*
 
-!media/*.png
-
-package/LICENSE*
-package/README.md
-package_linux/*
-
+package/*
 AppDir/*
 
 prototyping/sdl_img

@@ -61,10 +61,17 @@ endif
 CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.7/src
 LIBS=`pkg-config sdl2 libcurl --libs` -lm
 
+# for tradititonal make install
 DESTDIR=/usr/local
 
-PKGDIR=package_linux
+# generated folder for building packages
+# has to match INST_FOLDER in make_installer.nsi
+PKGDIR=package
+
 PKG_DIR=$(PKGDIR)$(DESTDIR)
+
+# in repo dir of packaging related files
+PKGSRC=package_files
 
 SRCS=src/sdl_img.c src/events.c src/gui.c src/rendering.c src/lua_config.c \
 	 src/thumbs.c src/curl_stuff.c src/playlists.c src/sorting.c src/controls_str.c \
@@ -88,23 +95,28 @@ minilua.o: src/minilua.c
 	$(CC) $(OPTS) -c src/minilua.c -lm
 
 
+# Stupid debian doesn't allow '_' in package names so some mismatches below
 linux_package: sdl_img
 	mkdir -p $(PKG_DIR)/bin
 	mkdir -p $(PKG_DIR)/share/man/man1
 	mkdir -p $(PKG_DIR)/share/applications
 	mkdir -p $(PKG_DIR)/share/icons/hicolor/48x48/apps
+	mkdir -p $(PKG_DIR)/share/doc/sdl-img
 	cp ./sdl_img $(PKG_DIR)/bin
-	cp sdl_img.1 $(PKG_DIR)/share/man/man1
-	cp sdl_img.desktop $(PKG_DIR)/share/applications
-	cp ./package/sdl_img.png $(PKG_DIR)/share/icons/hicolor/48x48/apps
+	strip --strip-unneeded --remove-section=.comment --remove-section=.note $(PKG_DIR)/bin/sdl_img
+	cp $(PKGSRC)/sdl_img.1 $(PKG_DIR)/share/man/man1
+	gzip -9n $(PKG_DIR)/share/man/man1/sdl_img.1
+	cp $(PKGSRC)/sdl_img.desktop $(PKG_DIR)/share/applications
+	cp $(PKGSRC)/sdl_img.png $(PKG_DIR)/share/icons/hicolor/48x48/apps
+	cp $(PKGSRC)/copyright $(PKG_DIR)/share/doc/sdl-img
 	fpm -s dir -t deb -v 1.0.0-beta -n sdl_img -C $(PKGDIR) \
 	--log info --verbose \
 	-d "libsdl2-2.0-0 >= 2.0.20" -d "libcurl4" \
 	-m "Robert Winkler <rob121618@gmail.com>" \
-	--description "A simple image viewer based on SDL2 and stb_image" \
+	--description "`cat $(PKGSRC)/deb_desc.txt`" \
 	--license MIT \
 	--url "https://github.com/rswinkle/sdl_img"
-	fpm -s dir -t tar -v 1.0.0-beta -n sdl_img_1.0.0-beta -C package_linux \
+	fpm -s dir -t tar -v 1.0.0-beta -n sdl_img_1.0.0-beta -C $(PKG_DIR) \
 	--log info --verbose \
 	-d "libsdl2-2.0-0 >= 2.0.20" -d "libcurl4" \
 	-m "Robert Winkler <rob121618@gmail.com>" \
@@ -113,14 +125,12 @@ linux_package: sdl_img
 	--url "https://github.com/rswinkle/sdl_img"
 
 cross_win_package: sdl_img.exe
-	#cat mingw_dll_list.txt | xargs -I{} cp {} package/
-	#win-ldd sdl_img.exe | grep mingw64 | awk '{print $$3}' | xargs -I{} cp {} package/
-	win-ldd sdl_img.exe | grep ucrt64 | awk '{print $$3}' | xargs -I{} cp {} package/
-	cp LICENSE.txt package/
-	cp LICENSE package/
-	cp README.md package/
-	unix2dos package/README.md package/LICENSE*
-	cp sdl_img.exe package/
+	win-ldd sdl_img.exe | grep ucrt64 | awk '{print $$3}' | xargs -I{} cp {} $(PKGDIR)
+	cp LICENSE $(PKGDIR)
+	cp LICENSE $(PKGDIR)/LICENSE.txt
+	cp README.md $(PKGDIR)
+	unix2dos $(PKGDIR)/README.md $(PKGDIR)/LICENSE*
+	cp sdl_img.exe $(PKGDIR)
 	makensis make_installer.nsi
 
 
@@ -129,10 +139,12 @@ install: sdl_img
 	mkdir -p $(DESTDIR)/share/man/man1
 	mkdir -p $(DESTDIR)/share/applications
 	mkdir -p $(DESTDIR)/share/icons/hicolor/48x48/apps
+	mkdir -p $(DESTDIR)/share/doc/sdl_img
 	cp ./sdl_img $(DESTDIR)/bin
-	cp sdl_img.1 $(DESTDIR)/share/man/man1
-	cp sdl_img.desktop $(DESTDIR)/share/applications
-	cp ./package/sdl_img.png $(DESTDIR)/share/icons/hicolor/48x48/apps
+	cp $(PKGSRC)/sdl_img.1 $(DESTDIR)/share/man/man1
+	cp $(PKGSRC)/sdl_img.desktop $(DESTDIR)/share/applications
+	cp $(PKGSRC)/sdl_img.png $(DESTDIR)/share/icons/hicolor/48x48/apps
+	cp $(PKGSRC)/copyright $(DESTDIR)/share/doc/sdl_img
 
 # Only do this on older distro like Ubuntu 22.04 for maximum
 # compatibility
@@ -140,14 +152,14 @@ install: sdl_img
 # Prereq, download the latest version of the linuxdeploy appimage
 # here: https://github.com/linuxdeploy/linuxdeploy/releases 
 # put it in ~/Applications and make it executable with chmod +x  
-appimage:
+appimage: sdl_img
 	make install DESTDIR=AppDir/usr
 	export LDAI_VERSION=1.0.0-beta && ~/Applications/linuxdeploy-x86_64.AppImage --appdir AppDir/ -dAppDir/usr/share/applications/sdl_img.desktop -iAppDir/usr/share/icons/hicolor/48x48/apps/sdl_img.png -eAppDir/usr/bin/sdl_img --output appimage
 
 clean:
 	rm -f sdl_img *.o *.exe
 	$(MAKE) -C lua-5.4.7/ clean
-	rm package/*.dll
+	rm -rf $(PKGDIR)
 
 
 # Below here are no longer used... unless/until I update them
@@ -155,12 +167,12 @@ windows: nuklear.o minilua.o
 	$(CC) $(OPTS) src/sdl_img.c nuklear.o minilua.o -o sdl_img.exe $(CFLAGS) $(LIBS)
 
 windows_package: windows
-	ldd sdl_img.exe | grep mingw64 | cut -d' ' -f3 | xargs -I{} cp {} package/
-	cp LICENSE.txt package/
-	cp LICENSE package/
-	cp README.md package/
-	unix2dos package/README.md package/LICENSE*
-	cp sdl_img.exe package/
+	ldd sdl_img.exe | grep mingw64 | cut -d' ' -f3 | xargs -I{} cp {} $(PKGDIR)
+	cp LICENSE $(PKGDIR)
+	cp LICENSE $(PKGDIR)/LICENSE.txt
+	cp README.md $(PKGDIR)
+	unix2dos $(PKGDIR)/README.md $(PKGDIR)/LICENSE*
+	cp sdl_img.exe $(PKGDIR)
 	makensis.exe make_installer.nsi
 
 

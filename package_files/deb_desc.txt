@@ -1,0 +1,11 @@
+Browse images however you want
+sdl_img is an image viewer built using the SDL2 and stb_image libraries. Thanks to the latter, it has support for many different image formats including JPEG, PNG, BMP, GIF, and netpbm.  sdl_img focuses on interesting, unique features:
+  
+   * multi-image browsing
+   * full control of GIF playback
+   * vim inspired thumbnail mode
+   * list mode
+   * create and manage playlists
+   * arbitrary rotation
+  
+It is also highly configurable, in both appearance and behavior, using a lua configuration script to save all your preferences (all accessible via the GUI).
