@@ -2048,6 +2048,7 @@ void setup(int argc, char** argv)
 		// We might have read GUI colors from config so apply them
 		// (worst case it's a no-op since we initialize color_table to default above
 		nk_style_from_table(g->ctx, g->color_table);
+
 	}
 	// TODO could adjust for dpi, then adjust for font size if necessary
 	//g->x_scale = 2; //hdpi/72;
@@ -2072,11 +2073,6 @@ void setup(int argc, char** argv)
 	g->img[0].scr_rect.y = g->scr_rect.y;
 	g->img[0].scr_rect.w = g->scr_rect.w;
 	g->img[0].scr_rect.h = g->scr_rect.h;
-
-	// Make GUI partially transparent
-	// TODO not always?
-	g->ctx->style.window.fixed_background.data.color.a *= 0.75;
-	//g->ctx->style.window.background.a *= 0.75;
 
 	// Trying to figure out/fix why menu_item_labels are wider than selectables
 	//g->ctx->style.selectable.padding = nk_vec2(4.0f,4.0f);
