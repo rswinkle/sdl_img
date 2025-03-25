@@ -110,7 +110,7 @@ linux_package: sdl_img
 	cp $(PKGSRC)/copyright $(PKG_DIR)/share/doc/sdl-img
 	fpm -s dir -t deb -v 1.0.0-beta -n sdl_img -C $(PKGDIR) \
 	--log info --verbose \
-	-d "libsdl2-2.0-0 >= 2.0.20" -d "libcurl4" \
+	-d "libc6" -d "libsdl2-2.0-0 >= 2.0.20" -d "libcurl4" \
 	-m "Robert Winkler <rob121618@gmail.com>" \
 	--description "`cat $(PKGSRC)/deb_desc.txt`" \
 	--license MIT \
