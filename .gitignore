@@ -41,6 +41,7 @@ scratch/*
 references/*
 unused/*
 
+package_files/changelog
 package/*
 AppDir/*
 

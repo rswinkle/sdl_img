@@ -3,6 +3,8 @@
 # default to linux
 PLAT=linux
 
+# TODO extract from src/compile_constants.h
+VERSION=1.0.0-beta2
 
 # windows: msys2 mingw64 environment
 #
@@ -108,6 +110,9 @@ linux_package: sdl_img
 	cp $(PKGSRC)/sdl_img.desktop $(PKG_DIR)/share/applications
 	cp $(PKGSRC)/sdl_img.png $(PKG_DIR)/share/icons/hicolor/48x48/apps
 	cp $(PKGSRC)/copyright $(PKG_DIR)/share/doc/sdl-img
+	cd package_files && ./make_changelog.sh
+	cp $(PKGSRC)/changelog $(PKG_DIR)/share/doc/sdl-img
+	gzip -9 $(PKG_DIR)/share/doc/sdl-img/changelog
 	fpm -s dir -t deb -v 1.0.0-beta -n sdl_img -C $(PKGDIR) \
 	--log info --verbose \
 	-d "libc6" -d "libsdl2-2.0-0 >= 2.0.20" -d "libcurl4" \
