@@ -1,0 +1,19 @@
+Package: sdl-img
+Version: 1.0.0-beta
+Architecture: amd64
+Maintainer: Robert Winkler <rob121618@gmail.com>
+Depends: libc6, libsdl2-2.0-0 (>= 2.0.20), libcurl4
+Section: graphics
+Priority: optional
+Homepage: https://github.com/rswinkle/sdl_img
+Description: Browse images however you want
+ sdl_img is an image viewer built using the SDL2 and stb_image libraries. Thanks to the latter, it has support for many different image formats including JPEG, PNG, BMP, GIF, and netpbm.  sdl_img focuses on interesting, unique features:
+ .
+    * multi-image browsing
+    * full control of GIF playback
+    * vim inspired thumbnail mode
+    * list mode
+    * create and manage playlists
+    * arbitrary rotation
+ .
+ It is also highly configurable, in both appearance and behavior, using a lua configuration script to save all your preferences (all accessible via the GUI).

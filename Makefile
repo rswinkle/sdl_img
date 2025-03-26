@@ -103,26 +103,25 @@ linux_package: sdl_img
 	mkdir -p $(PKG_DIR)/share/applications
 	mkdir -p $(PKG_DIR)/share/icons/hicolor/48x48/apps
 	mkdir -p $(PKG_DIR)/share/doc/sdl-img
+	mkdir -p $(PKGDIR)/DEBIAN
 	cp ./sdl_img $(PKG_DIR)/bin
 	strip --strip-unneeded --remove-section=.comment --remove-section=.note $(PKG_DIR)/bin/sdl_img
+	cp $(PKGSRC)/control $(PKGDIR)/DEBIAN
 	cp $(PKGSRC)/sdl_img.1 $(PKG_DIR)/share/man/man1
 	gzip -9n $(PKG_DIR)/share/man/man1/sdl_img.1
 	cp $(PKGSRC)/sdl_img.desktop $(PKG_DIR)/share/applications
 	cp $(PKGSRC)/sdl_img.png $(PKG_DIR)/share/icons/hicolor/48x48/apps
 	cp $(PKGSRC)/copyright $(PKG_DIR)/share/doc/sdl-img
 	cd package_files && ./make_changelog.sh
-	cp $(PKGSRC)/changelog $(PKG_DIR)/share/doc/sdl-img
-	gzip -9 $(PKG_DIR)/share/doc/sdl-img/changelog
-	fpm -s dir -t deb -v 1.0.0-beta -n sdl_img -C $(PKGDIR) \
-	--log info --verbose \
-	-d "libc6" -d "libsdl2-2.0-0 >= 2.0.20" -d "libcurl4" \
-	-m "Robert Winkler <rob121618@gmail.com>" \
-	--description "`cat $(PKGSRC)/deb_desc.txt`" \
-	--license MIT \
-	--url "https://github.com/rswinkle/sdl_img"
+	cp $(PKGSRC)/changelog $(PKG_DIR)/share/doc/sdl-img/changelog.Debian
+	gzip -9n $(PKG_DIR)/share/doc/sdl-img/changelog.Debian
+	find $(PKGDIR) -type d -exec chmod 0755 {} \;
+	find $(PKGDIR) -type f -exec chmod 0644 {} \;
+	chmod 0755 $(PKG_DIR)/bin/sdl_img
+	dpkg-deb -b $(PKGDIR) sdl-img_1.0.0-beta_amd64.deb
 	fpm -s dir -t tar -v 1.0.0-beta -n sdl_img_1.0.0-beta -C $(PKG_DIR) \
 	--log info --verbose \
-	-d "libsdl2-2.0-0 >= 2.0.20" -d "libcurl4" \
+	-d "libc6" -d "libsdl2-2.0-0 >= 2.0.20" -d "libcurl4" \
 	-m "Robert Winkler <rob121618@gmail.com>" \
 	--description "A simple image viewer based on SDL2 and stb_image" \
 	--license MIT \

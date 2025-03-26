@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.robertwinkler.sdl_img</id>
+  <name>sdl_img</name>
+  <summary>Browse images however you want</summary>
+  <description>
+    <p>
+      sdl_img is an image viewer built using the SDL2 and stb_image libraries.
+      Thanks to the latter, it has support for many different image formats
+      including JPEG, PNG, BMP, GIF, and netpbm.
+    </p>
+    <p>
+      sdl_img focuses on interesting, unique features such as:
+    </p>
+    <ul>
+      <li>multi-image browsing</li>
+      <li>full control of GIF playback</li>
+      <li>vim inspired thumbnail mode</li>
+      <li>list mode</li>
+      <li>create and manage playlists</li>
+      <li>arbitrary rotation</li>
+      <li>extensive configurability (using lua to store preferences)</li>
+    </ul>
+  </description>
+  <icon type="stock">sdl_img</icon>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://example.com/screenshots/screenshot1.png</image>
+      <caption>Main window of the app</caption>
+    </screenshot>
+    <screenshot>
+      <image>/usr/share/doc/myapp/screenshots/screenshot2.png</image>
+      <caption>Settings dialog</caption>
+    </screenshot>
+  </screenshots>
+  <url type="homepage">https://github.com/rswinkle/sdl_img</url>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+</component>
