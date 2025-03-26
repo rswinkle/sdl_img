@@ -63,13 +63,15 @@ CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.7/src
 LIBS=`pkg-config sdl2 libcurl --libs` -lm
 
 # for tradititonal make install
-DESTDIR=/usr/local
+PREFIX ?= /usr/local
+
+DESTDIR ?=
 
 # generated folder for building packages
 # has to match INST_FOLDER in make_installer.nsi
 PKGDIR=package
 
-PKG_DIR=$(PKGDIR)$(DESTDIR)
+#PKG_DIR=$(PKGDIR)$(DESTDIR)
 
 # in repo dir of packaging related files
 PKGSRC=package_files
@@ -97,29 +99,9 @@ minilua.o: src/minilua.c
 
 
 # Stupid debian doesn't allow '_' in package names so some mismatches below
-linux_package: sdl_img
-	mkdir -p $(PKG_DIR)/bin
-	mkdir -p $(PKG_DIR)/share/man/man1
-	mkdir -p $(PKG_DIR)/share/applications
-	mkdir -p $(PKG_DIR)/share/icons/hicolor/48x48/apps
-	mkdir -p $(PKG_DIR)/share/doc/sdl-img
-	mkdir -p $(PKGDIR)/DEBIAN
-	cp ./sdl_img $(PKG_DIR)/bin
-	strip --strip-unneeded --remove-section=.comment --remove-section=.note $(PKG_DIR)/bin/sdl_img
-	cp $(PKGSRC)/control $(PKGDIR)/DEBIAN
-	cp $(PKGSRC)/sdl_img.1 $(PKG_DIR)/share/man/man1
-	gzip -9n $(PKG_DIR)/share/man/man1/sdl_img.1
-	cp $(PKGSRC)/sdl_img.desktop $(PKG_DIR)/share/applications
-	cp $(PKGSRC)/sdl_img.png $(PKG_DIR)/share/icons/hicolor/48x48/apps
-	cp $(PKGSRC)/copyright $(PKG_DIR)/share/doc/sdl-img
-	cd package_files && ./make_changelog.sh
-	cp $(PKGSRC)/changelog $(PKG_DIR)/share/doc/sdl-img/changelog.Debian
-	gzip -9n $(PKG_DIR)/share/doc/sdl-img/changelog.Debian
-	find $(PKGDIR) -type d -exec chmod 0755 {} \;
-	find $(PKGDIR) -type f -exec chmod 0644 {} \;
-	chmod 0755 $(PKG_DIR)/bin/sdl_img
-	dpkg-deb -b $(PKGDIR) sdl-img_1.0.0-beta_amd64.deb
-	fpm -s dir -t tar -v 1.0.0-beta -n sdl_img_1.0.0-beta -C $(PKG_DIR) \
+linux_package:
+	./$(PKGSRC)/make_deb.sh
+	fpm -s dir -t tar -v 1.0.0-beta -n sdl_img_1.0.0-beta -C $(PKGDIR) \
 	--log info --verbose \
 	-d "libc6" -d "libsdl2-2.0-0 >= 2.0.20" -d "libcurl4" \
 	-m "Robert Winkler <rob121618@gmail.com>" \
@@ -142,16 +124,14 @@ cross_win_package: sdl_img.exe
 
 
 install: sdl_img
-	mkdir -p $(DESTDIR)/bin
-	mkdir -p $(DESTDIR)/share/man/man1
-	mkdir -p $(DESTDIR)/share/applications
-	mkdir -p $(DESTDIR)/share/icons/hicolor/48x48/apps
-	mkdir -p $(DESTDIR)/share/doc/sdl_img
-	cp ./sdl_img $(DESTDIR)/bin
-	cp $(PKGSRC)/sdl_img.1 $(DESTDIR)/share/man/man1
-	cp $(PKGSRC)/sdl_img.desktop $(DESTDIR)/share/applications
-	cp $(PKGSRC)/sdl_img.png $(DESTDIR)/share/icons/hicolor/48x48/apps
-	cp $(PKGSRC)/copyright $(DESTDIR)/share/doc/sdl_img
+	install -d $(DESTDIR)$(PREFIX)/bin
+	install -d $(DESTDIR)$(PREFIX)/share/man/man1
+	install -d $(DESTDIR)$(PREFIX)/share/applications
+	install -d $(DESTDIR)$(PREFIX)/share/icons/hicolor/48x48/apps
+	install -m 0755 sdl_img $(DESTDIR)$(PREFIX)/bin
+	install -m 0644 $(PKGSRC)/sdl_img.1 $(DESTDIR)$(PREFIX)/share/man/man1
+	install -m 0644 $(PKGSRC)/sdl_img.desktop $(DESTDIR)$(PREFIX)/share/applications
+	install -m 0644 $(PKGSRC)/sdl_img.png $(DESTDIR)$(PREFIX)/share/icons/hicolor/48x48/apps
 
 # Only do this on older distro like Ubuntu 22.04 for maximum
 # compatibility
@@ -160,7 +140,7 @@ install: sdl_img
 # here: https://github.com/linuxdeploy/linuxdeploy/releases 
 # put it in ~/Applications and make it executable with chmod +x  
 appimage: sdl_img
-	make install DESTDIR=AppDir/usr
+	make install DESTDIR=AppDir PREFIX=/usr
 	export LDAI_VERSION=1.0.0-beta && ~/Applications/linuxdeploy-x86_64.AppImage --appdir AppDir/ -dAppDir/usr/share/applications/sdl_img.desktop -iAppDir/usr/share/icons/hicolor/48x48/apps/sdl_img.png -eAppDir/usr/bin/sdl_img --output appimage
 
 clean:
