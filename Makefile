@@ -59,7 +59,7 @@ endif
 #CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.7/src
 #LIBS=`pkg-config sdl2 libcurl --libs` -lm -Llua-5.4.7/src -llua
 
-CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.7/src
+CFLAGS=`pkg-config sdl2 libcurl --cflags` -Ilua-5.4.7/src -Isrc/extlibs
 LIBS=`pkg-config sdl2 libcurl --libs` -lm
 
 # for tradititonal make install
@@ -91,11 +91,11 @@ sdl_img: $(SRCS) nuklear.o minilua.o
 sdl_img.exe: $(SRCS) nuklear.o minilua.o
 	$(CC) $(OPTS) src/sdl_img.c nuklear.o minilua.o -o $@ $(CFLAGS) $(LIBS)
 
-nuklear.o: src/nuklear.h src/nuklear_sdl_renderer.h
-	$(CC) $(OPTS) -c src/nuklear.c `pkg-config sdl2 --cflags`
+nuklear.o: src/extlibs/nuklear.h src/extlibs/nuklear_sdl_renderer.h
+	$(CC) $(OPTS) -c src/extlibs/nuklear.c `pkg-config sdl2 --cflags`
 
-minilua.o: src/minilua.c
-	$(CC) $(OPTS) -c src/minilua.c -lm
+minilua.o: src/extlibs/minilua.c
+	$(CC) $(OPTS) -c src/extlibs/minilua.c -lm
 
 
 # Stupid debian doesn't allow '_' in package names so some mismatches below

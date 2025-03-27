@@ -253,7 +253,7 @@ suggestions.
 TODO/IDEAS
 ==========
 - [ ] Add window icon (either static or based on current image(s))
-- [ ] Install icon in deb package
+- [x] Install icon in deb package
 - [ ] WebM support with mbew?
 - [ ] MP4 support?
 - [ ] Clean up code a bit (ongoing)
