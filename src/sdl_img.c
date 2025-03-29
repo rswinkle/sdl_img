@@ -1038,7 +1038,11 @@ int handle_selection(char* path, int recurse)
 
 		ret = DIRECTORY;
 	} else if(S_ISREG(file_stat.st_mode)) {
-		f.path = CVEC_STRDUP(path);
+		char* tmppath = myrealpath(path, NULL);
+		f.path = realloc(tmppath, strlen(tmppath)+1);
+#ifdef _WIN32
+		normalize_path(f.path);
+#endif
 		f.size = file_stat.st_size;
 		f.modified = file_stat.st_mtime;
 		// TODO list cache members <-- what?
