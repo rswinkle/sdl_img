@@ -2772,7 +2772,7 @@ void do_mode_change(intptr_t mode)
 				for (int i=g->n_imgs-1; i>mode-1; --i)
 					clear_img(&g->img[i]);
 
-				if (g->img_focus >= &g->img[mode]) {
+				if (g->img_focus >= &g->img[mode] || mode == MODE1) {
 					g->img_focus = NULL;
 					int index = (IS_VIEW_RESULTS()) ? g->search_results.a[g->img[0].index] : g->img[0].index;
 					SDL_SetWindowTitle(g->win, g->files.a[index].name);
