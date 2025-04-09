@@ -2390,6 +2390,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 			// Rename?
 			// Open New/More?  Or let FB handle that?
 
+			// All actions below except "Done" require a playlist to be selected
 			if (selected < 0) {
 				nk_widget_disable_begin(ctx);
 			}
@@ -2407,45 +2408,40 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 					g->default_playlist = CVEC_STRDUP(g->playlists.a[selected]);
 				}
 			}
-			nk_widget_disable_end(ctx);
 
 			if (nk_button_label(ctx, "Open New")) {
-				if (selected >= 0) {
-					g->is_open_new = SDL_TRUE;
-					g->open_playlist = SDL_TRUE;
-					g->state &= ~PLAYLIST_MANAGER;
-					transition_to_scanning(path_buf);
-				}
+				g->is_open_new = SDL_TRUE;
+				g->open_playlist = SDL_TRUE;
+				g->state &= ~PLAYLIST_MANAGER;
+				transition_to_scanning(path_buf);
 			}
 
 			if (nk_button_label(ctx, "Open More")) {
-				if (selected >= 0) {
-					g->open_playlist = SDL_TRUE;
-					g->state &= ~PLAYLIST_MANAGER;
-					transition_to_scanning(path_buf);
-				}
+				g->open_playlist = SDL_TRUE;
+				g->state &= ~PLAYLIST_MANAGER;
+				transition_to_scanning(path_buf);
 			}
 
 			if (nk_button_label(ctx, "Delete")) {
-				if (selected >= 0) {
-					if (!strcmp(g->playlists.a[selected], g->cur_playlist)) {
-						pm_len = snprintf(pm_buf, STRBUF_SZ, "Can't delete active playlist, change to another first");
+				if (!strcmp(g->playlists.a[selected], g->cur_playlist)) {
+					pm_len = snprintf(pm_buf, STRBUF_SZ, "Can't delete active playlist, change to another first");
+				} else {
+					SDL_Log("Trying to remove %s\n", path_buf);
+					if (remove(path_buf)) {
+						SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to delete playlist: %s", strerror(errno));
 					} else {
-						SDL_Log("Trying to remove %s\n", path_buf);
-						if (remove(path_buf)) {
-							SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to delete playlist: %s", strerror(errno));
-						} else {
-							SDL_Log("Deleted playlist %s\n", g->playlists.a[selected]);
-							cvec_erase_str(&g->playlists, selected, selected);
-							selected = -1;
-							path_buf[0] = 0;
-						}
+						SDL_Log("Deleted playlist %s\n", g->playlists.a[selected]);
+						cvec_erase_str(&g->playlists, selected, selected);
+						selected = -1;
+						path_buf[0] = 0;
 					}
 				}
 			}
+			nk_widget_disable_end(ctx);
 
 			if (nk_button_label(ctx, "Done")) {
 				g->state &= ~PLAYLIST_MANAGER;
+				selected = -1;  // clear selection before leaving
 			}
 
 			nk_group_end(ctx);
