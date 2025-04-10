@@ -255,12 +255,10 @@ TODO/IDEAS
 - [ ] Add window icon (either static or based on current image(s))
 - [x] Install icon in deb package
 - [ ] WebM support with mbew?
-- [ ] MP4 support?
 - [ ] Clean up code a bit (ongoing)
-- [ ] Save memory by aliasing when viewing the same image more than once in multimode
 - [ ] Save memory by having the main thread update images as they're loaded
 - [x] AppImage and/or Flatpak (needs more work/testing)
 - [ ] Automatic updating
 - [ ] Travis-CI or Github Actions
-- [x] Coverity
+- [x] Coverity (Really out of date, need to run again)
 - [x] Figure out why certain rare animated gifs don't load all the frames
