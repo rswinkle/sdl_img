@@ -7,31 +7,36 @@ enum {
 	INSERT_INTO_PLIST,
 
 	// better names
+	SELECT_PLIST_NAME,
 	SELECT_ALL_PLISTS,
-	SELECT_ALL_IN_PLIST,
+	SELECT_ALL_IN_PLIST_ID,
+	SELECT_ALL_IN_PLIST_NAME,
 
-	DEL_PLIST,
+	DEL_PLIST_ID,
+	DEL_PLIST_NAME,
 	DEL_IMG,
-	DEL_FROM_PLIST,
+	DEL_FROM_PLIST_ID,
+	DEL_FROM_PLIST_NAME,
 
 	NUM_STMTS
 };
 
+//-- Full image path, unique to avoid duplicates
 const char* sql[] = {
 	"PRAGMA foreign_keys = ON;"
 	"CREATE TABLE IF NOT EXISTS Images ("
-		"image_id INTEGER PRIMARY KEY,"
-		"path TEXT NOT NULL UNIQUE  -- Full image path, unique to avoid duplicates"
+		"image_id INTEGER PRIMARY KEY, "
+		"path TEXT NOT NULL UNIQUE "
 	");"
 	"CREATE TABLE IF NOT EXISTS Playlists ("
-		"playlist_id INTEGER PRIMARY KEY,"
+		"playlist_id INTEGER PRIMARY KEY, "
 		"name TEXT NOT NULL"
 	");"
 	"CREATE TABLE IF NOT EXISTS Playlist_Images ("
-		"playlist_id INTEGER,"
-		"image_id INTEGER,"
-		"PRIMARY KEY (playlist_id, image_id),"
-		"FOREIGN KEY (playlist_id) REFERENCES Playlists(playlist_id) ON DELETE CASCADE,"
+		"playlist_id INTEGER, "
+		"image_id INTEGER, "
+		"PRIMARY KEY (playlist_id, image_id), "
+		"FOREIGN KEY (playlist_id) REFERENCES Playlists(playlist_id) ON DELETE CASCADE, "
 		"FOREIGN KEY (image_id) REFERENCES Images(image_id) ON DELETE CASCADE"
 	");",
 
@@ -40,19 +45,34 @@ const char* sql[] = {
 
 	"INSERT INTO Playlist_Images (playlist_id, image_id) VALUES (?, ?);",
 
+	"SELECT playlist_id FROM Playlists WHERE name = ?;",
 	"SELECT name FROM Playlists;",
 
 	//-- Get all image paths in playlist id
-	"SELECT i.path"
-	"FROM Images i"
-	"JOIN Playlist_Images pi ON i.image_id = pi.image_id"
+	"SELECT i.path FROM Images i "
+	"JOIN Playlist_Images pi ON i.image_id = pi.image_id "
 	"WHERE pi.playlist_id = ?;",
+
+	// get all image paths in playlist name
+	"SELECT i.path FROM Images i "
+	"JOIN Playlist_Images pi ON i.image_id = pi.image_id "
+	"WHERE pi.playlist_id = (SELECT playlist_id FROM Playlists WHERE name = ?);",
 
 	//-- Delete a playlist (automatically removes entries from Playlist_Images due to CASCADE)
 	"DELETE FROM Playlists WHERE playlist_id = ?;",
+	"DELETE FROM Playlists WHERE name = ?;",
 
 	//-- Delete an image (automatically removes it from all playlists)
 	"DELETE FROM Images WHERE image_id = ?;",
+
+	// Delete from playlist
+	"DELETE FROM Playlist_Images WHERE playlist_id = ? AND image_id = ?;",
+
+	"DELETE FROM Playlist_Images "
+	"WHERE playlist_id = (SELECT playlist_id FROM Playlists WHERE name = ?) "
+	"AND image_id = (SELECT image_id FROM Images WHERE path = ?);",
+
+
 
 };
 
@@ -66,7 +86,7 @@ void init_db(const char* db_file, sqlite3** db)
 		SDL_LogCriticalApp("Failed to open %s: %s\n", db_file, sqlite3_errmsg(*db));
 		exit(1);
 	}
-	create_table(*db);
+	create_tables(*db);
 	prepare_stmts(*db);
 }
 
@@ -76,10 +96,10 @@ void shutdown_db(sqlite3* db)
 	sqlite3_close(db);
 }
 
-void create_table(sqlite3* db)
+void create_tables(sqlite3* db)
 {
 	char* errmsg = NULL;
-	if (sqlite3_exec(db, sql[CREATE_TABLE], NULL, NULL, &errmsg)) {
+	if (sqlite3_exec(db, sql[CREATE_TABLES], NULL, NULL, &errmsg)) {
 		SDL_LogCriticalApp("Failed to create table: %s\n", errmsg);
 		sqlite3_free(errmsg);
 		exit(1);
@@ -105,5 +125,66 @@ void finalize_stmts(void)
 			exit(1);
 		}
 	}
+}
+
+
+
+int get_sql_playlists(void)
+{
+
+}
+
+int load_sql_playlist_name(cvector_file* files, const char* name)
+{
+
+	sqlite3_stmt* stmt = sqlstmts[SELECT_PLIST_NAME];
+	return load_sql_playlist_id(files, 
+}
+
+// No URLs in database so if stat fails it was deleted or renamed
+// Only regular files in database so if stat succeeds we can assume it's a regular file
+// not a directory or link
+void load_sql_playlist_id(cvector_file* files, int id)
+{
+	file f = {0};
+	struct stat file_stat;
+
+	sqlite3_stmt* stmt = sqlstmts[SELECT_ALL_IN_PLIST_ID];
+	sqlite3_bind_int(stmt, 1, id);  // playlist_id = 1
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		// We only store normalized fullpaths in db so no need to do anything with path
+		const char *s = (const char *)sqlite3_column_text(stmt, 0);
+
+		if (stat(s, &file_stat)) {
+			// TODO can I run a delete statement in the middle of this one?
+			// Should I?
+			//
+			// f.path = CVEC_STRDUP("Deleted"); // ?
+			f.path = CVEC_STRDUP(s);
+			f.size = 0;
+			f.modified = 0
+
+			sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
+			f.name = (sep) ? sep+1 : f.path;
+
+			f.name = f.path;
+			strncpy(f.size_str, "unknown", SIZE_STR_BUF);
+			strncpy(f.mod_str, "unknown", MOD_STR_BUF);
+			cvec_push_file(&g->files, &f);
+		} else {
+			f.path = CVEC_STRDUP(s);
+			f.size = file_stat.st_size;
+			f.modified = file_stat.st_mtime;
+
+			bytes2str(f.size, f.size_str, SIZE_STR_BUF);
+			tmp_tm = localtime(&f.modified);
+			strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp_tm); // %F %T
+			sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
+			f.name = (sep) ? sep+1 : f.path;
+
+			cvec_push_file(&g->files, &f);
+		}
+	}
+	sqlite3_finalize(stmt);
 }
 
