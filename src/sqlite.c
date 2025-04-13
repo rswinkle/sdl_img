@@ -1,4 +1,5 @@
 
+// split out single use like create vs many/most use?
 enum {
 	CREATE_TABLES,
 
@@ -6,8 +7,11 @@ enum {
 	INSERT_PLIST,
 	INSERT_INTO_PLIST,
 
+	RENAME_PLIST,
+
 	// better names
-	SELECT_PLIST_NAME,
+	GET_PLIST_ID,
+
 	SELECT_ALL_PLISTS,
 	SELECT_ALL_IN_PLIST_ID,
 	SELECT_ALL_IN_PLIST_NAME,
@@ -30,7 +34,7 @@ const char* sql[] = {
 	");"
 	"CREATE TABLE IF NOT EXISTS Playlists ("
 		"playlist_id INTEGER PRIMARY KEY, "
-		"name TEXT NOT NULL"
+		"name TEXT NOT NULL UNIQUE"
 	");"
 	"CREATE TABLE IF NOT EXISTS Playlist_Images ("
 		"playlist_id INTEGER, "
@@ -40,10 +44,13 @@ const char* sql[] = {
 		"FOREIGN KEY (image_id) REFERENCES Images(image_id) ON DELETE CASCADE"
 	");",
 
+
 	"INSERT INTO Images (path) VALUES (?);",
 	"INSERT INTO Playlists (name) VALUES (?);",
 
 	"INSERT INTO Playlist_Images (playlist_id, image_id) VALUES (?, ?);",
+
+	"UPDATE Playlists SET name = ? WHERE name = ?;",
 
 	"SELECT playlist_id FROM Playlists WHERE name = ?;",
 	"SELECT name FROM Playlists;",
@@ -127,18 +134,73 @@ void finalize_stmts(void)
 	}
 }
 
+int create_playlist(const char* name)
+{
+	sqlite3_stmt* stmt = sqlstmts[INSERT_PLIST];
+	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
+	int rc;
+	// TODO decide whether to always check here or always check myself before
+	// calling this function
+	if ((rc = sqlite3_step(stmt)) != SQLITE_DONE) {
+		SDL_Log("Failed add playlist %s (%d): %s\n", "%s", rc, sqlite3_errmsg(db));
+		return FALSE;
+	}
+	sqlite3_reset(stmt);
+	return TRUE;
+}
 
+int delete_playlist(const char* name)
+{
+	sqlite3_stmt* stmt = sqlstmts[DEL_PLIST_NAME];
+	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
+	sqlite3_step(stmt);
+	sqlite3_reset(stmt);
+
+	return TRUE;
+}
+
+int rename_playlist(const char* new_name, const char* old_name)
+{
+	sqlite3_stmt* stmt = sqlstmts[RENAME_PLIST];
+	sqlite3_bind_text(stmt, 1, new_name, -1, SQLITE_TRANSIENT);
+	sqlite3_bind_text(stmt, 2, old_name, -1, SQLITE_TRANSIENT);
+	sqlite3_step(stmt);
+	sqlite3_reset(stmt);
+
+	return TRUE;
+}
 
 int get_sql_playlists(void)
 {
-
+	cvec_clear_str(&g->playlists);
+	sqlite3_stmt* stmt = sqlstmts[SELECT_ALL_PLISTS];
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		const char *s = (const char *)sqlite3_column_text(stmt, 0);
+		cvec_push_str(&g->playlists, s);
+	}
+	sqlite3_reset(stmt);
+	return TRUE;
 }
 
+// TODO use SELECT_ALL_IN_PLIST_NAME,
 int load_sql_playlist_name(cvector_file* files, const char* name)
 {
+	int id;
+	sqlite3_stmt* stmt = sqlstmts[GET_PLIST_ID];
+	//sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		id = sqlite3_column_int(stmt, 0);
+	} else {
+		// check for error instead of SQLITE_DONE?
+		sqlite3_reset(stmt);
+		return FALSE;
+	}
 
-	sqlite3_stmt* stmt = sqlstmts[SELECT_PLIST_NAME];
-	return load_sql_playlist_id(files, 
+	sqlite3_reset(stmt);
+
+	load_sql_playlist_id(files, id);
+	return TRUE;
 }
 
 // No URLs in database so if stat fails it was deleted or renamed
@@ -148,6 +210,7 @@ void load_sql_playlist_id(cvector_file* files, int id)
 {
 	file f = {0};
 	struct stat file_stat;
+	int i = 0;
 
 	sqlite3_stmt* stmt = sqlstmts[SELECT_ALL_IN_PLIST_ID];
 	sqlite3_bind_int(stmt, 1, id);  // playlist_id = 1
@@ -155,6 +218,7 @@ void load_sql_playlist_id(cvector_file* files, int id)
 		// We only store normalized fullpaths in db so no need to do anything with path
 		const char *s = (const char *)sqlite3_column_text(stmt, 0);
 
+		f.playlist_idx = i++;
 		if (stat(s, &file_stat)) {
 			// TODO can I run a delete statement in the middle of this one?
 			// Should I?
@@ -184,7 +248,8 @@ void load_sql_playlist_id(cvector_file* files, int id)
 
 			cvec_push_file(&g->files, &f);
 		}
+
 	}
-	sqlite3_finalize(stmt);
+	sqlite3_reset(stmt);
 }
 
