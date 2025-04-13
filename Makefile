@@ -78,6 +78,7 @@ PKGSRC=package_files
 
 SRCS=src/sdl_img.c src/events.c src/gui.c src/rendering.c src/lua_config.c \
 	 src/thumbs.c src/curl_stuff.c src/actions.c src/playlists.c src/sorting.c src/controls_str.c \
+	 src/recent_files.c src/setup_shutdown.c \
 	 src/sdl_img.h src/thumbs.h src/curl_stuff.h \
 	 src/compile_constants.h src/config_constants.h \
 	 src/clnk.h src/file_browser.h src/lua_helper.h
