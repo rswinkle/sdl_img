@@ -6,13 +6,15 @@ enum {
 	INSERT_IMG,
 	INSERT_PLIST,
 	INSERT_INTO_PLIST,
+	ADD_TO_PLIST,
 
 	RENAME_PLIST,
 
 	// better names
 	GET_PLIST_ID,
+	GET_IMG_ID,
+	GET_PLISTS,
 
-	SELECT_ALL_PLISTS,
 	SELECT_ALL_IN_PLIST_ID,
 	SELECT_ALL_IN_PLIST_NAME,
 
@@ -50,9 +52,15 @@ const char* sql[] = {
 
 	"INSERT INTO Playlist_Images (playlist_id, image_id) VALUES (?, ?);",
 
+	"INSERT INTO Playlist_Images (playlist_id, image_id) "
+	"SELECT p.playlist_id, i.image_id "
+	"FROM Playlists p, Images i "
+	"WHERE p.name = ? AND i.path = ?;",
+
 	"UPDATE Playlists SET name = ? WHERE name = ?;",
 
 	"SELECT playlist_id FROM Playlists WHERE name = ?;",
+	"SELECT image_id FROM Images where path = ?;",
 	"SELECT name FROM Playlists;",
 
 	//-- Get all image paths in playlist id
@@ -182,6 +190,8 @@ int get_sql_playlists(void)
 	return TRUE;
 }
 
+
+
 // TODO use SELECT_ALL_IN_PLIST_NAME,
 int load_sql_playlist_name(cvector_file* files, const char* name)
 {
@@ -210,7 +220,6 @@ void load_sql_playlist_id(cvector_file* files, int id)
 {
 	file f = {0};
 	struct stat file_stat;
-	int i = 0;
 
 	sqlite3_stmt* stmt = sqlstmts[SELECT_ALL_IN_PLIST_ID];
 	sqlite3_bind_int(stmt, 1, id);  // playlist_id = 1
@@ -218,7 +227,10 @@ void load_sql_playlist_id(cvector_file* files, int id)
 		// We only store normalized fullpaths in db so no need to do anything with path
 		const char *s = (const char *)sqlite3_column_text(stmt, 0);
 
-		f.playlist_idx = i++;
+		// TODO
+		// have to get idx in current playlist
+		//f.playlist_idx = i++;
+
 		if (stat(s, &file_stat)) {
 			// TODO can I run a delete statement in the middle of this one?
 			// Should I?
@@ -252,4 +264,77 @@ void load_sql_playlist_id(cvector_file* files, int id)
 	}
 	sqlite3_reset(stmt);
 }
+
+int get_image_id(const char *path)
+{
+    sqlite3_stmt *stmt = sqlstmts[GET_IMG_ID];
+    int image_id = -1;
+    int rc;
+
+    sqlite3_bind_text(stmt, 1, path, -1, SQLITE_STATIC);
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        image_id = sqlite3_column_int(stmt, 0);
+    } else {
+        fprintf(stderr, "Unexpected error: Image '%s' not found (should exist).\n", path);
+    }
+
+    sqlite3_reset(stmt);
+    return image_id;
+}
+
+int do_sql_save(int removing)
+{
+	int idx;
+	int img_id;
+	int cur_plist_id = g->cur_plist_id;
+	char* playlist = g->cur_playlist;
+	
+
+	if (removing) {
+		sqlite3_stmt* stmt = sqlstmts[DEL_FROM_PLIST];
+		for (int i=0; i<g->n_imgs; i++) {
+		}
+	} else {
+		SDL_Log("%s already in %s\n", g->img_focus->fullpath, playlist);
+
+		for (int i=0; i<g->n_imgs; i++) {
+			idx = g->img[i].index;
+			if (IS_VIEW_RESULTS()) {
+				idx = g->search_results.a[idx];
+			}
+			sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
+			sqlite3_bind_text(stmt, 1, cur_plist_id);
+
+			//if ((img_id = get_image_id(g->files.a[idx].path)) < 0) {
+			if ((img_id = get_image_id(g->img[i].fullpath)) < 0) {
+				assert(img_id >= 0 && "This should never happen");
+			}
+
+			sqlite3_bind_text(stmt, 2, img_id);
+
+			int rc = sqlite3_step(stmt);
+			if (rc == SQLITE_DONE) {
+				SDL_Log("saving %s\n", g->img[i].fullpath);
+			} else if (rc == SQLITE_CONSTRAINT) {
+				SDL_Log("%s already in %s\n", g->img[i].fullpath, playlist);
+			} else {
+			}
+
+		}
+	}
+
+	return TRUE;
+}
+
+// Do this or do it as we scan sources and stat() files?
+int add_cur_files_to_db()
+{
+	sqlite3_exec(ctx->db, "BEGIN TRANSACTION", NULL, NULL, NULL);
+	for (int i=0; i<g->files.size; i++) {
+	}
+
+	sqlite3_exec(ctx->db, "COMMIT", NULL, NULL, NULL);
+}
+
 

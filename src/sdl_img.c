@@ -498,11 +498,6 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 		return 0;
 	}
 
-	struct stat file_stat = { 0 };
-	if (!stat(fullpath, &file_stat)) {
-		img->file_size = file_stat.st_size;
-	}
-
 	SDL_Texture** tmp;
 	if (frames > img->frame_capacity) {
 		// img->tex is either NULL or previously alloced
@@ -702,6 +697,8 @@ int attempt_image_load(int last, img_state* img)
 			g->files.a[i].path = NULL;
 			g->files.a[i].name = NULL;
 			g->bad_path_state = HAS_BAD;
+		} else {
+			img->file_size = g->files.a[i].size;
 		}
 	}
 	return ret;
