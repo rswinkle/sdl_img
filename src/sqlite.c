@@ -290,24 +290,58 @@ int do_sql_save(int removing)
 	int cur_plist_id = g->cur_plist_id;
 	char* playlist = g->cur_playlist;
 	
+	img_state* imgs;
+	int n_imgs;
+	if (g->img_focus) {
+		imgs = g->img_focus;
+		n_imgs = 1;
+	} else {
+		imgs = g->img;
+		n_imgs = g->n_imgs;
+	}
 
 	if (removing) {
 		sqlite3_stmt* stmt = sqlstmts[DEL_FROM_PLIST];
-		for (int i=0; i<g->n_imgs; i++) {
-		}
-	} else {
-		SDL_Log("%s already in %s\n", g->img_focus->fullpath, playlist);
+		sqlite3_bind_text(stmt, 1, cur_plist_id);
 
-		for (int i=0; i<g->n_imgs; i++) {
-			idx = g->img[i].index;
+		for (int i=0; i<n_imgs; i++) {
+			idx = imgs[i].index
 			if (IS_VIEW_RESULTS()) {
 				idx = g->search_results.a[idx];
 			}
-			sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
-			sqlite3_bind_text(stmt, 1, cur_plist_id);
+			if ((img_id = get_image_id(imgs[i].fullpath)) < 0) {
+				assert(img_id >= 0 && "This should never happen");
+			}
 
+			sqlite3_bind_text(stmt, 2, img_id);
+
+			int rc = sqlite3_step(stmt);
+			if (rc != SQLITE_DONE) {
+				SDL_Log("Failed to remove image: %s\n", sqlite3_errmsg(g->db));
+				sqlite3_reset(stmt);
+				return;
+			}
+
+			int rows_affected = sqlite3_changes(g->db);
+			if (rows_affected > 0) {
+				SDL_Log("removing %s\n", imgs[i].fullpath);
+			} else {
+				SDL_Log("%s not in %s\n", imgs[i].fullpath, playlist);
+			}
+
+			sqlite3_reset(stmt);
+		}
+	} else {
+		sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
+		sqlite3_bind_text(stmt, 1, cur_plist_id);
+
+		for (int i=0; i<n_imgs; i++) {
+			idx = imgs[i].index;
+			if (IS_VIEW_RESULTS()) {
+				idx = g->search_results.a[idx];
+			}
 			//if ((img_id = get_image_id(g->files.a[idx].path)) < 0) {
-			if ((img_id = get_image_id(g->img[i].fullpath)) < 0) {
+			if ((img_id = get_image_id(imgs[i].fullpath)) < 0) {
 				assert(img_id >= 0 && "This should never happen");
 			}
 
@@ -315,12 +349,15 @@ int do_sql_save(int removing)
 
 			int rc = sqlite3_step(stmt);
 			if (rc == SQLITE_DONE) {
-				SDL_Log("saving %s\n", g->img[i].fullpath);
+				SDL_Log("saving %s\n", imgs[i].fullpath);
+				g->files.a[idx].playlist_idx = 1;
 			} else if (rc == SQLITE_CONSTRAINT) {
-				SDL_Log("%s already in %s\n", g->img[i].fullpath, playlist);
+				SDL_Log("%s already in %s\n", imgs[i].fullpath, playlist);
 			} else {
+				SDL_Log("Failed to add image: %s\n", sqlite3_errmsg(g->db))
 			}
 
+			sqlite3_reset(stmt);
 		}
 	}
 

@@ -698,6 +698,7 @@ int attempt_image_load(int last, img_state* img)
 			g->files.a[i].name = NULL;
 			g->bad_path_state = HAS_BAD;
 		} else {
+			// TODO this is still not actually used anywhere
 			img->file_size = g->files.a[i].size;
 		}
 	}
