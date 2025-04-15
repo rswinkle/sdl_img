@@ -183,6 +183,7 @@ void print_help(char* prog_name, int verbose)
 		puts("  -f, --fullscreen                   Start in fullscreen mode");
 		puts("  -s, --slide-show [delay=3]         Start in slideshow mode");
 		puts("  -l, --list list_file               Add all paths/urls in list_file to list");
+		puts("  -p, --playlist playlist            Add all images in playlist from database to list");
 		puts("  -r, --recursive dir                Scan dir recursively for images to add to the list");
 		puts("  -R                                 Scan all directories that come after recursively (-r after -R is redundant)");
 		puts("  -c, --cache ./your_cache_loc       Use specified directory as cache");
@@ -354,7 +355,8 @@ void setup(int argc, char** argv)
 		g->done_scanning = 1;
 	}
 
-	update_playlists();
+	init_db();
+	get_sql_playlists();
 
 	SDL_Rect r;
 	if (SDL_GetDisplayUsableBounds(0, &r)) {
@@ -669,6 +671,7 @@ void cleanup(int ret, int called_setup)
 			free(g->img2[i].tex);
 		}
 
+		shutdown_db();
 		write_cur_playlist();
 
 		// Have to free these *before* Destroying the Renderer and

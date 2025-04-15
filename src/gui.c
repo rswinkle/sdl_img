@@ -177,28 +177,12 @@ void transition_to_scanning(char* file)
 	g->thumbs_loaded = SDL_FALSE;
 	cvec_free_thumb_state(&g->thumbs);
 
-	if (g->open_playlist) {
+	if (g->open_list) {
 		cvec_push_str(&g->sources, "-l");
+	} else if (g->open_playlist) {
+		cvec_push_str(&g->sources, "-p");
 	} else if (g->open_recursive) {
 		cvec_push_str(&g->sources, "-r");
-
-		// No longer support recursive mode on non-directory selections
-		//
-		/*
-		char* last_slash = strrchr(file, PATH_SEPARATOR);
-		if (last_slash) {
-			cvec_push_str(&g->sources, "-r");
-
-			// don't want to turn "/somefile" into ""
-			if (last_slash != file) {
-				*last_slash = 0;
-			} else {
-				last_slash[1] = 0;
-			}
-		} else {
-			assert(last_slash); // should never get here
-		}
-		*/
 	}
 	cvec_push_str(&g->sources, file);
 	start_scanning();
@@ -801,7 +785,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 					// TODO think about interactions switching back and forth between all these
 					bounds = nk_widget_bounds(ctx);
 					if (nk_checkbox_label(ctx, "Single Image", &g->open_single) && g->open_single) {
-						g->open_playlist = SDL_FALSE;
+						g->open_list = SDL_FALSE;
 						g->open_recursive = SDL_FALSE;
 						if (fb->select_dir) {
 							fb->select_dir = SDL_FALSE;
@@ -813,11 +797,11 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 					}
 
 					bounds = nk_widget_bounds(ctx);
-					nk_checkbox_label(ctx, "Playlist", &g->open_playlist);
+					nk_checkbox_label(ctx, "Playlist", &g->open_list);
 					if (nk_input_is_mouse_hovering_rect(in, bounds)) {
 						nk_tooltip(ctx, "Select a playlist instead of an image");
 					}
-					if (g->open_playlist) {
+					if (g->open_list) {
 						g->open_single = SDL_FALSE;
 						g->open_recursive = SDL_FALSE;
 						int old_dir = fb->select_dir;
@@ -844,7 +828,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 
 					// TODO should I even show this if !fb->select_dir?
 					if (fb->select_dir) {
-						g->open_playlist = SDL_FALSE;
+						g->open_list = SDL_FALSE;
 						g->open_single = SDL_FALSE;
 						bounds = nk_widget_bounds(ctx);
 						nk_checkbox_label(ctx, "Recursive", &g->open_recursive);
@@ -2298,8 +2282,8 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 	int active, button_pressed;
 
 	struct nk_rect bounds;
-	char path_buf[STRBUF_SZ];
-	char path_buf2[STRBUF_SZ];
+	const char* selected_pl = NULL;
+	static char tmp_buf[STRBUF_SZ];
 
 	const char* new_rename[] = { "New", "Rename" };
 	
@@ -2320,8 +2304,8 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 
 
 	if (selected >= 0 && selected < g->playlists.size) {
-		get_playlist_path(path_buf, g->playlists.a[selected]);
 		nr_idx = 1;
+		selected_pl = g->playlists.a[selected];
 	} else {
 		selected = -1;
 	}
@@ -2348,35 +2332,32 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 		pm_buf[pm_len] = 0;
 		//printf("pm_len = %d\n", pm_len);
 		if (button_pressed || (active & NK_EDIT_COMMITED && pm_len)) {
+			// TODO keep this or just try to create/rename and catch the error?
 			if (cvec_contains_str(&g->playlists, pm_buf) < 0) {
-				get_playlist_path(path_buf2, pm_buf);
-
 				if (!nr_idx) {
-					FILE* f = fopen(path_buf2, "w");
-					if (!f) {
-						// GUI indication of failure
-						pm_len = snprintf(pm_buf, STRBUF_SZ, "%s", strerror(errno));
-						SDL_Log("Failed to create %s: %s\n", path_buf2, pm_buf);
+
+					if (!create_playlist(pm_buf)) {
+						// TODO add additional error log or eliminate one in create_playlist?
+						;
+
 					} else {
-						fclose(f);
 						cvec_push_str(&g->playlists, pm_buf);
 						pm_buf[0] = 0;
 						pm_len = 0;
 					}
 				} else {
-					if (rename(path_buf, path_buf2)) {
+					
+					if (!rename_playlist(selected_pl, pm_buf)) {
 						pm_len = snprintf(pm_buf, STRBUF_SZ, "Failed to rename: %s", strerror(errno));
-						SDL_Log("Failed to rename %s to %s: %s\n", path_buf, path_buf2, pm_buf);
+						SDL_Log("Failed to rename %s to %s\n", selected_pl, pm_buf);
 					} else {
 						cvec_replace_str(&g->playlists, selected, pm_buf, NULL);
 						pm_buf[0] = 0;
 						pm_len = 0;
-						// update selection path
-						strcpy(path_buf, path_buf2);
 					}
 				}
 			} else {
-				pm_len = snprintf(path_buf, STRBUF_SZ, "'%s' already exists!", pm_buf);
+				pm_len = snprintf(tmp_buf, STRBUF_SZ, "'%s' already exists!", pm_buf);
 				strcpy(pm_buf, path_buf);
 			}
 		}
@@ -2387,25 +2368,24 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 		if (nk_group_begin(ctx, "Playlist Sidebar", NK_WINDOW_NO_SCROLLBAR)) {
 
 			nk_layout_row_dynamic(ctx, 0, 1);
-			// Rename?
-			// Open New/More?  Or let FB handle that?
 
 			// All actions below except "Done" require a playlist to be selected
 			if (selected < 0) {
 				nk_widget_disable_begin(ctx);
 			}
+			// TODO
 			if (nk_button_label(ctx, "Make Active")) {
-				if (strcmp(g->playlists.a[selected], g->cur_playlist)) {
+				if (strcmp(selected_pl, g->cur_playlist)) {
 					write_cur_playlist();
-					strncpy(g->cur_playlist_path, path_buf, STRBUF_SZ);
+					strncpy(g->cur_playlist_buf, selected_pl, STRBUF_SZ);
 					g->cur_playlist = strrchr(g->cur_playlist_path, '/') + 1;
 					read_cur_playlist();
 				}
 			}
 			if (nk_button_label(ctx, "Make Default")) {
-				if (strcmp(g->default_playlist, g->playlists.a[selected])) {
+				if (strcmp(selected_pl, g->default_playlist)) {
 					free(g->default_playlist);
-					g->default_playlist = CVEC_STRDUP(g->playlists.a[selected]);
+					g->default_playlist = CVEC_STRDUP(selected_pl);
 				}
 			}
 
@@ -2413,7 +2393,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 				g->is_open_new = SDL_TRUE;
 				g->open_playlist = SDL_TRUE;
 				g->state &= ~PLAYLIST_MANAGER;
-				transition_to_scanning(path_buf);
+				transition_to_scanning(selected_pl);
 			}
 
 			if (nk_button_label(ctx, "Open More")) {
@@ -2423,18 +2403,14 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 			}
 
 			if (nk_button_label(ctx, "Delete")) {
-				if (!strcmp(g->playlists.a[selected], g->cur_playlist)) {
+				if (!strcmp(selected_pl, g->cur_playlist)) {
 					pm_len = snprintf(pm_buf, STRBUF_SZ, "Can't delete active playlist, change to another first");
 				} else {
-					SDL_Log("Trying to remove %s\n", path_buf);
-					if (remove(path_buf)) {
-						SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Failed to delete playlist: %s", strerror(errno));
-					} else {
-						SDL_Log("Deleted playlist %s\n", g->playlists.a[selected]);
-						cvec_erase_str(&g->playlists, selected, selected);
-						selected = -1;
-						path_buf[0] = 0;
-					}
+					//SDL_Log("Trying to remove %s\n", selected_pl);
+					delete_playlist(selected_pl);
+					SDL_Log("Deleted playlist %s\n", g->playlists.a[selected]);
+					cvec_erase_str(&g->playlists, selected, selected);
+					selected = -1;
 				}
 			}
 			nk_widget_disable_end(ctx);

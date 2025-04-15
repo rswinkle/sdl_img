@@ -95,20 +95,31 @@ sqlite3_stmt* sqlstmts[NUM_STMTS];
 //sqlite3* db;  //images, playlists, possibly thumbs in the future?
 
 
-void init_db(const char* db_file, sqlite3** db)
+void init_db(void)
 {
-	if (sqlite3_open(db_file, db)) {
-		SDL_LogCriticalApp("Failed to open %s: %s\n", db_file, sqlite3_errmsg(*db));
-		exit(1);
+	char db_file[STRBUF_SZ];
+	int len;
+
+	char* prefpath = g->prefpath;
+
+	len = snprintf(db_file, STRBUF_SZ, "%slibrary.db", prefpath);
+	if (len >= STRBUF_SZ) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "library.db path too long\n");
+		cleanup(1, 1);
 	}
-	create_tables(*db);
-	prepare_stmts(*db);
+
+	if (sqlite3_open(db_file, &g->db)) {
+		SDL_LogCriticalApp("Failed to open %s: %s\n", db_file, sqlite3_errmsg(g->db));
+		cleanup(1, 1);
+	}
+	create_tables(g->db);
+	prepare_stmts(g->db);
 }
 
-void shutdown_db(sqlite3* db)
+void shutdown_db(void)
 {
 	finalize_stmts();
-	sqlite3_close(db);
+	sqlite3_close(g->db);
 }
 
 void create_tables(sqlite3* db)
@@ -117,7 +128,7 @@ void create_tables(sqlite3* db)
 	if (sqlite3_exec(db, sql[CREATE_TABLES], NULL, NULL, &errmsg)) {
 		SDL_LogCriticalApp("Failed to create table: %s\n", errmsg);
 		sqlite3_free(errmsg);
-		exit(1);
+		cleanup(1, 1);
 	}
 }
 
@@ -126,7 +137,7 @@ void prepare_stmts(sqlite3* db)
 	for (int i=INSERT; i<NUM_STMTS; ++i) {
 		if (sqlite3_prepare_v2(db, sql[i], -1, &sqlstmts[i], NULL)) {
 			SDL_LogCriticalApp("Failed to prep following statement:\n\"%s\"\nproduced errormsg: %s\n", sql[i], sqlite3_errmsg(db));
-			exit(1);
+			cleanup(1, 1);
 		}
 	}
 }
@@ -160,7 +171,7 @@ int create_playlist(const char* name)
 int delete_playlist(const char* name)
 {
 	sqlite3_stmt* stmt = sqlstmts[DEL_PLIST_NAME];
-	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
+	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
 	sqlite3_step(stmt);
 	sqlite3_reset(stmt);
 
@@ -202,8 +213,9 @@ int load_sql_playlist_name(cvector_file* files, const char* name)
 	if (sqlite3_step(stmt) == SQLITE_ROW) {
 		id = sqlite3_column_int(stmt, 0);
 	} else {
-		// check for error instead of SQLITE_DONE?
+		// TODO check for error instead of SQLITE_DONE?
 		sqlite3_reset(stmt);
+		SDL_Log("No playlist with the name %s\n", name);
 		return FALSE;
 	}
 
@@ -285,6 +297,9 @@ int get_image_id(const char *path)
 
 int do_sql_save(int removing)
 {
+	if (g->loading)
+		return;
+
 	int idx;
 	int img_id;
 	int cur_plist_id = g->cur_plist_id;
@@ -361,6 +376,7 @@ int do_sql_save(int removing)
 		}
 	}
 
+	set_show_gui(SDL_TRUE);
 	return TRUE;
 }
 

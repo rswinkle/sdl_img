@@ -71,10 +71,10 @@ void do_file_open(int clear_files)
 	// If they're in playlistdir keep settings the same
 	if (strcmp(g->filebrowser.dir, g->playlistdir)) {
 		g->open_single = SDL_FALSE;
-		g->open_playlist = SDL_FALSE;
+		g->open_list = SDL_FALSE;
 		g->open_recursive = SDL_FALSE;
 	} else {
-		g->open_playlist = SDL_TRUE;  // should still be true but for clarity
+		g->open_list = SDL_TRUE;  // should still be true but for clarity
 		g->filebrowser.ignore_exts = SDL_TRUE; // was reset by reset_file_browser
 	}
 

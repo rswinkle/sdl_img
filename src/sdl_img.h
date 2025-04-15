@@ -148,6 +148,8 @@ typedef struct global_state
 	SDL_Renderer* ren;
 	struct nk_context* ctx;
 
+	sqlite3* db;
+
 	// scaling is for GUI only
 	float x_scale;
 	float y_scale;
@@ -205,7 +207,7 @@ typedef struct global_state
 	char font_path_buf[STRBUF_SZ];
 
 	// TODO naming
-	char cur_playlist_path[STRBUF_SZ];
+	char cur_playlist_buf[STRBUF_SZ];
 	char* cur_playlist; // points into above
 
 	char* default_playlist;  // allocated
@@ -223,7 +225,8 @@ typedef struct global_state
 
 	// (should I move these to file_browser?)
 	int open_single;    // boolean
-	int open_playlist;  // boolean
+	int open_list;      // boolean text list
+	int open_playlist;  // boolean sql playlist
 	int open_recursive; // boolean
 	int is_open_new;    // boolean
 

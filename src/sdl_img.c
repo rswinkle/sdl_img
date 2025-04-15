@@ -434,7 +434,7 @@ void remove_bad_paths(void)
 
 void my_switch_dir(const char* dir)
 {
-	// We automatically turn open_playlist on when going into
+	// We automatically turn open_list on when going into
 	// the playlist directory, so we turn it off leaving
 
 	// NOTE this doesn't occur if dir is NULL so don't modify fb->dir in place
@@ -445,7 +445,7 @@ void my_switch_dir(const char* dir)
 	// popup not an "Open New/More"
 	if (dir && !g->fs_output) {
 		if (!strcmp(dir, g->playlistdir)) {
-			g->open_playlist = SDL_TRUE;
+			g->open_list = SDL_TRUE;
 			g->open_single = SDL_FALSE;
 			g->open_recursive = SDL_FALSE;
 			g->filebrowser.ignore_exts = SDL_TRUE;
@@ -453,7 +453,7 @@ void my_switch_dir(const char* dir)
 		} else if (!strcmp(g->filebrowser.dir, g->playlistdir)) {
 			// Only turn it off when leaving playlistdir explicitly
 			// not when entering any non-playlistdir
-			g->open_playlist = SDL_FALSE;
+			g->open_list = SDL_FALSE;
 		}
 	}
 	switch_dir(&g->filebrowser, dir);
@@ -1046,6 +1046,7 @@ int scan_sources(void* data)
 				given_list = 1;
 				read_list(&g->files, NULL, file);
 				fclose(file);
+			} else if (!strcmp(a[i], "-p")) {
 			} else if (!strcmp(a[i], "-R")) {
 				recurse = 1;
 			} else if (!strcmp(a[i], "-r") || !strcmp(a[i], "--recursive")) {
@@ -1529,9 +1530,16 @@ int main(int argc, char** argv)
 #endif
 
 	for (int i=1; i<argc; ++i) {
-		if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--list")) {
+		if (!strcmp(argv[i], "-p") || !strcmp(argv[i], "--playlist")) {
 			if (i+1 == argc) {
-				SDL_Log("Error missing list file following -l\n");
+				SDL_Log("Error missing playlist name following %s\n", argv[i]);
+				break;
+			}
+			cvec_push_str(&g->sources, "-p");
+			cvec_push_str(&g->sources, argv[++i]);
+		} else if (!strcmp(argv[i], "-l") || !strcmp(argv[i], "--list")) {
+			if (i+1 == argc) {
+				SDL_Log("Error missing list file following %s\n", argv[i]);
 				break;
 			}
 			cvec_push_str(&g->sources, "-l");
