@@ -47,7 +47,7 @@ const char* sql[] = {
 	");",
 
 
-	"INSERT INTO Images (path) VALUES (?);",
+	"INSERT OR IGNORE INTO Images (path) VALUES (?);",
 	"INSERT INTO Playlists (name) VALUES (?);",
 
 	"INSERT INTO Playlist_Images (playlist_id, image_id) VALUES (?, ?);",
@@ -378,6 +378,65 @@ int do_sql_save(int removing)
 
 	set_show_gui(SDL_TRUE);
 	return TRUE;
+}
+
+int do_sql_save_all(void)
+{
+	// TODO other way to check for only valid paths?
+	// and that they're all already in the database
+	if (!g->thumbs_done || g->bad_path_state) {
+		return;
+	}
+
+	int img_id;
+	int cur_plist_id = g->cur_plist_id;
+	char* playlist = g->cur_playlist;
+	int success_cnt = 0;
+	int rc;
+
+	sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
+	sqlite3_bind_text(stmt, 1, cur_plist_id);
+
+	sqlite3_exec(g->db, "BEGIN TRANSACTION", NULL, NULL, NULL);
+	if (rc != SQLITE_OK) {
+		SDL_Log("Failed to begin transaction: %s\n", sqlite3_errmsg(g->db));
+		return FALSE;
+	}
+
+	for (int i=0; i<g->files.size; i++) {
+		if ((img_id = get_image_id(g->files.a[i].fullpath)) < 0) {
+			assert(img_id >= 0 && "This should never happen");
+		}
+
+		sqlite3_bind_text(stmt, 2, img_id);
+
+		rc = sqlite3_step(stmt);
+		if (rc == SQLITE_DONE) {
+			success_cnt += sqlite3_changes(g->db) > 0;
+			//g->files.a[idx].playlist_idx = 1;
+		} else {
+
+			SDL_Log("Failed to add image: %s\n", g->files.a[i].fullpath, sqlite3_errmsg(g->db));
+			sqlite3_exec(g->db, "ROLLBACK", NULL, NULL, NULL);
+			sqlite3_reset(stmt);
+			return FALSE;
+		}
+
+
+		sqlite3_reset(stmt);
+
+	}
+	rc = sqlite3_exec(ctx->db, "COMMIT", NULL, NULL, NULL);
+	if (rc != SQLITE_OK) {
+		SDL_Log("Failed to commit transaction: %s\n", sqlite3_errmsg(g->db));
+		sqlite3_exec(g->db, "ROLLBACK", NULL, NULL, NULL);
+		return FALSE;
+	}
+
+	SDL_Log("Saved %d new images to %s\n", success_cnt, playlist);
+
+	return TRUE;
+
 }
 
 // Do this or do it as we scan sources and stat() files?
