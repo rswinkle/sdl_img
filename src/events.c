@@ -1075,7 +1075,7 @@ int handle_events_normally()
 
 	SDL_Keymod mod_state = SDL_GetModState();
 	int ctrl_down = mod_state & KMOD_CTRL;
-	//int shift_down = mod_state & KMOD_SHIFT;
+	int shift_down = mod_state & KMOD_SHIFT;
 
 	// use space to move to next image(s) even if zoomed in, ie during slideshow
 	SDL_Event space;
@@ -1245,6 +1245,9 @@ int handle_events_normally()
 				break;
 			case UNSAVE_IMG:
 				do_sql_save(SDL_TRUE);
+				break;
+			case SAVE_ALL:
+				do_sql_save_all();
 				break;
 			case REMOVE_IMG:
 				do_remove(&space);
@@ -1460,7 +1463,11 @@ int handle_events_normally()
 			break;
 
 			case SDL_SCANCODE_S:
-				do_save(ctrl_down);
+				if (shift_down && ctrl_down) {
+					do_sql_save_all();
+				} else {
+					do_sql_save(ctrl_down);
+				}
 			break;
 
 			case SDL_SCANCODE_H:

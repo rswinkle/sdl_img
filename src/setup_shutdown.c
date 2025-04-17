@@ -676,7 +676,6 @@ void cleanup(int ret, int called_setup)
 		}
 
 		shutdown_db();
-		write_cur_playlist();
 
 		// Have to free these *before* Destroying the Renderer and
 		// exiting SDL

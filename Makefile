@@ -78,7 +78,7 @@ PKGSRC=package_files
 
 SRCS=src/sdl_img.c src/events.c src/gui.c src/rendering.c src/lua_config.c \
 	 src/thumbs.c src/curl_stuff.c src/actions.c src/playlists.c src/sorting.c src/controls_str.c \
-	 src/recent_files.c src/setup_shutdown.c \
+	 src/recent_files.c src/setup_shutdown.c src/sqlite.c \
 	 src/sdl_img.h src/thumbs.h src/curl_stuff.h \
 	 src/compile_constants.h src/config_constants.h \
 	 src/clnk.h src/file_browser.h src/lua_helper.h
@@ -86,11 +86,14 @@ SRCS=src/sdl_img.c src/events.c src/gui.c src/rendering.c src/lua_config.c \
 
 all: $(TARGET)
 
-sdl_img: $(SRCS) nuklear.o minilua.o
-	$(CC) $(OPTS) src/sdl_img.c minilua.o nuklear.o -o $@ $(CFLAGS) $(LIBS)
+sdl_img: $(SRCS) nuklear.o minilua.o sqlite3.o
+	$(CC) $(OPTS) src/sdl_img.c minilua.o nuklear.o sqlite3.o -o $@ $(CFLAGS) $(LIBS)
 
 sdl_img.exe: $(SRCS) nuklear.o minilua.o
 	$(CC) $(OPTS) src/sdl_img.c nuklear.o minilua.o -o $@ $(CFLAGS) $(LIBS)
+
+sqlite3.o: src/extlibs/sqlite3.c
+	$(CC) $(OPTS) -c src/extlibs/sqlite3.c
 
 nuklear.o: src/extlibs/nuklear.h src/extlibs/nuklear_sdl_renderer.h
 	$(CC) $(OPTS) -c src/extlibs/nuklear.c `pkg-config sdl2 --cflags`

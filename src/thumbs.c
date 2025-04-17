@@ -193,6 +193,9 @@ exit_gen_thumbs:
 	g->generating_thumbs = SDL_FALSE;
 	g->thumbs_done = SDL_TRUE;
 	g->thumbs_loaded = do_load;
+	if (g->bad_path_state == UNKNOWN) {
+		g->bad_path_state = CLEAN;
+	}
 	SDL_CondSignal(g->thumb_cnd);
 	SDL_UnlockMutex(g->thumb_mtx);
 

@@ -10,7 +10,7 @@ enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V, MODE_CHANGE,
-       THUMB_MODE, LIST_MODE, SAVE_IMG, UNSAVE_IMG, REMOVE_IMG, DELETE_IMG, ACTUAL_SIZE, ROT360, REMOVE_BAD,
+       THUMB_MODE, LIST_MODE, SAVE_IMG, UNSAVE_IMG, SAVE_ALL, REMOVE_IMG, DELETE_IMG, ACTUAL_SIZE, ROT360, REMOVE_BAD,
        SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, OPEN_FILE_NEW,
        OPEN_FILE_MORE, OPEN_PLAYLIST_MANAGER, SELECT_FILE, SELECT_DIR, FONT_CHANGE, NUM_USEREVENTS };
 
@@ -116,6 +116,9 @@ enum {
 #define SDL_LogDebugApp(...) SDL_LogDebug(SDL_LOG_CATEGORY_APPLICATION, __VA_ARGS__)
 #define SDL_LogCriticalApp(...) SDL_LogCritical(SDL_LOG_CATEGORY_APPLICATION, __VA_ARGS__)
 
+// TODO put this elsewhere
+#define GET_EXT(s) strrchr(s, '.')
+
 typedef struct img_state
 {
 	u8* pixels;
@@ -207,6 +210,7 @@ typedef struct global_state
 	char font_path_buf[STRBUF_SZ];
 
 	// TODO naming
+	char cur_playlist_path[STRBUF_SZ];
 	char cur_playlist_buf[STRBUF_SZ];
 	char* cur_playlist; // points into above
 	int cur_playlist_id;

@@ -1258,8 +1258,14 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 				}
 				nk_label(ctx, "CTRL+S", NK_TEXT_RIGHT);
 
-				/*
-				if (g->
+				// show save all only if not loading generating thumbs etc.
+				if (g->bad_path_state == CLEAN) {
+					if (nk_menu_item_label(ctx, "Save All", NK_TEXT_LEFT)) {
+						event.user.code = SAVE_ALL;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "CTRL+SHIFT+S", NK_TEXT_RIGHT);
+				}
 
 				nk_tree_pop(ctx);
 			} else g->menu_state = (g->menu_state == MENU_PLAYLIST) ? MENU_NONE : g->menu_state;
@@ -1549,12 +1555,14 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 			if (IS_VIEW_RESULTS() && index < g->search_results.size) {
 				total = g->search_results.size;
 				if (g->save_status_uptodate) {
-					saved_status = g->files.a[g->search_results.a[index]].playlist_idx >= 0;
+					//saved_status = g->files.a[g->search_results.a[index]].playlist_idx >= 0;
+					saved_status = g->files.a[g->search_results.a[index]].playlist_idx;
 				}
 			} else {
 				total = g->files.size;
 				if (g->save_status_uptodate) {
-					saved_status = g->files.a[index].playlist_idx >= 0;
+					//saved_status = g->files.a[index].playlist_idx >= 0;
+					saved_status = g->files.a[index].playlist_idx;
 				}
 			}
 			total = (IS_VIEW_RESULTS()) ? g->search_results.size : g->files.size;
@@ -1614,7 +1622,8 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	if (nk_begin(ctx, "Thumb Info", nk_rect(0, scr_h-g->gui_bar_ht, scr_w, height), NK_WINDOW_NOT_INTERACTIVE|NK_WINDOW_NO_SCROLLBAR)) {
 
 		if (g->state ==  THUMB_DFLT) {
-			saved_status = g->files.a[g->thumb_sel].playlist_idx >= 0;
+			//saved_status = g->files.a[g->thumb_sel].playlist_idx >= 0;
+			saved_status = g->files.a[g->thumb_sel].playlist_idx;
 			len = snprintf(info_buf, STRBUF_SZ, "%s [%c] rows: %d / %d  image %d / %d", g->cur_playlist, saved_char[saved_status], row, num_rows, g->thumb_sel+1, (int)g->files.size);
 		} else if (!(g->state & SEARCH_RESULTS) || g->thumb_sel != g->search_results.a[g->cur_result]) {
 			len = snprintf(info_buf, STRBUF_SZ, "rows: %d / %d  image %d / %d", row, num_rows, g->thumb_sel+1, (int)g->files.size);
@@ -2344,12 +2353,12 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 						;
 
 					} else {
+						SDL_Log("Created playlist %s\n", pm_buf);
 						cvec_push_str(&g->playlists, pm_buf);
 						pm_buf[0] = 0;
 						pm_len = 0;
 					}
 				} else {
-					
 					if (!rename_playlist(selected_pl, pm_buf)) {
 						pm_len = snprintf(pm_buf, STRBUF_SZ, "Failed to rename: %s", strerror(errno));
 						SDL_Log("Failed to rename %s to %s\n", selected_pl, pm_buf);
@@ -2361,7 +2370,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 				}
 			} else {
 				pm_len = snprintf(tmp_buf, STRBUF_SZ, "'%s' already exists!", pm_buf);
-				strcpy(pm_buf, path_buf);
+				strcpy(pm_buf, tmp_buf);
 			}
 		}
 
@@ -2381,7 +2390,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 				if (strcmp(selected_pl, g->cur_playlist)) {
 					strncpy(g->cur_playlist_buf, selected_pl, STRBUF_SZ);
 					g->cur_playlist_id = get_playlist_id(g->cur_playlist);
-					load_sql_playlist_id(g->files, g->cur_playlist_id);
+					update_save_status();
 				}
 			}
 			if (nk_button_label(ctx, "Make Default")) {
@@ -2401,7 +2410,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 			if (nk_button_label(ctx, "Open More")) {
 				g->open_playlist = SDL_TRUE;
 				g->state &= ~PLAYLIST_MANAGER;
-				transition_to_scanning(path_buf);
+				transition_to_scanning(selected_pl);
 			}
 
 			if (nk_button_label(ctx, "Delete")) {
@@ -2433,10 +2442,11 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 				if (nk_selectable_label(ctx, g->playlists.a[i], NK_TEXT_CENTERED, &is_selected)) {
 					if (is_selected) {
 						selected = i;
-						get_playlist_path(path_buf, g->playlists.a[selected]);
+						// set at the top of function
+						//selected_pl = g->playlists.a[selected];
 					} else {
 						selected = -1;
-						path_buf[0] = 0;
+						//selected_pl = NULL;
 					}
 				}
 			}

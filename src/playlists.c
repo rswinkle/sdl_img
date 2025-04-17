@@ -1,6 +1,4 @@
 
-// TODO put this elsewhere
-#define GET_EXT(s) strrchr(s, '.')
 
 int get_playlists(const char* dirpath)
 {

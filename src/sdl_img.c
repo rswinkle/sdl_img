@@ -70,6 +70,8 @@
 #include <dirent.h>
 #include <curl/curl.h>
 
+#include "sqlite3.h"
+
 #include "sdl_img.h"
 
 // Use a pointer in case I ever move this to another TU, though it's unlikely
@@ -91,6 +93,12 @@ void setup_font(char* font_file, float height);
 void cleanup(int ret, int called_setup);
 int handle_common_evts(void* userdata, SDL_Event* e);
 void remove_bad_paths(void);
+extern inline void set_show_gui(int show);
+
+// int typedefs (i64, u32 etc.) conflict with mine in file_browser.h
+//#include "sqlite3.c"
+
+#include "sqlite.c"
 
 #include "playlists.c"
 #include "thumbs.c"

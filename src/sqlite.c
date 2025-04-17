@@ -1,4 +1,25 @@
 
+void init_db(void);
+void shutdown_db(void);
+void create_tables(sqlite3* db);
+void prepare_stmts(sqlite3* db);
+void finalize_stmts(void);
+int create_playlist(const char* name);
+int delete_playlist(const char* name);
+int rename_playlist(const char* new_name, const char* old_name);
+int get_sql_playlists(void);
+int insert_img(const char* path);
+int get_playlist_id(const char* name);
+int load_sql_playlist_name(cvector_file* files, const char* name);
+void load_sql_playlist_id(cvector_file* files, int id);
+int get_image_id(const char *path);
+int do_sql_save(int removing);
+int do_sql_save_all(void);
+int add_cur_files_to_db(void);
+int update_save_status(void);
+
+
+
 // split out single use like create vs many/most use?
 enum {
 	CREATE_TABLES,
@@ -51,10 +72,9 @@ const char* sql[] = {
 	"INSERT OR IGNORE INTO Images (path) VALUES (?);",
 	"INSERT OR IGNORE INTO Playlists (name) VALUES (?);",
 
-	// OR IGNORE?
-	"INSERT INTO Playlist_Images (playlist_id, image_id) VALUES (?, ?);",
+	"INSERT OR IGNORE INTO Playlist_Images (playlist_id, image_id) VALUES (?, ?);",
 
-	"INSERT INTO Playlist_Images (playlist_id, image_id) "
+	"INSERT OR IGNORE INTO Playlist_Images (playlist_id, image_id) "
 	"SELECT p.playlist_id, i.image_id "
 	"FROM Playlists p, Images i "
 	"WHERE p.name = ? AND i.path = ?;",
@@ -137,7 +157,7 @@ void create_tables(sqlite3* db)
 
 void prepare_stmts(sqlite3* db)
 {
-	for (int i=INSERT; i<NUM_STMTS; ++i) {
+	for (int i=INSERT_IMG; i<NUM_STMTS; ++i) {
 		if (sqlite3_prepare_v2(db, sql[i], -1, &sqlstmts[i], NULL)) {
 			SDL_LogCriticalApp("Failed to prep following statement:\n\"%s\"\nproduced errormsg: %s\n", sql[i], sqlite3_errmsg(db));
 			cleanup(1, 1);
@@ -162,7 +182,7 @@ int create_playlist(const char* name)
 	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
 	int rc;
 	if ((rc = sqlite3_step(stmt)) != SQLITE_DONE) {
-		SDL_Log("Failed add playlist %s (%d): %s\n", name, rc, sqlite3_errmsg(db));
+		SDL_Log("Failed add playlist %s (%d): %s\n", name, rc, sqlite3_errmsg(g->db));
 		return FALSE;
 	}
 	sqlite3_reset(stmt);
@@ -193,9 +213,10 @@ int rename_playlist(const char* new_name, const char* old_name)
 int get_sql_playlists(void)
 {
 	cvec_clear_str(&g->playlists);
-	sqlite3_stmt* stmt = sqlstmts[SELECT_ALL_PLISTS];
+	sqlite3_stmt* stmt = sqlstmts[GET_PLISTS];
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		const char *s = (const char *)sqlite3_column_text(stmt, 0);
+		// TODO it returns const unsigned char*
+		char *s = (char *)sqlite3_column_text(stmt, 0);
 		cvec_push_str(&g->playlists, s);
 	}
 	sqlite3_reset(stmt);
@@ -210,7 +231,7 @@ int insert_img(const char* path)
 	sqlite3_bind_text(stmt, 1, path, -1, SQLITE_STATIC);
 	int rc;
 	if ((rc = sqlite3_step(stmt)) != SQLITE_DONE) {
-		SDL_Log("Failed to add image %s (%d): %s\n", path, rc, sqlite3_errmsg(db));
+		SDL_Log("Failed to add image %s (%d): %s\n", path, rc, sqlite3_errmsg(g->db));
 		sqlite3_reset(stmt);
 		return FALSE;
 	}
@@ -257,6 +278,8 @@ void load_sql_playlist_id(cvector_file* files, int id)
 {
 	file f = {0};
 	struct stat file_stat;
+	struct tm* tmp_tm;
+	char* sep;
 
 	sqlite3_stmt* stmt = sqlstmts[SELECT_ALL_IN_PLIST_ID];
 	sqlite3_bind_int(stmt, 1, id);  // playlist_id = 1
@@ -275,7 +298,7 @@ void load_sql_playlist_id(cvector_file* files, int id)
 			// f.path = CVEC_STRDUP("Deleted"); // ?
 			f.path = CVEC_STRDUP(s);
 			f.size = 0;
-			f.modified = 0
+			f.modified = 0;
 
 			sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 			f.name = (sep) ? sep+1 : f.path;
@@ -306,14 +329,13 @@ int get_image_id(const char *path)
 {
     sqlite3_stmt *stmt = sqlstmts[GET_IMG_ID];
     int image_id = 0;
-    int rc;
 
     sqlite3_bind_text(stmt, 1, path, -1, SQLITE_STATIC);
 
     if (sqlite3_step(stmt) == SQLITE_ROW) {
         image_id = sqlite3_column_int(stmt, 0);
     } else {
-        fprintf(stderr, "Unexpected error: Image '%s' not found (should exist).\n", path);
+        SDL_Log("Unexpected error: Image '%s' not found (should exist).\n", path);
     }
 
     sqlite3_reset(stmt);
@@ -323,11 +345,11 @@ int get_image_id(const char *path)
 int do_sql_save(int removing)
 {
 	if (g->loading)
-		return;
+		return FALSE;
 
 	int idx;
 	int img_id;
-	int cur_plist_id = g->cur_plist_id;
+	int cur_plist_id = g->cur_playlist_id;
 	char* playlist = g->cur_playlist;
 	
 	img_state* imgs;
@@ -341,11 +363,11 @@ int do_sql_save(int removing)
 	}
 
 	if (removing) {
-		sqlite3_stmt* stmt = sqlstmts[DEL_FROM_PLIST];
+		sqlite3_stmt* stmt = sqlstmts[DEL_FROM_PLIST_ID];
 		sqlite3_bind_int(stmt, 1, cur_plist_id);
 
 		for (int i=0; i<n_imgs; i++) {
-			idx = imgs[i].index
+			idx = imgs[i].index;
 			if (IS_VIEW_RESULTS()) {
 				idx = g->search_results.a[idx];
 			}
@@ -353,18 +375,19 @@ int do_sql_save(int removing)
 				assert(img_id >= 0 && "This should never happen");
 			}
 
-			sqlite3_bind_text(stmt, 2, img_id);
+			sqlite3_bind_int(stmt, 2, img_id);
 
 			int rc = sqlite3_step(stmt);
 			if (rc != SQLITE_DONE) {
 				SDL_Log("Failed to remove image: %s\n", sqlite3_errmsg(g->db));
 				sqlite3_reset(stmt);
-				return;
+				return FALSE;
 			}
 
 			int rows_affected = sqlite3_changes(g->db);
 			if (rows_affected > 0) {
 				SDL_Log("removing %s\n", imgs[i].fullpath);
+				g->files.a[idx].playlist_idx = 0;
 			} else {
 				SDL_Log("%s not in %s\n", imgs[i].fullpath, playlist);
 			}
@@ -390,12 +413,14 @@ int do_sql_save(int removing)
 			// TODO add OR IGNORE and use sqlite3_changes to detect already in?
 			int rc = sqlite3_step(stmt);
 			if (rc == SQLITE_DONE) {
-				SDL_Log("saving %s\n", imgs[i].fullpath);
-				g->files.a[idx].playlist_idx = 1;
-			} else if (rc == SQLITE_CONSTRAINT) {
-				SDL_Log("%s already in %s\n", imgs[i].fullpath, playlist);
+				if (sqlite3_changes(g->db)) {
+					SDL_Log("saving %s\n", imgs[i].fullpath);
+					g->files.a[idx].playlist_idx = 1;
+				} else {
+					SDL_Log("%s already in %s\n", imgs[i].fullpath, playlist);
+				}
 			} else {
-				SDL_Log("Failed to add image: %s\n", sqlite3_errmsg(g->db))
+				SDL_Log("Failed to add image %s: %s\n", imgs[i].fullpath, sqlite3_errmsg(g->db));
 			}
 
 			sqlite3_reset(stmt);
@@ -411,11 +436,11 @@ int do_sql_save_all(void)
 	// TODO other way to check for only valid paths?
 	// and that they're all already in the database
 	if (!g->thumbs_done || g->bad_path_state) {
-		return;
+		return FALSE;
 	}
 
 	int img_id;
-	int cur_plist_id = g->cur_plist_id;
+	int cur_plist_id = g->cur_playlist_id;
 	char* playlist = g->cur_playlist;
 	int success_cnt = 0;
 	int rc;
@@ -423,14 +448,14 @@ int do_sql_save_all(void)
 	sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
 	sqlite3_bind_int(stmt, 1, cur_plist_id);
 
-	sqlite3_exec(g->db, "BEGIN TRANSACTION", NULL, NULL, NULL);
+	rc = sqlite3_exec(g->db, "BEGIN TRANSACTION", NULL, NULL, NULL);
 	if (rc != SQLITE_OK) {
 		SDL_Log("Failed to begin transaction: %s\n", sqlite3_errmsg(g->db));
 		return FALSE;
 	}
 
 	for (int i=0; i<g->files.size; i++) {
-		if (!(img_id = get_image_id(g->files.a[i].fullpath))) {
+		if (!(img_id = get_image_id(g->files.a[i].path))) {
 			assert(img_id >= 0 && "This should never happen");
 		}
 
@@ -441,7 +466,7 @@ int do_sql_save_all(void)
 			success_cnt += sqlite3_changes(g->db) > 0;
 			//g->files.a[idx].playlist_idx = 1;
 		} else {
-			SDL_Log("Failed to save image: %s\n", g->files.a[i].fullpath, sqlite3_errmsg(g->db));
+			SDL_Log("Failed to save image %s: %s\n", g->files.a[i].path, sqlite3_errmsg(g->db));
 			sqlite3_exec(g->db, "ROLLBACK", NULL, NULL, NULL);
 			sqlite3_reset(stmt);
 			return FALSE;
@@ -450,17 +475,19 @@ int do_sql_save_all(void)
 		sqlite3_reset(stmt);
 
 	}
-	rc = sqlite3_exec(ctx->db, "COMMIT", NULL, NULL, NULL);
+	rc = sqlite3_exec(g->db, "COMMIT", NULL, NULL, NULL);
 	if (rc != SQLITE_OK) {
 		SDL_Log("Failed to commit transaction: %s\n", sqlite3_errmsg(g->db));
 		sqlite3_exec(g->db, "ROLLBACK", NULL, NULL, NULL);
 		return FALSE;
 	}
 
-	SDL_Log("Saved %d new images to %s. %d images were already there.\n", success_cnt, playlist, g->files.size-success_cnt, playlist);
+	// TODO always have this here if I don't risk updating it above?  Or call after this function?
+	update_save_status();
+
+	SDL_Log("Saved %d new images to %s. %"PRIcv_sz" images were already there.\n", success_cnt, playlist, g->files.size-success_cnt);
 
 	return TRUE;
-
 }
 
 // Do this or do it as we scan sources and stat() files?
@@ -471,7 +498,7 @@ int add_cur_files_to_db(void)
 
 	sqlite3_stmt* stmt = sqlstmts[INSERT_IMG];
 
-	sqlite3_exec(g->db, "BEGIN TRANSACTION", NULL, NULL, NULL);
+	rc = sqlite3_exec(g->db, "BEGIN TRANSACTION", NULL, NULL, NULL);
 	if (rc != SQLITE_OK) {
 		SDL_Log("Failed to begin transaction: %s\n", sqlite3_errmsg(g->db));
 		return FALSE;
@@ -489,7 +516,7 @@ int add_cur_files_to_db(void)
 			n_added += sqlite3_changes(g->db) > 0;
 			//g->files.a[idx].playlist_idx = 1;
 		} else {
-			SDL_Log("Failed to add image: %s\n", g->files.a[i].fullpath, sqlite3_errmsg(g->db));
+			SDL_Log("Failed to add image %s: %s\n", g->files.a[i].path, sqlite3_errmsg(g->db));
 			sqlite3_exec(g->db, "ROLLBACK", NULL, NULL, NULL);
 			sqlite3_reset(stmt);
 			return FALSE;
@@ -497,7 +524,7 @@ int add_cur_files_to_db(void)
 		sqlite3_reset(stmt);
 	}
 
-	rc = sqlite3_exec(ctx->db, "COMMIT", NULL, NULL, NULL);
+	rc = sqlite3_exec(g->db, "COMMIT", NULL, NULL, NULL);
 	if (rc != SQLITE_OK) {
 		SDL_Log("Failed to commit transaction: %s\n", sqlite3_errmsg(g->db));
 		sqlite3_exec(g->db, "ROLLBACK", NULL, NULL, NULL);
@@ -512,7 +539,10 @@ int add_cur_files_to_db(void)
 int update_save_status(void)
 {
 	int img_id;
-	int cur_plist_id = g->cur_plist_id;
+	int rc;
+	int cur_plist_id = g->cur_playlist_id;
+
+	SDL_Log("current playlist = %s\n", g->cur_playlist);
 
 	sqlite3_stmt* stmt = sqlstmts[GET_IMG_SAVE_STATUS];
 	sqlite3_bind_int(stmt, 1, cur_plist_id);
@@ -521,14 +551,22 @@ int update_save_status(void)
 		// skip URLS
 		if (!g->files.a[i].modified) continue;
 
-		if (!(img_id = get_image_id(g->files.a[i].fullpath))) {
+		if (!(img_id = get_image_id(g->files.a[i].path))) {
 			assert(img_id >= 0 && "This should never happen");
 		}
 
 		sqlite3_bind_int(stmt, 2, img_id);
 
 		// in playlist if it was SQLITE_ROW or != SQLITE_DONE
-		g->files.a[i].playlist_idx = sqlite3_step(stmt) != SQLITE_DONE;
+		rc = sqlite3_step(stmt);
+		//switch (rc) {
+		//case SQLITE_DONE: SDL_Log("sqlite_done\n"); break;
+		//case SQLITE_ROW: SDL_Log("sqlite_row\n"); break;
+		//default: SDL_Log("something else %d\n", rc); break;
+		//}
+
+		//g->files.a[i].playlist_idx = sqlite3_step(stmt) != SQLITE_DONE;
+		g->files.a[i].playlist_idx = rc != SQLITE_DONE;
 		sqlite3_reset(stmt);
 	}
 	return TRUE;
