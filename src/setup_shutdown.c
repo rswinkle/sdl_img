@@ -356,7 +356,11 @@ void setup(int argc, char** argv)
 	}
 
 	init_db();
+	create_playlist(g->default_playlist); // usually no-op
 	get_sql_playlists();
+	g->cur_playlist_id = get_playlist_id(g->default_playlist);
+	strncpy(g->cur_playlist_buf, g->default_playlist, STRBUF_SZ);
+	g->cur_playlist = g->cur_playlist_buf;
 
 	SDL_Rect r;
 	if (SDL_GetDisplayUsableBounds(0, &r)) {

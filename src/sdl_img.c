@@ -637,6 +637,9 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		normalize_path(f.path);
 #endif
 
+		// add to database one at a time?
+		//insert_img(f.path);
+
 #ifdef CHECK_IF_NO_EXTENSION
 		if (!ext && !stbi_info(f.path, NULL, NULL, NULL)) {
 			free(f.path);
@@ -1172,17 +1175,27 @@ int scan_sources(void* data)
 			SDL_Log("Found 0 images, switching to File Browser...\n");
 		}
 
+		// TODO bad_path_state = given list | given_URL?
+		// need to distinguish between playlist and list
 		g->bad_path_state |= UNKNOWN;
+
+
+		add_cur_files_to_db();
+		g->save_status_uptodate = SDL_FALSE;
+		if (!g->generating_thumbs && !g->loading_thumbs) {
+			update_save_status();
+			g->save_status_uptodate = SDL_TRUE;
+		}
 
 		// TODO protect this from generating..
 		// Doing this before try_move to avoid bad urls/paths being freed out from
 		// under this loop
 		// set save status in current playlist
-		g->save_status_uptodate = SDL_FALSE;
-		if (!g->generating_thumbs && !g->loading_thumbs) {
-			UPDATE_PLAYLIST_SAVE_STATUS();
-			g->save_status_uptodate = SDL_TRUE;
-		}
+		//g->save_status_uptodate = SDL_FALSE;
+		//if (!g->generating_thumbs && !g->loading_thumbs) {
+		//	UPDATE_PLAYLIST_SAVE_STATUS();
+		//	g->save_status_uptodate = SDL_TRUE;
+		//}
 
 		try_move(SELECTION);
 

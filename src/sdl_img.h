@@ -209,6 +209,7 @@ typedef struct global_state
 	// TODO naming
 	char cur_playlist_buf[STRBUF_SZ];
 	char* cur_playlist; // points into above
+	int cur_playlist_id;
 
 	char* default_playlist;  // allocated
 

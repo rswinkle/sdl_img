@@ -1258,6 +1258,9 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 				}
 				nk_label(ctx, "CTRL+S", NK_TEXT_RIGHT);
 
+				/*
+				if (g->
+
 				nk_tree_pop(ctx);
 			} else g->menu_state = (g->menu_state == MENU_PLAYLIST) ? MENU_NONE : g->menu_state;
 
@@ -2376,10 +2379,9 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 			// TODO
 			if (nk_button_label(ctx, "Make Active")) {
 				if (strcmp(selected_pl, g->cur_playlist)) {
-					write_cur_playlist();
 					strncpy(g->cur_playlist_buf, selected_pl, STRBUF_SZ);
-					g->cur_playlist = strrchr(g->cur_playlist_path, '/') + 1;
-					read_cur_playlist();
+					g->cur_playlist_id = get_playlist_id(g->cur_playlist);
+					load_sql_playlist_id(g->files, g->cur_playlist_id);
 				}
 			}
 			if (nk_button_label(ctx, "Make Default")) {

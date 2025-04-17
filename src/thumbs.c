@@ -183,7 +183,8 @@ int gen_thumbs(void* data)
 		if (g->bad_path_state == HAS_BAD) {
 			remove_bad_paths();
 		}
-		UPDATE_PLAYLIST_SAVE_STATUS();
+		//UPDATE_PLAYLIST_SAVE_STATUS();
+		update_save_status();
 		g->save_status_uptodate = SDL_TRUE;
 	}
 
@@ -282,7 +283,8 @@ int load_thumbs(void* data)
 		if (g->bad_path_state == HAS_BAD) {
 			remove_bad_paths();
 		}
-		UPDATE_PLAYLIST_SAVE_STATUS();
+		update_save_status();
+		//UPDATE_PLAYLIST_SAVE_STATUS();
 		g->save_status_uptodate = SDL_TRUE;
 	}
 
