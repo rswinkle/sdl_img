@@ -1,5 +1,5 @@
 
-
+/*
 int get_playlists(const char* dirpath)
 {
 	int i;
@@ -46,6 +46,7 @@ int get_playlists(const char* dirpath)
 	closedir(dir);
 	return 1;
 }
+*/
 
 // simple way to handle both cases.  Will remove paths when/if I switch to
 // some other format for favorites, sqlite maybe?
@@ -126,6 +127,8 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 		}
 	}
 }
+
+
 /*
 #define UPDATE_PLAYLIST_SAVE_STATUS() \
 	do { \

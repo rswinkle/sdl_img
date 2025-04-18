@@ -856,6 +856,9 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			if (nk_button_label(ctx, "Computer")) {
 				my_switch_dir("/");
 			}
+			// TODO keep or remove?  keep and use as
+			// export directory to save sql playlists
+			// to text lists?
 			if (nk_button_label(ctx, "Playlists")) {
 				my_switch_dir(g->playlistdir);
 			}
@@ -2417,6 +2420,12 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 				transition_to_scanning(selected_pl);
 			}
 
+			// TODO tooltips explaining export? "Save to list"?
+			// Export to text file?
+			if (nk_button_label(ctx, "Export")) {
+				export_playlist(selected_pl);
+			}
+
 			if (nk_button_label(ctx, "Delete")) {
 				if (!strcmp(selected_pl, g->cur_playlist)) {
 					pm_len = snprintf(pm_buf, STRBUF_SZ, "Can't delete active playlist, change to another first");
@@ -2429,6 +2438,12 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 				}
 			}
 			nk_widget_disable_end(ctx);
+
+			if (g->playlists.size) {
+				if (nk_button_label(ctx, "Export All")) {
+					export_playlists();
+				}
+			}
 
 			if (nk_button_label(ctx, "Done")) {
 				g->state &= ~PLAYLIST_MANAGER;

@@ -10,8 +10,8 @@ int rename_playlist(const char* new_name, const char* old_name);
 int get_sql_playlists(void);
 int insert_img(const char* path);
 int get_playlist_id(const char* name);
-int load_sql_playlist_name(cvector_file* files, const char* name);
-void load_sql_playlist_id(cvector_file* files, int id);
+int load_sql_playlist_name(const char* name);
+void load_sql_playlist_id(int id);
 int get_image_id(const char *path);
 int sql_save(sqlite3_stmt* stmt, int idx, const char* path);
 int sql_unsave(sqlite3_stmt* stmt, int idx, const char* path);
@@ -19,6 +19,9 @@ int do_sql_save(int removing);
 int do_sql_save_all(void);
 int add_cur_files_to_db(void);
 int update_save_status(void);
+int clean_library(void);
+int export_playlist(const char* name);
+int export_playlists(void);
 
 
 
@@ -38,6 +41,7 @@ enum {
 	GET_PLIST_ID,
 	GET_IMG_ID,
 	GET_PLISTS,
+	GET_LIBRARY,  // GET_ALL_IMGS?
 
 	SELECT_ALL_IN_PLIST_ID,
 	SELECT_ALL_IN_PLIST_NAME,
@@ -87,6 +91,8 @@ const char* sql[] = {
 	"SELECT playlist_id FROM Playlists WHERE name = ?;",
 	"SELECT image_id FROM Images where path = ?;",
 	"SELECT name FROM Playlists;",
+
+	"SELECT * FROM Images;",
 
 	//-- Get all image paths in playlist id
 	"SELECT i.path FROM Images i "
@@ -283,21 +289,21 @@ int get_playlist_id(const char* name)
 
 
 // TODO use SELECT_ALL_IN_PLIST_NAME,
-int load_sql_playlist_name(cvector_file* files, const char* name)
+int load_sql_playlist_name(const char* name)
 {
 	int id;
 	if (!(id = get_playlist_id(name))) {
 		return FALSE;
 	}
 
-	load_sql_playlist_id(files, id);
+	load_sql_playlist_id(id);
 	return TRUE;
 }
 
 // No URLs in database so if stat fails it was deleted or renamed
 // Only regular files in database so if stat succeeds we can assume it's a regular file
 // not a directory or link
-void load_sql_playlist_id(cvector_file* files, int id)
+void load_sql_playlist_id(int id)
 {
 	file f = {0};
 	struct stat file_stat;
@@ -576,6 +582,8 @@ int add_cur_files_to_db(void)
 	return TRUE;
 }
 
+// TODO Use left join with temporary table or IN clause with batches if performance
+// becomes an issue
 int update_save_status(void)
 {
 	int img_id;
@@ -605,7 +613,7 @@ int update_save_status(void)
 		//default: SDL_Log("something else %d\n", rc); break;
 		//}
 
-		//g->files.a[i].playlist_idx = sqlite3_step(stmt) != SQLITE_DONE;
+		//g->files.a[i].playlist_idx = sqlite3_step(stmt) == SQLITE_ROW;
 		g->files.a[i].playlist_idx = rc != SQLITE_DONE;
 		//SDL_Log("%s save status: %"PRIcv_sz"\n", g->files.a[i].path, g->files.a[i].playlist_idx);
 		sqlite3_reset(stmt);
@@ -613,3 +621,85 @@ int update_save_status(void)
 	return TRUE;
 }
 
+// remove out of date files (deleted/renamed etc.)
+int clean_library(void)
+{
+	int id;
+	//char* path;
+	struct stat file_stat;
+
+	cvector_i bad_path_ids;
+	cvec_i(&bad_path_ids, 0, 1024);
+	
+	sqlite3_stmt* stmt = sqlstmts[GET_LIBRARY];
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+
+		id = sqlite3_column_int(stmt, 0);
+		// TODO it returns const unsigned char*
+		char *s = (char *)sqlite3_column_text(stmt, 1);
+
+		if (stat(s, &file_stat)) {
+			// cache id for deletion after we finish select statement
+			cvec_push_i(&bad_path_ids, id);
+		}
+	}
+	sqlite3_reset(stmt);
+
+	// TODO worth a transaction?
+	stmt = sqlstmts[DEL_IMG];
+
+	for (int i=0; i<bad_path_ids.size; i++) {
+		sqlite3_bind_int(stmt, 1, bad_path_ids.a[i]);
+		sqlite3_step(stmt);
+		// TODO check for failure?
+	}
+	sqlite3_reset(stmt);
+	cvec_free_i(&bad_path_ids);
+
+	return TRUE;
+}
+
+int export_playlist(const char* name)
+{
+	int id;
+	char path_buf[STRBUF_SZ];
+
+	sqlite3_stmt* stmt = sqlstmts[SELECT_ALL_IN_PLIST_ID];
+	if (!(id = get_playlist_id(name))) {
+		sqlite3_reset(stmt);
+		return FALSE;
+	}
+
+	snprintf(path_buf, STRBUF_SZ, "%s/%s", g->playlistdir, name);
+
+	FILE* f = fopen(path_buf, "w");
+	if (!f) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to create %s: %s\nAborting export\n", path_buf, strerror(errno));
+
+		sqlite3_reset(stmt);
+		return FALSE;
+	}
+
+	sqlite3_bind_int(stmt, 1, id);
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		// We only store normalized fullpaths in db so no need to do anything with path
+		const char *s = (const char *)sqlite3_column_text(stmt, 0);
+		fprintf(f, "%s\n", s);
+	}
+	fclose(f);
+	sqlite3_reset(stmt);
+
+	SDL_Log("Exported playlist '%s' to %s\n", name, path_buf);
+	return TRUE;
+}
+
+// TODO better to abstract get_playlist() to return a cvec_str and use that
+// both here and in load_sql_playlist*()?
+int export_playlists(void)
+{
+	for (int i=0; i<g->playlists.size; i++) {
+		export_playlist(g->playlists.a[i]);
+	}
+
+	return TRUE;
+}
