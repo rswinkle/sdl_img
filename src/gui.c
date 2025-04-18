@@ -2294,7 +2294,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 	int active, button_pressed;
 
 	struct nk_rect bounds;
-	const char* selected_pl = NULL;
+	char* selected_pl = NULL;
 	static char tmp_buf[STRBUF_SZ];
 
 	const char* new_rename[] = { "New", "Rename" };
@@ -2348,24 +2348,28 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 			if (cvec_contains_str(&g->playlists, pm_buf) < 0) {
 				if (!nr_idx) {
 
-					if (!create_playlist(pm_buf)) {
-						// TODO add additional error log or eliminate one in create_playlist?
-						;
-
-					} else {
+					if (create_playlist(pm_buf)) {
 						SDL_Log("Created playlist %s\n", pm_buf);
 						cvec_push_str(&g->playlists, pm_buf);
 						pm_buf[0] = 0;
 						pm_len = 0;
+					} else {
+						pm_len = snprintf(pm_buf, STRBUF_SZ, "Failed to add playlist");
 					}
 				} else {
-					if (!rename_playlist(selected_pl, pm_buf)) {
-						pm_len = snprintf(pm_buf, STRBUF_SZ, "Failed to rename: %s", strerror(errno));
-						SDL_Log("Failed to rename %s to %s\n", selected_pl, pm_buf);
-					} else {
-						cvec_replace_str(&g->playlists, selected, pm_buf, NULL);
+					if (rename_playlist(pm_buf, selected_pl)) {
+						// TODO better way to do this
+						cvec_replace_str(&g->playlists, selected, pm_buf, tmp_buf);
+						if (!strcmp(tmp_buf, g->cur_playlist)) {
+							g->cur_playlist = g->playlists.a[selected];
+						} else if (!strcmp(tmp_buf, g->default_playlist)) {
+							free(g->default_playlist);
+							g->default_playlist = CVEC_STRDUP(g->playlists.a[selected]);
+						}
 						pm_buf[0] = 0;
 						pm_len = 0;
+					} else {
+						pm_len = snprintf(pm_buf, STRBUF_SZ, "Failed to rename playlist");
 					}
 				}
 			} else {

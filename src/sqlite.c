@@ -180,11 +180,19 @@ void finalize_stmts(void)
 
 int create_playlist(const char* name)
 {
+
+	int len = strlen(name);
+	if (len >= STRBUF_SZ) {
+		SDL_Log("Playlist name is too long: %d >= %d\n", len, STRBUF_SZ);
+		return FALSE;
+	}
+
 	sqlite3_stmt* stmt = sqlstmts[INSERT_PLIST];
 	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
 	int rc;
 	if ((rc = sqlite3_step(stmt)) != SQLITE_DONE) {
-		SDL_Log("Failed add playlist %s (%d): %s\n", name, rc, sqlite3_errmsg(g->db));
+		SDL_Log("Failed add playlist %s: %s\n", name, sqlite3_errmsg(g->db));
+		sqlite3_reset(stmt);
 		return FALSE;
 	}
 	sqlite3_reset(stmt);
@@ -193,20 +201,33 @@ int create_playlist(const char* name)
 
 int delete_playlist(const char* name)
 {
+	int rc;
 	sqlite3_stmt* stmt = sqlstmts[DEL_PLIST_NAME];
 	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
 	sqlite3_step(stmt);
-	sqlite3_reset(stmt);
 
+	if ((rc = sqlite3_step(stmt)) != SQLITE_DONE) {
+		SDL_Log("Failed to delete playlist %s: %s\n", name, sqlite3_errmsg(g->db));
+		sqlite3_reset(stmt);
+		return FALSE;
+	}
+
+	sqlite3_reset(stmt);
 	return TRUE;
 }
 
 int rename_playlist(const char* new_name, const char* old_name)
 {
+	int rc;
 	sqlite3_stmt* stmt = sqlstmts[RENAME_PLIST];
-	sqlite3_bind_text(stmt, 1, new_name, -1, SQLITE_TRANSIENT);
-	sqlite3_bind_text(stmt, 2, old_name, -1, SQLITE_TRANSIENT);
-	sqlite3_step(stmt);
+	sqlite3_bind_text(stmt, 1, new_name, -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 2, old_name, -1, SQLITE_STATIC);
+
+	if ((rc = sqlite3_step(stmt)) != SQLITE_DONE) {
+		SDL_Log("Failed to rename playlist %s: %s\n", old_name, sqlite3_errmsg(g->db));
+		sqlite3_reset(stmt);
+		return FALSE;
+	}
 	sqlite3_reset(stmt);
 
 	return TRUE;
