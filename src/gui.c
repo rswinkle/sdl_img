@@ -1826,7 +1826,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 		// TODO better place to do this?  in event handling?
 		if (g->fs_output == g->playlistdir) {
-			update_playlists();
+			//update_playlists();
 		} else if (g->fs_output == g->cachedir) {
 			g->cfg_cachedir = SDL_TRUE;
 		} else if (g->fs_output == g->font_path_buf) {
@@ -2244,7 +2244,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					g->logdir[0] = 0;
 					g->playlistdir[0] = 0;
 					setup_dirs();
-					update_playlists();
+					//update_playlists();
 
 					// TODO
 					// abusing this to get draw_prefs to update lengths of strings same as I do with

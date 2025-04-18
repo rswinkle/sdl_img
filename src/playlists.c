@@ -126,7 +126,7 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 		}
 	}
 }
-
+/*
 #define UPDATE_PLAYLIST_SAVE_STATUS() \
 	do { \
 	for (int i=0; i<g->files.size; ++i) { \
@@ -207,4 +207,4 @@ void update_playlists(void)
 	// --favorites to open favorites?
 	get_playlists(g->playlistdir);
 }
-
+*/

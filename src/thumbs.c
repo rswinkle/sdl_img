@@ -554,8 +554,8 @@ void do_thumb_save(int removing)
 
 	SDL_Log("In do_thumb_save()\n");
 
-	char* playlist = g->cur_playlist;
-	i64 loc;
+	int cur_plist_id = g->cur_playlist_id;
+	//i64 loc;
 	char* fullpath;
 
 	// so we can share code for default and visual modes
@@ -577,84 +577,35 @@ void do_thumb_save(int removing)
 
 	int idx;
 	if (removing) {
+		sqlite3_stmt* stmt = sqlstmts[DEL_FROM_PLIST_ID];
+		sqlite3_bind_int(stmt, 1, cur_plist_id);
+
 		if (g->state & SEARCH_RESULTS) {
 			for (int i=0; i<g->search_results.size; ++i) {
 				idx = g->search_results.a[i];
 				fullpath = g->files.a[idx].path;
-
-				if (!g->save_status_uptodate) {
-					g->files.a[idx].playlist_idx = cvec_contains_str(&g->favs, g->files.a[idx].path);
-				}
-				if ((loc = g->files.a[idx].playlist_idx) < 0) {
-					SDL_Log("%s not in %s\n", fullpath, playlist);
-				} else {
-					SDL_Log("removing %s\n", fullpath);
-					cvec_erase_str(&g->favs, loc, loc);
-					g->files.a[idx].playlist_idx = -1;
-					SDL_Log("%"PRIcv_sz" left after removal\n", g->favs.size);
-
-					if (g->save_status_uptodate) {
-						for (int j=0; j<g->files.size; ++j) {
-							if (g->files.a[j].playlist_idx > loc) {
-								g->files.a[j].playlist_idx--;
-							}
-						}
-					}
-				}
+				sql_unsave(stmt, idx, fullpath);
 			}
 		} else {
 			for (int i=start; i<=end; ++i) {
 				fullpath = g->files.a[i].path;
-				if (!g->save_status_uptodate) {
-					g->files.a[i].playlist_idx = cvec_contains_str(&g->favs, g->files.a[i].path);
-				}
-				if ((loc = g->files.a[i].playlist_idx) < 0) {
-					SDL_Log("%s not in %s\n", fullpath, playlist);
-				} else {
-					SDL_Log("removing %s\n", fullpath);
-					cvec_erase_str(&g->favs, loc, loc);
-					g->files.a[i].playlist_idx = -1;
-					SDL_Log("%"PRIcv_sz" left after removal\n", g->favs.size);
-				}
-
-				if (g->save_status_uptodate) {
-					for (int j=0; j<g->files.size; ++j) {
-						if (g->files.a[j].playlist_idx > loc) {
-							g->files.a[j].playlist_idx--;
-						}
-					}
-				}
+				sql_unsave(stmt, i, fullpath);
 			}
 		}
 	} else {
+		sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
+		sqlite3_bind_int(stmt, 1, cur_plist_id);
+
 		if (g->state & SEARCH_RESULTS) {
 			for (int i=0; i<g->search_results.size; ++i) {
 				idx = g->search_results.a[i];
 				fullpath = g->files.a[idx].path;
-				if (!g->save_status_uptodate) {
-					g->files.a[idx].playlist_idx = cvec_contains_str(&g->favs, g->files.a[idx].path);
-				}
-				if (g->files.a[idx].playlist_idx >= 0) {
-					SDL_Log("%s already in %s\n", fullpath, playlist);
-				} else {
-					SDL_Log("saving %s\n", fullpath);
-					cvec_push_str(&g->favs, fullpath);
-					g->files.a[idx].playlist_idx = g->favs.size-1;
-				}
+				sql_save(stmt, idx, fullpath);
 			}
 		} else {
 			for (int i=start; i<=end; ++i) {
 				fullpath = g->files.a[i].path;
-				if (!g->save_status_uptodate) {
-					g->files.a[i].playlist_idx = cvec_contains_str(&g->favs, g->files.a[i].path);
-				}
-				if (g->files.a[i].playlist_idx >= 0) {
-					SDL_Log("%s already in %s\n", fullpath, playlist);
-				} else {
-					SDL_Log("saving %s\n", fullpath);
-					cvec_push_str(&g->favs, fullpath);
-					g->files.a[i].playlist_idx = g->favs.size-1;
-				}
+				sql_save(stmt, i, fullpath);
 			}
 		}
 	}

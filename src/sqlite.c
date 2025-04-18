@@ -13,6 +13,8 @@ int get_playlist_id(const char* name);
 int load_sql_playlist_name(cvector_file* files, const char* name);
 void load_sql_playlist_id(cvector_file* files, int id);
 int get_image_id(const char *path);
+int sql_save(sqlite3_stmt* stmt, int idx, const char* path);
+int sql_unsave(sqlite3_stmt* stmt, int idx, const char* path);
 int do_sql_save(int removing);
 int do_sql_save_all(void);
 int add_cur_files_to_db(void);
@@ -342,15 +344,73 @@ int get_image_id(const char *path)
     return image_id;
 }
 
+
+// TODO check playlist_idx before actually touching the database and use that
+// to tell whether it's not already saved or not there?
+//
+// Assumes stmt is INSERT_INTO_PLIST and cur_plist_id is already bound
+int sql_save(sqlite3_stmt* stmt, int idx, const char* path)
+{
+	int img_id;
+	if (!(img_id = get_image_id(path))) {
+		assert(img_id >= 0 && "This should never happen");
+	}
+
+	sqlite3_bind_int(stmt, 2, img_id);
+
+	int rc = sqlite3_step(stmt);
+	if (rc != SQLITE_DONE) {
+		SDL_Log("Failed to add image %s: %s\n", path, sqlite3_errmsg(g->db));
+		sqlite3_reset(stmt);
+		return FALSE;
+	}
+
+	if (sqlite3_changes(g->db)) {
+		SDL_Log("saving %s\n", path);
+		g->files.a[idx].playlist_idx = 1;
+	} else {
+		SDL_Log("%s already in %s\n", path, g->cur_playlist);
+	}
+	sqlite3_reset(stmt);
+	return TRUE;
+}
+
+// Assumes stmt is DEL_FROM_PLIST_ID and cur_plist_id is already bound
+int sql_unsave(sqlite3_stmt* stmt, int idx, const char* path)
+{
+	int img_id;
+	if (!(img_id = get_image_id(path))) {
+		assert(img_id >= 0 && "This should never happen");
+	}
+
+	sqlite3_bind_int(stmt, 2, img_id);
+
+	int rc = sqlite3_step(stmt);
+	if (rc != SQLITE_DONE) {
+		SDL_Log("Failed to remove image: %s\n", sqlite3_errmsg(g->db));
+		sqlite3_reset(stmt);
+		return FALSE;
+	}
+
+	int rows_affected = sqlite3_changes(g->db);
+	if (rows_affected > 0) {
+		SDL_Log("removing %s\n", path);
+		g->files.a[idx].playlist_idx = 0;
+	} else {
+		SDL_Log("%s not in %s\n", path, g->cur_playlist);
+	}
+
+	sqlite3_reset(stmt);
+	return TRUE;
+}
+
 int do_sql_save(int removing)
 {
 	if (g->loading)
 		return FALSE;
 
 	int idx;
-	int img_id;
 	int cur_plist_id = g->cur_playlist_id;
-	char* playlist = g->cur_playlist;
 	
 	img_state* imgs;
 	int n_imgs;
@@ -371,28 +431,7 @@ int do_sql_save(int removing)
 			if (IS_VIEW_RESULTS()) {
 				idx = g->search_results.a[idx];
 			}
-			if (!(img_id = get_image_id(imgs[i].fullpath))) {
-				assert(img_id >= 0 && "This should never happen");
-			}
-
-			sqlite3_bind_int(stmt, 2, img_id);
-
-			int rc = sqlite3_step(stmt);
-			if (rc != SQLITE_DONE) {
-				SDL_Log("Failed to remove image: %s\n", sqlite3_errmsg(g->db));
-				sqlite3_reset(stmt);
-				return FALSE;
-			}
-
-			int rows_affected = sqlite3_changes(g->db);
-			if (rows_affected > 0) {
-				SDL_Log("removing %s\n", imgs[i].fullpath);
-				g->files.a[idx].playlist_idx = 0;
-			} else {
-				SDL_Log("%s not in %s\n", imgs[i].fullpath, playlist);
-			}
-
-			sqlite3_reset(stmt);
+			sql_unsave(stmt, idx, imgs[i].fullpath);
 		}
 	} else {
 		sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
@@ -403,27 +442,7 @@ int do_sql_save(int removing)
 			if (IS_VIEW_RESULTS()) {
 				idx = g->search_results.a[idx];
 			}
-			//if (!(img_id = get_image_id(g->files.a[idx].path))) {
-			if (!(img_id = get_image_id(imgs[i].fullpath))) {
-				assert(img_id >= 0 && "This should never happen");
-			}
-
-			sqlite3_bind_int(stmt, 2, img_id);
-
-			// TODO add OR IGNORE and use sqlite3_changes to detect already in?
-			int rc = sqlite3_step(stmt);
-			if (rc == SQLITE_DONE) {
-				if (sqlite3_changes(g->db)) {
-					SDL_Log("saving %s\n", imgs[i].fullpath);
-					g->files.a[idx].playlist_idx = 1;
-				} else {
-					SDL_Log("%s already in %s\n", imgs[i].fullpath, playlist);
-				}
-			} else {
-				SDL_Log("Failed to add image %s: %s\n", imgs[i].fullpath, sqlite3_errmsg(g->db));
-			}
-
-			sqlite3_reset(stmt);
+			sql_save(stmt, idx, imgs[i].fullpath);
 		}
 	}
 
@@ -567,6 +586,7 @@ int update_save_status(void)
 
 		//g->files.a[i].playlist_idx = sqlite3_step(stmt) != SQLITE_DONE;
 		g->files.a[i].playlist_idx = rc != SQLITE_DONE;
+		//SDL_Log("%s save status: %"PRIcv_sz"\n", g->files.a[i].path, g->files.a[i].playlist_idx);
 		sqlite3_reset(stmt);
 	}
 	return TRUE;

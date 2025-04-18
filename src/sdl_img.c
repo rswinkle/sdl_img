@@ -1189,21 +1189,15 @@ int scan_sources(void* data)
 
 
 		add_cur_files_to_db();
+
+		// TODO protect this from generating..
+		// Doing this before try_move to avoid bad urls/paths being freed out from
+		// under this loop
 		g->save_status_uptodate = SDL_FALSE;
 		if (!g->generating_thumbs && !g->loading_thumbs) {
 			update_save_status();
 			g->save_status_uptodate = SDL_TRUE;
 		}
-
-		// TODO protect this from generating..
-		// Doing this before try_move to avoid bad urls/paths being freed out from
-		// under this loop
-		// set save status in current playlist
-		//g->save_status_uptodate = SDL_FALSE;
-		//if (!g->generating_thumbs && !g->loading_thumbs) {
-		//	UPDATE_PLAYLIST_SAVE_STATUS();
-		//	g->save_status_uptodate = SDL_TRUE;
-		//}
 
 		try_move(SELECTION);
 

@@ -549,7 +549,7 @@ int cvec_contains_str(cvector_str* list, char* s)
 	return -1;
 }
 
-
+/*
 void do_save(int removing)
 {
 	if (g->loading)
@@ -650,6 +650,7 @@ void do_save(int removing)
 	// Make sure to show the GUI for a second so the user has visual confirmation
 	set_show_gui(SDL_TRUE);
 }
+*/
 
 // There is no easy way to do cross platform visual copy paste.
 // SDL lets you do text but to get visual, I'd have to be using something
