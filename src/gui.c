@@ -2223,7 +2223,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
 
 				nk_layout_row_dynamic(ctx, 0, 1);
-				nk_label(ctx, "Playlists:", NK_TEXT_LEFT);
+				nk_label(ctx, "Playlist Export Location:", NK_TEXT_LEFT);
 				nk_edit_string(ctx, path_flags, g->playlistdir, &pl_len, STRBUF_SZ, nk_filter_nothing);
 				// TODO Clear/delete playlists?
 				nk_layout_row_dynamic(ctx, 0, 1);

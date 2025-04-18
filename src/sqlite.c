@@ -42,6 +42,7 @@ enum {
 	GET_IMG_ID,
 	GET_PLISTS,
 	GET_LIBRARY,  // GET_ALL_IMGS?
+	GET_PLIST_SZ,
 
 	SELECT_ALL_IN_PLIST_ID,
 	SELECT_ALL_IN_PLIST_NAME,
@@ -93,6 +94,8 @@ const char* sql[] = {
 	"SELECT name FROM Playlists;",
 
 	"SELECT * FROM Images;",
+
+	"SELECT COUNT(*) FROM Playlist_Images WHERE playlist_id = ?;",
 
 	//-- Get all image paths in playlist id
 	"SELECT i.path FROM Images i "
@@ -252,6 +255,27 @@ int get_sql_playlists(void)
 	return TRUE;
 }
 
+int get_playlist_size(const char* name)
+{
+	int id;
+	if (!(id = get_playlist_id(name))) {
+		return -1;
+	}
+
+	sqlite3_stmt* stmt = sqlstmts[GET_PLIST_SZ];
+	sqlite3_bind_int(stmt, 1, id);
+
+	if (sqlite3_step(stmt) != SQLITE_ROW) {
+		SDL_Log("Failed to get playlist size: %s\n", sqlite3_errmsg(g->db));
+		sqlite3_reset(stmt);
+		return -1;
+	}
+
+	int count = sqlite3_column_int(stmt, 0);
+	sqlite3_reset(stmt);
+
+	return count;
+}
 
 // Probably won't use this much by itself since it's slower than doing them all at once
 int insert_img(const char* path)
@@ -622,6 +646,7 @@ int update_save_status(void)
 }
 
 // remove out of date files (deleted/renamed etc.)
+// TODO add GUI button for this
 int clean_library(void)
 {
 	int id;
