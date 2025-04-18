@@ -6,13 +6,15 @@
 .SH "NAME"
 sdl_img \- A simple but unique image viewer based on stb_image and SDL2
 .SH "SYNOPSIS"
-.B ./sdl_img [-f] [-R] [-s [delay]] [-r dir] [-l/--list text_list] [files/dirs]
+.B ./sdl_img [-f] [-R] [-s [delay]] [-r dir] [-l/--list text_list] [-p/--playlist playlist] [files/dirs]
 
 .B ./sdl_img (will open in File Selector mode)
 
 .B ./sdl_img image1.jpg (will open all images in same dir as arg)
 
 .B ./sdl_img -l list_of_imgs (urls or local paths or both)
+
+.B ./sdl_img -p playlist (will open playlist if it exists)
 
 .B ./sdl_img . (will open all images in .)
 
@@ -185,6 +187,10 @@ Open in slideshow mode.
 Loads the list of images/urls from the specified text file. The
 extension doesn't have to be txt or even exist, but it can't be one of the
 recognized image extensions.
+.TP
+\fB\-p, \-\-playlist playlist_name\fR
+Attempts to load the playlist playlist_name from the library/database. This
+would be a playlist you had created previously.
 .TP
 \fB\-r, \-\-recursive dir\fR
 Scan dir recursively for images to add to the list

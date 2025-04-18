@@ -123,6 +123,8 @@ Advanced Usage
 ==============
     ./sdl_img -l list_of_images (urls or local paths or mixed, doesn't matter)
     ./sdl_img --list list_of_images
+    ./sdl_img -p playlist_name (will open a playlist by that name if one exists)
+    ./sdl_img --playlist playlist_name
     ./sdl_img dir (scan dir for images)
     ./sdl_img -r dir (scan dir recursively for images)
     ./sdl_img dir1 -r dir2 dir3 (scan dir1, dir2 recursively, dir3 )
