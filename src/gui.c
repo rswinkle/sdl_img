@@ -2363,11 +2363,12 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 					if (rename_playlist(pm_buf, selected_pl)) {
 						// TODO better way to do this
 						char* tmp_str;
-						cvec_replacem_str(g->playlists, selected, pm_buf, tmp_str);
+						cvec_replacem_str(g->playlists, selected, CVEC_STRDUP(pm_buf), tmp_str);
 						//cvec_replace_str(&g->playlists, selected, pm_buf, tmp_buf);
 						if (!strcmp(tmp_str, g->cur_playlist)) {
 							g->cur_playlist = g->playlists.a[selected];
-						} else if (!strcmp(tmp_str, g->default_playlist)) {
+						}
+						if (!strcmp(tmp_str, g->default_playlist)) {
 							free(g->default_playlist);
 							g->default_playlist = CVEC_STRDUP(g->playlists.a[selected]);
 						}

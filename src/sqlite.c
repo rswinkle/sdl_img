@@ -8,6 +8,7 @@ int create_playlist(const char* name);
 int delete_playlist(const char* name);
 int rename_playlist(const char* new_name, const char* old_name);
 int get_sql_playlists(void);
+int get_playlist_size(const char* name);
 int insert_img(const char* path);
 int get_playlist_id(const char* name);
 int load_sql_playlist_name(const char* name);
