@@ -33,7 +33,6 @@ enum {
 	INSERT_IMG,
 	INSERT_PLIST,
 	INSERT_INTO_PLIST,
-	ADD_TO_PLIST,
 
 	RENAME_PLIST,
 
@@ -45,13 +44,18 @@ enum {
 	GET_LIBRARY,  // GET_ALL_IMGS?
 	GET_PLIST_SZ,
 
-	SELECT_ALL_IN_PLIST_ID,
-	SELECT_ALL_IN_PLIST_NAME,
+	SELECT_ALL_IN_PLIST_ID, // GET_PLIST?
 
-	DEL_PLIST_ID,
 	DEL_PLIST_NAME,
 	DEL_IMG,
 	DEL_FROM_PLIST_ID,
+
+// unused below here
+
+	ADD_TO_PLIST,
+	SELECT_ALL_IN_PLIST_NAME,
+
+	DEL_PLIST_ID,
 	DEL_FROM_PLIST_NAME,
 
 	NUM_STMTS
@@ -79,13 +83,7 @@ const char* sql[] = {
 
 	"INSERT OR IGNORE INTO Images (path) VALUES (?);",
 	"INSERT OR IGNORE INTO Playlists (name) VALUES (?);",
-
 	"INSERT OR IGNORE INTO Playlist_Images (playlist_id, image_id) VALUES (?, ?);",
-
-	"INSERT OR IGNORE INTO Playlist_Images (playlist_id, image_id) "
-	"SELECT p.playlist_id, i.image_id "
-	"FROM Playlists p, Images i "
-	"WHERE p.name = ? AND i.path = ?;",
 
 	"UPDATE Playlists SET name = ? WHERE name = ?;",
 
@@ -103,13 +101,7 @@ const char* sql[] = {
 	"JOIN Playlist_Images pi ON i.image_id = pi.image_id "
 	"WHERE pi.playlist_id = ?;",
 
-	// get all image paths in playlist name
-	"SELECT i.path FROM Images i "
-	"JOIN Playlist_Images pi ON i.image_id = pi.image_id "
-	"WHERE pi.playlist_id = (SELECT playlist_id FROM Playlists WHERE name = ?);",
-
 	//-- Delete a playlist (automatically removes entries from Playlist_Images due to CASCADE)
-	"DELETE FROM Playlists WHERE playlist_id = ?;",
 	"DELETE FROM Playlists WHERE name = ?;",
 
 	//-- Delete an image (automatically removes it from all playlists)
@@ -118,10 +110,23 @@ const char* sql[] = {
 	// Delete from playlist
 	"DELETE FROM Playlist_Images WHERE playlist_id = ? AND image_id = ?;",
 
+// unused below here
+
+	"INSERT OR IGNORE INTO Playlist_Images (playlist_id, image_id) "
+	"SELECT p.playlist_id, i.image_id "
+	"FROM Playlists p, Images i "
+	"WHERE p.name = ? AND i.path = ?;",
+
+	// get all image paths in playlist name
+	"SELECT i.path FROM Images i "
+	"JOIN Playlist_Images pi ON i.image_id = pi.image_id "
+	"WHERE pi.playlist_id = (SELECT playlist_id FROM Playlists WHERE name = ?);",
+
+	"DELETE FROM Playlists WHERE playlist_id = ?;",
+
 	"DELETE FROM Playlist_Images "
 	"WHERE playlist_id = (SELECT playlist_id FROM Playlists WHERE name = ?) "
 	"AND image_id = (SELECT image_id FROM Images WHERE path = ?);",
-
 
 
 };
@@ -198,7 +203,7 @@ int create_playlist(const char* name)
 	}
 
 	sqlite3_stmt* stmt = sqlstmts[INSERT_PLIST];
-	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
+	sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
 	int rc;
 	if ((rc = sqlite3_step(stmt)) != SQLITE_DONE) {
 		SDL_Log("Failed add playlist %s: %s\n", name, sqlite3_errmsg(g->db));
@@ -678,8 +683,8 @@ int clean_library(void)
 		sqlite3_bind_int(stmt, 1, bad_path_ids.a[i]);
 		sqlite3_step(stmt);
 		// TODO check for failure?
+		sqlite3_reset(stmt);
 	}
-	sqlite3_reset(stmt);
 	cvec_free_i(&bad_path_ids);
 
 	return TRUE;
