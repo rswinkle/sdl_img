@@ -6,12 +6,13 @@ enum { NOCHANGE, REDRAW, REDRAW2, NUM_STATUSES };
 enum { CLEAN, UNKNOWN, HAS_BAD };
 
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, SELECTION, EXIT };
+enum { UP = 1, DOWN, JUMP };
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V, MODE_CHANGE,
        THUMB_MODE, LIST_MODE, SAVE_IMG, UNSAVE_IMG, SAVE_ALL, REMOVE_IMG, DELETE_IMG, ACTUAL_SIZE, ROT360, REMOVE_BAD,
-       SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, OPEN_FILE_NEW,
+       SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, LOAD_THUMBS, OPEN_FILE_NEW,
        OPEN_FILE_MORE, OPEN_PLAYLIST_MANAGER, SELECT_FILE, SELECT_DIR, FONT_CHANGE, NUM_USEREVENTS };
 
 // return values for handle_selection(), says what the arg was
@@ -334,6 +335,9 @@ typedef struct global_state
 	SDL_cond* thumb_cnd;
 	SDL_mutex* thumb_mtx;
 
+	SDL_cond* jit_thumb_cnd;
+	SDL_mutex* jit_thumb_mtx;
+	int jit_thumb_flag;
 
 	int loading;
 	int done_loading;

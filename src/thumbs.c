@@ -65,6 +65,27 @@ void make_thumb_tex(int i, int w, int h, u8* pix)
 	g->thumbs.a[i].h = h;
 }
 
+void load_thumb_textures(void)
+{
+	int w, h, channels;
+	u8* outpix;
+	char thumbpath[STRBUF_SZ] = { 0 };
+
+	int start = g->thumb_start_row * g->thumb_cols;
+	int end = start + g->thumb_cols*g->thumb_rows;
+
+	for (int i=start; i<end && i<g->files.size; i++) {
+		if (!g->files.a[i].path || g->thumbs.a[i].tex) {
+			continue;
+		}
+		get_thumbpath(g->files.a[i].path, thumbpath, sizeof(thumbpath));
+
+		outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
+		make_thumb_tex(i, w, h, outpix);
+		free(outpix);
+	}
+}
+
 int make_thumb(int i, int w, int h, u8* pix, const char* thumbpath, int do_load)
 {
 	int out_w, out_h;
@@ -205,12 +226,10 @@ exit_gen_thumbs:
 
 void free_thumb(void* t)
 {
-	/*
-	if (!((thumb_state*)t)->tex) {
-		SDL_Log("Shouldn't get here\n");
+	thumb_state* ts = (thumb_state*)t;
+	if (ts->tex) {
+		SDL_DestroyTexture(ts->tex);
 	}
-	*/
-	SDL_DestroyTexture(((thumb_state*)t)->tex);
 }
 
 void generate_thumbs(intptr_t do_load)
@@ -302,6 +321,153 @@ exit_load_thumbs:
 	return 0;
 }
 
+int jit_thumbs(void* data)
+{
+	// TODO guard against thumbs_done outside or inside?
+	int load_what;
+	char thumbpath[STRBUF_SZ] = { 0 };
+	struct stat thumb_stat, orig_stat;
+	SDL_Event load_thumbs_evt = { .type = g->userevent };
+	load_thumbs_evt.user.code = LOAD_THUMBS;
+
+	int w, h, channels;
+	//int start = SDL_GetTicks();
+	u8* pix;
+	//u8* outpix;
+
+	while (1) {
+		SDL_LogDebugApp("top of jit_thumbs\n");
+		SDL_LockMutex(g->jit_thumb_mtx);
+		while (!g->jit_thumb_flag && !g->is_exiting) {
+			SDL_CondWait(g->jit_thumb_cnd, g->jit_thumb_mtx);
+			SDL_LogDebugApp("jit_thumbs thread woke with load: %d\n", g->jit_thumb_flag);
+		}
+		load_what = g->jit_thumb_flag;
+		SDL_UnlockMutex(g->jit_thumb_mtx);
+
+		if (g->is_exiting) {
+			break;
+		}
+
+		// TODO Handle UP/DOWN/JUMP.  Right now we just do JUMP
+		int start = g->thumb_start_row * g->thumb_cols;
+		int end = start + g->thumb_cols*g->thumb_rows;
+		for (int i=start; i<end && i<g->files.size; i++) {
+			if (!g->files.a[i].path) {
+				continue;
+			}
+
+			if (stat(g->files.a[i].path, &orig_stat)) {
+				// TODO threading issue if user is trying
+				// to load i at the same time, both will try
+				// to download it
+				SDL_Log("Couldn't stat %d %s\n", i, g->files.a[i].path);
+				if (!curl_image(i)) {
+					SDL_Log("Couldn't curl %d\n", i);
+					free(g->files.a[i].path);
+					g->files.a[i].path = NULL;
+					g->files.a[i].name = NULL;
+					g->bad_path_state = HAS_BAD;
+					continue;
+				}
+			}
+			// path was already set to realpath in myscandir
+			get_thumbpath(g->files.a[i].path, thumbpath, sizeof(thumbpath));
+
+			if (!stat(thumbpath, &thumb_stat)) {
+				// make sure original hasn't been modified since thumb was made
+				// don't think it's necessary to check nanoseconds
+				if (orig_stat.st_mtime < thumb_stat.st_mtime) {
+					/*
+					 * // Has to happen on main thread
+					if (do_load) {
+						outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
+						make_thumb_tex(i, w, h, outpix);
+						free(outpix);
+					}
+					*/
+					continue;
+				}
+			}
+
+			pix = stbi_load(g->files.a[i].path, &w, &h, &channels, 4);
+			if (!pix) {
+				SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\nError %s", g->files.a[i].path, stbi_failure_reason());
+				continue;
+			}
+
+			if (!make_thumb(i, w, h, pix, thumbpath, SDL_FALSE)) {
+				free(pix);
+				continue;
+			}
+			free(pix);
+			SDL_Log("generated thumb %d for %s\n", i, g->files.a[i].path);
+
+		}
+
+		SDL_PushEvent(&load_thumbs_evt);
+
+		// Do I even need to lock here to set it back to 0?
+		SDL_LockMutex(g->jit_thumb_mtx);
+		g->jit_thumb_flag = 0;
+		SDL_UnlockMutex(g->jit_thumb_mtx);
+	}
+
+	SDL_LockMutex(g->jit_thumb_mtx);
+	SDL_Log("Exiting jit_thumb thread\n");
+	g->jit_thumb_flag = EXIT;
+	SDL_CondSignal(g->jit_thumb_cnd);
+	SDL_UnlockMutex(g->jit_thumb_mtx);
+
+	return 0;
+}
+
+void do_thumbmode2(void)
+{
+	// TODO should I just pre-allocate this whenever I finish
+	// a scan?
+
+	// still using separate calloc because calling vec constructor uses
+	// malloc and I want them 0'd
+	if (!g->thumbs.a) {
+		thumb_state* tmp;
+		if (!(tmp = calloc(g->files.size, sizeof(thumb_state)))) {
+			cleanup(0, 1);
+		}
+		g->thumbs.a = tmp;
+		g->thumbs.size = g->files.size;
+		g->thumbs.capacity = g->files.size;
+		g->thumbs.elem_free = free_thumb;
+		// elem_init already NULL
+	}
+
+	//possibly preserve SEARCH_RESULTS
+	if (g->state == NORMAL) {
+		g->state = THUMB_DFLT;
+		g->thumb_sel = g->img[0].index;
+	} else {
+		// clear NORMAL
+		g->state = THUMB_SEARCH | SEARCH_RESULTS; // ^= NORMAL;
+		g->thumb_sel = g->search_results.a[g->img[0].index];
+
+		// for thumb mode we switch indices back immediately on leaving VIEW_RESULTS
+		for (int i=0; i<g->n_imgs; ++i) {
+			g->img[i].index = g->search_results.a[g->img[i].index];
+		}
+	}
+
+	g->thumb_sel_end = g->thumb_sel;
+	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
+	if (g->thumb_start_row*g->thumb_cols + g->thumb_rows*g->thumb_cols >= g->files.size+g->thumb_cols) {
+		g->thumb_start_row = g->files.size / g->thumb_cols - g->thumb_rows + !!(g->files.size % g->thumb_cols);
+	}
+
+	SDL_LogDebugApp("signaling a JUMP to jit_thumbs\n");
+	SDL_LockMutex(g->jit_thumb_mtx);
+	g->jit_thumb_flag = JUMP;
+	SDL_CondSignal(g->jit_thumb_cnd);
+	SDL_UnlockMutex(g->jit_thumb_mtx);
+}
 
 void do_thumbmode(void)
 {
@@ -358,6 +524,7 @@ void fix_thumb_sel(int dir)
 	if (g->thumb_sel >= g->files.size)
 		g->thumb_sel = g->files.size-1;
 
+	/*
 	// TODO redundant with bottom of handle_thumb_events()?
 	dir = (dir < 0) ? -1 : 1; // don't want to skip
 	// This can happen while thumbs are still being generated
@@ -365,6 +532,7 @@ void fix_thumb_sel(int dir)
 	while (!g->thumbs.a[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
 		g->thumb_sel += dir;
 	}
+	*/
 }
 
 // TODO doing rem/del while generating/loading problematic

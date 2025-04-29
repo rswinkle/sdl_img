@@ -313,11 +313,17 @@ int handle_thumb_events()
 	char title_buf[STRBUF_SZ];
 	int code;
 
+	int orig_start_row = g->thumb_start_row;
+
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
 		if (e.type == g->userevent) {
 			code = e.user.code;
 			switch (code) {
+			case LOAD_THUMBS:
+				puts("got load_thumbs in thumb mode");
+				load_thumb_textures();
+				break;
 			case OPEN_FILE_NEW:
 				do_file_open(SDL_TRUE);
 				return 0;
@@ -665,6 +671,7 @@ int handle_thumb_events()
 	}
 	nk_input_end(g->ctx);
 
+	// TODO think about this logic
 	if (g->thumb_start_row*g->thumb_cols + g->thumb_rows*g->thumb_cols >= g->files.size+g->thumb_cols) {
 		g->thumb_start_row = g->files.size / g->thumb_cols - g->thumb_rows + !!(g->files.size % g->thumb_cols);
 	}
@@ -672,6 +679,7 @@ int handle_thumb_events()
 		g->thumb_start_row = 0;
 	}
 
+	/*
 	// can happen while thumbs are being generated/loaded
 	if (!g->thumbs.a[g->thumb_sel].tex) {
 		if (!g->thumb_sel) {
@@ -689,13 +697,22 @@ int handle_thumb_events()
 			g->state = THUMB_DFLT;
 		}
 	}
+	*/
 
 	if (g->thumb_sel < g->thumb_start_row*g->thumb_cols) {
 		g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 	} else if (g->thumb_sel >= g->thumb_start_row*g->thumb_cols + g->thumb_rows*g->thumb_cols) {
 		g->thumb_start_row = g->thumb_sel / g->thumb_cols - g->thumb_rows + 1;
 	}
-		
+
+	if (g->thumb_start_row != orig_start_row) {
+		SDL_LogDebugApp("signaling a JUMP to jit_thumbs\n");
+		SDL_LockMutex(g->jit_thumb_mtx);
+		g->jit_thumb_flag = JUMP;
+		SDL_CondSignal(g->jit_thumb_cnd);
+		SDL_UnlockMutex(g->jit_thumb_mtx);
+	}
+
 	if (IS_THUMB_MODE()) {
 		SDL_SetWindowTitle(g->win, mybasename(g->files.a[g->thumb_sel].path, title_buf));
 	} else if (g->img_focus) {
@@ -1193,7 +1210,8 @@ int handle_events_normally()
 				do_listmode();
 				break;
 			case THUMB_MODE:
-				do_thumbmode();
+				//do_thumbmode();
+				do_thumbmode2();
 				break;
 			case MODE_CHANGE:
 				g->status = REDRAW;
@@ -1261,6 +1279,12 @@ int handle_events_normally()
 			case OPEN_FILE_MORE:
 				do_file_open(SDL_FALSE);
 				break;
+				/*
+			case LOAD_THUMBS:
+				puts("got load_thumbs in normal mode");
+				load_thumb_textures();
+				break;
+				*/
 			default:
 				SDL_Log("Unknown or unhandled user event!'\n");
 			}
@@ -1443,11 +1467,12 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_U:
 				if (ctrl_down) {
-					do_thumbmode();
+					//do_thumbmode();
+					do_thumbmode2();
 				} else {
 					// TODO GUI for this?  starts thumb thread in the background
 					// without switching to thumb mode
-					generate_thumbs(SDL_FALSE);
+					//generate_thumbs(SDL_FALSE);
 				}
 				break;
 

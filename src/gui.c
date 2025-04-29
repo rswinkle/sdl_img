@@ -172,6 +172,7 @@ void transition_to_scanning(char* file)
 	}
 
 	// easier to do this than try for partial in "open more"
+	// TODO
 	g->generating_thumbs = SDL_FALSE;
 	g->thumbs_done = SDL_FALSE;
 	g->thumbs_loaded = SDL_FALSE;

@@ -532,6 +532,23 @@ void setup(int argc, char** argv)
 		cleanup(0, 1);
 	}
 
+	if (!(g->jit_thumb_cnd = SDL_CreateCond())) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR,"Error: %s\n", SDL_GetError());
+		cleanup(0, 1);
+	}
+
+	if (!(g->jit_thumb_mtx = SDL_CreateMutex())) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Error: %s\n", SDL_GetError());
+		cleanup(0, 1);
+	}
+
+	SDL_Thread* jit_thumb_thrd;
+	if (!(jit_thumb_thrd = SDL_CreateThread(jit_thumbs, "jit_thumb_thrd", NULL))) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "couldn't create image loader thread: %s\n", SDL_GetError());
+		cleanup(0, 1);
+	}
+	SDL_DetachThread(jit_thumb_thrd);
+
 	if (!(g->img_loading_cnd = SDL_CreateCond())) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR,"Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
@@ -604,6 +621,25 @@ void cleanup(int ret, int called_setup)
 			}
 			SDL_UnlockMutex(g->thumb_mtx);
 		}
+
+		if (!g->jit_thumb_flag) {
+			SDL_LogDebugApp("Waking/Signaling jit_thumb thread so it can exit...\n");
+			SDL_LockMutex(g->jit_thumb_mtx);
+			SDL_CondSignal(g->jit_thumb_cnd);
+			SDL_UnlockMutex(g->jit_thumb_mtx);
+		}
+
+		SDL_LockMutex(g->jit_thumb_mtx);
+		start_time = SDL_GetTicks();
+		while (g->jit_thumb_flag != EXIT) {
+			if ((cur_time = SDL_GetTicks()) - start_time >= 2000) {
+				SDL_LogDebugApp("Waiting for jit_thumb thread to exit...");
+				start_time = cur_time;
+			}
+			SDL_CondWait(g->jit_thumb_cnd, g->jit_thumb_mtx);
+		}
+		SDL_UnlockMutex(g->jit_thumb_mtx);
+
 
 		if (g->done_scanning) {
 			SDL_LogDebugApp("Waking/Signaling Scanning thread so it can exit...\n");
