@@ -81,6 +81,9 @@ void load_thumb_textures(void)
 		get_thumbpath(g->files.a[i].path, thumbpath, sizeof(thumbpath));
 
 		outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
+		if (!outpix) {
+			SDL_Log("Error, thumb %d doesn't exist\n", i);
+		}
 		make_thumb_tex(i, w, h, outpix);
 		free(outpix);
 	}
@@ -139,6 +142,19 @@ int gen_thumbs(void* data)
 		if (g->is_exiting) {
 			g->thumbs.size = (do_load) ? i : 0;
 			goto exit_gen_thumbs;
+		}
+
+		// Worth actually going to sleep on thumb_cnd?
+		// I don't see how this could cause a problem and it's far simpler
+		// on both ends
+		if (g->jit_thumb_flag) {
+			do {
+				// no actual use for this now, still just a true value but may
+				// have a use for it later
+				g->generating_thumbs = PAUSED;
+				SDL_Delay(5);
+			} while (g->jit_thumb_flag);
+			g->generating_thumbs = RUNNING;
 		}
 
 		if (!g->files.a[i].path) {
@@ -204,7 +220,6 @@ int gen_thumbs(void* data)
 		if (g->bad_path_state == HAS_BAD) {
 			remove_bad_paths();
 		}
-		//UPDATE_PLAYLIST_SAVE_STATUS();
 		update_save_status();
 		g->save_status_uptodate = SDL_TRUE;
 	}
@@ -326,11 +341,14 @@ int jit_thumbs(void* data)
 	// TODO guard against thumbs_done outside or inside?
 	int load_what;
 	char thumbpath[STRBUF_SZ] = { 0 };
+
+	// TODO use fstatat or faccessat for for faster lookup
 	struct stat thumb_stat, orig_stat;
 	SDL_Event load_thumbs_evt = { .type = g->userevent };
 	load_thumbs_evt.user.code = LOAD_THUMBS;
 
 	int w, h, channels;
+	int not_done;
 	//int start = SDL_GetTicks();
 	u8* pix;
 	//u8* outpix;
@@ -357,58 +375,75 @@ int jit_thumbs(void* data)
 		} else if (load_what == DOWN) {
 			start = end - g->thumb_cols;
 		}
-		for (int i=start; i<end && i<g->files.size; i++) {
-			if (!g->files.a[i].path) {
-				continue;
-			}
-
-			if (stat(g->files.a[i].path, &orig_stat)) {
-				// TODO threading issue if user is trying
-				// to load i at the same time, both will try
-				// to download it
-				SDL_Log("Couldn't stat %d %s\n", i, g->files.a[i].path);
-				if (!curl_image(i)) {
-					SDL_Log("Couldn't curl %d\n", i);
-					free(g->files.a[i].path);
-					g->files.a[i].path = NULL;
-					g->files.a[i].name = NULL;
-					g->bad_path_state = HAS_BAD;
+		do {
+			for (int i=start; i<end && i<g->files.size; i++) {
+				if (!g->files.a[i].path) {
 					continue;
 				}
-			}
-			// path was already set to realpath in myscandir
-			get_thumbpath(g->files.a[i].path, thumbpath, sizeof(thumbpath));
 
-			if (!stat(thumbpath, &thumb_stat)) {
-				// make sure original hasn't been modified since thumb was made
-				// don't think it's necessary to check nanoseconds
-				if (orig_stat.st_mtime < thumb_stat.st_mtime) {
-					/*
-					 * // Has to happen on main thread
-					if (do_load) {
-						outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
-						make_thumb_tex(i, w, h, outpix);
-						free(outpix);
+				if (stat(g->files.a[i].path, &orig_stat)) {
+					// TODO threading issue if user is trying
+					// to load i at the same time, both will try
+					// to download it
+					SDL_Log("Couldn't stat %d %s\n", i, g->files.a[i].path);
+					if (!curl_image(i)) {
+						SDL_Log("Couldn't curl %d\n", i);
+						free(g->files.a[i].path);
+						g->files.a[i].path = NULL;
+						g->files.a[i].name = NULL;
+						g->bad_path_state = HAS_BAD;
+						continue;
 					}
-					*/
+				}
+				// path was already set to realpath in myscandir
+				get_thumbpath(g->files.a[i].path, thumbpath, sizeof(thumbpath));
+
+				if (!stat(thumbpath, &thumb_stat)) {
+					// make sure original hasn't been modified since thumb was made
+					// don't think it's necessary to check nanoseconds
+					if (orig_stat.st_mtime < thumb_stat.st_mtime) {
+						/*
+						 * // Has to happen on main thread
+						if (do_load) {
+							outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
+							make_thumb_tex(i, w, h, outpix);
+							free(outpix);
+						}
+						*/
+						continue;
+					}
+				}
+
+				pix = stbi_load(g->files.a[i].path, &w, &h, &channels, 4);
+				if (!pix) {
+					SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\nError %s", g->files.a[i].path, stbi_failure_reason());
 					continue;
 				}
-			}
 
-			pix = stbi_load(g->files.a[i].path, &w, &h, &channels, 4);
-			if (!pix) {
-				SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\nError %s", g->files.a[i].path, stbi_failure_reason());
-				continue;
-			}
-
-			if (!make_thumb(i, w, h, pix, thumbpath, SDL_FALSE)) {
+				if (!make_thumb(i, w, h, pix, thumbpath, SDL_FALSE)) {
+					free(pix);
+					continue;
+				}
 				free(pix);
-				continue;
+				SDL_Log("generated thumb %d for %s\n", i, g->files.a[i].path);
 			}
-			free(pix);
-			SDL_Log("generated thumb %d for %s\n", i, g->files.a[i].path);
 
-		}
+			// User can move multiple times while we're generating and
+			// we would miss the signals since we're not waiting on the cnd
+			// so we just check again in case the position has changed since
+			// we started
+			start = g->thumb_start_row * g->thumb_cols;
+			end = start + g->thumb_cols*g->thumb_rows;
+			not_done = 0;
+			for (int i=start; i<end && i<g->files.size; i++) {
+				get_thumbpath(g->files.a[i].path, thumbpath, sizeof(thumbpath));
+				if (stat(thumbpath, &thumb_stat)) {
+					not_done = 1;
+					break;
+				}
+			}
+			// if it's not done we just do the whole thing ie JUMP
+		} while (not_done);
 
 		SDL_PushEvent(&load_thumbs_evt);
 
@@ -475,6 +510,10 @@ void do_thumbmode2(void)
 	g->jit_thumb_flag = JUMP;
 	SDL_CondSignal(g->jit_thumb_cnd);
 	SDL_UnlockMutex(g->jit_thumb_mtx);
+
+	if (!g->generating_thumbs) {
+		generate_thumbs(SDL_FALSE);
+	}
 }
 
 void do_thumbmode(void)
@@ -531,16 +570,6 @@ void fix_thumb_sel(int dir)
 		g->thumb_sel = 0;
 	if (g->thumb_sel >= g->files.size)
 		g->thumb_sel = g->files.size-1;
-
-	/*
-	// TODO redundant with bottom of handle_thumb_events()?
-	dir = (dir < 0) ? -1 : 1; // don't want to skip
-	// This can happen while thumbs are still being generated
-	// TODO think about this logic
-	while (!g->thumbs.a[g->thumb_sel].tex && g->thumb_sel && g->thumb_sel != g->files.size-1) {
-		g->thumb_sel += dir;
-	}
-	*/
 }
 
 // TODO doing rem/del while generating/loading problematic

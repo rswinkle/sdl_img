@@ -321,7 +321,6 @@ int handle_thumb_events()
 			code = e.user.code;
 			switch (code) {
 			case LOAD_THUMBS:
-				puts("got load_thumbs in thumb mode");
 				load_thumb_textures();
 				break;
 			case OPEN_FILE_NEW:
@@ -532,7 +531,7 @@ int handle_thumb_events()
 				if (ctrl_down) {
 					// TODO match vim behavior, doesn't jump a full page,
 					// jumps so the top/bottom row is the first row below/above the page
-					// so the amount depends on which row on the screen thumb_sel is on
+					// so the amount depends on which row screen thumb_sel is on
 					int rows = g->thumb_rows;
 					g->thumb_start_row += (sym == SDLK_f) ? rows : -rows;
 					int tmp = g->thumb_sel % g->thumb_cols;
@@ -540,7 +539,15 @@ int handle_thumb_events()
 					g->thumb_sel += (sym == SDLK_b) ? (rows-1)*g->thumb_cols : 0;
 					fix_thumb_sel((sym == SDLK_f) ? 1 : -1);
 				}
-
+				break;
+			case SDLK_PAGEUP:
+			case SDLK_PAGEDOWN:
+				int rows = g->thumb_rows;
+				g->thumb_start_row += (sym == SDLK_PAGEDOWN) ? rows : -rows;
+				int tmp = g->thumb_sel % g->thumb_cols;
+				g->thumb_sel = g->thumb_start_row * g->thumb_cols + tmp;
+				g->thumb_sel += (sym == SDLK_b) ? (rows-1)*g->thumb_cols : 0;
+				fix_thumb_sel((sym == SDLK_PAGEDOWN) ? 1 : -1);
 				break;
 			case SDLK_n:
 				if (g->state & SEARCH_RESULTS) {
@@ -1290,12 +1297,6 @@ int handle_events_normally()
 			case OPEN_FILE_MORE:
 				do_file_open(SDL_FALSE);
 				break;
-				/*
-			case LOAD_THUMBS:
-				puts("got load_thumbs in normal mode");
-				load_thumb_textures();
-				break;
-				*/
 			default:
 				SDL_Log("Unknown or unhandled user event!'\n");
 			}
@@ -1483,7 +1484,7 @@ int handle_events_normally()
 				} else {
 					// TODO GUI for this?  starts thumb thread in the background
 					// without switching to thumb mode
-					//generate_thumbs(SDL_FALSE);
+					generate_thumbs(SDL_FALSE);
 				}
 				break;
 
