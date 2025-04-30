@@ -349,9 +349,14 @@ int jit_thumbs(void* data)
 			break;
 		}
 
-		// TODO Handle UP/DOWN/JUMP.  Right now we just do JUMP
+		// Default to do JUMP bounds
 		int start = g->thumb_start_row * g->thumb_cols;
 		int end = start + g->thumb_cols*g->thumb_rows;
+		if (load_what == UP) {
+			end = start + g->thumb_cols;
+		} else if (load_what == DOWN) {
+			start = end - g->thumb_cols;
+		}
 		for (int i=start; i<end && i<g->files.size; i++) {
 			if (!g->files.a[i].path) {
 				continue;
@@ -458,8 +463,11 @@ void do_thumbmode2(void)
 
 	g->thumb_sel_end = g->thumb_sel;
 	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
+
+	// Prevent any entirely black rows at the end if possible
 	if (g->thumb_start_row*g->thumb_cols + g->thumb_rows*g->thumb_cols >= g->files.size+g->thumb_cols) {
 		g->thumb_start_row = g->files.size / g->thumb_cols - g->thumb_rows + !!(g->files.size % g->thumb_cols);
+		if (g->thumb_start_row < 0) g->thumb_start_row = 0;
 	}
 
 	SDL_LogDebugApp("signaling a JUMP to jit_thumbs\n");

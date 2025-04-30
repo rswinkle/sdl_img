@@ -495,10 +495,13 @@ int handle_thumb_events()
 			case SDLK_j:
 				if (ctrl_down) {
 					g->thumb_rows += (sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1;
-					if (g->thumb_rows < MIN_THUMB_ROWS)
+					if (g->thumb_rows < MIN_THUMB_ROWS) {
 						g->thumb_rows = MIN_THUMB_ROWS;
-					if (g->thumb_rows > MAX_THUMB_ROWS)
+					} else if (g->thumb_rows > MAX_THUMB_ROWS) {
 						g->thumb_rows = MAX_THUMB_ROWS;
+					} else {
+						orig_start_row = g->thumb_start_row + 2; // trigger JUMP
+					}
 				} else if (g->state != THUMB_SEARCH) {
 					g->thumb_sel += (sym == SDLK_DOWN || sym == SDLK_j) ? g->thumb_cols : -g->thumb_cols;
 					fix_thumb_sel((sym == SDLK_DOWN || sym == SDLK_j) ? 1 : -1);
@@ -510,10 +513,13 @@ int handle_thumb_events()
 			case SDLK_l:
 				if (ctrl_down) {
 					g->thumb_cols += (sym == SDLK_LEFT || sym == SDLK_h) ? -1 : 1;
-					if (g->thumb_cols < MIN_THUMB_COLS)
+					if (g->thumb_cols < MIN_THUMB_COLS) {
 						g->thumb_cols = MIN_THUMB_COLS;
-					if (g->thumb_cols > MAX_THUMB_COLS)
+					} else if (g->thumb_cols > MAX_THUMB_COLS) {
 						g->thumb_cols = MAX_THUMB_COLS;
+					} else {
+						orig_start_row = g->thumb_start_row + 2; // trigger JUMP
+					}
 				} else {
 					if (g->state != THUMB_SEARCH) {
 						g->thumb_sel += (sym == SDLK_h || sym == SDLK_LEFT) ? -1 : 1;
@@ -706,9 +712,14 @@ int handle_thumb_events()
 	}
 
 	if (g->thumb_start_row != orig_start_row) {
-		SDL_LogDebugApp("signaling a JUMP to jit_thumbs\n");
+		int action = JUMP;
+		int diff = g->thumb_start_row - orig_start_row;
+		// UP and DOWN refers to visually moving up and down
+		if (diff == 1) action = DOWN;
+		if (diff == -1) action = UP;
+		SDL_LogDebugApp("signaling a %d to jit_thumbs\n", action);
 		SDL_LockMutex(g->jit_thumb_mtx);
-		g->jit_thumb_flag = JUMP;
+		g->jit_thumb_flag = action;
 		SDL_CondSignal(g->jit_thumb_cnd);
 		SDL_UnlockMutex(g->jit_thumb_mtx);
 	}
