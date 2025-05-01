@@ -323,10 +323,6 @@ int handle_thumb_events()
 			case LOAD_THUMBS:
 				load_thumb_textures();
 				break;
-			case OPEN_FILE_NEW:
-				do_file_open(SDL_TRUE);
-				return 0;
-				break;
 			default:
 				SDL_Log("Unknown user event!");
 			}
@@ -1292,10 +1288,8 @@ int handle_events_normally()
 				do_delete(&space);
 				break;
 			case OPEN_FILE_NEW:
-				do_file_open(SDL_TRUE);
-				break;
 			case OPEN_FILE_MORE:
-				do_file_open(SDL_FALSE);
+				do_file_open(code == OPEN_FILE_NEW);
 				break;
 			default:
 				SDL_Log("Unknown or unhandled user event!'\n");

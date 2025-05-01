@@ -40,7 +40,7 @@ void do_file_select(int select_dir, intptr_t num_exts, const char** exts)
 void do_file_open(int clear_files)
 {
 	// TODO support Open more while in view results
-	if (g->n_imgs != 1 || !(g->state & NORMAL) || (g->state != NORMAL && !clear_files)) {
+	if (g->n_imgs != 1 || !(g->state & NORMAL) || (g->state != NORMAL && !clear_files) || g->generating_thumbs) {
 		return;
 	}
 	g->is_open_new = clear_files;

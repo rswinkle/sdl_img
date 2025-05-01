@@ -1174,8 +1174,8 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
 
 				// Only support opening new files when in 1 image NORMAL/viewing mode
-				// it simplifies things.
-				if (g->n_imgs == 1 && (g->state & NORMAL)) {
+				// and gen_thumbs is not running it simplifies things.
+				if (g->n_imgs == 1 && (g->state & NORMAL) && !g->generating_thumbs) {
 					if (nk_menu_item_label(ctx, "Open New", NK_TEXT_LEFT)) {
 						event.user.code = OPEN_FILE_NEW;
 						SDL_PushEvent(&event);
