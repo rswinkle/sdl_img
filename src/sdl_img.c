@@ -357,6 +357,7 @@ void clear_img(img_state* img)
 				// regeneration is usually quick if they're all already done
 				// TODO
 			} else {
+				// TODO now with my jit thumb thread, could just let it handle it
 				// they're generated and loaded so just make it here
 				// and update the texture
 				int i = (IS_VIEW_RESULTS()) ? g->search_results.a[img->index] : img->index;
@@ -1199,7 +1200,7 @@ int scan_sources(void* data)
 			g->save_status_uptodate = SDL_TRUE;
 		}
 
-		if (g->run_thumb_thread == ON_THUMB_MODE) {
+		if (g->run_thumb_thread == ON_OPEN) {
 			generate_thumbs(SDL_FALSE);
 		}
 

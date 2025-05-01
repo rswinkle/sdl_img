@@ -289,7 +289,6 @@ void setup(int argc, char** argv)
 			print_help(argv[0], SDL_TRUE);
 			cleanup(1, 0);
 		}
-
 	}
 
 	int got_config = load_config();
@@ -522,26 +521,25 @@ void setup(int argc, char** argv)
 		cleanup(0, 1);
 	}
 
+	// Generate thumb stuff
 	if (!(g->thumb_cnd = SDL_CreateCond())) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR,"Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
-
 	if (!(g->thumb_mtx = SDL_CreateMutex())) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
 
+	// jit thumb stuff
 	if (!(g->jit_thumb_cnd = SDL_CreateCond())) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR,"Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
-
 	if (!(g->jit_thumb_mtx = SDL_CreateMutex())) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
-
 	SDL_Thread* jit_thumb_thrd;
 	if (!(jit_thumb_thrd = SDL_CreateThread(jit_thumbs, "jit_thumb_thrd", NULL))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "couldn't create image loader thread: %s\n", SDL_GetError());
@@ -549,16 +547,15 @@ void setup(int argc, char** argv)
 	}
 	SDL_DetachThread(jit_thumb_thrd);
 
+	// loading images
 	if (!(g->img_loading_cnd = SDL_CreateCond())) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR,"Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
-
 	if (!(g->img_loading_mtx = SDL_CreateMutex())) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
-
 	SDL_Thread* loading_thrd;
 	if (!(loading_thrd = SDL_CreateThread(load_new_images, "loading_thrd", NULL))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "couldn't create image loader thread: %s\n", SDL_GetError());
@@ -566,16 +563,16 @@ void setup(int argc, char** argv)
 	}
 	SDL_DetachThread(loading_thrd);
 
+
+	// Scanning sources
 	if (!(g->scanning_cnd = SDL_CreateCond())) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR,"Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
-
 	if (!(g->scanning_mtx = SDL_CreateMutex())) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Error: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
-
 	SDL_Thread* scanning_thrd;
 	if (!(scanning_thrd = SDL_CreateThread(scan_sources, "scanning_thrd", NULL))) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "couldn't create scanner thread: %s\n", SDL_GetError());
@@ -594,6 +591,7 @@ void cleanup(int ret, int called_setup)
 	//char buf[STRBUF_SZ] = { 0 };
 
 	int start_time, cur_time;;
+	g->exit_gen_thumbs = SDL_TRUE;
 	g->is_exiting = SDL_TRUE;
 
 	SDL_LogDebugApp("In cleanup()");
@@ -605,22 +603,24 @@ void cleanup(int ret, int called_setup)
 		if (g->generating_thumbs) {
 			// wait for thread to exit
 			SDL_LockMutex(g->thumb_mtx);
-			while (!g->thumbs_done) {
+			while (g->generating_thumbs) {
 				SDL_LogDebugApp("Waiting for thumb generating thread to exit...\n");
 				SDL_CondWait(g->thumb_cnd, g->thumb_mtx);
 			}
 			SDL_UnlockMutex(g->thumb_mtx);
 		}
 
+		/*
 		if (g->loading_thumbs) {
 			// wait for thread to exit
 			SDL_LockMutex(g->thumb_mtx);
-			while (!g->thumbs_loaded) {
+			while (g->loading_thumbs) {
 				SDL_LogDebugApp("Waiting for thumb loading thread to exit...\n");
 				SDL_CondWait(g->thumb_cnd, g->thumb_mtx);
 			}
 			SDL_UnlockMutex(g->thumb_mtx);
 		}
+		*/
 
 		if (!g->jit_thumb_flag) {
 			SDL_LogDebugApp("Waking/Signaling jit_thumb thread so it can exit...\n");

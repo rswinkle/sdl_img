@@ -138,8 +138,10 @@ int gen_thumbs(void* data)
 	u8* outpix;
 	for (int i=0; i<g->files.size; ++i) {
 
-		// user exited, want to cleanly end thread
-		if (g->is_exiting) {
+		// either the user exited, or wanted to open files or something that
+		// requires us to end the thread early, but we
+		// want to cleanly end the thread
+		if (g->exit_gen_thumbs) {
 			g->thumbs.size = (do_load) ? i : 0;
 			goto exit_gen_thumbs;
 		}
@@ -227,14 +229,17 @@ int gen_thumbs(void* data)
 exit_gen_thumbs:
 	SDL_LockMutex(g->thumb_mtx);
 	g->generating_thumbs = SDL_FALSE;
-	g->thumbs_done = SDL_TRUE;
-	g->thumbs_loaded = do_load;
-	if (g->bad_path_state == UNKNOWN) {
+	g->thumbs_done = !g->exit_gen_thumbs;
+	g->thumbs_loaded = do_load && !g->exit_gen_thumbs;
+	// If we didn't exit early and didn't find any bad paths...
+	if (g->bad_path_state == UNKNOWN && !g->exit_gen_thumbs) {
 		g->bad_path_state = CLEAN;
 	}
 	SDL_CondSignal(g->thumb_cnd);
 	SDL_UnlockMutex(g->thumb_mtx);
 
+	// remember to reset this so we can re-run this thread later
+	g->exit_gen_thumbs = SDL_FALSE;
 	SDL_Log("Done generating thumbs in %.2f seconds, exiting thread.\n", (SDL_GetTicks()-start)/1000.0f);
 	return 0;
 }
@@ -280,6 +285,10 @@ void generate_thumbs(intptr_t do_load)
 	SDL_DetachThread(thumb_thrd);
 }
 
+// TODO remove this function entirely since it only works for non-hardware
+// accelerated backend?  Or change it to just loading the pixels?  The latter
+// cause a huge memory spike
+#if 0
 int load_thumbs(void* data)
 {
 	int w, h, channels;
@@ -335,10 +344,12 @@ exit_load_thumbs:
 	SDL_Log("Done loading thumbs in %.2f seconds, exiting thread.\n", (SDL_GetTicks()-start)/1000.0f);
 	return 0;
 }
+#endif
 
 int jit_thumbs(void* data)
 {
-	// TODO guard against thumbs_done outside or inside?
+	// TODO check thumbs_done/thumbs_loaded outside or inside to prevent
+	// unnecessary work?
 	int load_what;
 	char thumbpath[STRBUF_SZ] = { 0 };
 
@@ -517,6 +528,7 @@ void do_thumbmode2(void)
 	}
 }
 
+#if 0
 void do_thumbmode(void)
 {
 	if (g->generating_thumbs) {
@@ -564,6 +576,7 @@ void do_thumbmode(void)
 	g->gui_timer = SDL_GetTicks();
 	g->show_gui = nk_true;
 }
+#endif
 
 void fix_thumb_sel(int dir)
 {

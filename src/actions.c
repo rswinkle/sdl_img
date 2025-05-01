@@ -40,9 +40,24 @@ void do_file_select(int select_dir, intptr_t num_exts, const char** exts)
 void do_file_open(int clear_files)
 {
 	// TODO support Open more while in view results
-	if (g->n_imgs != 1 || !(g->state & NORMAL) || (g->state != NORMAL && !clear_files) || g->generating_thumbs) {
+	if (g->n_imgs != 1 || !(g->state & NORMAL) || (g->state != NORMAL && !clear_files)) {
+		// TODO document this is README/man page, GUI tooltip?
+		SDL_Log("Only support opening files in 1-image mode and for opening more files you must also not be viewing results\n");
 		return;
 	}
+
+	// Exit gen_thumbs thrd first before we continue
+	if (g->generating_thumbs) {
+		g->exit_gen_thumbs = SDL_TRUE;
+		// wait for thread to exit
+		SDL_LockMutex(g->thumb_mtx);
+		while (g->generating_thumbs) {
+			SDL_LogDebugApp("Waiting for thumb generating thread to exit...\n");
+			SDL_CondWait(g->thumb_cnd, g->thumb_mtx);
+		}
+		SDL_UnlockMutex(g->thumb_mtx);
+	}
+
 	g->is_open_new = clear_files;
 	g->old_state = g->state;
 
@@ -56,6 +71,8 @@ void do_file_open(int clear_files)
 	if (clear_files) {
 		SDL_SetWindowTitle(g->win, "Open New");
 	} else {
+		// Any bad paths will cause a crash in strcmp in remove_duplicates()
+		remove_bad_paths();
 		SDL_SetWindowTitle(g->win, "Open More");
 	}
 

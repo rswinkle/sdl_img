@@ -352,6 +352,7 @@ typedef struct global_state
 	// and the loading thread at the same time...for now
 	SDL_cond* thumb_cnd;
 	SDL_mutex* thumb_mtx;
+	int exit_gen_thumbs;
 
 	SDL_cond* jit_thumb_cnd;
 	SDL_mutex* jit_thumb_mtx;

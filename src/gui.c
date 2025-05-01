@@ -172,8 +172,7 @@ void transition_to_scanning(char* file)
 	}
 
 	// easier to do this than try for partial in "open more"
-	// TODO exit
-	g->generating_thumbs = SDL_FALSE;
+	// we already exited gen_thumbs at the top of do_file_open() if necessary
 	g->thumbs_done = SDL_FALSE;
 	g->thumbs_loaded = SDL_FALSE;
 	cvec_free_thumb_state(&g->thumbs);
@@ -1174,8 +1173,7 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
 
 				// Only support opening new files when in 1 image NORMAL/viewing mode
-				// and gen_thumbs is not running it simplifies things.
-				if (g->n_imgs == 1 && (g->state & NORMAL) && !g->generating_thumbs) {
+				if (g->n_imgs == 1 && (g->state & NORMAL)) {
 					if (nk_menu_item_label(ctx, "Open New", NK_TEXT_LEFT)) {
 						event.user.code = OPEN_FILE_NEW;
 						SDL_PushEvent(&event);
