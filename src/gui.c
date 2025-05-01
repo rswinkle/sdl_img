@@ -859,8 +859,12 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			// TODO keep or remove?  keep and use as
 			// export directory to save sql playlists
 			// to text lists?
+			bounds = nk_widget_bounds(ctx);
 			if (nk_button_label(ctx, "Playlists")) {
 				my_switch_dir(g->playlistdir);
+			}
+			if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+				nk_tooltip(ctx, "Will contain any exported playlists as lists");
 			}
 
 			if (nk_button_label(ctx, "Add Bookmark")) {
