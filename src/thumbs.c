@@ -511,7 +511,8 @@ void do_thumbmode2(void)
 	SDL_CondSignal(g->jit_thumb_cnd);
 	SDL_UnlockMutex(g->jit_thumb_mtx);
 
-	if (!g->generating_thumbs) {
+	// guard out here or let the internal guard handle it?
+	if (!g->generating_thumbs && g->run_thumb_thread == ON_THUMB_MODE) {
 		generate_thumbs(SDL_FALSE);
 	}
 }

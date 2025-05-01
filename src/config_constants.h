@@ -44,6 +44,8 @@
 #define DFLT_BG_COLOR nk_rgb(0,0,0)
 #define DFLT_WINDOW_OPACITY 255
 
+#define DFLT_RUN_THUMB_THREAD ON_THUMB_MODE
+
 // Should I even use SDL_TRUE/nk_true or just put 1/0?
 #define DFLT_FILL_MODE SDL_FALSE
 #define DFLT_SHOW_INFOBAR SDL_TRUE

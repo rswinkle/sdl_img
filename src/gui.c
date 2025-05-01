@@ -172,7 +172,7 @@ void transition_to_scanning(char* file)
 	}
 
 	// easier to do this than try for partial in "open more"
-	// TODO
+	// TODO exit
 	g->generating_thumbs = SDL_FALSE;
 	g->thumbs_done = SDL_FALSE;
 	g->thumbs_loaded = SDL_FALSE;
@@ -2102,6 +2102,10 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					nk_property_int(ctx, "#", 1, &g->gui_delay, MAX_GUI_DELAY, 1, 0.3);
 				}
 
+				nk_label(ctx, "Generate thumbs:", NK_TEXT_LEFT);
+				static const char* run_thumb_thread_opts[] = { "On Open", "On Thumb Mode", "Manually" };
+				bounds = nk_widget_bounds(ctx);
+				g->run_thumb_thread = nk_combo(ctx, run_thumb_thread_opts, NK_LEN(run_thumb_thread_opts), g->run_thumb_thread, g->font_size+28, nk_vec2(bounds.w, 800));
 
 				/*
 				* This doesn't scale well, looks like it's time to do that total Prefs

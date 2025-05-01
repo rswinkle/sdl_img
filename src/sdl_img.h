@@ -5,12 +5,28 @@ enum { NOCHANGE, REDRAW, REDRAW2, NUM_STATUSES };
 // file list state
 enum { CLEAN, UNKNOWN, HAS_BAD };
 
+// image loading messages
 enum { NOTHING = 0, MODE1 = 1, MODE2 = 2, MODE4 = 4, MODE8 = 8, LEFT, RIGHT, SELECTION, EXIT };
+
+// message for jit_thumb thread to know what to load
 enum { UP = 1, DOWN, JUMP };
+
+// thread state (overlaps with FALSE/TRUE flags)
 enum { NOT_RUNNING, RUNNING, PAUSED };
+
+// when to run generate_thumbs thread
+enum { ON_OPEN, ON_THUMB_MODE, MANUALLY_ONLY };
+
+// current image state
 enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
+
+// fullscreen GUI behavior
 enum { DELAY, ALWAYS, NEVER };
+
+// list sorted state
 enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
+
+// User events (mostly for performing actions based on GUI interactions)
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V, MODE_CHANGE,
        THUMB_MODE, LIST_MODE, SAVE_IMG, UNSAVE_IMG, SAVE_ALL, REMOVE_IMG, DELETE_IMG, ACTUAL_SIZE, ROT360, REMOVE_BAD,
        SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, LOAD_THUMBS, OPEN_FILE_NEW,
@@ -265,6 +281,7 @@ typedef struct global_state
 	int thumb_x_deletes;
 	int ind_mm;         // independent multimode, better name?
 	int fullscreen_gui;
+	int run_thumb_thread;
 	int show_infobar;
 	int confirm_delete;
 	int confirm_rotation;

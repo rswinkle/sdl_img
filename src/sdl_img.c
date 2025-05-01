@@ -1199,6 +1199,10 @@ int scan_sources(void* data)
 			g->save_status_uptodate = SDL_TRUE;
 		}
 
+		if (g->run_thumb_thread == ON_THUMB_MODE) {
+			generate_thumbs(SDL_FALSE);
+		}
+
 		try_move(SELECTION);
 
 		g->is_open_new = SDL_FALSE;

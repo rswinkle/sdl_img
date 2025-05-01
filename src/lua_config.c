@@ -25,6 +25,7 @@ enum {
 	HIDE_GUI_DELAY,
 	BUTTON_REPEAT_DELAY,
 	FULLSCREEN_GUI,
+	RUN_THUMB_THREAD,
 	THUMB_ROWS,
 	THUMB_COLS,
 	SHOW_INFO_BAR,
@@ -61,6 +62,7 @@ char* keys[] =
 	"hide_gui_delay",
 	"button_repeat_delay",
 	"fullscreen_gui",
+	"run_thumb_thread",
 	"thumb_rows",
 	"thumb_cols",
 	"show_info_bar",
@@ -102,7 +104,7 @@ void set_color(lua_State* L, ColorEntry* ct);
 
 int do_gui_colors(lua_State* L);
 int load_fullscreen_gui(lua_State* L, int dflt);
-char* fullscreen_gui_str(int fsg_enum);
+int load_run_thumb_thread(lua_State* L, int dflt);
 
 void write_config(FILE* cfg_file);
 
@@ -187,6 +189,7 @@ int read_config_file(char* filename)
 
 	// enum
 	g->fullscreen_gui = load_fullscreen_gui(L, DFLT_FULLSCREEN_GUI);
+	g->run_thumb_thread = load_run_thumb_thread(L, DFLT_RUN_THUMB_THREAD);
 
 	Color background = {0}, thumb_hl = {0};
 	if (load_color(L, "background", &background)) {
@@ -271,6 +274,7 @@ void write_config(FILE* cfg_file)
 {
 	const char* bool_str[] = { "false", "true" };
 	const char* fullscreen_gui_str[] = { "delay", "always", "never" };
+	const char* run_thumb_thread_str[] = { "on_open", "on_thumb_mode", "manually" };
 
 	for (int i=0; i<NUM_KEYS; i++) {
 
@@ -320,6 +324,9 @@ void write_config(FILE* cfg_file)
 			break;
 		case FULLSCREEN_GUI:
 			fprintf(cfg_file, "'%s'\n", fullscreen_gui_str[g->fullscreen_gui]);
+			break;
+		case RUN_THUMB_THREAD:
+			fprintf(cfg_file, "'%s'\n", run_thumb_thread_str[g->run_thumb_thread]);
 			break;
 		case THUMB_ROWS:
 			fprintf(cfg_file, "%d\n", g->thumb_rows);
@@ -444,6 +451,17 @@ int load_fullscreen_gui(lua_State* L, int dflt)
 	return convert_str2enum(L, -1, "fullscreen_gui", enum_names, enum_values, 3);
 }
 
+int load_run_thumb_thread(lua_State* L, int dflt)
+{
+	const char* enum_names[] = { "on_open", "on_thumb_mode", "manually" };
+	int enum_values[] = { 0, 1, 2 };
+
+	if (!lua_getglobal(L, "run_thumb_thread")) {
+		return dflt;
+	}
+	return convert_str2enum(L, -1, "run_thumb_thread", enum_names, enum_values, 3);
+}
+
 // TODO better function names
 // color value is at index
 void convert_color(lua_State* L, Color* c, int index)
@@ -548,16 +566,6 @@ void set_color(lua_State* L, ColorEntry* ct)
 	set_color_field(L, "green", ct->c.g);
 	set_color_field(L, "blue", ct->c.b);
 	lua_setglobal(L, ct->name);
-}
-
-char* fullscreen_gui_str(int fsg_enum)
-{
-	switch (fsg_enum) {
-	case DELAY: return "delay";
-	case ALWAYS: return "always";
-	case NEVER: return "never";
-	default: return "INVALID";
-	}
 }
 
 int do_gui_colors(lua_State* L)
