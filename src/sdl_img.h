@@ -54,13 +54,14 @@ enum {
 	PREFS            = NK_FLAG(9),
 	ROTATE           = NK_FLAG(10),
 	PLAYLIST_MANAGER = NK_FLAG(11),
+	PLAYLIST_CONTEXT = NK_FLAG(12),
 
 };
 
 #define THUMB_MASK (THUMB_DFLT | THUMB_VISUAL | THUMB_SEARCH)
 #define LIST_MASK (LIST_DFLT)
 #define RESULT_MASK (SEARCH_RESULTS)
-#define POPUP_MASK (ABOUT | PREFS | ROTATE | PLAYLIST_MANAGER)
+#define POPUP_MASK (ABOUT | PREFS | ROTATE | PLAYLIST_MANAGER | PLAYLIST_CONTEXT)
 //#define VIEW_MASK (NORMAL)
 
 #define IS_NORMAL() (g->state & NORMAL)
@@ -237,7 +238,17 @@ typedef struct global_state
 
 	cvector_file files;
 	cvector_str favs;
+
+	// These should really be tied together but I don't want to make a
+	// struct just for them atm
 	cvector_str playlists;
+	cvector_i playlist_ids;
+
+	// save status of a single image in all playlists
+	// assert nk_bool == int
+	int img_saved_status[MAX_PLAYLISTS];
+
+	// whether current playlist save status of g->files is up to date
 	int save_status_uptodate;  // bool
 
 	cvector_str sources;  // files/directories to scan etc.

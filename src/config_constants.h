@@ -63,3 +63,5 @@
 #define DFLT_PLAYLIST_STR "Favorites"
 
 // End configuration related macros
+
+#define MAX_PLAYLISTS 256

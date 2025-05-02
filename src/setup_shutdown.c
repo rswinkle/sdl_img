@@ -319,6 +319,7 @@ void setup(int argc, char** argv)
 	cvec_file(&g->files, 0, 100, free_file, NULL);
 	cvec_str(&g->favs, 0, 50);
 	cvec_str(&g->playlists, 0, 50);
+	cvec_i(&g->playlist_ids, 0, 50);
 	// g->thumbs initialized if needed in generate_thumbs()
 
 	// Call this after creating logfile
@@ -736,6 +737,7 @@ void cleanup(int ret, int called_setup)
 	cvec_free_i(&g->search_results);
 	cvec_free_str(&g->favs);
 	cvec_free_str(&g->playlists);
+	cvec_free_i(&g->playlist_ids);
 	curl_global_cleanup();
 	exit(ret);
 }

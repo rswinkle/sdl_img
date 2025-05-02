@@ -12,14 +12,16 @@ int get_playlist_size(const char* name);
 int insert_img(const char* path);
 int get_playlist_id(const char* name);
 int load_sql_playlist_name(const char* name);
-void load_sql_playlist_id(int id);
+int load_sql_playlist_id(int id);
 int get_image_id(const char *path);
 int sql_save(sqlite3_stmt* stmt, int idx, const char* path);
 int sql_unsave(sqlite3_stmt* stmt, int idx, const char* path);
-int do_sql_save(int removing);
+int do_sql_save_idx(int removing, int plist_id, int idx);
+int do_sql_save(int removing, int plist_id);
 int do_sql_save_all(void);
 int add_cur_files_to_db(void);
 int update_save_status(void);
+int get_img_playlists();
 int clean_library(void);
 int export_playlist(const char* name);
 int export_playlists(void);
@@ -36,8 +38,10 @@ enum {
 
 	RENAME_PLIST,
 
-	// better names
+	// better names/match function names?
 	GET_IMG_SAVE_STATUS,
+	GET_IMG_SAVE_STATUSES,
+
 	GET_PLIST_ID,
 	GET_IMG_ID,
 	GET_PLISTS,
@@ -88,9 +92,15 @@ const char* sql[] = {
 	"UPDATE Playlists SET name = ? WHERE name = ?;",
 
 	"SELECT 1 FROM Playlist_Images WHERE playlist_id = ? AND image_id = ?;",
+
+	"SELECT p.playlist_id "  //, p.name
+	"FROM Playlist_Images pi "
+	"JOIN Playlists p ON p.playlist_id = pi.playlist_id "
+	"WHERE pi.image_id = ?;",
+
 	"SELECT playlist_id FROM Playlists WHERE name = ?;",
 	"SELECT image_id FROM Images where path = ?;",
-	"SELECT name FROM Playlists;",
+	"SELECT playlist_id, name FROM Playlists;",
 
 	"SELECT * FROM Images;",
 
@@ -177,7 +187,9 @@ void prepare_stmts(sqlite3* db)
 	for (int i=INSERT_IMG; i<NUM_STMTS; ++i) {
 		if (sqlite3_prepare_v2(db, sql[i], -1, &sqlstmts[i], NULL)) {
 			SDL_LogCriticalApp("Failed to prep following statement:\n\"%s\"\nproduced errormsg: %s\n", sql[i], sqlite3_errmsg(db));
-			cleanup(1, 1);
+			exit(1);
+			// TODO
+			//cleanup(1, 1);
 		}
 	}
 }
@@ -195,7 +207,6 @@ void finalize_stmts(void)
 
 int create_playlist(const char* name)
 {
-
 	int len = strlen(name);
 	if (len >= STRBUF_SZ) {
 		SDL_Log("Playlist name is too long: %d >= %d\n", len, STRBUF_SZ);
@@ -251,10 +262,14 @@ int rename_playlist(const char* new_name, const char* old_name)
 int get_sql_playlists(void)
 {
 	cvec_clear_str(&g->playlists);
+	cvec_clear_i(&g->playlist_ids);
 	sqlite3_stmt* stmt = sqlstmts[GET_PLISTS];
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		int id = sqlite3_column_int(stmt, 0);
+		cvec_push_i(&g->playlist_ids, id);
+
 		// TODO it returns const unsigned char*
-		char *s = (char *)sqlite3_column_text(stmt, 0);
+		char *s = (char *)sqlite3_column_text(stmt, 1);
 		cvec_push_str(&g->playlists, s);
 	}
 	sqlite3_reset(stmt);
@@ -326,19 +341,20 @@ int load_sql_playlist_name(const char* name)
 		return FALSE;
 	}
 
-	load_sql_playlist_id(id);
+	SDL_Log("Added %d images from %s\n", load_sql_playlist_id(id), name);
 	return TRUE;
 }
 
 // No URLs in database so if stat fails it was deleted or renamed
 // Only regular files in database so if stat succeeds we can assume it's a regular file
 // not a directory or link
-void load_sql_playlist_id(int id)
+int load_sql_playlist_id(int id)
 {
 	file f = {0};
 	struct stat file_stat;
 	struct tm* tmp_tm;
 	char* sep;
+	int n_imgs = 0;
 
 	sqlite3_stmt* stmt = sqlstmts[SELECT_ALL_IN_PLIST_ID];
 	sqlite3_bind_int(stmt, 1, id);  // playlist_id = 1
@@ -379,9 +395,11 @@ void load_sql_playlist_id(int id)
 
 			cvec_push_file(&g->files, &f);
 		}
+		n_imgs++;
 
 	}
 	sqlite3_reset(stmt);
+	return n_imgs;
 }
 
 int get_image_id(const char *path)
@@ -405,7 +423,7 @@ int get_image_id(const char *path)
 // TODO check playlist_idx before actually touching the database and use that
 // to tell whether it's not already saved or not there?
 //
-// Assumes stmt is INSERT_INTO_PLIST and cur_plist_id is already bound
+// Assumes stmt is INSERT_INTO_PLIST and playlist_id is already bound
 int sql_save(sqlite3_stmt* stmt, int idx, const char* path)
 {
 	int img_id;
@@ -432,7 +450,7 @@ int sql_save(sqlite3_stmt* stmt, int idx, const char* path)
 	return TRUE;
 }
 
-// Assumes stmt is DEL_FROM_PLIST_ID and cur_plist_id is already bound
+// Assumes stmt is DEL_FROM_PLIST_ID and playlist_id is already bound
 int sql_unsave(sqlite3_stmt* stmt, int idx, const char* path)
 {
 	int img_id;
@@ -461,13 +479,29 @@ int sql_unsave(sqlite3_stmt* stmt, int idx, const char* path)
 	return TRUE;
 }
 
-int do_sql_save(int removing)
+int do_sql_save_idx(int removing, int plist_id, int idx)
+{
+	if (g->loading)
+		return FALSE;
+
+	if (removing) {
+		sqlite3_stmt* stmt = sqlstmts[DEL_FROM_PLIST_ID];
+		sqlite3_bind_int(stmt, 1, plist_id);
+		sql_unsave(stmt, idx, g->files.a[idx].path);
+	} else {
+		sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
+		sqlite3_bind_int(stmt, 1, plist_id);
+		sql_save(stmt, idx, g->files.a[idx].path);
+	}
+	return TRUE;
+}
+
+int do_sql_save(int removing, int plist_id)
 {
 	if (g->loading)
 		return FALSE;
 
 	int idx;
-	int cur_plist_id = g->cur_playlist_id;
 	
 	img_state* imgs;
 	int n_imgs;
@@ -481,7 +515,7 @@ int do_sql_save(int removing)
 
 	if (removing) {
 		sqlite3_stmt* stmt = sqlstmts[DEL_FROM_PLIST_ID];
-		sqlite3_bind_int(stmt, 1, cur_plist_id);
+		sqlite3_bind_int(stmt, 1, plist_id);
 
 		for (int i=0; i<n_imgs; i++) {
 			idx = imgs[i].index;
@@ -492,7 +526,7 @@ int do_sql_save(int removing)
 		}
 	} else {
 		sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
-		sqlite3_bind_int(stmt, 1, cur_plist_id);
+		sqlite3_bind_int(stmt, 1, plist_id);
 
 		for (int i=0; i<n_imgs; i++) {
 			idx = imgs[i].index;
@@ -649,6 +683,45 @@ int update_save_status(void)
 		sqlite3_reset(stmt);
 	}
 	return TRUE;
+}
+
+// pass idx and path?
+int get_img_playlists()
+{
+	int img_id;
+	int idx = g->img[0].index;
+
+	if (IS_VIEW_RESULTS()) {
+		idx = g->search_results.a[idx];
+	}
+
+	if (!(img_id = get_image_id(g->img[0].fullpath))) {
+		assert(img_id >= 0 && "This should never happen");
+	}
+
+	// set all to false
+	memset(&g->img_saved_status, 0, g->playlist_ids.size*sizeof(int));
+
+	sqlite3_stmt* stmt = sqlstmts[GET_IMG_SAVE_STATUSES];
+	sqlite3_bind_int(stmt, 1, img_id);
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		int plist_id = sqlite3_column_int(stmt, 0);
+
+		// TODO better way?  SQL doesn't fill holes in primary keys
+		// and while I assume it always returns them in ascending order
+		// I don't know if that is part of the spec.  So for now just have
+		// to do this
+		for (int i=0; i<g->playlist_ids.size; i++) {
+			if (g->playlist_ids.a[i] == plist_id) {
+				g->img_saved_status[i] = TRUE;
+				break;
+			}
+		}
+	}
+	sqlite3_reset(stmt);
+	return TRUE;
+
 }
 
 // remove out of date files (deleted/renamed etc.)

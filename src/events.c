@@ -941,6 +941,9 @@ int handle_scanning_events()
 			reset_file_browser(&g->filebrowser, NULL);
 			g->filebrowser.selection = -1; // default to no selection
 
+			// If we tried to open an empty playlist need to clear this
+			g->open_playlist = SDL_FALSE;
+
 			// If they're in playlistdir keep settings the same
 			if (strcmp(g->filebrowser.dir, g->playlistdir)) {
 				g->open_single = SDL_FALSE;
@@ -1273,10 +1276,10 @@ int handle_events_normally()
 				break;
 
 			case SAVE_IMG:
-				do_sql_save(SDL_FALSE);
+				do_sql_save(SDL_FALSE, g->cur_playlist_id);
 				break;
 			case UNSAVE_IMG:
-				do_sql_save(SDL_TRUE);
+				do_sql_save(SDL_TRUE, g->cur_playlist_id);
 				break;
 			case SAVE_ALL:
 				do_sql_save_all();
@@ -1497,7 +1500,7 @@ int handle_events_normally()
 				if (shift_down && ctrl_down) {
 					do_sql_save_all();
 				} else {
-					do_sql_save(ctrl_down);
+					do_sql_save(ctrl_down, g->cur_playlist_id);
 				}
 			break;
 
@@ -1741,9 +1744,29 @@ int handle_events_normally()
 			break;
 
 		case SDL_MOUSEBUTTONDOWN:
+			switch (e.button.button) {
+			case SDL_BUTTON_RIGHT:
+				if (g->state & NORMAL && !(g->state & PLAYLIST_CONTEXT)) {
+					if (g->n_imgs == 1) {
+						get_img_playlists();
+						g->state |= PLAYLIST_CONTEXT;
+					}
+					break;
+				}
+			case SDL_BUTTON_LEFT:
+			case SDL_BUTTON_MIDDLE:
+				break;
+			}
+
+			if (e.button.which == SDL_TOUCH_MOUSEID) {
+				SDL_LogDebugApp("mouse button touch down\n");
+			}
+			set_show_gui(SDL_TRUE);
+			break;
 		case SDL_MOUSEBUTTONUP:
-			if (e.button.which == SDL_TOUCH_MOUSEID)
-				SDL_LogDebugApp("mouse button touch\n");
+			if (e.button.which == SDL_TOUCH_MOUSEID) {
+				SDL_LogDebugApp("mouse button touch up\n");
+			}
 			set_show_gui(SDL_TRUE);
 			break;
 

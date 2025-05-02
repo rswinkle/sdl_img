@@ -30,6 +30,7 @@ void draw_rotate(struct nk_context* ctx, int scr_w, int scr_h, int win_flags);
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags);
 void draw_about(struct nk_context* ctx, int scr_w, int scr_h, int win_flags);
 void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win_flags);
+void draw_playlist_popup(struct nk_context* ctx, int scr_w, int scr_h, int idx);
 
 void draw_controls(struct nk_context* ctx, int win_w, int win_h);
 void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h);
@@ -255,15 +256,13 @@ void draw_gui(struct nk_context* ctx)
 
 	// Do popups first so I can return early if any is up
 	// TODO I can just return after a popup since they're all fullscreen now right?
-	if (g->state & ROTATE) {
+	if (g->state & PLAYLIST_CONTEXT) {
+		draw_playlist_popup(ctx, scr_w, scr_h, g->img[0].index);
+	} else if (g->state & ROTATE) {
 		draw_rotate(ctx, scr_w, scr_h, popup_flags);
-	}
-
-	if (g->state & ABOUT) {
+	} else if (g->state & ABOUT) {
 		draw_about(ctx, scr_w, scr_h, popup_flags);
-	}
-
-	if (g->state & PREFS) {
+	} else if (g->state & PREFS) {
 		draw_prefs(ctx, scr_w, scr_h, popup_flags);
 	}
 
@@ -2361,6 +2360,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 					if (create_playlist(pm_buf)) {
 						SDL_Log("Created playlist %s\n", pm_buf);
 						cvec_push_str(&g->playlists, pm_buf);
+						cvec_push_i(&g->playlist_ids, get_playlist_id(pm_buf));
 						pm_buf[0] = 0;
 						pm_len = 0;
 					} else {
@@ -2445,6 +2445,7 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 					delete_playlist(selected_pl);
 					SDL_Log("Deleted playlist %s\n", g->playlists.a[selected]);
 					cvec_erase_str(&g->playlists, selected, selected);
+					cvec_erase_i(&g->playlist_ids, selected, selected);
 					selected = -1;
 				}
 			}
@@ -2484,6 +2485,46 @@ void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win
 		}
 	}
 	
+	nk_end(ctx);
+}
+
+void draw_playlist_popup(struct nk_context* ctx, int scr_w, int scr_h, int idx)
+{
+	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER; //|NK_WINDOW_TITLE; //NK_WINDOW_CLOSABLE;
+	int w = 300, h = (g->font_size + 20) * 11;
+	struct nk_rect s = { (scr_w-w)/2, (scr_h-h)/2, w, h };
+
+	if (IS_VIEW_RESULTS()) {
+		idx = g->search_results.a[idx];
+	}
+
+	// TODO find a good way to allow clicking outside of window to close popup
+	if (nk_begin(ctx, "Playlist Popup", s, popup_flags)) {
+		nk_layout_row_dynamic(ctx, 0, 1);
+
+		//struct nk_rect bounds = nk_widget_bounds(ctx);
+		if (nk_button_label(ctx, "Done")) {
+			g->state &= ~PLAYLIST_CONTEXT;
+		}
+		//printf("%f %f %f %f\n", bounds.x, bounds.y, bounds.w, bounds.h);
+
+		struct nk_rect bounds = nk_widget_bounds(ctx);
+		//printf("%f %f %f %f\n", bounds.x, bounds.y, bounds.w, bounds.h);
+		//printf("%d group_height = %f\n", h, h-bounds.y);
+		nk_layout_row_dynamic(ctx, h-(bounds.y-s.y), 1);
+		if (nk_group_begin(ctx, "Playlist_popup_list", 0)) {
+
+			// TODO nk_list_view?
+			// Do I need this?
+			nk_layout_row_dynamic(ctx, 0, 1);
+			for (int i=0; i<g->playlists.size; i++) {
+				if (nk_checkbox_label(ctx, g->playlists.a[i], &g->img_saved_status[i])) {
+					do_sql_save_idx(!g->img_saved_status[i], g->playlist_ids.a[i], idx);
+				}
+			}
+			nk_group_end(ctx);
+		}
+	}
 	nk_end(ctx);
 }
 

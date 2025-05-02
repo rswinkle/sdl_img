@@ -1182,6 +1182,8 @@ int scan_sources(void* data)
 			}
 		} else {
 			SDL_Log("Found 0 images, switching to File Browser...\n");
+			// TODO?
+			// goto done_scanning label at bottom of loop after try_move()?
 		}
 
 		// TODO bad_path_state = given list | given_URL?
