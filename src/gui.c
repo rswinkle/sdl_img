@@ -1520,7 +1520,7 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	unsigned long index, total;
 	char saved_char[] = { ' ', 'X' };
 	int saved_status = 0;
-	float ratios[] = { 0.5f, 0.1, 0.4f };
+	float ratios[] = { 0.55f, 0.05, 0.4f };
 
 	// TODO why scr_h + 2 to prevent a sliver below it? only with SW AA, bug
 	// still need g->gui_bar_ht+1 for SW renderer even with AA off
@@ -1529,6 +1529,8 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 #else
 	int height = g->gui_bar_ht;
 #endif
+
+	char* filename;
 
 	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-g->gui_bar_ht, scr_w, height), NK_WINDOW_NO_SCROLLBAR))
 	{
@@ -1559,12 +1561,15 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 			// otherwise the load is fast enough
 			if (IS_VIEW_RESULTS() && index < g->search_results.size) {
 				total = g->search_results.size;
+				int idx = g->search_results.a[index];
+				filename = g->files.a[idx].name;
 				if (g->save_status_uptodate) {
 					//saved_status = g->files.a[g->search_results.a[index]].playlist_idx >= 0;
-					saved_status = g->files.a[g->search_results.a[index]].playlist_idx;
+					saved_status = g->files.a[idx].playlist_idx;
 				}
 			} else {
 				total = g->files.size;
+				filename = g->files.a[index].name;
 				if (g->save_status_uptodate) {
 					//saved_status = g->files.a[index].playlist_idx >= 0;
 					saved_status = g->files.a[index].playlist_idx;
@@ -1574,9 +1579,9 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 
 			int len;
 			if (g->save_status_uptodate) {
-				len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu [%c] %s", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total, saved_char[saved_status], g->cur_playlist);
+				len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu [%c] %s %s", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total, saved_char[saved_status], g->cur_playlist, filename);
 			} else {
-				len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total);
+				len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu %s", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total, filename);
 			}
 			if (len >= STRBUF_SZ) {
 				SDL_LogCriticalApp("info path too long\n");

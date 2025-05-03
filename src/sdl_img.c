@@ -1233,6 +1233,14 @@ void setup_font(char* font_file, float height)
 	NK_UNUSED(font_file);
 	NK_UNUSED(height);
 
+	static nk_rune ranges_latin[] = {
+		0x0020, 0x007E,    /* Ascii */
+		0x00A0, 0x00FF,    /* Symbols + Umlaute */
+		0x0400, 0x045F,    /* Main Cyrillic */
+		0x2000, 0x206F,    // General punctuation
+		0
+	};
+
 	if (g->atlas) {
     	nk_font_atlas_clear(g->atlas);
 		g->atlas = NULL;
@@ -1240,12 +1248,14 @@ void setup_font(char* font_file, float height)
 
 	g->config = nk_font_config(0);
 	g->config.pixel_snap = g->pixel_snap;
+	g->config.range = ranges_latin;
 	if (!g->oversample) {
 		g->config.oversample_h = 1;
 	}
 	g->font = NULL;
 
 	float font_scale = g->y_scale;
+
 
 	nk_sdl_font_stash_begin(&g->atlas);
 
