@@ -1350,6 +1350,17 @@ int handle_events_normally()
 						for (int i=0; i<g->n_imgs; ++i) {
 							g->img[i].index = g->search_results.a[g->img[i].index];
 						}
+
+						// We need this here because we could jump to a result where
+						// we haven't generated (or loaded) the thumbs around it
+						// TODO better place? could it even finish fast enough to
+						// push the event while we're still here processing events
+						// in normal mode?
+						SDL_LogDebugApp("signaling a JUMP to jit_thumbs\n");
+						SDL_LockMutex(g->jit_thumb_mtx);
+						g->jit_thumb_flag = JUMP;
+						SDL_CondSignal(g->jit_thumb_cnd);
+						SDL_UnlockMutex(g->jit_thumb_mtx);
 					}
 
 					set_show_gui(SDL_TRUE);
