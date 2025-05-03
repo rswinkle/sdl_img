@@ -442,7 +442,6 @@ int sql_save(sqlite3_stmt* stmt, int idx, const char* path)
 
 	if (sqlite3_changes(g->db)) {
 		SDL_Log("saving %s\n", path);
-		g->files.a[idx].playlist_idx = 1;
 	} else {
 		SDL_Log("%s already in %s\n", path, g->cur_playlist);
 	}
@@ -470,7 +469,6 @@ int sql_unsave(sqlite3_stmt* stmt, int idx, const char* path)
 	int rows_affected = sqlite3_changes(g->db);
 	if (rows_affected > 0) {
 		SDL_Log("removing %s\n", path);
-		g->files.a[idx].playlist_idx = 0;
 	} else {
 		SDL_Log("%s not in %s\n", path, g->cur_playlist);
 	}
@@ -484,15 +482,20 @@ int do_sql_save_idx(int removing, int plist_id, int idx)
 	if (g->loading)
 		return FALSE;
 
+	int ret;
 	if (removing) {
 		sqlite3_stmt* stmt = sqlstmts[DEL_FROM_PLIST_ID];
 		sqlite3_bind_int(stmt, 1, plist_id);
-		sql_unsave(stmt, idx, g->files.a[idx].path);
+		ret = sql_unsave(stmt, idx, g->files.a[idx].path);
 	} else {
 		sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
 		sqlite3_bind_int(stmt, 1, plist_id);
-		sql_save(stmt, idx, g->files.a[idx].path);
+		ret = sql_save(stmt, idx, g->files.a[idx].path);
 	}
+	if (ret && plist_id == g->cur_playlist_id) {
+		g->files.a[idx].playlist_idx = !removing;
+	}
+
 	return TRUE;
 }
 
@@ -522,7 +525,9 @@ int do_sql_save(int removing, int plist_id)
 			if (IS_VIEW_RESULTS()) {
 				idx = g->search_results.a[idx];
 			}
-			sql_unsave(stmt, idx, imgs[i].fullpath);
+			if (sql_unsave(stmt, idx, imgs[i].fullpath)) {
+				g->files.a[idx].playlist_idx = 0;
+			}
 		}
 	} else {
 		sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
@@ -533,7 +538,9 @@ int do_sql_save(int removing, int plist_id)
 			if (IS_VIEW_RESULTS()) {
 				idx = g->search_results.a[idx];
 			}
-			sql_save(stmt, idx, imgs[i].fullpath);
+			if (sql_save(stmt, idx, imgs[i].fullpath)) {
+				g->files.a[idx].playlist_idx = 1;
+			}
 		}
 	}
 
