@@ -1816,7 +1816,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 	int horizontal_rule_ht = 4;
 
 	SDL_Event event = { .type = g->userevent };
-	static const char* ttf_exts[] = { ".ttf" };
+	static const char* font_exts[] = { ".ttf", ".otf" };
 
 	// for data directory edit_strings
 	static int cache_len;
@@ -1983,14 +1983,14 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				}
 
 				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, &ratios[2]);
-				nk_label(ctx, "TTF Font:", NK_TEXT_LEFT);
+				nk_label(ctx, "TTF/OTF Font:", NK_TEXT_LEFT);
 				nk_edit_string(ctx, path_flags, g->font_path_buf, &font_path_len, STRBUF_SZ, nk_filter_nothing);
 				if (nk_button_label(ctx, "Change")) {
 					g->fs_output = g->font_path_buf;
 					// TODO New event type, select font to restrict to ttf files?
 					event.user.code = SELECT_FILE;
-					event.user.data1 = (void*)1;
-					event.user.data2 = ttf_exts;
+					event.user.data1 = (void*)(sizeof(font_exts)/sizeof(font_exts[0]));
+					event.user.data2 = font_exts;
 					SDL_PushEvent(&event);
 				}
 
