@@ -38,7 +38,7 @@
 // 1. Possibly speed/power savings, real VSYNC instead
 // of fake adhoc SDL_Delay()s to save battery, Cleaner rendering, fewer artifacts.
 // There are some minor visual artifacts in the GUI for software rendering
-#define USE_SOFTWARE_RENDERER
+//#define USE_SOFTWARE_RENDERER
 
 // If defined, all log output goes to log.txt in the
 // same directory as config.lua
