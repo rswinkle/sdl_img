@@ -77,7 +77,7 @@ PKGDIR=package
 # in repo dir of packaging related files
 PKGSRC=package_files
 
-SRCS=src/sdl_img.c src/events.c src/gui.c src/rendering.c src/lua_config.c \
+SRCS=src/sdl_img.c src/events.c src/gui.c src/draw_library.c src/rendering.c src/lua_config.c \
 	 src/thumbs.c src/curl_stuff.c src/actions.c src/playlists.c src/sorting.c src/controls_str.c \
 	 src/recent_files.c src/setup_shutdown.c src/sqlite.c \
 	 src/sdl_img.h src/thumbs.h src/curl_stuff.h \

@@ -38,6 +38,8 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h);
 void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h);
 
+#include "draw_library.c"
+
 
 // TODO nuklear helper functions to separate file?
 int do_color_setting(struct nk_context* ctx, const char* label, struct nk_color* color, enum nk_color_format format)
@@ -304,6 +306,17 @@ void draw_gui(struct nk_context* ctx)
 		splitter_down = 0;
 
 	if (IS_LIST_MODE() && !IS_VIEW_RESULTS()) {
+		draw_library(ctx, scr_w, scr_h);
+	} else if (!g->fullscreen || g->fullscreen_gui == ALWAYS || (g->fullscreen_gui == DELAY && g->show_gui)) {
+		// only draw controls (ie top bar, menu, buttons etc.) in NORMAL mode
+		draw_controls(ctx, scr_w, g->gui_bar_ht);
+		if (g->show_infobar) {
+			draw_infobar(ctx, scr_w, scr_h);
+		}
+	}
+
+	/*
+	if (IS_LIST_MODE() && !IS_VIEW_RESULTS()) {
 		// TODO why do I need + 2 to reach the edges?
 		if (nk_begin(ctx, "List", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
 			// TODO How to automatically focus on the search box if they start typing?
@@ -525,6 +538,7 @@ void draw_gui(struct nk_context* ctx)
 			draw_infobar(ctx, scr_w, scr_h);
 		}
 	}
+	*/
 
 }
 

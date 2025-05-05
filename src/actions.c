@@ -200,7 +200,7 @@ void do_sort(compare_func cmp)
 
 	// find new index of img[0]
 	// TODO use bsearch?
-	int cur_idx;
+	int cur_idx = 0;
 	for (int i=0; i<g->files.size; ++i) {
 		if (!strcmp(save_cur, g->files.a[i].path)) {
 			cur_idx = i;
@@ -262,6 +262,12 @@ void do_sort(compare_func cmp)
 
 		g->img[0].index = cur_idx;
 	}
+}
+
+// TODO any more reason for this function?  Worth having?
+void do_lib_sort(compare_func cmp)
+{
+	mirrored_qsort(g->lib_mode_list.a, g->lib_mode_list.size, sizeof(file), cmp, 0);
 }
 
 void do_zoom(int dir, int use_mouse)
@@ -732,6 +738,9 @@ void do_listmode(void)
 	// if (g->n_imgs != 1) {
 	// 	do_mode_change(1);
 	// }
+	
+	// TODO different function for general library so we don't care?  Or just goto
+	// viewing the Library or disable sorting if generating?
 	if (g->n_imgs != 1 || g->generating_thumbs || g->loading_thumbs) {
 		SDL_Log("Can't go to listmode from multi-image modes or while generating/loading thumbs");
 		return;
@@ -747,6 +756,8 @@ void do_listmode(void)
 			text_len--;
 		}
 	}
+	
+	g->list_view = &g->files;
 
 	g->selection = g->img[0].index;
 	g->list_setscroll = SDL_TRUE;

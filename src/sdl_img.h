@@ -236,8 +236,12 @@ typedef struct global_state
 
 	char* default_playlist;  // allocated
 
-	cvector_file files;
-	cvector_str favs;
+	// better names
+	cvector_file files;  // currently open image list
+	cvector_file lib_mode_list;   // what you're looking at in library mode
+	cvector_file* list_view; // points at either files or lib_mode_list
+
+	cvector_str favs; // TODO unused/delete
 
 	// These should really be tied together but I don't want to make a
 	// struct just for them atm
@@ -335,7 +339,8 @@ typedef struct global_state
 	int selection;  // actual selection made (switching to normal mode)
 
 	int menu_state;
-	int sorted_state;
+	int sorted_state; // for open files
+	int lib_sorted_state;  // for whatever is open in library mode
 
 	// sdl_img colors
 	struct nk_color bg;

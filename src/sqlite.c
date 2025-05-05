@@ -11,8 +11,8 @@ int get_sql_playlists(void);
 int get_playlist_size(const char* name);
 int insert_img(const char* path);
 int get_playlist_id(const char* name);
-int load_sql_playlist_name(const char* name);
-int load_sql_playlist_id(int id);
+int load_sql_playlist_name(const char* name, cvector_file* files);
+int load_sql_playlist_id(int id, cvector_file* files);
 int get_image_id(const char *path);
 int sql_save(sqlite3_stmt* stmt, int idx, const char* path);
 int sql_unsave(sqlite3_stmt* stmt, int idx, const char* path);
@@ -334,21 +334,21 @@ int get_playlist_id(const char* name)
 
 
 // TODO use SELECT_ALL_IN_PLIST_NAME,
-int load_sql_playlist_name(const char* name)
+int load_sql_playlist_name(const char* name, cvector_file* files)
 {
 	int id;
 	if (!(id = get_playlist_id(name))) {
 		return FALSE;
 	}
 
-	SDL_Log("Added %d images from %s\n", load_sql_playlist_id(id), name);
+	SDL_Log("Added %d images from %s\n", load_sql_playlist_id(id, files), name);
 	return TRUE;
 }
 
 // No URLs in database so if stat fails it was deleted or renamed
 // Only regular files in database so if stat succeeds we can assume it's a regular file
 // not a directory or link
-int load_sql_playlist_id(int id)
+int load_sql_playlist_id(int id, cvector_file* files)
 {
 	file f = {0};
 	struct stat file_stat;
@@ -393,12 +393,12 @@ int load_sql_playlist_id(int id)
 			sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 			f.name = (sep) ? sep+1 : f.path;
 
-			cvec_push_file(&g->files, &f);
+			cvec_push_file(files, &f);
 		}
 		n_imgs++;
-
 	}
 	sqlite3_reset(stmt);
+	SDL_Log("Added %d images from playlist %d\n", n_imgs, id);
 	return n_imgs;
 }
 
@@ -765,6 +765,64 @@ int clean_library(void)
 		// TODO check for failure?
 		sqlite3_reset(stmt);
 	}
+	SDL_Log("Removed %"PRIcv_sz" bad files from library\n", bad_path_ids.size);
+	cvec_free_i(&bad_path_ids);
+
+	return TRUE;
+}
+
+// removes bad paths at the same time
+int load_library(cvector_file* files)
+{
+	int id;
+	file f = {0};
+	struct stat file_stat;
+	struct tm* tmp_tm;
+	char* sep;
+	int n_imgs = 0;
+
+	cvector_i bad_path_ids;
+	cvec_i(&bad_path_ids, 0, 1024);
+
+	cvec_clear_file(files);
+	
+	sqlite3_stmt* stmt = sqlstmts[GET_LIBRARY];
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+
+		id = sqlite3_column_int(stmt, 0);
+		// TODO it returns const unsigned char*
+		char *s = (char *)sqlite3_column_text(stmt, 1);
+
+		if (stat(s, &file_stat)) {
+			// cache id for deletion after we finish select statement
+			cvec_push_i(&bad_path_ids, id);
+		} else {
+			f.path = CVEC_STRDUP(s);
+			f.size = file_stat.st_size;
+			f.modified = file_stat.st_mtime;
+
+			bytes2str(f.size, f.size_str, SIZE_STR_BUF);
+			tmp_tm = localtime(&f.modified);
+			strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp_tm); // %F %T
+			sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
+			f.name = (sep) ? sep+1 : f.path;
+
+			cvec_push_file(files, &f);
+		}
+	}
+	sqlite3_reset(stmt);
+
+	// TODO worth a transaction?
+	stmt = sqlstmts[DEL_IMG];
+
+	// TODO Log paths...warn which playlists they're in?
+	for (int i=0; i<bad_path_ids.size; i++) {
+		sqlite3_bind_int(stmt, 1, bad_path_ids.a[i]);
+		sqlite3_step(stmt);
+		// TODO check for failure?
+		sqlite3_reset(stmt);
+	}
+	SDL_Log("Removed %"PRIcv_sz" bad files from library\n", bad_path_ids.size);
 	cvec_free_i(&bad_path_ids);
 
 	return TRUE;

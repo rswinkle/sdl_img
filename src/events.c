@@ -755,36 +755,66 @@ int handle_list_events()
 			case SORT_NAME:
 				SDL_Log("Starting sort by name\n");
 				sort_timer = SDL_GetTicks();
-				if (g->sorted_state != NAME_UP) {
-					do_sort(filename_cmp_lt);
-					g->sorted_state = NAME_UP;
+				if (!e.user.data1) {
+					if (g->sorted_state != NAME_UP) {
+						do_sort(filename_cmp_lt);
+						g->sorted_state = NAME_UP;
+					} else {
+						do_sort(filename_cmp_gt);
+						g->sorted_state = NAME_DOWN;
+					}
 				} else {
-					do_sort(filename_cmp_gt);
-					g->sorted_state = NAME_DOWN;
+					if (g->lib_sorted_state != NAME_UP) {
+						do_lib_sort(filename_cmp_lt);
+						g->lib_sorted_state = NAME_UP;
+					} else {
+						do_lib_sort(filename_cmp_gt);
+						g->lib_sorted_state = NAME_DOWN;
+					}
 				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_SIZE:
 				SDL_Log("Starting sort by size\n");
 				sort_timer = SDL_GetTicks();
-				if (g->sorted_state != SIZE_UP) {
-					do_sort(filesize_cmp_lt);
-					g->sorted_state = SIZE_UP;
+				if (!e.user.data1) {
+					if (g->sorted_state != SIZE_UP) {
+						do_sort(filesize_cmp_lt);
+						g->sorted_state = SIZE_UP;
+					} else {
+						do_sort(filesize_cmp_gt);
+						g->sorted_state = SIZE_DOWN;
+					}
 				} else {
-					do_sort(filesize_cmp_gt);
-					g->sorted_state = SIZE_DOWN;
+					if (g->lib_sorted_state != SIZE_UP) {
+						do_lib_sort(filesize_cmp_lt);
+						g->lib_sorted_state = SIZE_UP;
+					} else {
+						do_lib_sort(filesize_cmp_gt);
+						g->lib_sorted_state = SIZE_DOWN;
+					}
 				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
 			case SORT_MODIFIED:
 				SDL_Log("Starting sort by modified\n");
 				sort_timer = SDL_GetTicks();
-				if (g->sorted_state != MODIFIED_UP) {
-					do_sort(filemodified_cmp_lt);
-					g->sorted_state = MODIFIED_UP;
+				if (!e.user.data1) {
+					if (g->sorted_state != MODIFIED_UP) {
+						do_sort(filemodified_cmp_lt);
+						g->sorted_state = MODIFIED_UP;
+					} else {
+						do_sort(filemodified_cmp_gt);
+						g->sorted_state = MODIFIED_DOWN;
+					}
 				} else {
-					do_sort(filemodified_cmp_gt);
-					g->sorted_state = MODIFIED_DOWN;
+					if (g->lib_sorted_state != MODIFIED_UP) {
+						do_lib_sort(filemodified_cmp_lt);
+						g->lib_sorted_state = MODIFIED_UP;
+					} else {
+						do_lib_sort(filemodified_cmp_gt);
+						g->lib_sorted_state = MODIFIED_DOWN;
+					}
 				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;

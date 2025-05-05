@@ -1059,7 +1059,7 @@ int scan_sources(void* data)
 				read_list(&g->files, NULL, file);
 				fclose(file);
 			} else if (!strcmp(a[i], "-p")) {
-				if (load_sql_playlist_name(a[++i])) {
+				if (load_sql_playlist_name(a[++i], &g->files)) {
 					given_list = 1;
 				}
 				// no logging for error as it's handled in function
