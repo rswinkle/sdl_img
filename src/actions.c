@@ -758,6 +758,9 @@ void do_listmode(void)
 	}
 	
 	g->list_view = &g->files;
+	g->cur_selected = SDL_TRUE;
+	g->lib_selected = SDL_FALSE;
+	g->selected_plist = -1;
 
 	g->selection = g->img[0].index;
 	g->list_setscroll = SDL_TRUE;

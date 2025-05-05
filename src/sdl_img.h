@@ -240,6 +240,10 @@ typedef struct global_state
 	cvector_file files;  // currently open image list
 	cvector_file lib_mode_list;   // what you're looking at in library mode
 	cvector_file* list_view; // points at either files or lib_mode_list
+	
+	// TODO when I'm done with library mode, wrap all state specific to it
+	// in a struct purely for organization purposes?
+	int is_new_renaming;   // in the middle of naming/renaming a playlist
 
 	cvector_str favs; // TODO unused/delete
 
@@ -340,7 +344,12 @@ typedef struct global_state
 
 	int menu_state;
 	int sorted_state; // for open files
+	
+	// lib mode stuff
 	int lib_sorted_state;  // for whatever is open in library mode
+	int cur_selected;
+	int lib_selected;
+	int selected_plist;
 
 	// sdl_img colors
 	struct nk_color bg;

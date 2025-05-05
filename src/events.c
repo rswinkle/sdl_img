@@ -829,7 +829,13 @@ int handle_list_events()
 			sym = e.key.keysym.sym;
 			switch (sym) {
 			case SDLK_ESCAPE:
-				if (g->state & SEARCH_RESULTS) {
+				if (g->is_new_renaming) {
+					if (g->is_new_renaming == NEW_PLIST) {
+						cvec_pop_str(&g->playlists, NULL);
+					}
+					g->is_new_renaming = 0;
+					g->selected_plist = -1;
+				} else if (g->state & SEARCH_RESULTS) {
 					// if nothing was selected among search results set back
 					// to current image
 					if (g->selection < 0) {
@@ -855,6 +861,10 @@ int handle_list_events()
 					// NOTE UI decision: don't move to selection if they hit ESC, only
 					// if they hit Enter (this is also how it works in thumb mode)
 					g->state = NORMAL;
+
+						// set on enter to list mode?
+					//g->cur_selected = SDL_TRUE;
+					//g->lib_selected = SDL_FALSE;
 					set_show_gui(SDL_TRUE);
 				}
 
@@ -877,7 +887,7 @@ int handle_list_events()
 			// switch to normal mode on that image
 			case SDLK_RETURN:
 			case SDLK_KP_ENTER:
-				if (g->selection >= 0) {
+				if (g->cur_selected && g->selection >= 0) {
 					if (g->state & SEARCH_RESULTS) {
 						g->state |= NORMAL;
 						g->selection = (g->selection) ? g->selection - 1 : g->search_results.size-1;
