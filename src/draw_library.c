@@ -374,22 +374,47 @@ void draw_playlists_menu(struct nk_context* ctx)
 	int active;
 	int is_selected;
 
-	int edit_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_AUTO_SELECT;
+	int edit_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_AUTO_SELECT | NK_EDIT_ALWAYS_INSERT_MODE;
 
 	static char buf[STRBUF_SZ];
 	static int buf_len = 0;
+	static int focus_flag;
 
 	char tmp_buf[STRBUF_SZ];
 	int loc;
 
+	// Ugly hack to work around Nuklear issues
+	// Can't get it to automatically have focus *and* auto select I have
+	// to pick one or the other, so I immediately push another click when
+	// they click on a selected playlist to trigger focus the "natural" way
+	SDL_Event click_event = { .type = SDL_MOUSEBUTTONDOWN };
+	click_event.button.button = SDL_BUTTON_LEFT;
+	int x, y;
+	SDL_GetMouseState(&x, &y);
+	click_event.button.x = x;
+	click_event.button.y = x;
+
+	if (!g->is_new_renaming) {
+		focus_flag = 0;
+	}
+
 	for (int i=0; i<g->playlists.size; ++i) {
 		is_selected = g->selected_plist == i;
 
-		// TODO reorganize this code, allow ESC to cancel rename
+		// TODO reorganize this code
 		if (g->is_new_renaming && is_selected) {
 
-			nk_edit_focus(ctx, edit_flags);
+			if (!focus_flag) {
+				// nk_edit_focus(ctx, edit_flags);
+				SDL_Log("Pushing click\n");
+				SDL_PushEvent(&click_event);
+			}
+
 			active = nk_edit_string(ctx, edit_flags, buf, &buf_len, STRBUF_SZ, nk_filter_default);
+			if ((active & NK_EDIT_ACTIVATED)) {
+				focus_flag = 1;
+			}
+
 			buf[buf_len] = 0;
 			if (active & NK_EDIT_COMMITED && buf_len) {
 				// TODO function? better way to structure this

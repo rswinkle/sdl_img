@@ -28500,6 +28500,8 @@ nk_edit_focus(struct nk_context *ctx, nk_flags flags)
     win->edit.name = hash;
     if (flags & NK_EDIT_ALWAYS_INSERT_MODE)
         win->edit.mode = NK_TEXT_EDIT_MODE_INSERT;
+    //if (flags & NK_EDIT_AUTO_SELECT)
+     //   nk_textedit_select_all(win->edit);
 }
 NK_API void
 nk_edit_unfocus(struct nk_context *ctx)
