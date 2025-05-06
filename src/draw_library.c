@@ -352,9 +352,16 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 				struct nk_rect bounds = nk_widget_bounds(ctx);
 				if (!focus_flag) {
 					// nk_edit_focus(ctx, edit_flags);
-					// Trying to get this hack to work for creating new playlists too
-					// but it's not working so far
 					SDL_Log("Mouse at %d %d\n", x, y);
+
+					// To get it to work for New Playlist, have to warp from button
+					// they just clicked to new text field location because Nuklear
+					// checks for a click *and* current location to make it active
+					// could do it everytime but want to avoid unecessary visual jump
+					if (g->is_new_renaming == NEW_PLIST) {
+						SDL_WarpMouseInWindow(g->win, bounds.x+20, bounds.y+15);
+					}
+
 					SDL_Log("Pushing click %d %d \n", (int)bounds.x+20, (int)bounds.y+15);
 					click_event.button.x = bounds.x+20;
 					click_event.button.y = bounds.y+15;
