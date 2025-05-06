@@ -20390,9 +20390,17 @@ nk_panel_end(struct nk_context *ctx)
         int has_input = ctx->input.mouse.delta.x != 0 || ctx->input.mouse.delta.y != 0 || ctx->input.mouse.scroll_delta.y != 0;
         int is_window_hovered = nk_window_is_hovered(ctx);
         int any_item_active = (ctx->last_widget_state & NK_WIDGET_STATE_MODIFIED);
-        if ((!has_input && is_window_hovered) || (!is_window_hovered && !any_item_active))
+        //printf("has_input = %d\n", has_input);
+        //printf("is_window_hovered = %d\n", has_input);
+        //printf("any_item_active = %d\n", has_input);
+        //printf("timer = %f\n", window->scrollbar_hiding_timer);
+        if ((!has_input && is_window_hovered) || (!is_window_hovered && !any_item_active)) {
             window->scrollbar_hiding_timer += ctx->delta_time_seconds;
-        else window->scrollbar_hiding_timer = 0;
+           // printf("timer = %f\n", window->scrollbar_hiding_timer);
+        } else {
+            window->scrollbar_hiding_timer = 0;
+            //puts("setting to 0 again");
+        }
     } else window->scrollbar_hiding_timer = 0;
 
     /* window border */

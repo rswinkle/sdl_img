@@ -332,8 +332,6 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 	click_event.button.button = SDL_BUTTON_LEFT;
 	int x, y;
 	SDL_GetMouseState(&x, &y);
-	click_event.button.x = x;
-	click_event.button.y = x;
 
 	int footer_size = g->font_size+20+4;
 
@@ -351,9 +349,15 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 			// TODO reorganize this code
 			if (g->is_new_renaming && is_selected) {
 
+				struct nk_rect bounds = nk_widget_bounds(ctx);
 				if (!focus_flag) {
 					// nk_edit_focus(ctx, edit_flags);
-					SDL_Log("Pushing click\n");
+					// Trying to get this hack to work for creating new playlists too
+					// but it's not working so far
+					SDL_Log("Mouse at %d %d\n", x, y);
+					SDL_Log("Pushing click %d %d \n", (int)bounds.x+20, (int)bounds.y+15);
+					click_event.button.x = bounds.x+20;
+					click_event.button.y = bounds.y+15;
 					SDL_PushEvent(&click_event);
 				}
 
@@ -377,11 +381,17 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 								buf[0] = 0;
 								buf_len = 0;
 								g->is_new_renaming = 0;
-								// TODO "load" new playlist?
-								// or just switch to current
-								g->selected_plist = -1;
-								g->lib_selected = nk_false;
-								g->cur_selected = nk_true;
+								// "load" new playlist?
+								// by just staying on g->selected_plist
+								load_sql_playlist_id(g->playlist_ids.a[i], &g->lib_mode_list);
+								//
+								// or just switch to current..which combined
+								// with the "Enter" the user just hit will exit lib mode
+								// hmmm
+								//g->selected_plist = -1;
+								//g->lib_selected = nk_false;
+								//g->cur_selected = nk_true;
+								//g->list_view = &g->files;
 							} else {
 								buf_len = snprintf(buf, STRBUF_SZ, "Failed to add playlist");
 							}
@@ -437,6 +447,7 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 		g->selected_plist = g->playlists.size-1;
 		g->cur_selected = nk_false;
 		g->lib_selected = nk_false;
+		g->list_view = &g->lib_mode_list;
 		// we know all playlists are less than STRBUF_SZ
 		buf_len = strlen(g->playlists.a[g->playlists.size-1]);
 		memcpy(buf, g->playlists.a[g->playlists.size-1], buf_len+1);
@@ -451,6 +462,8 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 		cvec_erase_str(&g->playlists, g->selected_plist, g->selected_plist);
 		cvec_erase_i(&g->playlist_ids, g->selected_plist, g->selected_plist);
 		g->selected_plist = -1;
+		g->cur_selected = nk_true;
+		g->list_view = &g->files;
 	}
 	nk_widget_disable_end(ctx);
 }
