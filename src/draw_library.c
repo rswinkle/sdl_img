@@ -66,94 +66,6 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 			nk_label(ctx, "Playlists", NK_TEXT_LEFT);
 			draw_playlists_menu(ctx);
 
-			/*
-			for (int i=0; i<g->playlists.size; ++i) {
-				is_selected = g->selected_plist == i;
-
-				// TODO reorganize this code, allow ESC to cancel rename
-				if (g->is_new_renaming && is_selected) {
-
-					active = nk_edit_string(ctx, edit_flags, buf, &buf_len, STRBUF_SZ, nk_filter_default);
-					buf[buf_len] = 0;
-					if (active & NK_EDIT_COMMITED && buf_len) {
-						// TODO function?
-						if (cvec_contains_str(&g->playlists, buf) < 0) {
-							if (g->is_new_renaming == NEW_PLIST) {
-								if (create_playlist(buf)) {
-									SDL_Log("Created playlist %s\n", buf);
-									// we already pushed a placeholder at the end
-									//cvec_push_str(&g->playlists, buf);
-									cvec_replace_str(&g->playlists, g->playlists.size-1, buf, NULL);
-									cvec_push_i(&g->playlist_ids, get_playlist_id(buf));
-									buf[0] = 0;
-									buf_len = 0;
-								} else {
-									buf_len = snprintf(buf, STRBUF_SZ, "Failed to add playlist");
-								}
-							} else if (rename_playlist(buf, g->playlists.a[g->selected_plist])) {
-								// TODO better way to do this
-								char* tmp_str;
-								cvec_replacem_str(g->playlists, g->selected_plist, CVEC_STRDUP(buf), tmp_str);
-								//cvec_replace_str(&g->playlists, selected, buf, tmp_buf);
-								if (!strcmp(tmp_str, g->cur_playlist)) {
-									g->cur_playlist = g->playlists.a[g->selected_plist];
-								}
-								if (!strcmp(tmp_str, g->default_playlist)) {
-									free(g->default_playlist);
-									g->default_playlist = CVEC_STRDUP(g->playlists.a[g->selected_plist]);
-								}
-								free(tmp_str);
-								buf[0] = 0;
-								buf_len = 0;
-							} else {
-								buf_len = snprintf(buf, STRBUF_SZ, "Failed to rename playlist");
-							}
-						} else {
-							buf_len = snprintf(tmp_buf, STRBUF_SZ, "'%s' already exists!", buf);
-							strcpy(buf, tmp_buf);
-						}
-					}
-				} else if (nk_selectable_label(ctx, g->playlists.a[i], NK_TEXT_CENTERED, &is_selected)) {
-					if (is_selected) {
-						g->selected_plist = i;
-						g->lib_selected = nk_false;
-						g->cur_selected = nk_false;
-						g->is_new_renaming = 0;
-						cvec_clear_file(&g->lib_mode_list);
-						load_sql_playlist_id(g->playlist_ids.a[i], &g->lib_mode_list);
-						g->list_view = &g->lib_mode_list;
-					} else {
-						g->is_new_renaming = RENAMING_PLIST;
-						// we know all playlists are less than STRBUF_SZ
-						buf_len = strlen(g->playlists.a[i]);
-						memcpy(buf, g->playlists.a[i], buf_len+1);
-					}
-				}
-			}
-
-			// TODO use awesome font icons
-			nk_layout_row_dynamic(ctx, 0, 2);
-			if (nk_button_label(ctx, "+")) {
-				cvec_push_str(&g->playlists, "New Playlist");
-				g->is_new_renaming = NEW_PLIST;
-				// we know all playlists are less than STRBUF_SZ
-				buf_len = strlen(g->playlists.a[g->playlists.size-1]);
-				memcpy(buf, g->playlists.a[g->playlists.size-1], buf_len+1);
-
-			}
-			if (g->selected_plist < 0) {
-				nk_widget_disable_begin(ctx);
-			}
-			if (nk_button_label(ctx, "-")) {
-				delete_playlist(g->playlists.a[g->selected_plist]);
-				SDL_Log("Deleted playlist %s\n", g->playlists.a[g->selected_plist]);
-				cvec_erase_str(&g->playlists, g->selected_plist, g->selected_plist);
-				cvec_erase_i(&g->playlist_ids, g->selected_plist, g->selected_plist);
-				g->selected_plist = -1;
-			}
-			nk_widget_disable_end(ctx);
-			*/
-
 			nk_group_end(ctx);
 		}
 
@@ -177,8 +89,6 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 
 			nk_group_end(ctx);
 		}
-
-
 
 	}
 	nk_end(ctx);
@@ -204,28 +114,48 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 	char* name;
 	struct nk_rect bounds;
 
-	SDL_Event event = { .type = g->userevent };
-	event.user.data1 = (void*)(g->list_view != &g->files);
-
+	int sorted_state;
+	int is_current;
 	const struct nk_input* in = &ctx->input;
+	cvector_file* lv = g->list_view;
+
+	SDL_Event event = { .type = g->userevent };
+
+	if (lv != &g->files) {
+		event.user.data1 = (void*)nk_true;
+		sorted_state = g->lib_sorted_state;
+		is_current = nk_false;
+	} else {
+		// already 0
+		//event.user.data1 = (void*)nk_false;
+		sorted_state = g->sorted_state;
+		is_current = nk_true;
+	}
 
 	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
 		splitter_down = 0;
 
 	nk_layout_row(ctx, NK_DYNAMIC, 0, 5, header_ratios);
 
+	// TODO ask users which makes more sense up arrow to indicate sorting
+	// lexicographically ascending (ie alphabetically) or down arrow to
+	// indicate what clicking the button will do (ie sort descending)
 	int symbol = NK_SYMBOL_NONE;
-	if (g->lib_sorted_state == NAME_UP)
+	if (sorted_state == NAME_UP)
 		symbol = NK_SYMBOL_TRIANGLE_UP;
-	else if (g->lib_sorted_state == NAME_DOWN)
+	else if (sorted_state == NAME_DOWN)
 		symbol = NK_SYMBOL_TRIANGLE_DOWN;
 
 	// TODO name or path?
 	// TODO separate events is probably the best solution to separate
 	// sorting files from sorting list_view
-	if (nk_button_symbol_label(ctx, symbol, "Name", NK_TEXT_LEFT)) {
-		event.user.code = SORT_NAME;
-		SDL_PushEvent(&event);
+	if (!g->generating_thumbs || !is_current) {
+		if (nk_button_symbol_label(ctx, symbol, "Name", NK_TEXT_LEFT)) {
+			event.user.code = SORT_NAME;
+			SDL_PushEvent(&event);
+		}
+	} else {
+		nk_label(ctx, "Name", NK_TEXT_CENTERED);
 	}
 
 	bounds = nk_widget_bounds(ctx);
@@ -251,14 +181,18 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 	// I hate redundant logic but the alternative is repeated gui code
 	// TODO think of a better way
 	symbol = NK_SYMBOL_NONE; // 0
-	if (g->sorted_state == SIZE_UP)
+	if (sorted_state == SIZE_UP)
 		symbol = NK_SYMBOL_TRIANGLE_UP;
-	else if (g->sorted_state == SIZE_DOWN)
+	else if (sorted_state == SIZE_DOWN)
 		symbol = NK_SYMBOL_TRIANGLE_DOWN;
 
-	if (nk_button_symbol_label(ctx, symbol, "Size", NK_TEXT_LEFT)) {
-		event.user.code = SORT_SIZE;
-		SDL_PushEvent(&event);
+	if (!g->generating_thumbs || !is_current) {
+		if (nk_button_symbol_label(ctx, symbol, "Size", NK_TEXT_LEFT)) {
+			event.user.code = SORT_SIZE;
+			SDL_PushEvent(&event);
+		}
+	} else {
+		nk_label(ctx, "Size", NK_TEXT_CENTERED);
 	}
 
 	bounds = nk_widget_bounds(ctx);
@@ -281,19 +215,22 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 	}
 
 	symbol = NK_SYMBOL_NONE; // 0
-	if (g->sorted_state == MODIFIED_UP)
+	if (sorted_state == MODIFIED_UP)
 		symbol = NK_SYMBOL_TRIANGLE_UP;
-	else if (g->sorted_state == MODIFIED_DOWN)
+	else if (sorted_state == MODIFIED_DOWN)
 		symbol = NK_SYMBOL_TRIANGLE_DOWN;
 
-	if (nk_button_symbol_label(ctx, symbol, "Modified", NK_TEXT_LEFT)) {
-		event.user.code = SORT_MODIFIED;
-		SDL_PushEvent(&event);
+	if (!g->generating_thumbs || !is_current) {
+		if (nk_button_symbol_label(ctx, symbol, "Modified", NK_TEXT_LEFT)) {
+			event.user.code = SORT_MODIFIED;
+			SDL_PushEvent(&event);
+		}
+	} else {
+		nk_label(ctx, "Modified", NK_TEXT_CENTERED);
 	}
 
 	
 	float ratios[] = { header_ratios[0]+0.01f, header_ratios[2], header_ratios[4]+0.01f };
-	cvector_file* lv = g->list_view;
 
 	//struct nk_vec2 win_spacing = ctx->style.window.spacing;
 	//nk_layout_row_dynamic(ctx, scr_h-2*search_height-8, 1);

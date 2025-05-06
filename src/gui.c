@@ -1151,26 +1151,6 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 			enum nk_collapse_states state;
 			float ratios[] = { 0.7f, 0.3f, 0.8f, 0.2f };
 
-			/*
-			// moved to prefs
-			nk_layout_row_dynamic(ctx, 0, 3);
-			nk_label(ctx, "GUI:", NK_TEXT_LEFT);
-			if (nk_menu_item_label(ctx, "-", NK_TEXT_CENTERED)) {
-				g->x_scale -= 0.5;
-				g->y_scale -= 0.5;
-				if (g->x_scale < 0.5) {
-					g->x_scale = 0.5;
-					g->y_scale = 0.5;
-				}
-				nk_sdl_scale(g->x_scale, g->y_scale);
-			}
-			if (nk_menu_item_label(ctx, "+", NK_TEXT_CENTERED)) {
-				g->x_scale += 0.5;
-				g->y_scale += 0.5;
-				nk_sdl_scale(g->x_scale, g->y_scale);
-			}
-			*/
-
 			nk_layout_row_dynamic(ctx, 0, 1);
 
 			if (nk_menu_item_label(ctx, "Preferences", NK_TEXT_LEFT)) {
@@ -1428,17 +1408,11 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 					nk_label(ctx, "CTRL+I", NK_TEXT_RIGHT);
 				}
 
-				// TODO make it possible
-				if (!g->generating_thumbs) {
-					if (nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT)) {
-						event.user.code = THUMB_MODE;
-						SDL_PushEvent(&event);
-					}
-					nk_label(ctx, "CTRL+U", NK_TEXT_RIGHT);
-				} else {
-					nk_layout_row_dynamic(ctx, 0, 1);
-					nk_label(ctx, "Generating thumbs...", NK_TEXT_LEFT);
+				if (nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT)) {
+					event.user.code = THUMB_MODE;
+					SDL_PushEvent(&event);
 				}
+				nk_label(ctx, "CTRL+U", NK_TEXT_RIGHT);
 
 				nk_tree_pop(ctx);
 			} else g->menu_state = (g->menu_state == MENU_VIEW) ? MENU_NONE: g->menu_state;

@@ -741,8 +741,8 @@ void do_listmode(void)
 	
 	// TODO different function for general library so we don't care?  Or just goto
 	// viewing the Library or disable sorting if generating?
-	if (g->n_imgs != 1 || g->generating_thumbs || g->loading_thumbs) {
-		SDL_Log("Can't go to listmode from multi-image modes or while generating/loading thumbs");
+	if (g->n_imgs != 1) {
+		SDL_Log("Can't go to listmode from multi-image modes");
 		return;
 	}
 
