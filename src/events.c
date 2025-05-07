@@ -836,23 +836,27 @@ int handle_list_events()
 					g->is_new_renaming = 0;
 					g->selected_plist = -1;
 				} else if (g->state & SEARCH_RESULTS) {
-					// if nothing was selected among search results set back
-					// to current image
-					if (g->selection < 0) {
-						// TODO what if current image was still set to overall list index?
-						g->selection = g->img[0].index;
+					if (g->list_view == &g->files) {
+						// if nothing was selected among search results set back
+						// to current image
+						if (g->selection < 0) {
+							// TODO what if current image was still set to overall list index?
+							g->selection = g->img[0].index;
+						} else {
+							// convert selection
+							g->selection = g->search_results.a[g->selection];
+						}
+
+						// if they went to view results image index is no longer files index
+						// and need to convert back
+						if (g->img[0].fullpath != g->files.a[g->img[0].index].path) {
+							g->img[0].index = g->search_results.a[g->img[0].index];
+						}
+
+						g->list_setscroll = SDL_TRUE;
 					} else {
-						// convert selection
-						g->selection = g->search_results.a[g->selection];
+						g->selection = -1;
 					}
-
-					// if they went to view results image index is no longer files index
-					// and need to convert back
-					if (g->img[0].fullpath != g->files.a[g->img[0].index].path) {
-						g->img[0].index = g->search_results.a[g->img[0].index];
-					}
-
-					g->list_setscroll = SDL_TRUE;
 					g->state = LIST_DFLT;
 
 					// redundant since we clear before doing the search atm
@@ -1940,10 +1944,11 @@ int handle_events()
 		return 0;
 	}
 
+	if (IS_POPUP_ACTIVE()) {
+		return handle_popup_events();
+	}
+
 	if (g->state & NORMAL) {
-		if (IS_POPUP_ACTIVE()) {
-			return handle_popup_events();
-		}
 		return handle_events_normally();
 	}
 

@@ -38,6 +38,9 @@ void draw_thumb_infobar(struct nk_context* ctx, int scr_w, int scr_h);
 int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h);
 void draw_scanning(struct nk_context* ctx, int scr_w, int scr_h);
 
+void draw_menu(struct nk_context* ctx);
+void search_filenames(int is_vimmode);
+
 #include "draw_library.c"
 
 
@@ -118,7 +121,14 @@ void search_filenames(int is_vimmode)
 {
 	// fast enough to do here?  I do it in events?
 	text_buf[text_len] = 0;
-	char* text = text_buf + ((is_vimmode) ? 1 : 0);
+	char* text = text_buf;
+	cvector_file* list = g->list_view;
+
+	if (is_vimmode) {
+		text++; // skip '/' in thumb/vimmode
+		list = &g->files;
+	}
+
 
 	SDL_Log("Final text = \"%s\"\n", text);
 
@@ -137,10 +147,11 @@ void search_filenames(int is_vimmode)
 	// search results, so consecutive searches are && together...
 	g->search_results.size = 0;
 
+
 	int j;
 	char* name;
-	for (int i=0; i<g->files.size; ++i) {
-		name = g->files.a[i].name;
+	for (int i=0; i<list->size; ++i) {
+		name = list->a[i].name;
 		if (!name) {
 			continue;
 		}
@@ -152,7 +163,7 @@ void search_filenames(int is_vimmode)
 
 		// searching name since I'm showing names not paths in the list
 		if (strstr(lowername, lowertext)) {
-			SDL_Log("Adding %s\n", g->files.a[i].path);
+			SDL_Log("Adding %s\n", list->a[i].path);
 			cvec_push_i(&g->search_results, i);
 		}
 	}
@@ -1109,9 +1120,6 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 {
 	SDL_Event event = { .type = g->userevent };
 
-	char buf[STRBUF_SZ];
-	snprintf(buf, STRBUF_SZ, "Active: %s", g->cur_playlist);
-
 	// TODO why +2?
 	if (nk_begin(ctx, "Controls", nk_rect(0, 0, win_w, win_h), NK_WINDOW_NO_SCROLLBAR))
 	{
@@ -1143,282 +1151,7 @@ void draw_controls(struct nk_context* ctx, int win_w, int win_h)
 		*/
 		nk_layout_row_template_end(ctx);
 
-		if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(g->gui_menu_win_w, GUI_MENU_WIN_H))) {
-			// also don't let GUI disappear when the menu is active
-			g->show_gui = SDL_TRUE;
-			g->gui_timer = SDL_GetTicks();
-
-			enum nk_collapse_states state;
-			float ratios[] = { 0.7f, 0.3f, 0.8f, 0.2f };
-
-			nk_layout_row_dynamic(ctx, 0, 1);
-
-			if (nk_menu_item_label(ctx, "Preferences", NK_TEXT_LEFT)) {
-				g->state |= PREFS;
-			}
-			if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
-				g->state |= ABOUT;
-			}
-			if (nk_menu_item_label(ctx, "Exit", NK_TEXT_LEFT)) {
-				event.type = SDL_QUIT;
-				SDL_PushEvent(&event);
-			}
-
-			state = (g->menu_state == MENU_MISC) ? NK_MAXIMIZED : NK_MINIMIZED;
-			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Misc. Actions", &state)) {
-				g->menu_state = MENU_MISC;
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
-
-				// Only support opening new files when in 1 image NORMAL/viewing mode
-				if (g->n_imgs == 1 && (g->state & NORMAL)) {
-					if (nk_menu_item_label(ctx, "Open New", NK_TEXT_LEFT)) {
-						event.user.code = OPEN_FILE_NEW;
-						SDL_PushEvent(&event);
-					}
-					nk_label(ctx, "O", NK_TEXT_RIGHT);
-
-					// but only support opening additional when in exactly NORMAL mode
-					// ie no VIEW_RESULTS (for now, would have to re-run the search and
-					// update image indices)
-					if (g->state == NORMAL) {
-						// TODO naming
-						if (nk_menu_item_label(ctx, "Open More", NK_TEXT_LEFT)) {
-							event.user.code = OPEN_FILE_MORE;
-							SDL_PushEvent(&event);
-						}
-						nk_label(ctx, "CTRL+O", NK_TEXT_RIGHT);
-					}
-				}
-
-				if (nk_selectable_label(ctx, "Slideshow", NK_TEXT_LEFT, &g->slideshow)) {
-					if (g->slideshow)
-						g->slideshow = g->slide_delay*1000;
-				}
-				nk_label(ctx, "F1 - F10/ESC", NK_TEXT_RIGHT);
-
-				// TODO figure out why menu_item_labels are slightly wider (on both sides)
-				// than selectables
-				if (nk_selectable_label(ctx, "Fullscreen", NK_TEXT_LEFT, &g->fullscreen)) {
-					set_fullscreen();
-				}
-				nk_label(ctx, "CTRL+F/F11", NK_TEXT_RIGHT);
-
-				if (nk_selectable_label(ctx, "Best fit", NK_TEXT_LEFT, &g->fill_mode)) {
-					if (!g->img_focus) {
-						for (int i=0; i<g->n_imgs; ++i)
-							set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);
-					} else {
-						set_rect_bestfit(g->img_focus, g->fullscreen | g->slideshow | g->fill_mode);
-					}
-				}
-				nk_label(ctx, "F", NK_TEXT_RIGHT);
-
-				if (nk_menu_item_label(ctx, "Actual Size", NK_TEXT_LEFT)) {
-					event.user.code = ACTUAL_SIZE;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "A", NK_TEXT_RIGHT);
-
-				if (g->bad_path_state == HAS_BAD) {
-					// TODO "Clean List"?
-					if (nk_menu_item_label(ctx, "Remove Bad Paths", NK_TEXT_LEFT)) {
-						event.user.code = REMOVE_BAD;
-						SDL_PushEvent(&event);
-					}
-					nk_label(ctx, "C", NK_TEXT_RIGHT);
-				}
-
-				nk_tree_pop(ctx);
-			} else g->menu_state = (g->menu_state == MENU_MISC) ? MENU_NONE : g->menu_state;
-
-			state = (g->menu_state == MENU_PLAYLIST) ? NK_MAXIMIZED : NK_MINIMIZED;
-			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Playlist Actions", &state)) {
-				g->menu_state = MENU_PLAYLIST;
-
-				nk_layout_row_dynamic(ctx, 0, 1);
-				nk_label(ctx, buf, NK_TEXT_LEFT);
-
-				if (nk_menu_item_label(ctx, "Manager", NK_TEXT_LEFT)) {
-					g->state |= PLAYLIST_MANAGER;
-					//event.user.code = OPEN_PLAYLIST_MANAGER;
-					//SDL_PushEvent(&event);
-				}
-
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
-				if (nk_menu_item_label(ctx, "Save", NK_TEXT_LEFT)) {
-					event.user.code = SAVE_IMG;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "S", NK_TEXT_RIGHT);
-
-				if (nk_menu_item_label(ctx, "Unsave", NK_TEXT_LEFT)) {
-					event.user.code = UNSAVE_IMG;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "CTRL+S", NK_TEXT_RIGHT);
-
-				// show save all only if not loading generating thumbs etc.
-				if (g->bad_path_state == CLEAN) {
-					if (nk_menu_item_label(ctx, "Save All", NK_TEXT_LEFT)) {
-						event.user.code = SAVE_ALL;
-						SDL_PushEvent(&event);
-					}
-					nk_label(ctx, "CTRL+SHIFT+S", NK_TEXT_RIGHT);
-				}
-
-				nk_tree_pop(ctx);
-			} else g->menu_state = (g->menu_state == MENU_PLAYLIST) ? MENU_NONE : g->menu_state;
-
-			state = (g->menu_state == MENU_SORT) ? NK_MAXIMIZED : NK_MINIMIZED;
-			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Sort Actions", &state)) {
-				g->menu_state = MENU_SORT;
-
-				if (g->n_imgs == 1 && !g->generating_thumbs && g->state & NORMAL) {
-					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
-					if (nk_menu_item_label(ctx, "Mix images", NK_TEXT_LEFT)) {
-						event.user.code = SHUFFLE;
-						SDL_PushEvent(&event);
-					}
-					nk_label(ctx, "M", NK_TEXT_RIGHT);
-
-					// TODO I don't think it's worth it supporting showing state and reverse sorting in normal mode
-					//if (nk_menu_item_symbol_label(ctx, NK_SYMBOL_TRIANGLE_UP, "Sort by file name (default)", NK_TEXT_RIGHT)) {
-					if (nk_menu_item_label(ctx, "Sort by file name (default)", NK_TEXT_LEFT)) {
-						event.user.code = SORT_NAME;
-						SDL_PushEvent(&event);
-					}
-					nk_label(ctx, "N", NK_TEXT_RIGHT);
-
-					if (nk_menu_item_label(ctx, "Sort by file path", NK_TEXT_LEFT)) {
-						event.user.code = SORT_PATH;
-						SDL_PushEvent(&event);
-					}
-					nk_label(ctx, "CTRL+N", NK_TEXT_RIGHT);
-
-					if (nk_menu_item_label(ctx, "Sort by size", NK_TEXT_LEFT)) {
-						event.user.code = SORT_SIZE;
-						SDL_PushEvent(&event);
-					}
-					nk_label(ctx, "Z", NK_TEXT_RIGHT);   // S is save...
-
-					if (nk_menu_item_label(ctx, "Sort by last modified", NK_TEXT_LEFT)) {
-						event.user.code = SORT_MODIFIED;
-						SDL_PushEvent(&event);
-					}
-					nk_label(ctx, "T", NK_TEXT_RIGHT);
-				} else {
-					nk_layout_row_dynamic(ctx, 0, 1);
-					nk_label(ctx, "Only available in 1 image mode", NK_TEXT_LEFT);
-					nk_label(ctx, "while not generating thumbs", NK_TEXT_LEFT);
-				}
-
-				nk_tree_pop(ctx);
-			} else g->menu_state = (g->menu_state == MENU_SORT) ? MENU_NONE : g->menu_state;
-
-			state = (g->menu_state == MENU_EDIT) ? NK_MAXIMIZED: NK_MINIMIZED;
-			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Image Actions", &state)) {
-				g->menu_state = MENU_EDIT;
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
-
-				if (nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_LEFT)) {
-					event.user.code = ROT_LEFT;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "L", NK_TEXT_RIGHT);
-
-				if (nk_menu_item_label(ctx, "Rotate Right", NK_TEXT_LEFT)) {
-					event.user.code = ROT_RIGHT;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "R", NK_TEXT_RIGHT);
-
-				if (nk_menu_item_label(ctx, "Flip Horizontal", NK_TEXT_LEFT)) {
-					event.user.code = FLIP_H;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "H", NK_TEXT_RIGHT);
-
-				if (nk_menu_item_label(ctx, "Flip Vertical", NK_TEXT_LEFT)) {
-					event.user.code = FLIP_V;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "V", NK_TEXT_RIGHT);
-
-				if (g->n_imgs == 1) {
-					if (nk_menu_item_label(ctx, "Remove", NK_TEXT_LEFT)) {
-						event.user.code = REMOVE_IMG;
-						SDL_PushEvent(&event);
-					}
-					nk_label(ctx, "BKSP", NK_TEXT_RIGHT);
-
-
-					if (nk_menu_item_label(ctx, "Delete", NK_TEXT_LEFT)) {
-						event.user.code = DELETE_IMG;
-						SDL_PushEvent(&event);
-					}
-					nk_label(ctx, "DEL", NK_TEXT_RIGHT);
-				}
-
-				nk_tree_pop(ctx);
-			} else g->menu_state = (g->menu_state == MENU_EDIT) ? MENU_NONE: g->menu_state;
-
-
-			state = (g->menu_state == MENU_VIEW) ? NK_MAXIMIZED: NK_MINIMIZED;
-			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Viewing Mode", &state)) {
-				g->menu_state = MENU_VIEW;
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
-
-				if (nk_menu_item_label(ctx, "1 image", NK_TEXT_LEFT)) {
-					event.user.code = MODE_CHANGE;
-					event.user.data1 = (void*)MODE1;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "CTRL+1", NK_TEXT_RIGHT);
-
-				if (nk_menu_item_label(ctx, "2 images", NK_TEXT_LEFT)) {
-					event.user.code = MODE_CHANGE;
-					event.user.data1 = (void*)MODE2;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "CTRL+2", NK_TEXT_RIGHT);
-
-				if (nk_menu_item_label(ctx, "4 images", NK_TEXT_LEFT)) {
-					event.user.code = MODE_CHANGE;
-					event.user.data1 = (void*)MODE4;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "CTRL+4", NK_TEXT_RIGHT);
-
-				if (nk_menu_item_label(ctx, "8 images", NK_TEXT_LEFT)) {
-					event.user.code = MODE_CHANGE;
-					event.user.data1 = (void*)MODE8;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "CTRL+8", NK_TEXT_RIGHT);
-
-				// Actually we currenly don't support sorting when g->n_imgs != 1 or generating
-				// thumbs and list mode kind of depends on sorting working so...
-				//
-				// TODO could force change to 1 mode at least when switching? in do_listmode?
-				if (g->n_imgs == 1 && !g->generating_thumbs && !g->loading_thumbs) {
-					if (nk_menu_item_label(ctx, "List Mode", NK_TEXT_LEFT)) {
-						event.user.code = LIST_MODE;
-						SDL_PushEvent(&event);
-					}
-					nk_label(ctx, "CTRL+I", NK_TEXT_RIGHT);
-				}
-
-				if (nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT)) {
-					event.user.code = THUMB_MODE;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "CTRL+U", NK_TEXT_RIGHT);
-
-				nk_tree_pop(ctx);
-			} else g->menu_state = (g->menu_state == MENU_VIEW) ? MENU_NONE: g->menu_state;
-
-			nk_menu_end(ctx);
-		}
+		draw_menu(ctx);
 
 		static int lbutton_pressed_time = 0;
 		static int rbutton_pressed_time = 0;
@@ -2519,6 +2252,293 @@ void draw_playlist_popup(struct nk_context* ctx, int scr_w, int scr_h, int idx)
 		}
 	}
 	nk_end(ctx);
+}
+
+void draw_menu(struct nk_context* ctx)
+{
+	SDL_Event event = { .type = g->userevent };
+	char buf[STRBUF_SZ];
+	snprintf(buf, STRBUF_SZ, "Active: %s", g->cur_playlist);
+
+	if (nk_menu_begin_label(ctx, "Menu", NK_TEXT_LEFT, nk_vec2(g->gui_menu_win_w, GUI_MENU_WIN_H))) {
+		// also don't let GUI disappear when the menu is active
+		g->show_gui = SDL_TRUE;
+		g->gui_timer = SDL_GetTicks();
+
+		enum nk_collapse_states state;
+		float ratios[] = { 0.7f, 0.3f, 0.8f, 0.2f };
+
+		nk_layout_row_dynamic(ctx, 0, 1);
+
+		if (nk_menu_item_label(ctx, "Preferences", NK_TEXT_LEFT)) {
+			g->state |= PREFS;
+		}
+		if (nk_menu_item_label(ctx, "About", NK_TEXT_LEFT)) {
+			g->state |= ABOUT;
+		}
+		if (nk_menu_item_label(ctx, "Exit", NK_TEXT_LEFT)) {
+			event.type = SDL_QUIT;
+			SDL_PushEvent(&event);
+		}
+
+		state = (g->menu_state == MENU_MISC) ? NK_MAXIMIZED : NK_MINIMIZED;
+		if (nk_tree_state_push(ctx, NK_TREE_TAB, "Misc. Actions", &state)) {
+			g->menu_state = MENU_MISC;
+			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+
+			// Only support opening new files when in 1 image NORMAL/viewing mode
+			if (g->n_imgs == 1 && (g->state & NORMAL)) {
+				if (nk_menu_item_label(ctx, "Open New", NK_TEXT_LEFT)) {
+					event.user.code = OPEN_FILE_NEW;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "O", NK_TEXT_RIGHT);
+
+				// but only support opening additional when in exactly NORMAL mode
+				// ie no VIEW_RESULTS (for now, would have to re-run the search and
+				// update image indices)
+				if (g->state == NORMAL) {
+					// TODO naming
+					if (nk_menu_item_label(ctx, "Open More", NK_TEXT_LEFT)) {
+						event.user.code = OPEN_FILE_MORE;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "CTRL+O", NK_TEXT_RIGHT);
+				}
+			}
+
+			if (nk_selectable_label(ctx, "Slideshow", NK_TEXT_LEFT, &g->slideshow)) {
+				if (g->slideshow)
+					g->slideshow = g->slide_delay*1000;
+			}
+			nk_label(ctx, "F1 - F10/ESC", NK_TEXT_RIGHT);
+
+			// TODO figure out why menu_item_labels are slightly wider (on both sides)
+			// than selectables
+			if (nk_selectable_label(ctx, "Fullscreen", NK_TEXT_LEFT, &g->fullscreen)) {
+				set_fullscreen();
+			}
+			nk_label(ctx, "CTRL+F/F11", NK_TEXT_RIGHT);
+
+			if (nk_selectable_label(ctx, "Best fit", NK_TEXT_LEFT, &g->fill_mode)) {
+				if (!g->img_focus) {
+					for (int i=0; i<g->n_imgs; ++i)
+						set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);
+				} else {
+					set_rect_bestfit(g->img_focus, g->fullscreen | g->slideshow | g->fill_mode);
+				}
+			}
+			nk_label(ctx, "F", NK_TEXT_RIGHT);
+
+			if (nk_menu_item_label(ctx, "Actual Size", NK_TEXT_LEFT)) {
+				event.user.code = ACTUAL_SIZE;
+				SDL_PushEvent(&event);
+			}
+			nk_label(ctx, "A", NK_TEXT_RIGHT);
+
+			if (g->bad_path_state == HAS_BAD) {
+				// TODO "Clean List"?
+				if (nk_menu_item_label(ctx, "Remove Bad Paths", NK_TEXT_LEFT)) {
+					event.user.code = REMOVE_BAD;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "C", NK_TEXT_RIGHT);
+			}
+
+			nk_tree_pop(ctx);
+		} else g->menu_state = (g->menu_state == MENU_MISC) ? MENU_NONE : g->menu_state;
+
+		/*
+		state = (g->menu_state == MENU_PLAYLIST) ? NK_MAXIMIZED : NK_MINIMIZED;
+		if (nk_tree_state_push(ctx, NK_TREE_TAB, "Playlist Actions", &state)) {
+			g->menu_state = MENU_PLAYLIST;
+
+			nk_layout_row_dynamic(ctx, 0, 1);
+			nk_label(ctx, buf, NK_TEXT_LEFT);
+
+			if (nk_menu_item_label(ctx, "Manager", NK_TEXT_LEFT)) {
+				g->state |= PLAYLIST_MANAGER;
+				//event.user.code = OPEN_PLAYLIST_MANAGER;
+				//SDL_PushEvent(&event);
+			}
+
+			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
+			if (nk_menu_item_label(ctx, "Save", NK_TEXT_LEFT)) {
+				event.user.code = SAVE_IMG;
+				SDL_PushEvent(&event);
+			}
+			nk_label(ctx, "S", NK_TEXT_RIGHT);
+
+			if (nk_menu_item_label(ctx, "Unsave", NK_TEXT_LEFT)) {
+				event.user.code = UNSAVE_IMG;
+				SDL_PushEvent(&event);
+			}
+			nk_label(ctx, "CTRL+S", NK_TEXT_RIGHT);
+
+			// show save all only if not loading generating thumbs etc.
+			if (g->bad_path_state == CLEAN) {
+				if (nk_menu_item_label(ctx, "Save All", NK_TEXT_LEFT)) {
+					event.user.code = SAVE_ALL;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "CTRL+SHIFT+S", NK_TEXT_RIGHT);
+			}
+
+			nk_tree_pop(ctx);
+		} else g->menu_state = (g->menu_state == MENU_PLAYLIST) ? MENU_NONE : g->menu_state;
+		*/
+
+		if (g->state & NORMAL) {
+			state = (g->menu_state == MENU_SORT) ? NK_MAXIMIZED : NK_MINIMIZED;
+			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Sort Actions", &state)) {
+				g->menu_state = MENU_SORT;
+
+				if (g->n_imgs == 1 && !g->generating_thumbs && g->state & NORMAL) {
+					nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
+					if (nk_menu_item_label(ctx, "Mix images", NK_TEXT_LEFT)) {
+						event.user.code = SHUFFLE;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "M", NK_TEXT_RIGHT);
+
+					// TODO I don't think it's worth it supporting showing state and reverse sorting in normal mode
+					//if (nk_menu_item_symbol_label(ctx, NK_SYMBOL_TRIANGLE_UP, "Sort by file name (default)", NK_TEXT_RIGHT)) {
+					if (nk_menu_item_label(ctx, "Sort by file name (default)", NK_TEXT_LEFT)) {
+						event.user.code = SORT_NAME;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "N", NK_TEXT_RIGHT);
+
+					if (nk_menu_item_label(ctx, "Sort by file path", NK_TEXT_LEFT)) {
+						event.user.code = SORT_PATH;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "CTRL+N", NK_TEXT_RIGHT);
+
+					if (nk_menu_item_label(ctx, "Sort by size", NK_TEXT_LEFT)) {
+						event.user.code = SORT_SIZE;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "Z", NK_TEXT_RIGHT);   // S is save...
+
+					if (nk_menu_item_label(ctx, "Sort by last modified", NK_TEXT_LEFT)) {
+						event.user.code = SORT_MODIFIED;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "T", NK_TEXT_RIGHT);
+				} else {
+					nk_layout_row_dynamic(ctx, 0, 1);
+					nk_label(ctx, "Only available in 1 image mode", NK_TEXT_LEFT);
+					nk_label(ctx, "while not generating thumbs", NK_TEXT_LEFT);
+				}
+
+				nk_tree_pop(ctx);
+			} else g->menu_state = (g->menu_state == MENU_SORT) ? MENU_NONE : g->menu_state;
+
+			state = (g->menu_state == MENU_EDIT) ? NK_MAXIMIZED: NK_MINIMIZED;
+			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Image Actions", &state)) {
+				g->menu_state = MENU_EDIT;
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
+
+				if (nk_menu_item_label(ctx, "Rotate Left", NK_TEXT_LEFT)) {
+					event.user.code = ROT_LEFT;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "L", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "Rotate Right", NK_TEXT_LEFT)) {
+					event.user.code = ROT_RIGHT;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "R", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "Flip Horizontal", NK_TEXT_LEFT)) {
+					event.user.code = FLIP_H;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "H", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "Flip Vertical", NK_TEXT_LEFT)) {
+					event.user.code = FLIP_V;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "V", NK_TEXT_RIGHT);
+
+				if (g->n_imgs == 1) {
+					if (nk_menu_item_label(ctx, "Remove", NK_TEXT_LEFT)) {
+						event.user.code = REMOVE_IMG;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "BKSP", NK_TEXT_RIGHT);
+
+
+					if (nk_menu_item_label(ctx, "Delete", NK_TEXT_LEFT)) {
+						event.user.code = DELETE_IMG;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "DEL", NK_TEXT_RIGHT);
+				}
+
+				nk_tree_pop(ctx);
+			} else g->menu_state = (g->menu_state == MENU_EDIT) ? MENU_NONE: g->menu_state;
+
+			state = (g->menu_state == MENU_VIEW) ? NK_MAXIMIZED: NK_MINIMIZED;
+			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Viewing Mode", &state)) {
+				g->menu_state = MENU_VIEW;
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
+
+				if (nk_menu_item_label(ctx, "1 image", NK_TEXT_LEFT)) {
+					event.user.code = MODE_CHANGE;
+					event.user.data1 = (void*)MODE1;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "CTRL+1", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "2 images", NK_TEXT_LEFT)) {
+					event.user.code = MODE_CHANGE;
+					event.user.data1 = (void*)MODE2;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "CTRL+2", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "4 images", NK_TEXT_LEFT)) {
+					event.user.code = MODE_CHANGE;
+					event.user.data1 = (void*)MODE4;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "CTRL+4", NK_TEXT_RIGHT);
+
+				if (nk_menu_item_label(ctx, "8 images", NK_TEXT_LEFT)) {
+					event.user.code = MODE_CHANGE;
+					event.user.data1 = (void*)MODE8;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "CTRL+8", NK_TEXT_RIGHT);
+
+				// Actually we currenly don't support sorting when g->n_imgs != 1 or generating
+				// thumbs and list mode kind of depends on sorting working so...
+				//
+				// TODO could force change to 1 mode at least when switching? in do_listmode?
+				if (g->n_imgs == 1) {
+					if (nk_menu_item_label(ctx, "Library Mode", NK_TEXT_LEFT)) {
+						event.user.code = LIST_MODE;
+						SDL_PushEvent(&event);
+					}
+					nk_label(ctx, "CTRL+I", NK_TEXT_RIGHT);
+				}
+
+				if (nk_menu_item_label(ctx, "Thumb Mode", NK_TEXT_LEFT)) {
+					event.user.code = THUMB_MODE;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "CTRL+U", NK_TEXT_RIGHT);
+
+				nk_tree_pop(ctx);
+			} else g->menu_state = (g->menu_state == MENU_VIEW) ? MENU_NONE: g->menu_state;
+		}
+
+		nk_menu_end(ctx);
+	}
 }
 
 

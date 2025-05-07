@@ -4,10 +4,21 @@ enum { RENAMING_PLIST = 1, NEW_PLIST };
 
 void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h);
+void clear_search(void)
+{
+	g->state = LIST_DFLT;
+
+	// use no selection to ignore the "Enter" in events so we don't exit
+	// list mode.  Could add state to handle keeping the selection but meh
+	g->selection = -1;  // no selection among search
+	g->list_search_active = SDL_FALSE;
+	text_buf[0] = 0;
+	text_len = 0;
+}
+
 
 void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 {
-	int edit_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
 	SDL_Event event = { .type = g->userevent };
 	int horizontal_rule_ht = 2;
 
@@ -35,7 +46,13 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 
 	if (nk_begin(ctx, "Library", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
 
+		// TODO -4? or 8?
+		//int top_ws[2] = { g->gui_menu_w, scr_w - g->gui_menu_w-8 };
+		//nk_layout_row(ctx, NK_STATIC, 0, 2, top_ws);
 
+		// TODO what to put in space to the right?
+		nk_layout_row_static(ctx, 0, g->gui_menu_w, 1);
+		draw_menu(ctx);
 
 		// TODO subtract some height for info bar? or only
 		// separately/internally to the groups?
@@ -58,6 +75,7 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 					// could also interpret this as go to normal mode
 					// or open new for anything other than current
 				}
+				clear_search();
 			}
 
 			// Could just have the Library be a regular playlist with everything in it...
@@ -71,8 +89,9 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 				} else {
 					// allow renaming?
 					// keep selected
-					g->cur_selected = nk_true;
+					g->lib_selected = nk_true;
 				}
+				clear_search();
 			}
 
 			nk_label(ctx, "Playlists:", NK_TEXT_LEFT);
@@ -94,21 +113,11 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 
 		if (nk_group_begin(ctx, "Library Main", NK_WINDOW_NO_SCROLLBAR)) {
 
-			/*
-			if (show_search) {
-				nk_layout_row_dynamic(ctx, 0, 1);
-				active = nk_edit_string(ctx, search_flags, text_buf, &text_len, STRBUF_SZ, nk_filter_default);
 
-				// TODO rethink search when you can search lists that aren't actually
-				// open...
-			}
-			*/
+			nk_layout_row_dynamic(ctx, 0, 1);
 
 			//draw_file_list(ctx, scr_w, scr_h);
 			draw_file_list(ctx, group_szs[1], scr_h);
-
-
-
 
 			nk_group_end(ctx);
 		}
@@ -121,6 +130,7 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 
 void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 {
+	int search_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
 	static const char invalid_img[] = "Could Not Load";
 	static struct nk_list_view lview, rview;
 	static float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
@@ -140,6 +150,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 
 	int sorted_state;
 	int is_current;
+
 	const struct nk_input* in = &ctx->input;
 	cvector_file* lv = g->list_view;
 
@@ -158,6 +169,24 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 
 	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
 		splitter_down = 0;
+
+	// If I guard this, don't always show it it might be better
+	int active = nk_edit_string(ctx, search_flags, text_buf, &text_len, STRBUF_SZ, nk_filter_default);
+	if (active & NK_EDIT_COMMITED && text_len) {
+
+		search_filenames(SDL_FALSE);
+		memset(&rview, 0, sizeof(rview));
+		g->state |= SEARCH_RESULTS;
+
+		// use no selection to ignore the "Enter" in events so we don't exit
+		// list mode.  Could add state to handle keeping the selection but meh
+		g->selection = -1;  // no selection among search
+		g->list_search_active = SDL_FALSE;
+		// do I need this?
+		nk_edit_unfocus(ctx);
+	}
+	g->list_search_active = active & NK_EDIT_ACTIVE;
+
 
 	nk_layout_row(ctx, NK_DYNAMIC, 0, 5, header_ratios);
 
@@ -275,6 +304,54 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 			}
 		} else {
 			// nk_list_view_begin
+			if (nk_list_view_begin(ctx, &rview, "Result List", NK_WINDOW_BORDER, g->font_size+16, g->search_results.size)) {
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 3, ratios);
+				int i;
+				for (int j=rview.begin; j<rview.end; ++j) {
+					i = g->search_results.a[j];
+					// TODO Do I really need g->selection?  Can I use g->img[0].index (till I get multiple selection)
+					// also thumb_sel serves the same/similar purpose
+					is_selected = g->selection == j;
+					name = lv->a[i].name;
+					if (!name) name = (char*)invalid_img;
+					if (nk_selectable_label(ctx, name, NK_TEXT_LEFT, &is_selected)) {
+						if (is_selected) {
+							g->selection = j;
+						} else {
+							// could support unselecting, esp. with CTRL somehow if I ever allow
+							// multiple selection
+							// g->selection = -1;
+
+							// for now, treat clicking a selection as a "double click" ie same as return
+							//int tmp = g->search_results.a[g->selection];
+							//g->selection = (tmp) ? tmp - 1 : lv->size-1;
+							if (is_current) {
+								g->selection = (g->selection) ? g->selection - 1 : g->search_results.size-1;
+
+								g->state |= NORMAL;
+								SDL_ShowCursor(SDL_ENABLE);
+								g->gui_timer = SDL_GetTicks();
+								g->show_gui = SDL_TRUE;
+								g->status = REDRAW;
+								try_move(SELECTION);
+							}
+						}
+					}
+					nk_label(ctx, lv->a[i].size_str, NK_TEXT_RIGHT);
+					nk_label(ctx, lv->a[i].mod_str, NK_TEXT_RIGHT);
+				}
+				list_height = ctx->current->layout->clip.h; // ->bounds.h?
+				full_rows = list_height / row_height;
+				nk_list_view_end(&rview);
+			}
+			if (g->list_setscroll) {
+				if (g->selection < rview.begin) {
+					nk_group_set_scroll(ctx, "Result List", 0, g->selection*row_height);
+				} else if (g->selection >= rview.begin + full_rows) {
+					nk_group_set_scroll(ctx, "Result List", 0, (g->selection-full_rows+1)*row_height);
+				}
+				g->list_setscroll = FALSE;
+			}
 		}
 	} else {
 		if (nk_list_view_begin(ctx, &lview, "Image List", NK_WINDOW_BORDER, g->font_size+16, lv->size)) {
@@ -329,7 +406,14 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 	}
 
 	static char footer_buf[STRBUF_SZ];
-	snprintf(footer_buf, STRBUF_SZ, "%"PRIcv_sz " Images", lv->size);
+
+	i64 num_imgs = lv->size;
+	int is_search = nk_false;
+	if (g->state & SEARCH_RESULTS) {
+		num_imgs = g->search_results.size;
+		is_search = nk_true;
+	}
+	snprintf(footer_buf, STRBUF_SZ, "%"PRIcv_sz " Images", num_imgs);
 	/*
 	if (ret >= STRBUF_SZ) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "path too long\n");
@@ -343,11 +427,10 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 	if (plist_i >= 0) {
 		cols = 5;
 		selected_pl = g->playlists.a[plist_i];
-	} else if (!is_current) {
+	} else if (!is_current && num_imgs) {
 		cols = 3;
 	}
 	nk_layout_row_dynamic(ctx, 0, cols);
-	nk_label(ctx, footer_buf, NK_TEXT_CENTERED);
 
 	if (cols == 5) {
 		if (nk_button_label(ctx, "Make Active")) {
@@ -365,30 +448,76 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 		}
 	}
 
-	// Should Either of these open file browser?  Or just the current
-	// view?  maybe only if it's empty?
-	// could also get rid of open new and just let double clicking on
-	// an image mean that
-	if (nk_button_label(ctx, "Open New")) {
-		// TODO based on whether the library state
-		// (results, empty playlist,current, library)
+	if (cols >= 3) {
+		// Should Either of these open file browser?  Or just the current
+		// view?  maybe only if it's empty?
+		// could also get rid of open new and just let double clicking on
+		// an image mean that
+		file f;
+		char* sep;
+		if (nk_button_label(ctx, "Open New")) {
+			stop_generating();
 
-		// This would roughly work for playlist, but wasteful if it's
-		// already open in lib_mode_list
-		//g->is_open_new = SDL_TRUE;
-		//g->open_playlist = SDL_TRUE;
-		//g->state = NORMAL;
-		//transition_to_scanning(selected_pl);
-	}
+			cvec_clear_file(&g->files);
+			// TODO should we stay in lib mode or jump to normal?
+			if (!is_search) {
+				cvector_file tmp;
+				// TODO Could add file copy constructor and use cvec_copy_file() here
+				// and use pushm everywhere else (like myscandir)
+				// instead of reloading the lib/playlist
+				memcpy(&tmp, &g->files, sizeof(cvector_file));
+				memcpy(&g->files, lv, sizeof(cvector_file));
+				memcpy(lv, &tmp, sizeof(cvector_file));
 
-	if (nk_button_label(ctx, "Open More")) {
-		// TODO based on whether the library state
-		// (results, empty playlist,current, library)
-		//
-		//g->open_playlist = SDL_TRUE;
-		//g->state = NORMAL;
-		//transition_to_scanning(selected_pl);
+				if (g->lib_selected) {
+					load_library(&g->lib_mode_list);
+				} else {
+					load_sql_playlist_id(g->playlist_ids.a[g->selected_plist], &g->lib_mode_list);
+				}
+			} else {
+				for (int i=0; i<g->search_results.size; i++) {
+					// need a separate copy of string so we don't double free
+					f = lv->a[g->search_results.a[i]];
+					f.path = strdup(f.path);
+					sep = strrchr(f.path, PATH_SEPARATOR);
+					f.name = (sep) ? sep+1 : f.path;
+					cvec_push_file(&g->files, &f);
+				}
+			}
+			
+			// This would roughly work for playlist, but wasteful if it's
+			// already open in lib_mode_list
+			//g->is_open_new = SDL_TRUE;
+			//g->open_playlist = SDL_TRUE;
+			//g->state = NORMAL;
+			//transition_to_scanning(selected_pl);
+		}
+
+		if (nk_button_label(ctx, "Open More")) {
+			stop_generating();
+			if (!is_search) {
+				for (int i=0; i<lv->size; i++) {
+					// need a separate copy of string so we don't double free
+					f = lv->a[i];
+					f.path = strdup(f.path);
+					sep = strrchr(f.path, PATH_SEPARATOR);
+					f.name = (sep) ? sep+1 : f.path;
+					cvec_push_file(&g->files, &f);
+				}
+			} else {
+				for (int i=0; i<g->search_results.size; i++) {
+					// need a separate copy of string so we don't double free
+					f = lv->a[g->search_results.a[i]];
+					f.path = strdup(f.path);
+					sep = strrchr(f.path, PATH_SEPARATOR);
+					f.name = (sep) ? sep+1 : f.path;
+					cvec_push_file(&g->files, &f);
+				}
+			}
+			remove_duplicates();
+		}
 	}
+	nk_label(ctx, footer_buf, NK_TEXT_RIGHT);
 }
 
 
@@ -517,6 +646,7 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 					cvec_clear_file(&g->lib_mode_list);
 					load_sql_playlist_id(g->playlist_ids.a[i], &g->lib_mode_list);
 					g->list_view = &g->lib_mode_list;
+					clear_search();
 				} else {
 					g->is_new_renaming = RENAMING_PLIST;
 					// we know all playlists are less than STRBUF_SZ

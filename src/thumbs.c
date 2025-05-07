@@ -285,6 +285,21 @@ void generate_thumbs(intptr_t do_load)
 	SDL_DetachThread(thumb_thrd);
 }
 
+void stop_generating(void)
+{
+	// Exit gen_thumbs thrd first before we continue
+	if (g->generating_thumbs) {
+		g->exit_gen_thumbs = SDL_TRUE;
+		// wait for thread to exit
+		SDL_LockMutex(g->thumb_mtx);
+		while (g->generating_thumbs) {
+			SDL_LogDebugApp("Waiting for thumb generating thread to exit...\n");
+			SDL_CondWait(g->thumb_cnd, g->thumb_mtx);
+		}
+		SDL_UnlockMutex(g->thumb_mtx);
+	}
+}
+
 // TODO remove this function entirely since it only works for non-hardware
 // accelerated backend?  Or change it to just loading the pixels?  The latter
 // cause a huge memory spike

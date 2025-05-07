@@ -47,16 +47,7 @@ void do_file_open(int clear_files)
 	}
 
 	// Exit gen_thumbs thrd first before we continue
-	if (g->generating_thumbs) {
-		g->exit_gen_thumbs = SDL_TRUE;
-		// wait for thread to exit
-		SDL_LockMutex(g->thumb_mtx);
-		while (g->generating_thumbs) {
-			SDL_LogDebugApp("Waiting for thumb generating thread to exit...\n");
-			SDL_CondWait(g->thumb_cnd, g->thumb_mtx);
-		}
-		SDL_UnlockMutex(g->thumb_mtx);
-	}
+	stop_generating();
 
 	g->is_open_new = clear_files;
 	g->old_state = g->state;
@@ -99,6 +90,12 @@ void do_file_open(int clear_files)
 
 	const char* open_type_str[] = { "MORE", "NEW" };
 	SDL_LogDebugApp("executing OPEN_FILE%s\n", open_type_str[clear_files]);
+}
+
+// call it scan?
+void do_lib_import(void)
+{
+	// TODO
 }
 
 void do_shuffle(void)

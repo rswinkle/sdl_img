@@ -1,7 +1,7 @@
 
 // All these are or can be loaded/stored in config.lua
 // and can be set from the GUI at runtime
-#define DFLT_FONT_SIZE 16.0
+#define DFLT_FONT_SIZE 13.0
 #define MIN_FONT_SIZE 12.0
 #define MAX_FONT_SIZE 40.0
 
