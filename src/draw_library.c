@@ -9,6 +9,7 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 {
 	int edit_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
 	SDL_Event event = { .type = g->userevent };
+	int horizontal_rule_ht = 2;
 
 	//// 2*minrowpadding which is 8 + win.spacing.y which is 4 = 20
 	//int row_height = g->font_size + 20;
@@ -34,6 +35,8 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 
 	if (nk_begin(ctx, "Library", nk_rect(0, 0, scr_w, scr_h), NK_WINDOW_NO_SCROLLBAR)) {
 
+
+
 		// TODO subtract some height for info bar? or only
 		// separately/internally to the groups?
 		nk_layout_row(ctx, NK_STATIC, scr_h, 2, group_szs);
@@ -50,6 +53,10 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 					g->list_view = &g->files;
 				} else {
 					// allow rename?
+					// keep it highlighted
+					g->cur_selected = nk_true;
+					// could also interpret this as go to normal mode
+					// or open new for anything other than current
 				}
 			}
 
@@ -58,15 +65,27 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 			if (nk_selectable_label(ctx, "Library", NK_TEXT_CENTERED, &g->lib_selected)) {
 				if (g->lib_selected) {
 					g->selected_plist = -1;
+					g->cur_selected = nk_false;
 					load_library(&g->lib_mode_list);
 					g->list_view = &g->lib_mode_list;
 				} else {
 					// allow renaming?
-					;
+					// keep selected
+					g->cur_selected = nk_true;
 				}
 			}
 
-			nk_label(ctx, "Playlists", NK_TEXT_LEFT);
+			nk_label(ctx, "Playlists:", NK_TEXT_LEFT);
+			nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+			nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+
+			nk_layout_row_dynamic(ctx, 0, 2);
+			nk_label(ctx, "Active:", NK_TEXT_LEFT);
+			nk_label(ctx, g->cur_playlist, NK_TEXT_LEFT);
+
+			nk_label(ctx, "Default:", NK_TEXT_LEFT);
+			nk_label(ctx, g->default_playlist, NK_TEXT_LEFT);
+
 			bounds = nk_widget_bounds(ctx);
 			draw_playlists_menu(ctx, group_szs[0], scr_h-bounds.y);
 
@@ -112,6 +131,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 	// set to number of *fully visible* rows in the list_view
 	// ie clip.h or bounds.h / row_height
 	int full_rows;
+	int footer_size = g->font_size+20+4;
 
 	int list_height;
 	int is_selected;
@@ -241,7 +261,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 	// 2*(font_ht + 16 + win_spacing(4))
 	// 2 * win_padding (4)
 	bounds = nk_widget_bounds(ctx);
-	nk_layout_row_dynamic(ctx, scr_h-bounds.y, 1);
+	nk_layout_row_dynamic(ctx, scr_h-bounds.y-footer_size, 1);
 	//nk_layout_row_dynamic(ctx, scr_h-2*(g->font_size + 20)-8, 1);
 	
 	// Not sure we even need this except for g->files
@@ -279,16 +299,16 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 
 						// for now, treat clicking a selection as a "double click" ie same as return
 						// TODO only for files?  worth it?
-						/*
-						g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
+						if (is_current) {
+							g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
 
-						g->state = NORMAL;
-						SDL_ShowCursor(SDL_ENABLE);
-						g->gui_timer = SDL_GetTicks();
-						g->show_gui = SDL_TRUE;
-						g->status = REDRAW;
-						try_move(SELECTION);
-						*/
+							g->state = NORMAL;
+							SDL_ShowCursor(SDL_ENABLE);
+							g->gui_timer = SDL_GetTicks();
+							g->show_gui = SDL_TRUE;
+							g->status = REDRAW;
+							try_move(SELECTION);
+						}
 					}
 				}
 				nk_label(ctx, lv->a[i].size_str, NK_TEXT_RIGHT);
@@ -306,6 +326,68 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 			}
 			g->list_setscroll = FALSE;
 		}
+	}
+
+	static char footer_buf[STRBUF_SZ];
+	snprintf(footer_buf, STRBUF_SZ, "%"PRIcv_sz " Images", lv->size);
+	/*
+	if (ret >= STRBUF_SZ) {
+		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "path too long\n");
+		cleanup(0, 1);
+	}
+	*/
+
+	int cols = 1;
+	int plist_i = g->selected_plist;
+	char* selected_pl = NULL;
+	if (plist_i >= 0) {
+		cols = 5;
+		selected_pl = g->playlists.a[plist_i];
+	} else if (!is_current) {
+		cols = 3;
+	}
+	nk_layout_row_dynamic(ctx, 0, cols);
+	nk_label(ctx, footer_buf, NK_TEXT_CENTERED);
+
+	if (cols == 5) {
+		if (nk_button_label(ctx, "Make Active")) {
+			if (strcmp(selected_pl, g->cur_playlist)) {
+				strncpy(g->cur_playlist_buf, selected_pl, STRBUF_SZ);
+				g->cur_playlist_id = g->playlist_ids.a[plist_i];
+				update_save_status();
+			}
+		}
+		if (nk_button_label(ctx, "Make Default")) {
+			if (strcmp(selected_pl, g->default_playlist)) {
+				free(g->default_playlist);
+				g->default_playlist = CVEC_STRDUP(selected_pl);
+			}
+		}
+	}
+
+	// Should Either of these open file browser?  Or just the current
+	// view?  maybe only if it's empty?
+	// could also get rid of open new and just let double clicking on
+	// an image mean that
+	if (nk_button_label(ctx, "Open New")) {
+		// TODO based on whether the library state
+		// (results, empty playlist,current, library)
+
+		// This would roughly work for playlist, but wasteful if it's
+		// already open in lib_mode_list
+		//g->is_open_new = SDL_TRUE;
+		//g->open_playlist = SDL_TRUE;
+		//g->state = NORMAL;
+		//transition_to_scanning(selected_pl);
+	}
+
+	if (nk_button_label(ctx, "Open More")) {
+		// TODO based on whether the library state
+		// (results, empty playlist,current, library)
+		//
+		//g->open_playlist = SDL_TRUE;
+		//g->state = NORMAL;
+		//transition_to_scanning(selected_pl);
 	}
 }
 
@@ -352,7 +434,7 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 				struct nk_rect bounds = nk_widget_bounds(ctx);
 				if (!focus_flag) {
 					// nk_edit_focus(ctx, edit_flags);
-					SDL_Log("Mouse at %d %d\n", x, y);
+					//SDL_Log("Mouse at %d %d\n", x, y);
 
 					// To get it to work for New Playlist, have to warp from button
 					// they just clicked to new text field location because Nuklear
@@ -362,10 +444,10 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 						SDL_WarpMouseInWindow(g->win, bounds.x+20, bounds.y+15);
 					}
 
-					SDL_Log("Pushing click %d %d \n", (int)bounds.x+20, (int)bounds.y+15);
+					//SDL_Log("Pushing click %d %d \n", (int)bounds.x+20, (int)bounds.y+15);
 					click_event.button.x = bounds.x+20;
 					click_event.button.y = bounds.y+15;
-					SDL_PushEvent(&click_event);
+					//SDL_PushEvent(&click_event);
 				}
 
 				active = nk_edit_string(ctx, edit_flags, buf, &buf_len, STRBUF_SZ, nk_filter_default);

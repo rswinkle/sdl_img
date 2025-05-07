@@ -325,13 +325,15 @@ nk_sdl_handle_event(SDL_Event *evt)
                                          nk_input_key(ctx, NK_KEY_SCROLL_END, down); break;
                     case SDLK_PAGEDOWN:  nk_input_key(ctx, NK_KEY_SCROLL_DOWN, down); break;
                     case SDLK_PAGEUP:    nk_input_key(ctx, NK_KEY_SCROLL_UP, down); break;
-                    case SDLK_z:         nk_input_key(ctx, NK_KEY_TEXT_UNDO, down && ctrl_down); break;
-                    case SDLK_r:         nk_input_key(ctx, NK_KEY_TEXT_REDO, down && ctrl_down); break;
-                    case SDLK_c:         nk_input_key(ctx, NK_KEY_COPY, down && ctrl_down); break;
-                    case SDLK_v:         nk_input_key(ctx, NK_KEY_PASTE, down && ctrl_down); break;
-                    case SDLK_x:         nk_input_key(ctx, NK_KEY_CUT, down && ctrl_down); break;
-                    case SDLK_b:         nk_input_key(ctx, NK_KEY_TEXT_LINE_START, down && ctrl_down); break;
-                    case SDLK_e:         nk_input_key(ctx, NK_KEY_TEXT_LINE_END, down && ctrl_down); break;
+
+                    case SDLK_z:         if (ctrl_down) nk_input_key(ctx, NK_KEY_TEXT_UNDO, down); break;
+                    case SDLK_r:         if (ctrl_down) nk_input_key(ctx, NK_KEY_TEXT_REDO, down); break;
+                    case SDLK_c:         if (ctrl_down) nk_input_key(ctx, NK_KEY_COPY, down); break;
+                    case SDLK_v:         if (ctrl_down) nk_input_key(ctx, NK_KEY_PASTE, down); break;
+                    case SDLK_x:         if (ctrl_down) nk_input_key(ctx, NK_KEY_CUT, down); break;
+                    case SDLK_b:         if (ctrl_down) nk_input_key(ctx, NK_KEY_TEXT_LINE_START, down); break;
+                    case SDLK_e:         if (ctrl_down) nk_input_key(ctx, NK_KEY_TEXT_LINE_END, down); break;
+
                     case SDLK_UP:        nk_input_key(ctx, NK_KEY_UP, down); break;
                     case SDLK_DOWN:      nk_input_key(ctx, NK_KEY_DOWN, down); break;
                     case SDLK_a:

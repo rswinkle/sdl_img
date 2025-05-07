@@ -317,6 +317,7 @@ void setup(int argc, char** argv)
 		cleanup(1, 0);
 	}
 	cvec_file(&g->files, 0, 100, free_file, NULL);
+	cvec_file(&g->lib_mode_list, 0, 100, free_file, NULL);
 	cvec_str(&g->favs, 0, 50);
 	cvec_str(&g->playlists, 0, 50);
 	cvec_i(&g->playlist_ids, 0, 50);
@@ -734,6 +735,7 @@ void cleanup(int ret, int called_setup)
 	free(g->prefpath);
 	free_file_browser(&g->filebrowser);
 	cvec_free_file(&g->files);
+	cvec_free_file(&g->lib_mode_list);
 	cvec_free_i(&g->search_results);
 	cvec_free_str(&g->favs);
 	cvec_free_str(&g->playlists);
