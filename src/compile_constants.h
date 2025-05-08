@@ -60,9 +60,6 @@
 #define PINCH_ZOOM 3
 #define GIF_ZOOM_DIV 3
 
-// seconds before the scrollbar *should* disappear
-#define NK_SCROLLBAR_HIDING_TIMEOUT 3.0f
-
 // TODO constants for some controls... that make more sense to be changeable
 // Have to think abount names and how I handle modifiers
 // most likely I'll leave the modifiers unchangeable so you only

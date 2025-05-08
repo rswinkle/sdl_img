@@ -19,26 +19,13 @@ void clear_search(void)
 
 void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 {
-	SDL_Event event = { .type = g->userevent };
 	int horizontal_rule_ht = 2;
-
-	//// 2*minrowpadding which is 8 + win.spacing.y which is 4 = 20
-	//int row_height = g->font_size + 20;
-	//// set to number of *fully visible* rows in the list_view
-	//// ie clip.h or bounds.h / row_height
-	//int full_rows;
 
 	struct nk_rect bounds;
 	//const struct nk_input* in = &ctx->input;
 
-	static nk_bool show_search = nk_false;
-	static char buf[STRBUF_SZ];
-	static int buf_len = 0;
+	//static nk_bool show_search = nk_false;
 
-	char tmp_buf[STRBUF_SZ];
-
-	int active;
-	int is_selected;
 
 	// TODO better name
 	// TODO could have a draggable splitter here too?
@@ -140,7 +127,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 	int row_height = g->font_size + 20;
 	// set to number of *fully visible* rows in the list_view
 	// ie clip.h or bounds.h / row_height
-	int full_rows;
+	int full_rows = 0;
 	int footer_size = g->font_size+20+4;
 
 	int list_height;

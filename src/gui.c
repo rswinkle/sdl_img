@@ -215,15 +215,6 @@ void draw_gui(struct nk_context* ctx)
 	int scr_w = g->scr_w/g->x_scale;
 	int scr_h = g->scr_h/g->y_scale;
 
-	// 2*minrowpadding which is 8 + win.spacing.y which is 4 = 20
-	int row_height = g->font_size + 20;
-	// set to number of *fully visible* rows in the list_view
-	// ie clip.h or bounds.h / row_height
-	int full_rows;
-
-	struct nk_rect bounds;
-	const struct nk_input* in = &ctx->input;
-
 	if (IS_SCANNING_MODE()) {
 		draw_scanning(g->ctx, scr_w, scr_h);
 		return;
@@ -297,24 +288,6 @@ void draw_gui(struct nk_context* ctx)
 		draw_thumb_infobar(ctx, scr_w, scr_h);
 		return;
 	}
-
-	int is_selected = SDL_FALSE;
-	int symbol;
-	float search_ratio[] = { 0.15f, 0.85f };
-	int list_height;
-	int active;
-
-	char* name;
-
-	static const char invalid_img[] = "Could Not Load";
-	static struct nk_list_view lview, rview;
-	static float header_ratios[] = {0.49f, 0.01f, 0.15f, 0.01f, 0.34f };
-	static int splitter_down = 0;
-
-	int search_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
-
-	if (!nk_input_is_mouse_down(in, NK_BUTTON_LEFT))
-		splitter_down = 0;
 
 	if (IS_LIST_MODE() && !IS_VIEW_RESULTS()) {
 		draw_library(ctx, scr_w, scr_h);
@@ -567,7 +540,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 	int row_height = g->font_size + 20;
 	// set to number of *fully visible* rows in the list_view
 	// ie clip.h or bounds.h / row_height
-	int full_rows;
+	int full_rows = 0;
 
 	struct nk_rect bounds;
 	const struct nk_input* in = &ctx->input;

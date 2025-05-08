@@ -779,7 +779,6 @@ int load_library(cvector_file* files)
 	struct stat file_stat;
 	struct tm* tmp_tm;
 	char* sep;
-	int n_imgs = 0;
 
 	cvector_i bad_path_ids;
 	cvec_i(&bad_path_ids, 0, 1024);

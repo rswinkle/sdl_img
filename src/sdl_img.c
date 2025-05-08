@@ -35,6 +35,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+// seconds before the scrollbar *should* disappear
+//#define NK_SCROLLBAR_HIDING_TIMEOUT 3.0f
 #define NK_INCLUDE_FIXED_TYPES
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_INCLUDE_STANDARD_VARARGS
@@ -106,8 +108,8 @@ int remove_duplicates(void);
 #include "curl_stuff.c"
 
 #include "sorting.c"
-// compare_func in sorting == cmp_func in file_browser.h hmm
-file* find_file(file* f, compare_func cmp);
+
+int find_file_simple(const char* path);
 
 // has to come after all the enums/macros/struct defs and bytes2str
 #include "gui.c"
