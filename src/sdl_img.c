@@ -94,6 +94,7 @@ void cleanup(int ret, int called_setup);
 int handle_common_evts(void* userdata, SDL_Event* e);
 void remove_bad_paths(void);
 extern inline void set_show_gui(int show);
+int remove_duplicates(void);
 
 // int typedefs (i64, u32 etc.) conflict with mine in file_browser.h
 //#include "sqlite3.c"
@@ -104,10 +105,13 @@ extern inline void set_show_gui(int show);
 #include "thumbs.c"
 #include "curl_stuff.c"
 
+#include "sorting.c"
+// compare_func in sorting == cmp_func in file_browser.h hmm
+file* find_file(file* f, compare_func cmp);
+
 // has to come after all the enums/macros/struct defs and bytes2str
 #include "gui.c"
 
-#include "sorting.c"
 
 // depends on color_labels in gui.c
 #include "lua_config.c"
@@ -1193,14 +1197,10 @@ int scan_sources(void* data)
 
 		add_cur_files_to_db();
 
-		// TODO protect this from generating..
-		// Doing this before try_move to avoid bad urls/paths being freed out from
-		// under this loop
-		g->save_status_uptodate = SDL_FALSE;
-		if (!g->generating_thumbs && !g->loading_thumbs) {
-			update_save_status();
-			g->save_status_uptodate = SDL_TRUE;
-		}
+		// urls are just skipped and if generating *were* running it wouldn't
+		// affect this, but it shouldn't be running anyway
+		update_save_status();
+		g->save_status_uptodate = SDL_TRUE;
 
 		if (g->run_thumb_thread == ON_OPEN) {
 			generate_thumbs(SDL_FALSE);

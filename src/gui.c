@@ -1284,6 +1284,7 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 				total = g->search_results.size;
 				int idx = g->search_results.a[index];
 				filename = g->files.a[idx].name;
+				assert(filename);
 				if (g->save_status_uptodate) {
 					//saved_status = g->files.a[g->search_results.a[index]].playlist_idx >= 0;
 					saved_status = g->files.a[idx].playlist_idx;
@@ -1291,6 +1292,7 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 			} else {
 				total = g->files.size;
 				filename = g->files.a[index].name;
+				assert(filename);
 				if (g->save_status_uptodate) {
 					//saved_status = g->files.a[index].playlist_idx >= 0;
 					saved_status = g->files.a[index].playlist_idx;

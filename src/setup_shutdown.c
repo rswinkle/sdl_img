@@ -345,6 +345,7 @@ void setup(int argc, char** argv)
 	g->do_next = nk_false;
 	g->progress_hovered = nk_false;
 	g->sorted_state = NAME_UP;  // ie by name ascending
+	g->lib_sorted_state = NAME_UP;  // ie by name ascending
 	g->bad_path_state = CLEAN;
 	if (g->sources.size) {
 		g->state = SCANNING;

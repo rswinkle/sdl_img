@@ -460,6 +460,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 
 			cvec_clear_file(&g->files);
 			// TODO should we stay in lib mode or jump to normal?
+			// let's at least jump to current to show we actualy did something
 			if (!is_search) {
 				cvector_file tmp;
 				// TODO Could add file copy constructor and use cvec_copy_file() here
@@ -483,14 +484,24 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 					f.name = (sep) ? sep+1 : f.path;
 					cvec_push_file(&g->files, &f);
 				}
+				// have to clear the search state if we jump to current or normal mode
+				g->state = LIST_DFLT;
+				text_buf[0] = 0;
+				text_len = 0;
+				g->search_results.size = 0;
 			}
-			
-			// This would roughly work for playlist, but wasteful if it's
-			// already open in lib_mode_list
-			//g->is_open_new = SDL_TRUE;
-			//g->open_playlist = SDL_TRUE;
-			//g->state = NORMAL;
-			//transition_to_scanning(selected_pl);
+
+			remove_duplicates();
+			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
+			g->sorted_state = NAME_UP;
+			update_save_status();
+			g->save_status_uptodate = SDL_TRUE;
+
+			g->selected_plist = -1;
+			g->lib_selected = nk_false;
+			g->cur_selected = nk_true;
+			g->list_view = &g->files;
+			g->selection = 0;
 		}
 
 		if (nk_button_label(ctx, "Open More")) {
@@ -513,8 +524,26 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 					f.name = (sep) ? sep+1 : f.path;
 					cvec_push_file(&g->files, &f);
 				}
+				// have to clear the search state if we jump to current or normal mode
+				g->state = LIST_DFLT;
+				text_buf[0] = 0;
+				text_len = 0;
+				g->search_results.size = 0;
 			}
+			char* path = g->files.a[g->selection].path;
 			remove_duplicates();
+			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
+			g->sorted_state = NAME_UP;
+
+			int idx = find_file_simple(path);
+			g->img[0].index = idx;
+			g->selection = idx;
+			g->selected_plist = -1;
+			g->lib_selected = nk_false;
+			g->cur_selected = nk_true;
+			g->list_view = &g->files;
+			update_save_status();
+			g->save_status_uptodate = SDL_TRUE;
 		}
 	}
 	nk_label(ctx, footer_buf, NK_TEXT_RIGHT);
