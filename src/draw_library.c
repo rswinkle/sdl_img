@@ -26,6 +26,7 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 
 	//static nk_bool show_search = nk_false;
 
+	int sel = g->selection;
 
 	// TODO better name
 	// TODO could have a draggable splitter here too?
@@ -92,21 +93,58 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 			nk_label(ctx, "Default:", NK_TEXT_LEFT);
 			nk_label(ctx, g->default_playlist, NK_TEXT_LEFT);
 
+			// Make a config/preference
+			int preview_enabled = 1;
+
 			bounds = nk_widget_bounds(ctx);
-			int height = scr_h - bounds.y;
-			SDL_Texture* preview = NULL;
-			if (g->cur_selected && g->thumbs.a && g->selection >= 0 && g->thumbs.a[g->selection].tex) {
-				//height -= THUMBSIZE;
-				height -= g->gui_sidebar_w + 4;  // 4 for 2*win_spacing
-				preview = g->thumbs.a[g->selection].tex;
-			}
+			int height = scr_h - bounds.y - preview_enabled * (g->gui_sidebar_w + 4);
 
 			draw_playlists_menu(ctx, group_szs[0], height);
 
-			// TODO preview
-			if (preview) {
-				nk_layout_row_dynamic(ctx, g->gui_sidebar_w, 1);
-				nk_image(ctx, nk_image_ptr(preview));
+
+			if (preview_enabled && sel >= 0) {
+				SDL_Texture* preview = g->preview.tex;
+
+				if (!preview) {
+					if (g->cur_selected && g->thumbs.a) {
+						if (!g->thumbs.a[sel].tex) {
+							preview = gen_and_load_thumb(&g->thumbs.a[sel], g->files.a[sel].path);
+						} else {
+							preview = g->thumbs.a[sel].tex;
+						}
+						g->preview.w = g->thumbs.a[sel].w;
+						g->preview.h = g->thumbs.a[sel].h;
+					} else {
+						//puts("not cur or not thumbs.a");
+						preview = gen_and_load_thumb(&g->preview, g->list_view->a[sel].path);
+					}
+				}
+
+				bounds = nk_widget_bounds(ctx);
+				struct nk_rect r = { bounds.x, bounds.y, g->gui_sidebar_w, g->gui_sidebar_w };
+				float w_over_thm_sz = r.w/(float)THUMBSIZE;
+				float h_over_thm_sz = r.h/(float)THUMBSIZE;
+				float w = g->preview.w * w_over_thm_sz;
+				float h = g->preview.h * h_over_thm_sz;
+				float x = (r.w-w)*0.5f;
+				float y = (r.h-h)*0.5f;
+				// TODO get FrostKiwi pull request
+				if (preview) {
+					// stretch to fill space
+					//nk_layout_row_dynamic(ctx, g->gui_sidebar_w, 1);
+					//nk_image(ctx, nk_image_ptr(preview));
+
+					nk_layout_space_begin(ctx, NK_STATIC, g->gui_sidebar_w, 1);
+					nk_layout_space_push(ctx, nk_rect(x, y, w, h));
+					nk_image(ctx, nk_image_ptr(preview));
+					nk_layout_space_end(ctx);
+
+					/*
+					if (thumb.tex) {
+						SDL_DestroyTexture(thumb.tex);
+					}
+					*/
+				}
 			}
 
 			nk_group_end(ctx);
@@ -318,6 +356,10 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 					if (nk_selectable_label(ctx, name, NK_TEXT_LEFT, &is_selected)) {
 						if (is_selected) {
 							g->selection = j;
+							if (g->preview.tex) {
+								SDL_DestroyTexture(g->preview.tex);
+								g->preview.tex = NULL;
+							}
 						} else {
 							// could support unselecting, esp. with CTRL somehow if I ever allow
 							// multiple selection
@@ -370,6 +412,10 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 				if (nk_selectable_label(ctx, name, NK_TEXT_LEFT, &is_selected)) {
 					if (is_selected) {
 						g->selection = i;
+						if (g->preview.tex) {
+							SDL_DestroyTexture(g->preview.tex);
+							g->preview.tex = NULL;
+						}
 					} else {
 						// could support unselecting, esp. with CTRL somehow if I ever allow
 						// multiple selection
@@ -459,6 +505,10 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 		if (nk_button_label(ctx, "Open New")) {
 			stop_generating();
 
+			g->thumbs_done = SDL_FALSE;
+			g->thumbs_loaded = SDL_FALSE;
+			cvec_free_thumb_state(&g->thumbs);
+
 			cvec_clear_file(&g->files);
 			// TODO should we stay in lib mode or jump to normal?
 			// let's at least jump to current to show we actualy did something
@@ -507,6 +557,10 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 
 		if (nk_button_label(ctx, "Open More")) {
 			stop_generating();
+			g->thumbs_done = SDL_FALSE;
+			g->thumbs_loaded = SDL_FALSE;
+			cvec_free_thumb_state(&g->thumbs);
+
 			if (!is_search) {
 				for (int i=0; i<lv->size; i++) {
 					// need a separate copy of string so we don't double free
@@ -675,6 +729,13 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 					load_sql_playlist_id(g->playlist_ids.a[i], &g->lib_mode_list);
 					g->list_view = &g->lib_mode_list;
 					clear_search();
+
+					//event.user.code = SORT_NAME;
+					//SDL_PushEvent(&event);
+
+					do_lib_sort(filename_cmp_lt);
+					//mirrored_qsort(g->list_view->a, g->list_view->size, sizeof(file), filename_cmp_lt, 0);
+					g->lib_sorted_state = NAME_UP;
 				} else {
 					g->is_new_renaming = RENAMING_PLIST;
 					// we know all playlists are less than STRBUF_SZ

@@ -350,6 +350,7 @@ typedef struct global_state
 	int cur_selected;
 	int lib_selected;
 	int selected_plist;
+	thumb_state preview;
 
 	// sdl_img colors
 	struct nk_color bg;

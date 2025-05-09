@@ -122,6 +122,58 @@ int make_thumb(thumb_state* thumb, int w, int h, u8* pix, const char* thumbpath,
 	return 1;
 }
 
+SDL_Texture* gen_and_load_thumb(thumb_state* thumb, const char* path)
+{
+	int w, h, channels;
+	char thumbpath[STRBUF_SZ] = { 0 };
+	struct stat thumb_stat, orig_stat;
+	u8* pix;
+	u8* outpix;
+	thumb->tex = NULL;
+
+	if (!path) return NULL;
+
+
+	if (stat(path, &orig_stat)) {
+		SDL_Log("Couldn't stat %s\n", path);
+		/*
+		if (!curl_image(i)) {
+			SDL_Log("Couldn't curl %d\n", i);
+			free(g->files.a[i].path);
+			g->files.a[i].path = NULL;
+			g->files.a[i].name = NULL;
+			g->bad_path_state = HAS_BAD;
+			return NULL;
+		}
+		*/
+		return NULL;
+	}
+	get_thumbpath(path, thumbpath, sizeof(thumbpath));
+	if (!stat(thumbpath, &thumb_stat)) {
+		// make sure original hasn't been modified since thumb was made
+		// don't think it's necessary to check nanoseconds
+		if (orig_stat.st_mtime < thumb_stat.st_mtime) {
+			outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
+			make_thumb_tex(thumb, w, h, outpix);
+			free(outpix);
+			return thumb->tex;
+		}
+	}
+	pix = stbi_load(path, &w, &h, &channels, 4);
+	if (!pix) {
+		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\nError %s", path, stbi_failure_reason());
+		return NULL;
+	}
+
+	if (!make_thumb(thumb, w, h, pix, thumbpath, SDL_TRUE)) {
+		free(pix);
+		return NULL;
+	}
+	free(pix);
+	SDL_Log("generated thumb for %s\n", path);
+	return thumb->tex;
+}
+
 int gen_thumbs(void* data)
 {
 	int w, h, channels;

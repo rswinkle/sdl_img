@@ -267,6 +267,10 @@ void do_sort(compare_func cmp)
 void do_lib_sort(compare_func cmp)
 {
 	mirrored_qsort(g->lib_mode_list.a, g->lib_mode_list.size, sizeof(file), cmp, 0);
+	g->selection = -1;
+	if (g->preview.tex) {
+		SDL_DestroyTexture(g->preview.tex);
+	}
 }
 
 void do_zoom(int dir, int use_mouse)

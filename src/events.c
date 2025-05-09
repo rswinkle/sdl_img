@@ -932,11 +932,15 @@ int handle_list_events()
 							g->selection %= g->search_results.size;
 					} else {
 						if (g->selection < 0)
-							g->selection += g->files.size;
+							g->selection += g->list_view->size;
 						else
-							g->selection %= g->files.size;
+							g->selection %= g->list_view->size;
 					}
 					g->list_setscroll = SDL_TRUE;
+					if (g->preview.tex) {
+						SDL_DestroyTexture(g->preview.tex);
+						g->preview.tex = NULL;
+					}
 				}
 				break;
 			}
