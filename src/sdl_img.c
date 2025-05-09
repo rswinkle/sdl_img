@@ -707,7 +707,7 @@ int attempt_image_load(int last, img_state* img)
 	int ret = 0;
 	if (path) {
 		if (!(ret = load_image(path, img, SDL_FALSE))) {
-			if ((path = curl_image(i))) {
+			if ((path = curl_image(&g->files.a[i]))) {
 				ret = load_image(path, img, SDL_FALSE);
 			}
 		}

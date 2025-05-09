@@ -4,13 +4,13 @@ size_t write_data(void* buf, size_t size, size_t num, void* userp)
 	return fwrite(buf, 1, size*num, (FILE*)userp);
 }
 
-char* curl_image(int img_idx)
+char* curl_image(file* f)
 {
 	CURL* curl = curl_easy_init();
 	CURLcode res;
 	char filename[STRBUF_SZ];
 	char curlerror[CURL_ERROR_SIZE];
-	char* s = g->files.a[img_idx].path;
+	char* s = f->path;
 	FILE* imgfile;
 
 	// Do I even need to set WRITEFUNCTION?  It says it'll use fwrite by default
@@ -80,7 +80,6 @@ char* curl_image(int img_idx)
 	}
 	*/
 
-	file* f = &g->files.a[img_idx];
 	free(f->path);
 
 	// Have to call realpath in case the user passed

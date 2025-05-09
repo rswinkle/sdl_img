@@ -106,9 +106,12 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 				SDL_Texture* preview = g->preview.tex;
 
 				if (!preview) {
-					if (g->cur_selected && g->thumbs.a) {
+					if (g->cur_selected) {
+						if (!g->thumbs.a) {
+							allocate_thumbs();
+						}
 						if (!g->thumbs.a[sel].tex) {
-							preview = gen_and_load_thumb(&g->thumbs.a[sel], g->files.a[sel].path);
+							preview = gen_and_load_thumb(&g->thumbs.a[sel], &g->files.a[sel]);
 						} else {
 							preview = g->thumbs.a[sel].tex;
 						}
@@ -116,7 +119,7 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 						g->preview.h = g->thumbs.a[sel].h;
 					} else {
 						//puts("not cur or not thumbs.a");
-						preview = gen_and_load_thumb(&g->preview, g->list_view->a[sel].path);
+						preview = gen_and_load_thumb(&g->preview, &g->list_view->a[sel]);
 					}
 				}
 

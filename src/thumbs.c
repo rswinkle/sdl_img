@@ -122,7 +122,7 @@ int make_thumb(thumb_state* thumb, int w, int h, u8* pix, const char* thumbpath,
 	return 1;
 }
 
-SDL_Texture* gen_and_load_thumb(thumb_state* thumb, const char* path)
+SDL_Texture* gen_and_load_thumb(thumb_state* thumb, file* f)
 {
 	int w, h, channels;
 	char thumbpath[STRBUF_SZ] = { 0 };
@@ -131,21 +131,23 @@ SDL_Texture* gen_and_load_thumb(thumb_state* thumb, const char* path)
 	u8* outpix;
 	thumb->tex = NULL;
 
+	char* path = f->path;
+
 	if (!path) return NULL;
 
 
 	if (stat(path, &orig_stat)) {
 		SDL_Log("Couldn't stat %s\n", path);
-		/*
-		if (!curl_image(i)) {
-			SDL_Log("Couldn't curl %d\n", i);
-			free(g->files.a[i].path);
-			g->files.a[i].path = NULL;
-			g->files.a[i].name = NULL;
+		if (!curl_image(f)) {
+			// since only current should have URLs
+			//SDL_Log("Couldn't curl %d\n", (int)f-g->files.a);
+			SDL_Log("Couldn't curl %s\n", path);
+			free(f->path);
+			f->path = NULL;
+			f->name = NULL;
 			g->bad_path_state = HAS_BAD;
 			return NULL;
 		}
-		*/
 		return NULL;
 	}
 	get_thumbpath(path, thumbpath, sizeof(thumbpath));
@@ -220,7 +222,7 @@ int gen_thumbs(void* data)
 			// to load i at the same time, both will try
 			// to download it
 			SDL_Log("Couldn't stat %d %s\n", i, g->files.a[i].path);
-			if (!curl_image(i)) {
+			if (!curl_image(&g->files.a[i])) {
 				SDL_Log("Couldn't curl %d\n", i);
 				free(g->files.a[i].path);
 				g->files.a[i].path = NULL;
@@ -304,23 +306,28 @@ void free_thumb(void* t)
 	}
 }
 
+void allocate_thumbs(void)
+{
+	// still using separate calloc because calling vec constructor uses
+	// malloc and I want them 0'd
+	thumb_state* tmp;
+	if (!(tmp = calloc(g->files.size, sizeof(thumb_state)))) {
+		cleanup(0, 1);
+	}
+	g->thumbs.a = tmp;
+	g->thumbs.size = g->files.size;
+	g->thumbs.capacity = g->files.size;
+	g->thumbs.elem_free = free_thumb;
+	// elem_init already NULL
+}
+
 void generate_thumbs(intptr_t do_load)
 {
 	if (g->generating_thumbs || g->thumbs_done)
 		return;
 
-	// still using separate calloc because calling vec constructor uses
-	// malloc and I want them 0'd
 	if (!g->thumbs.a) {
-		thumb_state* tmp;
-		if (!(tmp = calloc(g->files.size, sizeof(thumb_state)))) {
-			cleanup(0, 1);
-		}
-		g->thumbs.a = tmp;
-		g->thumbs.size = g->files.size;
-		g->thumbs.capacity = g->files.size;
-		g->thumbs.elem_free = free_thumb;
-		// elem_init already NULL
+		allocate_thumbs();
 	}
 
 	g->generating_thumbs = SDL_TRUE;
@@ -403,7 +410,7 @@ int jit_thumbs(void* data)
 					// to load i at the same time, both will try
 					// to download it
 					SDL_Log("Couldn't stat %d %s\n", i, g->files.a[i].path);
-					if (!curl_image(i)) {
+					if (!curl_image(&g->files.a[i])) {
 						SDL_Log("Couldn't curl %d\n", i);
 						free(g->files.a[i].path);
 						g->files.a[i].path = NULL;
@@ -479,23 +486,14 @@ int jit_thumbs(void* data)
 	return 0;
 }
 
+
 void do_thumbmode(void)
 {
 	// TODO should I just pre-allocate this whenever I finish
 	// a scan?
 
-	// still using separate calloc because calling vec constructor uses
-	// malloc and I want them 0'd
 	if (!g->thumbs.a) {
-		thumb_state* tmp;
-		if (!(tmp = calloc(g->files.size, sizeof(thumb_state)))) {
-			cleanup(0, 1);
-		}
-		g->thumbs.a = tmp;
-		g->thumbs.size = g->files.size;
-		g->thumbs.capacity = g->files.size;
-		g->thumbs.elem_free = free_thumb;
-		// elem_init already NULL
+		allocate_thumbs();
 	}
 
 	//possibly preserve SEARCH_RESULTS
