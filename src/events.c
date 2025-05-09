@@ -829,12 +829,14 @@ int handle_list_events()
 			sym = e.key.keysym.sym;
 			switch (sym) {
 			case SDLK_ESCAPE:
-				if (g->is_new_renaming) {
+				if (g->is_new_renaming > 0) {
 					if (g->is_new_renaming == NEW_PLIST) {
 						cvec_pop_str(&g->playlists, NULL);
 					}
-					g->is_new_renaming = 0;
 					g->selected_plist = -1;
+
+					// set to -1 to signal to call nk_edit_unfocus()
+					g->is_new_renaming = -1;
 				} else if (g->state & SEARCH_RESULTS) {
 					if (g->list_view == &g->files) {
 						// if nothing was selected among search results set back

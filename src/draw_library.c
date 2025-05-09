@@ -542,13 +542,15 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 	int active;
 	int is_selected;
 
-	int edit_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_AUTO_SELECT | NK_EDIT_ALWAYS_INSERT_MODE;
+	// TODO maybe I should just call it NK_EDIT_FOCUS?
+	int edit_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_AUTO_SELECT | NK_EDIT_IMMEDIATE_FOCUS;
+	//int edit_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_AUTO_SELECT;
+	//int edit_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
 
 	static char buf[STRBUF_SZ];
 	static int buf_len = 0;
-	static int focus_flag;
 
-	char tmp_buf[STRBUF_SZ];
+	static char tmp_buf[STRBUF_SZ];
 	int loc;
 
 	// Ugly hack to work around Nuklear issues
@@ -562,8 +564,13 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 
 	int footer_size = g->font_size+20+4;
 
-	if (!g->is_new_renaming) {
-		focus_flag = 0;
+	if (g->is_new_renaming <= 0) {
+		buf[0] = 0;
+		buf_len = 0;
+		if (g->is_new_renaming < 0) {
+			nk_edit_unfocus(ctx);
+			g->is_new_renaming = 0;
+		}
 	}
 
 	nk_layout_row_dynamic(ctx, scr_h-footer_size, 1);
@@ -576,30 +583,7 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 			// TODO reorganize this code
 			if (g->is_new_renaming && is_selected) {
 
-				struct nk_rect bounds = nk_widget_bounds(ctx);
-				if (!focus_flag) {
-					// nk_edit_focus(ctx, edit_flags);
-					//SDL_Log("Mouse at %d %d\n", x, y);
-
-					// To get it to work for New Playlist, have to warp from button
-					// they just clicked to new text field location because Nuklear
-					// checks for a click *and* current location to make it active
-					// could do it everytime but want to avoid unecessary visual jump
-					if (g->is_new_renaming == NEW_PLIST) {
-						SDL_WarpMouseInWindow(g->win, bounds.x+20, bounds.y+15);
-					}
-
-					//SDL_Log("Pushing click %d %d \n", (int)bounds.x+20, (int)bounds.y+15);
-					click_event.button.x = bounds.x+20;
-					click_event.button.y = bounds.y+15;
-					//SDL_PushEvent(&click_event);
-				}
-
 				active = nk_edit_string(ctx, edit_flags, buf, &buf_len, STRBUF_SZ, nk_filter_default);
-				if ((active & NK_EDIT_ACTIVATED)) {
-					focus_flag = 1;
-				}
-
 				buf[buf_len] = 0;
 				if (active & NK_EDIT_COMMITED && buf_len) {
 					// TODO function? better way to structure this
@@ -615,6 +599,8 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 								buf[0] = 0;
 								buf_len = 0;
 								g->is_new_renaming = 0;
+								nk_edit_unfocus(ctx);
+
 								// "load" new playlist?
 								// by just staying on g->selected_plist
 								load_sql_playlist_id(g->playlist_ids.a[i], &g->lib_mode_list);
@@ -645,12 +631,24 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 							buf[0] = 0;
 							buf_len = 0;
 							g->is_new_renaming = 0;
+							nk_edit_unfocus(ctx);
 						} else {
 							buf_len = snprintf(buf, STRBUF_SZ, "Failed to rename playlist");
 						}
+					} else if (loc == i && g->is_new_renaming == RENAMING_PLIST) {
+						// Allow enter on the same name when renaming, same as ESC
+						buf[0] = 0;
+						buf_len = 0;
+						g->is_new_renaming = 0;
+						nk_edit_unfocus(ctx);
 					} else {
 						buf_len = snprintf(tmp_buf, STRBUF_SZ, "'%s' already exists!", buf);
 						strcpy(buf, tmp_buf);
+						// select all
+						ctx->current->edit.sel_start = 0;
+						ctx->current->edit.sel_end = buf_len;
+						// not sure this is really necessary
+						ctx->current->edit.cursor = 0;
 					}
 				}
 			} else if (nk_selectable_label(ctx, g->playlists.a[i], NK_TEXT_CENTERED, &is_selected)) {

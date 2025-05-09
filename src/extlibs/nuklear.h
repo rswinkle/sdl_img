@@ -3713,7 +3713,8 @@ enum nk_edit_flags {
     NK_EDIT_NO_HORIZONTAL_SCROLL    = NK_FLAG(8),
     NK_EDIT_ALWAYS_INSERT_MODE      = NK_FLAG(9),
     NK_EDIT_MULTILINE               = NK_FLAG(10),
-    NK_EDIT_GOTO_END_ON_ACTIVATE    = NK_FLAG(11)
+    NK_EDIT_GOTO_END_ON_ACTIVATE    = NK_FLAG(11),
+    NK_EDIT_IMMEDIATE_FOCUS         = NK_FLAG(12)
 };
 enum nk_edit_types {
     NK_EDIT_SIMPLE  = NK_EDIT_ALWAYS_INSERT_MODE,
@@ -28017,6 +28018,8 @@ nk_do_edit(nk_flags *state, struct nk_command_buffer *out,
         edit->active = NK_INBOX(in->mouse.pos.x, in->mouse.pos.y,
                                 bounds.x, bounds.y, bounds.w, bounds.h);
     }
+    /* active is unsigned char, otherwise I'd use |= */
+    edit->active = edit->active || (flags & NK_EDIT_IMMEDIATE_FOCUS);
 
     /* (de)activate text editor */
     if (!prev_state && edit->active) {
