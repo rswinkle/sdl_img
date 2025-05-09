@@ -379,6 +379,10 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 								try_move(SELECTION);
 							}
 						}
+
+						if (g->is_new_renaming) {
+							g->is_new_renaming = -1;
+						}
 					}
 					nk_label(ctx, lv->a[i].size_str, NK_TEXT_RIGHT);
 					nk_label(ctx, lv->a[i].mod_str, NK_TEXT_RIGHT);
@@ -434,6 +438,9 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 							try_move(SELECTION);
 						}
 					}
+					if (g->is_new_renaming) {
+						g->is_new_renaming = -1;
+					}
 				}
 				nk_label(ctx, lv->a[i].size_str, NK_TEXT_RIGHT);
 				nk_label(ctx, lv->a[i].mod_str, NK_TEXT_RIGHT);
@@ -468,6 +475,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 	}
 	*/
 
+	// TODO better handle different cases (no images, in the middle of new_renaming, etc.)
 	int cols = 1;
 	int plist_i = g->selected_plist;
 	char* selected_pl = NULL;
@@ -746,6 +754,9 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 		}
 		nk_group_end(ctx);
 	}
+
+	// TODO move add new edit_string outside of group to here so it will never be hidden
+	// at the bottom of the scrolling playlist list
 
 	// TODO use awesome font icons
 	nk_layout_row_dynamic(ctx, 0, 2);

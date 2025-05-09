@@ -109,6 +109,7 @@ int remove_duplicates(void);
 
 #include "sorting.c"
 
+#include "actions.h"
 int find_file_simple(const char* path);
 
 // has to come after all the enums/macros/struct defs and bytes2str
