@@ -1273,8 +1273,7 @@ int handle_events_normally()
 				do_listmode();
 				break;
 			case THUMB_MODE:
-				//do_thumbmode();
-				do_thumbmode2();
+				do_thumbmode();
 				break;
 			case MODE_CHANGE:
 				g->status = REDRAW;
@@ -1533,8 +1532,7 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_U:
 				if (ctrl_down) {
-					//do_thumbmode();
-					do_thumbmode2();
+					do_thumbmode();
 				} else {
 					// TODO GUI for this?  starts thumb thread in the background
 					// without switching to thumb mode

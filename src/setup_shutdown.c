@@ -613,18 +613,6 @@ void cleanup(int ret, int called_setup)
 			SDL_UnlockMutex(g->thumb_mtx);
 		}
 
-		/*
-		if (g->loading_thumbs) {
-			// wait for thread to exit
-			SDL_LockMutex(g->thumb_mtx);
-			while (g->loading_thumbs) {
-				SDL_LogDebugApp("Waiting for thumb loading thread to exit...\n");
-				SDL_CondWait(g->thumb_cnd, g->thumb_mtx);
-			}
-			SDL_UnlockMutex(g->thumb_mtx);
-		}
-		*/
-
 		if (!g->jit_thumb_flag) {
 			SDL_LogDebugApp("Waking/Signaling jit_thumb thread so it can exit...\n");
 			SDL_LockMutex(g->jit_thumb_mtx);

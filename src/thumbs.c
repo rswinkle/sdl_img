@@ -300,67 +300,6 @@ void stop_generating(void)
 	}
 }
 
-// TODO remove this function entirely since it only works for non-hardware
-// accelerated backend?  Or change it to just loading the pixels?  The latter
-// cause a huge memory spike
-#if 0
-int load_thumbs(void* data)
-{
-	int w, h, channels;
-	u8* outpix;
-	char thumbpath[STRBUF_SZ] = { 0 };
-	int start = SDL_GetTicks();
-
-	g->loading_thumbs = SDL_TRUE;
-
-	for (int i=0; i<g->thumbs.size; i++) {
-		// user exited, want to cleanly end thread
-		if (g->is_exiting) {
-			g->thumbs.size = i;
-			goto exit_load_thumbs;
-		}
-
-		if (!g->files.a[i].path) {
-			continue;
-		}
-		get_thumbpath(g->files.a[i].path, thumbpath, sizeof(thumbpath));
-
-		outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
-		make_thumb_tex(i, w, h, outpix);
-		free(outpix);
-	}
-
-	// make sure we are on current image after we're done loading
-	// since loading can take a while if there are 1000's of images
-	if (!(g->state & SEARCH_RESULTS)) {
-		g->thumb_sel = g->img[0].index;
-	} else {
-		g->thumb_sel = g->search_results.a[g->img[0].index];
-	}
-	g->thumb_sel_end = g->thumb_sel;
-	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
-
-	if (!g->save_status_uptodate) {
-		if (g->bad_path_state == HAS_BAD) {
-			remove_bad_paths();
-		}
-		update_save_status();
-		//UPDATE_PLAYLIST_SAVE_STATUS();
-		g->save_status_uptodate = SDL_TRUE;
-	}
-
-exit_load_thumbs:
-	SDL_LockMutex(g->thumb_mtx);
-	g->thumbs_loaded = SDL_TRUE;
-	g->loading_thumbs = SDL_FALSE;
-	SDL_CondSignal(g->thumb_cnd);
-	SDL_UnlockMutex(g->thumb_mtx);
-
-	SDL_Log("Done loading thumbs in %.2f seconds, exiting thread.\n", (SDL_GetTicks()-start)/1000.0f);
-	return 0;
-}
-#endif
-
 int jit_thumbs(void* data)
 {
 	// TODO check thumbs_done/thumbs_loaded outside or inside to prevent
@@ -488,7 +427,7 @@ int jit_thumbs(void* data)
 	return 0;
 }
 
-void do_thumbmode2(void)
+void do_thumbmode(void)
 {
 	// TODO should I just pre-allocate this whenever I finish
 	// a scan?
@@ -542,56 +481,6 @@ void do_thumbmode2(void)
 		generate_thumbs(SDL_FALSE);
 	}
 }
-
-#if 0
-void do_thumbmode(void)
-{
-	if (g->generating_thumbs) {
-		SDL_Log("Cannot switch to thumbmode when generating thumbs already active\n");
-		return;
-	}
-
-	//possibly preserve SEARCH_RESULTS
-	if (g->state == NORMAL) {
-		g->state = THUMB_DFLT;
-		g->thumb_sel = g->img[0].index;
-	} else {
-		// clear NORMAL
-		g->state = THUMB_SEARCH | SEARCH_RESULTS; // ^= NORMAL;
-		g->thumb_sel = g->search_results.a[g->img[0].index];
-
-		// for thumb mode we switch indices back immediately on leaving VIEW_RESULTS
-		for (int i=0; i<g->n_imgs; ++i) {
-			g->img[i].index = g->search_results.a[g->img[i].index];
-		}
-	}
-
-	g->thumb_sel_end = g->thumb_sel;
-	g->thumb_start_row = g->thumb_sel / g->thumb_cols;
-
-	if (!g->thumbs_done) {
-		generate_thumbs(SDL_TRUE);
-	} else if (!g->thumbs_loaded) {
-		SDL_Thread* thumb_thrd;
-		if (!(thumb_thrd = SDL_CreateThread(load_thumbs, "load_thumbs_thrd", NULL))) {
-			// TODO warning?
-			SDL_Log("couldn't create load thumb thread\n");
-		}
-		// passing NULL is a no-op like free
-		SDL_DetachThread(thumb_thrd);
-	}
-
-	g->status = REDRAW;
-	// TODO what a mess, need to think about the best way
-	// to handle GUI vs mouse in thumb vs normal mode
-	// and I definitely want the infobar or a variant of it
-	// in visual mode, like with vim show row and image number
-	// total rows etc.
-	SDL_ShowCursor(SDL_ENABLE);
-	g->gui_timer = SDL_GetTicks();
-	g->show_gui = nk_true;
-}
-#endif
 
 void fix_thumb_sel(int dir)
 {

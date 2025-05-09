@@ -371,7 +371,6 @@ typedef struct global_state
 
 	// threading
 	int generating_thumbs;
-	int loading_thumbs;
 
 	// only one for both since you never have the generating
 	// and the loading thread at the same time...for now

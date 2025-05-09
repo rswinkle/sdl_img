@@ -100,10 +100,11 @@ void do_lib_import(void)
 
 void do_shuffle(void)
 {
-	if (g->n_imgs != 1 || g->generating_thumbs || g->loading_thumbs) {
-		SDL_Log("Only support shuffling in 1 image mode while not generating/loading thumbs\n");
+	if (g->n_imgs != 1) {
+		SDL_Log("Only support shuffling in 1 image mode\n");
 		return;
 	}
+	stop_generating();
 
 	if (g->bad_path_state == HAS_BAD) {
 		SDL_Log("Removing bad paths before shuffling...\n");
@@ -166,10 +167,11 @@ void do_shuffle(void)
 
 void do_sort(compare_func cmp)
 {
-	if (g->n_imgs != 1 || g->generating_thumbs || g->loading_thumbs) {
-		SDL_Log("Can't sort in multi-image modes or while generating/loading thumbs");
+	if (g->n_imgs != 1) {
+		SDL_Log("Can't sort in multi-image modes\n");
 		return;
 	}
+	stop_generating();
 
 	if (g->bad_path_state == HAS_BAD) {
 		SDL_Log("Removing bad paths before sorting...");
@@ -445,10 +447,11 @@ void do_remove(SDL_Event* next)
 {
 	// GUI alert for these?  Could move this logic directly into GUI or events
 	// only remove in single image mode to avoid confusion and complication
-	if (g->generating_thumbs || g->loading_thumbs || g->loading || g->n_imgs != 1) {
-		SDL_Log("Can't remove images while generating/loading thumbnails, loading images, or in any mode but single image mode");
+	if (g->loading || g->n_imgs != 1) {
+		SDL_Log("Can't remove images while loading images, or in any mode but single image mode");
 		return;
 	}
+	stop_generating();
 
 	int files_index = g->img[0].index;
 
@@ -514,10 +517,11 @@ void do_delete(SDL_Event* next)
 	// TODO GUI alert for these?  Could move this logic directly into GUI or events
 	// only delete in single image mode to avoid confusion and complication
 	// and not while generating/loading thumbs or loading images
-	if (g->generating_thumbs || g->loading_thumbs || g->loading || g->n_imgs != 1) {
-		SDL_Log("Can't delete images while generating/loading thumbnails, loading images, or in any mode but single image mode");
+	if (g->loading || g->n_imgs != 1) {
+		SDL_Log("Can't delete images while loading images, or in any mode but single image mode");
 		return;
 	}
+	stop_generating();
 
 	char* full_img_path;
 	if (!IS_VIEW_RESULTS()) {
