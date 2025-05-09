@@ -367,7 +367,7 @@ void clear_img(img_state* img)
 				// they're generated and loaded so just make it here
 				// and update the texture
 				int i = (IS_VIEW_RESULTS()) ? g->search_results.a[img->index] : img->index;
-				make_thumb(i, img->w, img->h, img->pixels, thumbpath, SDL_TRUE);
+				make_thumb(&g->thumbs.a[i], img->w, img->h, img->pixels, thumbpath, SDL_TRUE);
 			}
 		}
 	}

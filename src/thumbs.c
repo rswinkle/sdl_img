@@ -39,30 +39,30 @@ void get_thumbpath(const char* img_path, char* thmpath, size_t thmpath_len)
 	}
 }
 
-void make_thumb_tex(int i, int w, int h, u8* pix)
+void make_thumb_tex(thumb_state* thumb, int w, int h, u8* pix)
 {
 	if (!pix)
 		return;
 
-	if (g->thumbs.a[i].tex) {
+	if (thumb->tex) {
 		// Doing a rotation/flip after loading thumbs, can't change the
 		// texture dimensions, so have to destroy and make a new one
-		SDL_DestroyTexture(g->thumbs.a[i].tex);
+		SDL_DestroyTexture(thumb->tex);
 	}
 	
-	g->thumbs.a[i].tex = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, w, h);
+	thumb->tex = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, w, h);
 	
-	if (!g->thumbs.a[i].tex) {
+	if (!thumb->tex) {
 		SDL_Log("Error creating texture: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
-	if (SDL_UpdateTexture(g->thumbs.a[i].tex, NULL, pix, w*4)) {
+	if (SDL_UpdateTexture(thumb->tex, NULL, pix, w*4)) {
 		SDL_Log("Error updating texture: %s\n", SDL_GetError());
 		cleanup(0, 1);
 	}
 
-	g->thumbs.a[i].w = w;
-	g->thumbs.a[i].h = h;
+	thumb->w = w;
+	thumb->h = h;
 }
 
 void load_thumb_textures(void)
@@ -84,12 +84,12 @@ void load_thumb_textures(void)
 		if (!outpix) {
 			SDL_Log("Error, thumb %d doesn't exist\n", i);
 		}
-		make_thumb_tex(i, w, h, outpix);
+		make_thumb_tex(&g->thumbs.a[i], w, h, outpix);
 		free(outpix);
 	}
 }
 
-int make_thumb(int i, int w, int h, u8* pix, const char* thumbpath, int do_load)
+int make_thumb(thumb_state* thumb, int w, int h, u8* pix, const char* thumbpath, int do_load)
 {
 	int out_w, out_h;
 	u8* outpix;
@@ -115,7 +115,7 @@ int make_thumb(int i, int w, int h, u8* pix, const char* thumbpath, int do_load)
 	stbi_write_png(thumbpath, out_w, out_h, 4, outpix, out_w*4);
 
 	if (do_load) {
-		make_thumb_tex(i, out_w, out_h, outpix);
+		make_thumb_tex(thumb, out_w, out_h, outpix);
 	}
 	free(outpix);
 
@@ -187,7 +187,7 @@ int gen_thumbs(void* data)
 			if (orig_stat.st_mtime < thumb_stat.st_mtime) {
 				if (do_load) {
 					outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
-					make_thumb_tex(i, w, h, outpix);
+					make_thumb_tex(&g->thumbs.a[i], w, h, outpix);
 					free(outpix);
 				}
 				continue;
@@ -200,7 +200,7 @@ int gen_thumbs(void* data)
 			continue;
 		}
 
-		if (!make_thumb(i, w, h, pix, thumbpath, do_load)) {
+		if (!make_thumb(&g->thumbs.a[i], w, h, pix, thumbpath, do_load)) {
 			free(pix);
 			continue;
 		}
@@ -371,7 +371,7 @@ int jit_thumbs(void* data)
 						 * // Has to happen on main thread
 						if (do_load) {
 							outpix = stbi_load(thumbpath, &w, &h, &channels, 4);
-							make_thumb_tex(i, w, h, outpix);
+							make_thumb_tex(&g->thumbs.a[i], w, h, outpix);
 							free(outpix);
 						}
 						*/
@@ -385,7 +385,7 @@ int jit_thumbs(void* data)
 					continue;
 				}
 
-				if (!make_thumb(i, w, h, pix, thumbpath, SDL_FALSE)) {
+				if (!make_thumb(&g->thumbs.a[i], w, h, pix, thumbpath, SDL_FALSE)) {
 					free(pix);
 					continue;
 				}

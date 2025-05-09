@@ -93,7 +93,21 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 			nk_label(ctx, g->default_playlist, NK_TEXT_LEFT);
 
 			bounds = nk_widget_bounds(ctx);
-			draw_playlists_menu(ctx, group_szs[0], scr_h-bounds.y);
+			int height = scr_h - bounds.y;
+			SDL_Texture* preview = NULL;
+			if (g->cur_selected && g->thumbs.a && g->selection >= 0 && g->thumbs.a[g->selection].tex) {
+				//height -= THUMBSIZE;
+				height -= g->gui_sidebar_w + 4;  // 4 for 2*win_spacing
+				preview = g->thumbs.a[g->selection].tex;
+			}
+
+			draw_playlists_menu(ctx, group_szs[0], height);
+
+			// TODO preview
+			if (preview) {
+				nk_layout_row_dynamic(ctx, g->gui_sidebar_w, 1);
+				nk_image(ctx, nk_image_ptr(preview));
+			}
 
 			nk_group_end(ctx);
 		}
