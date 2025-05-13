@@ -266,10 +266,17 @@ void do_sort(compare_func cmp)
 // TODO any more reason for this function?  Worth having?
 void do_lib_sort(compare_func cmp)
 {
-	mirrored_qsort(g->lib_mode_list.a, g->lib_mode_list.size, sizeof(file), cmp, 0);
-	g->selection = -1;
+	if (g->lib_mode_list.size) {
+		mirrored_qsort(g->lib_mode_list.a, g->lib_mode_list.size, sizeof(file), cmp, 0);
+		g->selection = 0;
+		get_img_playlists(0);
+	} else {
+		g->selection = -1;
+	}
+	g->list_setscroll = SDL_TRUE;
 	if (g->preview.tex) {
 		SDL_DestroyTexture(g->preview.tex);
+		g->preview.tex = NULL;
 	}
 }
 
@@ -769,6 +776,12 @@ void do_listmode(void)
 
 	g->selection = g->img[0].index;
 	g->list_setscroll = SDL_TRUE;
+
+	if (g->preview.tex) {
+		SDL_DestroyTexture(g->preview.tex);
+		g->preview.tex = NULL;
+	}
+
 	/*
 	 * // this should always be cleared when exiting a search mode
 	text_buf[0] = 0;

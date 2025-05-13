@@ -321,7 +321,10 @@ void setup(int argc, char** argv)
 	cvec_str(&g->favs, 0, 50);
 	cvec_str(&g->playlists, 0, 50);
 	cvec_i(&g->playlist_ids, 0, 50);
-	// g->thumbs initialized if needed in generate_thumbs()
+
+	// g->thumbs initialized as needed ... though maybe we should just do it here
+
+	g->list_view = &g->files;
 
 	// Call this after creating logfile
 	setup_dirs();

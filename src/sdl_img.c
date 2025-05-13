@@ -686,7 +686,7 @@ int wrap(int z)
 	assert(g->files.size);
 
 	int n = g->files.size;
-	if (IS_VIEW_RESULTS()) {
+	if (IS_RESULTS()) {
 		n = g->search_results.size;
 	}
 	while (z < 0) z += n;
@@ -763,7 +763,7 @@ int load_new_images(void* data)
 			// and triger a switch to FILE_SELECTION
 			if (!g->img_focus) {
 				if (load_what >= RIGHT) {
-					last = (load_what == RIGHT) ? g->img[g->n_imgs-1].index : g->selection;
+					last = (load_what == RIGHT) ? g->img[g->n_imgs-1].index : g->selection-1;
 					for (int i=0; i<g->n_imgs; ++i) {
 						if (g->ind_mm && load_what != SELECTION) {
 							last = g->img[i].index;
@@ -808,7 +808,7 @@ int load_new_images(void* data)
 				SDL_SetWindowTitle(g->win, g->files.a[index].name);
 			} else {
 				tmp = (load_what >= RIGHT) ? 1 : -1;
-				last = (load_what != SELECTION) ? g->img_focus->index : g->selection;
+				last = (load_what != SELECTION) ? g->img_focus->index : g->selection-1;
 				for (cnt = 0; cnt < g->files.size; ++cnt) {
 					last = wrap(last + tmp);
 					if (attempt_image_load(last, &img[0])) {
@@ -1113,7 +1113,7 @@ int scan_sources(void* data)
 					// NOTE it will always be there in open single because there was no
 					// removal + myscandir() like below so not subject to extension filtering
 				}
-				g->selection = (start_index) ? start_index-1 : g->files.size-1;
+				g->selection = start_index;
 				g->open_single = SDL_FALSE;
 			} else {
 				// This is right even if g->files.size != 1 (ie we did an "Open More")
@@ -1163,7 +1163,7 @@ int scan_sources(void* data)
 				// ever open over 2^31-1 images so just explicitly convert
 				// from ptrdiff_t (i64) to int here and use ints everywhere
 				int start_index =(int)(res - g->files.a);
-				g->selection = (start_index) ? start_index-1 : g->files.size-1;
+				g->selection = start_index;
 			}
 		} else if (g->files.size) {
 			SDL_Log("Found %"PRIcv_sz" images total. Sorting by file name now...\n", g->files.size);
@@ -1174,7 +1174,7 @@ int scan_sources(void* data)
 			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
 
 			if (g->is_open_new) {
-				g->selection = g->files.size-1;
+				g->selection = 0;
 			} else {
 				// TODO is there a way to avoid the unecessary load with minimal code changes?
 				//
@@ -1184,8 +1184,7 @@ int scan_sources(void* data)
 				// no load actually happened
 				//g->done_loading = 1;
 
-				int idx = find_file_simple(path);
-				g->selection = idx-1;
+				g->selection = find_file_simple(path);
 			}
 		} else {
 			SDL_Log("Found 0 images, switching to File Browser...\n");

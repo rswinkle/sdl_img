@@ -1970,7 +1970,7 @@ void draw_playlist_popup(struct nk_context* ctx, int scr_w, int scr_h, int idx)
 	int w = 300, h = (g->font_size + 20) * 11;
 	struct nk_rect s = { (scr_w-w)/2, (scr_h-h)/2, w, h };
 
-	if (IS_VIEW_RESULTS()) {
+	if (IS_RESULTS()) {
 		idx = g->search_results.a[idx];
 	}
 

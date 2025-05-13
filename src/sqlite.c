@@ -21,8 +21,9 @@ int do_sql_save(int removing, int plist_id);
 int do_sql_save_all(void);
 int add_cur_files_to_db(void);
 int update_save_status(void);
-int get_img_playlists();
+int get_img_playlists(int idx);
 int clean_library(void);
+int load_library(cvector_file* files);
 int export_playlist(const char* name);
 int export_playlists(void);
 
@@ -381,7 +382,7 @@ int load_sql_playlist_id(int id, cvector_file* files)
 			f.name = f.path;
 			strncpy(f.size_str, "unknown", SIZE_STR_BUF);
 			strncpy(f.mod_str, "unknown", MOD_STR_BUF);
-			cvec_push_file(&g->files, &f);
+			cvec_push_file(files, &f);
 		} else {
 			f.path = CVEC_STRDUP(s);
 			f.size = file_stat.st_size;
@@ -550,12 +551,6 @@ int do_sql_save(int removing, int plist_id)
 
 int do_sql_save_all(void)
 {
-	// TODO other way to check for only valid paths?
-	// and that they're all already in the database
-	if (!g->thumbs_done || g->bad_path_state) {
-		return FALSE;
-	}
-
 	int img_id;
 	int cur_plist_id = g->cur_playlist_id;
 	char* playlist = g->cur_playlist;
@@ -572,9 +567,11 @@ int do_sql_save_all(void)
 	}
 
 	for (int i=0; i<g->files.size; i++) {
-		if (!(img_id = get_image_id(g->files.a[i].path))) {
-			assert(img_id >= 0 && "This should never happen");
-		}
+		// skip URLS
+		if (!g->files.a[i].modified) continue;
+
+		img_id = get_image_id(g->files.a[i].path);
+		assert(img_id > 0 && "This should never happen");
 
 		sqlite3_bind_int(stmt, 2, img_id);
 
@@ -693,16 +690,16 @@ int update_save_status(void)
 }
 
 // pass idx and path?
-int get_img_playlists()
+int get_img_playlists(int idx)
 {
 	int img_id;
-	int idx = g->img[0].index;
+	if (idx < 0) return FALSE;
 
 	if (IS_VIEW_RESULTS()) {
 		idx = g->search_results.a[idx];
 	}
 
-	if (!(img_id = get_image_id(g->img[0].fullpath))) {
+	if (!(img_id = get_image_id(g->list_view->a[idx].path))) {
 		assert(img_id >= 0 && "This should never happen");
 	}
 

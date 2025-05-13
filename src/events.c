@@ -446,11 +446,10 @@ int handle_thumb_events()
 						// Just going to go to last result they were on
 						// not necessarily the closest one
 						//g->thumb_sel = g->search_results.a[g->cur_result];
-						g->selection = (g->cur_result) ? g->cur_result-1 : g->search_results.size-1;
+						g->selection = g->cur_result;
 					} else {
 						g->state = NORMAL;
-						// subtract 1 since we reuse RIGHT loading code
-						g->selection = (g->thumb_sel) ? g->thumb_sel - 1 : g->files.size-1;
+						g->selection = g->thumb_sel;
 
 						// Only clear search when going back to normal mode
 						g->search_results.size = 0;
@@ -622,9 +621,6 @@ int handle_thumb_events()
 				if (g->selection >= g->files.size)
 					break;
 				if (e.button.clicks == 2) {
-					// since we reuse the RIGHT loading code, have to subtract 1 so we
-					// "move right" to the selection
-					g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
 					g->state = NORMAL;
 					g->thumb_start_row = 0;
 					try_move(SELECTION);
@@ -857,7 +853,10 @@ int handle_list_events()
 
 						g->list_setscroll = SDL_TRUE;
 					} else {
-						g->selection = -1;
+						if (g->selection >= 0) {
+							g->selection = g->search_results.a[g->selection];
+						}
+						g->list_setscroll = SDL_TRUE;
 					}
 					g->state = LIST_DFLT;
 
@@ -896,11 +895,9 @@ int handle_list_events()
 				if (g->cur_selected && g->selection >= 0) {
 					if (g->state & SEARCH_RESULTS) {
 						g->state |= NORMAL;
-						g->selection = (g->selection) ? g->selection - 1 : g->search_results.size-1;
 					} else {
 						// TODO avoid unnecessary loads for current image
 						g->state = NORMAL;
-						g->selection = (g->selection) ? g->selection - 1 : g->files.size-1;
 					}
 					// Same as switching from thumbmode
 					set_show_gui(SDL_TRUE);
@@ -941,6 +938,7 @@ int handle_list_events()
 						SDL_DestroyTexture(g->preview.tex);
 						g->preview.tex = NULL;
 					}
+					get_img_playlists(g->selection);
 				}
 				break;
 			}
@@ -1145,6 +1143,8 @@ int handle_popup_events()
 	return 0;
 }
 
+void handle_loading(void);
+
 int handle_events_normally()
 {
 	SDL_Event e;
@@ -1175,6 +1175,8 @@ int handle_events_normally()
 
 	int ticks = SDL_GetTicks();
 
+	handle_loading();
+	/*
 	SDL_LockMutex(g->img_loading_mtx);
 	if (g->done_loading) {
 		if (g->done_loading >= LEFT) {
@@ -1202,7 +1204,7 @@ int handle_events_normally()
 		}
 		g->done_loading = 0;
 		g->status = REDRAW;
-		if (g->slideshow)
+		if (g->slideshow && IS_NORMAL())
 			g->slide_timer =  SDL_GetTicks();
 	}
 	SDL_UnlockMutex(g->img_loading_mtx);
@@ -1225,7 +1227,9 @@ int handle_events_normally()
 			g->adj_img_rects = SDL_FALSE;
 		}
 	}
+	*/
 
+	// TODO but in handle_loading?
 	if (g->slideshow) {
 		if (!g->loading && ticks - g->slide_timer > g->slideshow) {
 			int i;
@@ -1601,14 +1605,14 @@ int handle_events_normally()
 			// Go to first image in list (useful after sorting different ways without having to use
 			// list or thumb mode to scroll to the top/bottom)
 			case SDL_SCANCODE_HOME:
-				g->selection = g->files.size-1;
+				g->selection = 0;
 				try_move(SELECTION);
 				break;
 
 			// not a lot of use for this since you can just hit HOME and then back one
 			// but users will probably expect it to work
 			case SDL_SCANCODE_END:
-				g->selection = g->files.size-2;
+				g->selection = g->files.size-1;
 				try_move(SELECTION);
 				break;
 		}
@@ -1805,9 +1809,11 @@ int handle_events_normally()
 		case SDL_MOUSEBUTTONDOWN:
 			switch (e.button.button) {
 			case SDL_BUTTON_RIGHT:
+				// TODO this is handle_events_normallly(), why are we
+				// checking g->state & NORMAL? state transition issue I'm sure
 				if (g->state & NORMAL && !(g->state & PLAYLIST_CONTEXT)) {
 					if (g->n_imgs == 1) {
-						get_img_playlists();
+						get_img_playlists(g->img[0].index);
 						g->state |= PLAYLIST_CONTEXT;
 					}
 					break;
@@ -1913,6 +1919,62 @@ int handle_events_normally()
 	return 0;
 }
 
+
+void handle_loading(void)
+{
+	img_state* img;
+	SDL_LockMutex(g->img_loading_mtx);
+	if (g->done_loading) {
+		if (g->done_loading >= LEFT) {
+			img = (g->img == g->img1) ? g->img2 : g->img1;
+			if (g->img_focus) {
+				clear_img(g->img_focus);
+				replace_img(g->img_focus, &img[0]);
+				create_textures(g->img_focus);
+			} else {
+				for (int i=0; i<g->n_imgs; ++i) {
+					create_textures(&img[i]);
+					clear_img(&g->img[i]);
+				}
+				g->img = img;
+			}
+		} else {
+			for (int i=g->n_imgs; i<g->done_loading; ++i) {
+				create_textures(&g->img[i]);
+			}
+			// TODO duplication in do_mode_change
+			g->needs_scr_rect_update = SDL_TRUE;
+			g->adj_img_rects = SDL_TRUE;
+
+			g->n_imgs = g->done_loading;
+		}
+		g->done_loading = 0;
+		g->status = REDRAW;
+		if (g->slideshow && IS_NORMAL())
+			g->slide_timer =  SDL_GetTicks();
+	}
+	SDL_UnlockMutex(g->img_loading_mtx);
+	
+	if (!g->loading) {
+		if (g->needs_scr_rect_update) {
+			//SDL_Log("update after loading mode = %d %d", g->n_imgs, g->adj_img_rects);
+			switch (g->n_imgs) {
+			case 1: SET_MODE1_SCR_RECT(); break;
+			case 2: SET_MODE2_SCR_RECTS(); break;
+			case 4: SET_MODE4_SCR_RECTS(); break;
+			case 8: SET_MODE8_SCR_RECTS(); break;
+			}
+			g->needs_scr_rect_update = SDL_FALSE;
+		}
+		if (g->adj_img_rects) {
+			for (int i=0; i<g->n_imgs; ++i) {
+				set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);
+			}
+			g->adj_img_rects = SDL_FALSE;
+		}
+	}
+}
+
 int handle_events()
 {
 	if (IS_SCANNING_MODE()) {
@@ -1951,6 +2013,8 @@ int handle_events()
 	if (IS_POPUP_ACTIVE()) {
 		return handle_popup_events();
 	}
+
+	//handle_loading();
 
 	if (g->state & NORMAL) {
 		return handle_events_normally();
