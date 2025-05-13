@@ -728,8 +728,12 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 
 	nk_layout_row_dynamic(ctx, scr_h-footer_size, 1);
 	if (nk_group_begin(ctx, "Lib Playlist List", NK_WINDOW_SCROLL_AUTO_HIDE)) {
-		//nk_layout_row_dynamic(ctx, 0, 1);
-		nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+
+		if (g->selection < 0) {
+			nk_layout_row_dynamic(ctx, 0, 1);
+		} else {
+			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
+		}
 
 		for (int i=0; i<g->playlists.size; ++i) {
 			is_selected = g->selected_plist == i;
@@ -851,7 +855,31 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 				// TODO there really should be a nk_checkbox() with no label at all
 				//if (nk_checkbox_label(ctx, g->playlists.a[i], &g->img_saved_status[i])) {
 				if (nk_checkbox_label(ctx, "", &g->img_saved_status[i])) {
-					do_sql_save_idx(!g->img_saved_status[i], g->playlist_ids.a[i], idx);
+					int ret = do_sql_save_idx(!g->img_saved_status[i], g->playlist_ids.a[i], idx);
+					// if we are on the playlist we just removed it from we need to
+					// remove it from the list as well
+					if (is_selected && ret && !g->img_saved_status[i]) {
+						cvec_erase_file(g->list_view, idx, idx);
+						if (IS_RESULTS()) {
+							cvec_erase_i(&g->search_results, g->selection, g->selection);
+							for (int j=g->selection; j<g->search_results.size; ++j) {
+								g->search_results.a[j]--;
+							}
+
+							if (g->selection == g->search_results.size) {
+								g->selection = g->search_results.size-1;
+							}
+						} else if (g->selection == g->list_view->size) {
+							g->selection = g->list_view->size-1;
+						}
+
+						// update for new selection (if >= 0) checked inside
+						get_img_playlists(g->selection);
+						if (g->preview.tex) {
+							SDL_DestroyTexture(g->preview.tex);
+							g->preview.tex = NULL;
+						}
+					}
 				}
 			}
 		}

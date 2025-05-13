@@ -829,7 +829,8 @@ int handle_list_events()
 					if (g->is_new_renaming == NEW_PLIST) {
 						cvec_pop_str(&g->playlists, NULL);
 					}
-					g->selected_plist = -1;
+					// stay on that playlist otherwise we're in a weird state
+					//g->selected_plist = -1;
 
 					// set to -1 to signal to call nk_edit_unfocus()
 					g->is_new_renaming = -1;

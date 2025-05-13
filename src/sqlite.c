@@ -444,7 +444,8 @@ int sql_save(sqlite3_stmt* stmt, int idx, const char* path)
 	if (sqlite3_changes(g->db)) {
 		SDL_Log("saving %s\n", path);
 	} else {
-		SDL_Log("%s already in %s\n", path, g->cur_playlist);
+		// TODO propagate playlist name in or status out
+		SDL_Log("%s already in that playlist\n", path);
 	}
 	sqlite3_reset(stmt);
 	return TRUE;
@@ -487,13 +488,16 @@ int do_sql_save_idx(int removing, int plist_id, int idx)
 	if (removing) {
 		sqlite3_stmt* stmt = sqlstmts[DEL_FROM_PLIST_ID];
 		sqlite3_bind_int(stmt, 1, plist_id);
-		ret = sql_unsave(stmt, idx, g->files.a[idx].path);
+		ret = sql_unsave(stmt, idx, g->list_view->a[idx].path);
 	} else {
 		sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
 		sqlite3_bind_int(stmt, 1, plist_id);
-		ret = sql_save(stmt, idx, g->files.a[idx].path);
+		ret = sql_save(stmt, idx, g->list_view->a[idx].path);
 	}
-	if (ret && plist_id == g->cur_playlist_id) {
+
+	// TODO move this out? use g->cur_selected?  Or guard this with a parameter
+	// instead
+	if (g->list_view == &g->files && ret && plist_id == g->cur_playlist_id) {
 		g->files.a[idx].playlist_idx = !removing;
 	}
 
@@ -695,7 +699,7 @@ int get_img_playlists(int idx)
 	int img_id;
 	if (idx < 0) return FALSE;
 
-	if (IS_VIEW_RESULTS()) {
+	if (IS_RESULTS()) {
 		idx = g->search_results.a[idx];
 	}
 
