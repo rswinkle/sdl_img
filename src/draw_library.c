@@ -420,7 +420,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 						}
 
 						if (g->is_new_renaming) {
-							g->is_new_renaming = -1;
+							g->is_new_renaming = -2;
 						}
 					}
 					nk_label(ctx, lv->a[i].size_str, NK_TEXT_RIGHT);
@@ -477,7 +477,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 						}
 					}
 					if (g->is_new_renaming) {
-						g->is_new_renaming = -1;
+						g->is_new_renaming = -2;
 					}
 				}
 				nk_label(ctx, lv->a[i].size_str, NK_TEXT_RIGHT);
@@ -720,12 +720,12 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 
 	float ratios[] = { 0.8, 0.2 };
 
-	if (g->is_new_renaming <= 0) {
+	if (g->is_new_renaming < 0) {
 		buf[0] = 0;
 		buf_len = 0;
-		if (g->is_new_renaming < 0) {
+		if (g->is_new_renaming < -1) {
 			nk_edit_unfocus(ctx);
-			g->is_new_renaming = 0;
+			g->is_new_renaming++;
 		}
 	}
 
@@ -766,7 +766,7 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 							free(tmp_str);
 							buf[0] = 0;
 							buf_len = 0;
-							g->is_new_renaming = 0;
+							g->is_new_renaming = -1;
 							nk_edit_unfocus(ctx);
 						} else {
 							buf_len = snprintf(buf, STRBUF_SZ, "Failed to rename playlist");
@@ -775,7 +775,7 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 						// Allow enter on the same name when renaming, same as ESC
 						buf[0] = 0;
 						buf_len = 0;
-						g->is_new_renaming = 0;
+						g->is_new_renaming = -1;
 						nk_edit_unfocus(ctx);
 					} else {
 						buf_len = snprintf(tmp_buf, STRBUF_SZ, "'%s' already exists!", buf);
@@ -875,7 +875,7 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 						cvec_push_i(&g->playlist_ids, get_playlist_id(buf));
 						buf[0] = 0;
 						buf_len = 0;
-						g->is_new_renaming = 0;
+						g->is_new_renaming = -1;
 						nk_edit_unfocus(ctx);
 
 						// "load" new playlist?
@@ -909,6 +909,8 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 					ctx->current->edit.cursor = 0;
 				}
 			}
+			// scroll to end to make/keep field visible
+			nk_group_set_scroll(ctx, "Lib Playlist List", 0, UINT_MAX);
 		}
 
 		nk_group_end(ctx);

@@ -899,7 +899,11 @@ int handle_list_events()
 			// switch to normal mode on that image
 			case SDLK_RETURN:
 			case SDLK_KP_ENTER:
-				if (g->cur_selected && g->selection >= 0) {
+
+				// TODO this is an ugly hack
+				if (g->is_new_renaming == -1) {
+					g->is_new_renaming = 0;
+				} else if (!g->is_new_renaming && g->cur_selected && g->selection >= 0) {
 					if (g->state & SEARCH_RESULTS) {
 						g->state |= NORMAL;
 					} else {
@@ -919,8 +923,8 @@ int handle_list_events()
 			switch (sym) {
 			case SDLK_k:
 			case SDLK_j:
-				// don't scroll while typing a search
-				if (g->list_search_active) {
+				// don't scroll while typing a search or creating/renaming a playlist
+				if (g->list_search_active || g->is_new_renaming) {
 					break;
 				}
 				//else fall through
