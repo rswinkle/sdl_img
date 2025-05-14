@@ -19,7 +19,7 @@ int sql_unsave(sqlite3_stmt* stmt, int idx, const char* path);
 int do_sql_save_idx(int removing, int plist_id, int idx);
 int do_sql_save(int removing, int plist_id);
 int do_sql_save_all(void);
-int add_cur_files_to_db(void);
+int add_files_to_db(cvector_file* files);
 int update_save_status(void);
 int get_img_playlists(int idx);
 int clean_library(void);
@@ -414,6 +414,7 @@ int get_image_id(const char *path)
         image_id = sqlite3_column_int(stmt, 0);
     } else {
         SDL_Log("Unexpected error: Image '%s' not found (should exist).\n", path);
+        assert(0 && "Image id doesn't exst!");
     }
 
     sqlite3_reset(stmt);
@@ -571,7 +572,7 @@ int do_sql_save_all(void)
 	}
 
 	for (int i=0; i<g->files.size; i++) {
-		// skip URLS
+		// skip URLS/bad files
 		if (!g->files.a[i].modified) continue;
 
 		img_id = get_image_id(g->files.a[i].path);
@@ -609,7 +610,8 @@ int do_sql_save_all(void)
 }
 
 // Do this or do it as we scan sources and stat() files?
-int add_cur_files_to_db(void)
+// TODO more efficient...
+int add_files_to_db(cvector_file* files)
 {
 	int rc;
 	int n_added = 0;
@@ -622,19 +624,19 @@ int add_cur_files_to_db(void)
 		return FALSE;
 	}
 
-	for (int i=0; i<g->files.size; i++) {
-		// skip URLS
-		if (!g->files.a[i].modified) continue;
+	for (int i=0; i<files->size; i++) {
+		// skip URLS/bad files
+		if (!files->a[i].modified) continue;
 
-		sqlite3_bind_text(stmt, 1, g->files.a[i].path, -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt, 1, files->a[i].path, -1, SQLITE_STATIC);
 
 		// TODO decide whether to always check here or always check myself before
 		// calling this function
 		if ((rc = sqlite3_step(stmt)) == SQLITE_DONE) {
 			n_added += sqlite3_changes(g->db) > 0;
-			//g->files.a[idx].playlist_idx = 1;
+			//files->a[idx].playlist_idx = 1;
 		} else {
-			SDL_Log("Failed to add image %s: %s\n", g->files.a[i].path, sqlite3_errmsg(g->db));
+			SDL_Log("Failed to add image %s: %s\n", files->a[i].path, sqlite3_errmsg(g->db));
 			sqlite3_exec(g->db, "ROLLBACK", NULL, NULL, NULL);
 			sqlite3_reset(stmt);
 			return FALSE;
@@ -668,10 +670,11 @@ int update_save_status(void)
 	sqlite3_bind_int(stmt, 1, cur_plist_id);
 
 	for (int i=0; i<g->files.size; i++) {
-		// skip URLS
+		// skip URLS/bad files
 		if (!g->files.a[i].modified) continue;
 
 		if (!(img_id = get_image_id(g->files.a[i].path))) {
+			SDL_Log("Failed to get img_id for %d at path %s\n", i, g->files.a[i].path);
 			assert(img_id >= 0 && "This should never happen");
 		}
 

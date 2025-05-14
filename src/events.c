@@ -826,17 +826,14 @@ int handle_list_events()
 			switch (sym) {
 			case SDLK_ESCAPE:
 				if (g->is_new_renaming > 0) {
-					// TODO change if/when I refactor new playlist code
-					// so it is separate from the playlist loop
-					if (g->is_new_renaming == NEW_PLIST) {
-						cvec_pop_str(&g->playlists, NULL);
-
-						// switch to cur
-						g->selected_plist = -1;
-						g->lib_selected = nk_false;
-						g->cur_selected = nk_true;
-						g->list_view = &g->files;
-					}
+					// Stay on whatever was selected before
+					//if (g->is_new_renaming == NEW_PLIST) {
+					//	// switch to cur
+					//	g->selected_plist = -1;
+					//	g->lib_selected = nk_false;
+					//	g->cur_selected = nk_true;
+					//	g->list_view = &g->files;
+					//}
 
 					// for renaming, stay on that playlist otherwise
 					// we're in a weird state

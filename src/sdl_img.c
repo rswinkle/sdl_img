@@ -558,7 +558,7 @@ int load_image(const char* fullpath, img_state* img, int make_textures)
 
 // renamed to not conflict with <dirent.h>'s scandir
 // which I could probably use to accomplish  most of this...
-int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
+int myscandir(cvector_file* files, const char* dirpath, const char** exts, int num_exts, int recurse)
 {
 	char fullpath[STRBUF_SZ] = { 0 };
 	struct stat file_stat;
@@ -567,7 +567,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 	DIR* dir;
 	struct tm* tmp_tm;
 
-	int start_size = g->files.size;
+	int start_size = files->size;
 
 
 	dir = opendir(dirpath);
@@ -614,7 +614,7 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		if (recurse && S_ISDIR(file_stat.st_mode))
 #endif
 		{
-			myscandir(fullpath, exts, num_exts, recurse);
+			myscandir(files, fullpath, exts, num_exts, recurse);
 			continue;
 		}
 
@@ -671,10 +671,10 @@ int myscandir(const char* dirpath, const char** exts, int num_exts, int recurse)
 		strftime(f.mod_str, MOD_STR_BUF, "%Y-%m-%d %H:%M:%S", tmp_tm); // %F %T
 		sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 		f.name = (sep) ? sep+1 : f.path;
-		cvec_push_file(&g->files, &f);
+		cvec_push_file(files, &f);
 	}
 
-	SDL_Log("Found %"PRIcv_sz" images in %s\n", g->files.size-start_size, dirpath);
+	SDL_Log("Found %"PRIcv_sz" images in %s\n", files->size-start_size, dirpath);
 
 	closedir(dir);
 	g->loading = 0;
@@ -703,6 +703,7 @@ int attempt_image_load(int last, img_state* img)
 		i = g->search_results.a[last];
 	}
 
+	// TODO handle 0 size images better
 	path = g->files.a[i].path;
 	int ret = 0;
 	if (path) {
@@ -890,7 +891,7 @@ int handle_selection(char* path, int recurse)
 		len = strlen(path);
 		if (path[len-1] == '/')
 			path[len-1] = 0;
-		myscandir(path, g->img_exts, g->n_exts, recurse);
+		myscandir(&g->files, path, g->img_exts, g->n_exts, recurse);
 
 		ret = DIRECTORY;
 	} else if(S_ISREG(file_stat.st_mode)) {
@@ -1077,7 +1078,7 @@ int scan_sources(void* data)
 				// containing dir -r /some/dir/myimage.jpg == -r /some/dir
 				// For now I don't, commented that code out in gui.c but could move here and
 				// only run if a[++i] is not already a dir
-				myscandir(a[++i], g->img_exts, g->n_exts, SDL_TRUE);
+				myscandir(&g->files, a[++i], g->img_exts, g->n_exts, SDL_TRUE);
 				given_dir |= 1;
 			} else {
 				int r = handle_selection(a[i], recurse);
@@ -1124,7 +1125,7 @@ int scan_sources(void* data)
 				cvec_popm_file(&g->files, &f);
 				mydirname(f.path, dirpath);
 
-				myscandir(dirpath, g->img_exts, g->n_exts, recurse); // allow recurse for base case?
+				myscandir(&g->files, dirpath, g->img_exts, g->n_exts, recurse); // allow recurse for base case?
 
 				SDL_Log("Found %"PRIcv_sz" images total. Sorting by file name now...\n", g->files.size);
 
@@ -1197,7 +1198,7 @@ int scan_sources(void* data)
 		g->bad_path_state |= UNKNOWN;
 
 
-		add_cur_files_to_db();
+		add_files_to_db(&g->files);
 
 		// urls are just skipped and if generating *were* running it wouldn't
 		// affect this, but it shouldn't be running anyway

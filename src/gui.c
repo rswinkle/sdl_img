@@ -2038,7 +2038,7 @@ void draw_menu(struct nk_context* ctx)
 
 			// Only support opening new files when in 1 image NORMAL/viewing mode
 			if (g->n_imgs == 1 && (g->state & NORMAL)) {
-				if (nk_menu_item_label(ctx, "Open New", NK_TEXT_LEFT)) {
+				if (nk_menu_item_label(ctx, "File Open New", NK_TEXT_LEFT)) {
 					event.user.code = OPEN_FILE_NEW;
 					SDL_PushEvent(&event);
 				}
@@ -2049,7 +2049,7 @@ void draw_menu(struct nk_context* ctx)
 				// update image indices)
 				if (g->state == NORMAL) {
 					// TODO naming
-					if (nk_menu_item_label(ctx, "Open More", NK_TEXT_LEFT)) {
+					if (nk_menu_item_label(ctx, "File Open More", NK_TEXT_LEFT)) {
 						event.user.code = OPEN_FILE_MORE;
 						SDL_PushEvent(&event);
 					}
@@ -2098,45 +2098,45 @@ void draw_menu(struct nk_context* ctx)
 			nk_tree_pop(ctx);
 		} else g->menu_state = (g->menu_state == MENU_MISC) ? MENU_NONE : g->menu_state;
 
-		/*
-		state = (g->menu_state == MENU_PLAYLIST) ? NK_MAXIMIZED : NK_MINIMIZED;
-		if (nk_tree_state_push(ctx, NK_TREE_TAB, "Playlist Actions", &state)) {
-			g->menu_state = MENU_PLAYLIST;
+		if (IS_NORMAL()) {
+			state = (g->menu_state == MENU_PLAYLIST) ? NK_MAXIMIZED : NK_MINIMIZED;
+			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Playlist Actions", &state)) {
+				g->menu_state = MENU_PLAYLIST;
 
-			nk_layout_row_dynamic(ctx, 0, 1);
-			nk_label(ctx, buf, NK_TEXT_LEFT);
+				nk_layout_row_dynamic(ctx, 0, 1);
+				nk_label(ctx, buf, NK_TEXT_LEFT);
 
-			if (nk_menu_item_label(ctx, "Manager", NK_TEXT_LEFT)) {
-				g->state |= PLAYLIST_MANAGER;
-				//event.user.code = OPEN_PLAYLIST_MANAGER;
-				//SDL_PushEvent(&event);
-			}
+				/*
+				if (nk_menu_item_label(ctx, "Manager", NK_TEXT_LEFT)) {
+					g->state |= PLAYLIST_MANAGER;
+					//event.user.code = OPEN_PLAYLIST_MANAGER;
+					//SDL_PushEvent(&event);
+				}
+				*/
 
-			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
-			if (nk_menu_item_label(ctx, "Save", NK_TEXT_LEFT)) {
-				event.user.code = SAVE_IMG;
-				SDL_PushEvent(&event);
-			}
-			nk_label(ctx, "S", NK_TEXT_RIGHT);
+				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
+				if (nk_menu_item_label(ctx, "Save", NK_TEXT_LEFT)) {
+					event.user.code = SAVE_IMG;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "S", NK_TEXT_RIGHT);
 
-			if (nk_menu_item_label(ctx, "Unsave", NK_TEXT_LEFT)) {
-				event.user.code = UNSAVE_IMG;
-				SDL_PushEvent(&event);
-			}
-			nk_label(ctx, "CTRL+S", NK_TEXT_RIGHT);
+				if (nk_menu_item_label(ctx, "Unsave", NK_TEXT_LEFT)) {
+					event.user.code = UNSAVE_IMG;
+					SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "CTRL+S", NK_TEXT_RIGHT);
 
-			// show save all only if not loading generating thumbs etc.
-			if (g->bad_path_state == CLEAN) {
+				// will only save valid files (not urls or assumed urls (stat failed))
 				if (nk_menu_item_label(ctx, "Save All", NK_TEXT_LEFT)) {
 					event.user.code = SAVE_ALL;
 					SDL_PushEvent(&event);
 				}
 				nk_label(ctx, "CTRL+SHIFT+S", NK_TEXT_RIGHT);
-			}
 
-			nk_tree_pop(ctx);
-		} else g->menu_state = (g->menu_state == MENU_PLAYLIST) ? MENU_NONE : g->menu_state;
-		*/
+				nk_tree_pop(ctx);
+			} else g->menu_state = (g->menu_state == MENU_PLAYLIST) ? MENU_NONE : g->menu_state;
+		}
 
 		if (g->state & NORMAL) {
 			state = (g->menu_state == MENU_SORT) ? NK_MAXIMIZED : NK_MINIMIZED;

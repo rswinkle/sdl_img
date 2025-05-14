@@ -517,8 +517,12 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 	int cols = 1;
 	int plist_i = g->selected_plist;
 	char* selected_pl = NULL;
-	if (plist_i >= 0 && num_imgs) {
-		cols = 5;
+	if (plist_i >= 0) {
+		if (num_imgs) {
+			cols = 5;
+		} else {
+			cols = 3;
+		}
 		selected_pl = g->playlists.a[plist_i];
 	} else if (!is_current && num_imgs) {
 		cols = 3;
@@ -739,41 +743,15 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 			is_selected = g->selected_plist == i;
 
 			// TODO reorganize this code
-			if (g->is_new_renaming && is_selected) {
+			if (g->is_new_renaming == RENAMING_PLIST && is_selected) {
 
 				active = nk_edit_string(ctx, edit_flags, buf, &buf_len, STRBUF_SZ, nk_filter_default);
 				buf[buf_len] = 0;
 				if (active & NK_EDIT_COMMITED && buf_len) {
 					// TODO function? better way to structure this
 					loc = cvec_contains_str(&g->playlists, buf);
-					if (loc < 0 || (loc == g->playlists.size-1 && g->is_new_renaming == NEW_PLIST)) {
-						if (g->is_new_renaming == NEW_PLIST) {
-							if (create_playlist(buf)) {
-								SDL_Log("Created playlist %s\n", buf);
-								// we already pushed a placeholder at the end
-								//cvec_push_str(&g->playlists, buf);
-								cvec_replace_str(&g->playlists, g->playlists.size-1, buf, NULL);
-								cvec_push_i(&g->playlist_ids, get_playlist_id(buf));
-								buf[0] = 0;
-								buf_len = 0;
-								g->is_new_renaming = 0;
-								nk_edit_unfocus(ctx);
-
-								// "load" new playlist?
-								// by just staying on g->selected_plist
-								load_sql_playlist_id(g->playlist_ids.a[i], &g->lib_mode_list);
-								//
-								// or just switch to current..which combined
-								// with the "Enter" the user just hit will exit lib mode
-								// hmmm
-								//g->selected_plist = -1;
-								//g->lib_selected = nk_false;
-								//g->cur_selected = nk_true;
-								//g->list_view = &g->files;
-							} else {
-								buf_len = snprintf(buf, STRBUF_SZ, "Failed to add playlist");
-							}
-						} else if (rename_playlist(buf, g->playlists.a[g->selected_plist])) {
+					if (loc < 0) {
+						if (rename_playlist(buf, g->playlists.a[g->selected_plist])) {
 							// TODO better way to do this
 							char* tmp_str;
 							cvec_replacem_str(g->playlists, g->selected_plist, CVEC_STRDUP(buf), tmp_str);
@@ -793,7 +771,7 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 						} else {
 							buf_len = snprintf(buf, STRBUF_SZ, "Failed to rename playlist");
 						}
-					} else if (loc == i && g->is_new_renaming == RENAMING_PLIST) {
+					} else if (loc == i) {
 						// Allow enter on the same name when renaming, same as ESC
 						buf[0] = 0;
 						buf_len = 0;
@@ -883,6 +861,56 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 				}
 			}
 		}
+
+		if (g->is_new_renaming == NEW_PLIST) {
+			active = nk_edit_string(ctx, edit_flags, buf, &buf_len, STRBUF_SZ, nk_filter_default);
+			buf[buf_len] = 0;
+			if (active & NK_EDIT_COMMITED && buf_len) {
+				// TODO function? better way to structure this
+				loc = cvec_contains_str(&g->playlists, buf);
+				if (loc < 0) {
+					if (create_playlist(buf)) {
+						SDL_Log("Created playlist %s\n", buf);
+						cvec_push_str(&g->playlists, buf);
+						cvec_push_i(&g->playlist_ids, get_playlist_id(buf));
+						buf[0] = 0;
+						buf_len = 0;
+						g->is_new_renaming = 0;
+						nk_edit_unfocus(ctx);
+
+						// "load" new playlist?
+						/*
+						load_sql_playlist_id(g->playlist_ids.a[i], &g->lib_mode_list);
+						g->selection = -1;
+						if (g->preview.tex) {
+							SDL_DestroyTexture(g->preview.tex);
+							g->preview.tex = NULL;
+						}
+						*/
+
+						//g->selected_plist = -1;
+						//
+						// or just switch to current..which combined
+						// with the "Enter" the user just hit will exit lib mode
+						// hmmm
+						//g->lib_selected = nk_false;
+						//g->cur_selected = nk_true;
+						//g->list_view = &g->files;
+					} else {
+						buf_len = snprintf(buf, STRBUF_SZ, "Failed to add playlist");
+					}
+				} else {
+					buf_len = snprintf(tmp_buf, STRBUF_SZ, "'%s' already exists!", buf);
+					strcpy(buf, tmp_buf);
+					// select all
+					ctx->current->edit.sel_start = 0;
+					ctx->current->edit.sel_end = buf_len;
+					// not sure this is really necessary
+					ctx->current->edit.cursor = 0;
+				}
+			}
+		}
+
 		nk_group_end(ctx);
 	}
 
@@ -892,19 +920,21 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 	// TODO use awesome font icons
 	nk_layout_row_dynamic(ctx, 0, 2);
 	if (nk_button_label(ctx, "+")) {
-		cvec_push_str(&g->playlists, "New Playlist");
 		g->is_new_renaming = NEW_PLIST;
-		g->selected_plist = g->playlists.size-1;
-		g->cur_selected = nk_false;
-		g->lib_selected = nk_false;
-		g->list_view = &g->lib_mode_list;
-		// we know all playlists are less than STRBUF_SZ
-		buf_len = strlen(g->playlists.a[g->playlists.size-1]);
-		memcpy(buf, g->playlists.a[g->playlists.size-1], buf_len+1);
 
+		//cvec_push_str(&g->playlists, "New Playlist");
+
+		// keep selection the same until done
+		//g->selected_plist = g->playlists.size-1;
+		//g->cur_selected = nk_false;
+		//g->lib_selected = nk_false;
+		//g->list_view = &g->lib_mode_list;
 		// clear saved status
-		memset(&g->img_saved_status, 0, g->playlist_ids.size*sizeof(int));
+		//memset(&g->img_saved_status, 0, g->playlist_ids.size*sizeof(int));
 
+		const char new_plist_str[] = "New Playlist";
+		buf_len = sizeof(new_plist_str)-1;
+		memcpy(buf, new_plist_str, sizeof(new_plist_str));
 	}
 	if (g->selected_plist < 0) {
 		nk_widget_disable_begin(ctx);
@@ -917,6 +947,18 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 		g->selected_plist = -1;
 		g->cur_selected = nk_true;
 		g->list_view = &g->files;
+
+		// TODO hmm partially redundant with below if was in search
+		clear_search_and_preview();
+
+		// TODO should I try to recover img[0].index?
+		g->selection = (g->list_view->size) ? 0 : -1;
+		if (g->preview.tex) {
+			SDL_DestroyTexture(g->preview.tex);
+			g->preview.tex = NULL;
+		}
+		// update for new selection (if >= 0) checked inside
+		get_img_playlists(g->selection);
 	}
 	nk_widget_disable_end(ctx);
 }
