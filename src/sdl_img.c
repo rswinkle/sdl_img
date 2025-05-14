@@ -704,14 +704,27 @@ int attempt_image_load(int last, img_state* img)
 	}
 
 	// TODO handle 0 size images better
+
 	path = g->files.a[i].path;
 	int ret = 0;
 	if (path) {
-		if (!(ret = load_image(path, img, SDL_FALSE))) {
-			if ((path = curl_image(&g->files.a[i]))) {
+		// if it has a modified time it's a real file not a URL
+		if (g->files.a[i].modified) {
+			if (g->files.a[i].size) {
 				ret = load_image(path, img, SDL_FALSE);
+			} else {
+				// Returning early because we do *not* clear
+				// out size 0 files because it breaks database operations
+				// that expect a valid path. We could skip them in myscandir
+				// or not add them to the db in the first place, but I think
+				// it's better to let the user know about them (mostly via lib mode
+				// or thumb mode since we just skip them in normal mode)
+				return 0;
 			}
+		} else if ((path = curl_image(&g->files.a[i]))) {
+			ret = load_image(path, img, SDL_FALSE);
 		}
+
 		if (!ret) {
 			free(g->files.a[i].path);
 			g->files.a[i].path = NULL;

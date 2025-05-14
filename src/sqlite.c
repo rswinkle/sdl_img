@@ -572,7 +572,7 @@ int do_sql_save_all(void)
 	}
 
 	for (int i=0; i<g->files.size; i++) {
-		// skip URLS/bad files
+		// skip URLS/bad files (note we allow empty images, see attempt_image_load())
 		if (!g->files.a[i].modified) continue;
 
 		img_id = get_image_id(g->files.a[i].path);

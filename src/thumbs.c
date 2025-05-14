@@ -133,7 +133,7 @@ SDL_Texture* gen_and_load_thumb(thumb_state* thumb, file* f)
 
 	char* path = f->path;
 
-	if (!path) return NULL;
+	if (!path || (f->modified && !f->size)) return NULL;
 
 
 	if (stat(path, &orig_stat)) {
