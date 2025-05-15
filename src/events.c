@@ -739,7 +739,10 @@ int handle_list_events()
 	SDL_Event e;
 	int sym, code;
 	int sort_timer;
-	//SDL_Keymod mod_state = SDL_GetModState();
+
+	SDL_Keymod mod_state = SDL_GetModState();
+	int ctrl_down = mod_state & KMOD_CTRL;
+	int shift_down = mod_state & KMOD_SHIFT;
 
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
@@ -814,6 +817,15 @@ int handle_list_events()
 				}
 				SDL_Log("Sort took %d\n", SDL_GetTicks()-sort_timer);
 				break;
+			case SAVE_IMG:
+				do_sql_save_idx(SDL_FALSE, g->cur_playlist_id, g->selection);
+				break;
+			case UNSAVE_IMG:
+				do_sql_save_idx(SDL_TRUE, g->cur_playlist_id, g->selection);
+				break;
+			case SAVE_ALL:
+				do_sql_save_all(g->list_view);
+				break;
 			}
 		}
 		switch (e.type) {
@@ -838,8 +850,8 @@ int handle_list_events()
 					// for renaming, stay on that playlist otherwise
 					// we're in a weird state
 
-					// set to -1 to signal to call nk_edit_unfocus()
-					g->is_new_renaming = -1;
+					// set to -2 to signal to call nk_edit_unfocus()
+					g->is_new_renaming = -2;
 				} else if (g->state & SEARCH_RESULTS) {
 					if (g->list_view == &g->files) {
 						// if nothing was selected among search results set back
@@ -873,6 +885,9 @@ int handle_list_events()
 					// NOTE UI decision: don't move to selection if they hit ESC, only
 					// if they hit Enter (this is also how it works in thumb mode)
 					g->state = NORMAL;
+
+					// for sql functions like get_img_playlists()
+					g->list_view = &g->files;
 
 						// set on enter to list mode?
 					//g->cur_selected = SDL_TRUE;
@@ -913,6 +928,16 @@ int handle_list_events()
 					// Same as switching from thumbmode
 					set_show_gui(SDL_TRUE);
 					try_move(SELECTION);
+				}
+				break;
+			case SDLK_s:
+				if (g->selection >= 0) {
+					if (shift_down && ctrl_down) {
+						do_sql_save_all(g->list_view);
+					} else {
+						do_sql_save_idx(ctrl_down, g->cur_playlist_id, g->selection);
+					}
+					get_img_playlists(g->selection);
 				}
 				break;
 			}
@@ -1186,7 +1211,7 @@ int handle_events_normally()
 
 	int ticks = SDL_GetTicks();
 
-	handle_loading();
+	//handle_loading();
 	/*
 	SDL_LockMutex(g->img_loading_mtx);
 	if (g->done_loading) {
@@ -1346,7 +1371,7 @@ int handle_events_normally()
 				do_sql_save(SDL_TRUE, g->cur_playlist_id);
 				break;
 			case SAVE_ALL:
-				do_sql_save_all();
+				do_sql_save_all(&g->files);
 				break;
 			case REMOVE_IMG:
 				do_remove(&space);
@@ -1572,7 +1597,7 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_S:
 				if (shift_down && ctrl_down) {
-					do_sql_save_all();
+					do_sql_save_all(&g->files);
 				} else {
 					do_sql_save(ctrl_down, g->cur_playlist_id);
 				}
@@ -2025,7 +2050,7 @@ int handle_events()
 		return handle_popup_events();
 	}
 
-	//handle_loading();
+	handle_loading();
 
 	if (g->state & NORMAL) {
 		return handle_events_normally();

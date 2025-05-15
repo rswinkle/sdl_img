@@ -1970,10 +1970,6 @@ void draw_playlist_popup(struct nk_context* ctx, int scr_w, int scr_h, int idx)
 	int w = 300, h = (g->font_size + 20) * 11;
 	struct nk_rect s = { (scr_w-w)/2, (scr_h-h)/2, w, h };
 
-	if (IS_RESULTS()) {
-		idx = g->search_results.a[idx];
-	}
-
 	// TODO find a good way to allow clicking outside of window to close popup
 	if (nk_begin(ctx, "Playlist Popup", s, popup_flags)) {
 		nk_layout_row_dynamic(ctx, 0, 1);
@@ -2098,23 +2094,25 @@ void draw_menu(struct nk_context* ctx)
 			nk_tree_pop(ctx);
 		} else g->menu_state = (g->menu_state == MENU_MISC) ? MENU_NONE : g->menu_state;
 
-		if (IS_NORMAL()) {
-			state = (g->menu_state == MENU_PLAYLIST) ? NK_MAXIMIZED : NK_MINIMIZED;
-			if (nk_tree_state_push(ctx, NK_TREE_TAB, "Playlist Actions", &state)) {
-				g->menu_state = MENU_PLAYLIST;
+		// TODO remove once I add these buttons to top of lib mode?
+		state = (g->menu_state == MENU_PLAYLIST) ? NK_MAXIMIZED : NK_MINIMIZED;
+		if (nk_tree_state_push(ctx, NK_TREE_TAB, "Playlist Actions", &state)) {
+			g->menu_state = MENU_PLAYLIST;
 
-				nk_layout_row_dynamic(ctx, 0, 1);
-				nk_label(ctx, buf, NK_TEXT_LEFT);
+			nk_layout_row_dynamic(ctx, 0, 1);
+			nk_label(ctx, buf, NK_TEXT_LEFT);
 
-				/*
-				if (nk_menu_item_label(ctx, "Manager", NK_TEXT_LEFT)) {
-					g->state |= PLAYLIST_MANAGER;
-					//event.user.code = OPEN_PLAYLIST_MANAGER;
-					//SDL_PushEvent(&event);
-				}
-				*/
+			/*
+			if (nk_menu_item_label(ctx, "Manager", NK_TEXT_LEFT)) {
+				g->state |= PLAYLIST_MANAGER;
+				//event.user.code = OPEN_PLAYLIST_MANAGER;
+				//SDL_PushEvent(&event);
+			}
+			*/
 
-				nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
+			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, &ratios[2]);
+
+			if (g->selection >= 0) {
 				if (nk_menu_item_label(ctx, "Save", NK_TEXT_LEFT)) {
 					event.user.code = SAVE_IMG;
 					SDL_PushEvent(&event);
@@ -2126,17 +2124,17 @@ void draw_menu(struct nk_context* ctx)
 					SDL_PushEvent(&event);
 				}
 				nk_label(ctx, "CTRL+S", NK_TEXT_RIGHT);
+			}
 
-				// will only save valid files (not urls or assumed urls (stat failed))
-				if (nk_menu_item_label(ctx, "Save All", NK_TEXT_LEFT)) {
-					event.user.code = SAVE_ALL;
-					SDL_PushEvent(&event);
-				}
-				nk_label(ctx, "CTRL+SHIFT+S", NK_TEXT_RIGHT);
+			// will only save valid files (not urls or assumed urls (stat failed))
+			if (nk_menu_item_label(ctx, "Save All", NK_TEXT_LEFT)) {
+				event.user.code = SAVE_ALL;
+				SDL_PushEvent(&event);
+			}
+			nk_label(ctx, "CTRL+SHIFT+S", NK_TEXT_RIGHT);
 
-				nk_tree_pop(ctx);
-			} else g->menu_state = (g->menu_state == MENU_PLAYLIST) ? MENU_NONE : g->menu_state;
-		}
+			nk_tree_pop(ctx);
+		} else g->menu_state = (g->menu_state == MENU_PLAYLIST) ? MENU_NONE : g->menu_state;
 
 		if (g->state & NORMAL) {
 			state = (g->menu_state == MENU_SORT) ? NK_MAXIMIZED : NK_MINIMIZED;

@@ -775,6 +775,8 @@ void do_listmode(void)
 	g->selected_plist = -1;
 
 	g->selection = g->img[0].index;
+	get_img_playlists(g->img[0].index);
+
 	g->list_setscroll = SDL_TRUE;
 
 	if (g->preview.tex) {

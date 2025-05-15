@@ -18,7 +18,7 @@ int sql_save(sqlite3_stmt* stmt, int idx, const char* path);
 int sql_unsave(sqlite3_stmt* stmt, int idx, const char* path);
 int do_sql_save_idx(int removing, int plist_id, int idx);
 int do_sql_save(int removing, int plist_id);
-int do_sql_save_all(void);
+int do_sql_save_all(cvector_file* files);
 int add_files_to_db(cvector_file* files);
 int update_save_status(void);
 int get_img_playlists(int idx);
@@ -485,6 +485,14 @@ int do_sql_save_idx(int removing, int plist_id, int idx)
 	if (g->loading)
 		return FALSE;
 
+	assert(idx >= 0);
+
+	if (IS_RESULTS()) {
+		idx = g->search_results.a[idx];
+	}
+
+	assert(idx >= 0 && g->list_view->size > idx);
+
 	int ret;
 	if (removing) {
 		sqlite3_stmt* stmt = sqlstmts[DEL_FROM_PLIST_ID];
@@ -554,13 +562,14 @@ int do_sql_save(int removing, int plist_id)
 	return TRUE;
 }
 
-int do_sql_save_all(void)
+int do_sql_save_all(cvector_file* files)
 {
 	int img_id;
 	int cur_plist_id = g->cur_playlist_id;
 	char* playlist = g->cur_playlist;
 	int success_cnt = 0;
 	int rc;
+	cvec_sz already_there;
 
 	sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
 	sqlite3_bind_int(stmt, 1, cur_plist_id);
@@ -571,29 +580,55 @@ int do_sql_save_all(void)
 		return FALSE;
 	}
 
-	for (int i=0; i<g->files.size; i++) {
-		// skip URLS/bad files (note we allow empty images, see attempt_image_load())
-		if (!g->files.a[i].modified) continue;
+	if (IS_RESULTS()) {
+		already_there = g->search_results.size;
+		for (int j=0; j<g->search_results.size; j++) {
+			int i = g->search_results.a[j];
+			// skip URLS/bad files (note we allow empty images, see attempt_image_load())
+			if (!files->a[i].modified) continue;
 
-		img_id = get_image_id(g->files.a[i].path);
-		assert(img_id > 0 && "This should never happen");
+			img_id = get_image_id(files->a[i].path);
+			assert(img_id > 0 && "This should never happen");
 
-		sqlite3_bind_int(stmt, 2, img_id);
+			sqlite3_bind_int(stmt, 2, img_id);
 
-		rc = sqlite3_step(stmt);
-		if (rc == SQLITE_DONE) {
-			success_cnt += sqlite3_changes(g->db) > 0;
-			//g->files.a[idx].playlist_idx = 1;
-		} else {
-			SDL_Log("Failed to save image %s: %s\n", g->files.a[i].path, sqlite3_errmsg(g->db));
-			sqlite3_exec(g->db, "ROLLBACK", NULL, NULL, NULL);
+			rc = sqlite3_step(stmt);
+			if (rc == SQLITE_DONE) {
+				success_cnt += sqlite3_changes(g->db) > 0;
+			} else {
+				SDL_Log("Failed to save image %s: %s\n", files->a[i].path, sqlite3_errmsg(g->db));
+				sqlite3_exec(g->db, "ROLLBACK", NULL, NULL, NULL);
+				sqlite3_reset(stmt);
+				return FALSE;
+			}
+
 			sqlite3_reset(stmt);
-			return FALSE;
 		}
+	} else {
+		already_there = files->size;
+		for (int i=0; i<files->size; i++) {
+			// skip URLS/bad files (note we allow empty images, see attempt_image_load())
+			if (!files->a[i].modified) continue;
 
-		sqlite3_reset(stmt);
+			img_id = get_image_id(files->a[i].path);
+			assert(img_id > 0 && "This should never happen");
 
+			sqlite3_bind_int(stmt, 2, img_id);
+
+			rc = sqlite3_step(stmt);
+			if (rc == SQLITE_DONE) {
+				success_cnt += sqlite3_changes(g->db) > 0;
+			} else {
+				SDL_Log("Failed to save image %s: %s\n", files->a[i].path, sqlite3_errmsg(g->db));
+				sqlite3_exec(g->db, "ROLLBACK", NULL, NULL, NULL);
+				sqlite3_reset(stmt);
+				return FALSE;
+			}
+
+			sqlite3_reset(stmt);
+		}
 	}
+
 	rc = sqlite3_exec(g->db, "COMMIT", NULL, NULL, NULL);
 	if (rc != SQLITE_OK) {
 		SDL_Log("Failed to commit transaction: %s\n", sqlite3_errmsg(g->db));
@@ -601,10 +636,13 @@ int do_sql_save_all(void)
 		return FALSE;
 	}
 
-	// TODO always have this here if I don't risk updating it above?  Or call after this function?
-	update_save_status();
+	// TODO Or call after this function when I know it was called on g->files?
+	if (files == &g->files) {
+		update_save_status();
+	}
 
-	SDL_Log("Saved %d new images to %s. %"PRIcv_sz" images were already there.\n", success_cnt, playlist, g->files.size-success_cnt);
+	already_there -= success_cnt;
+	SDL_Log("Saved %d new images to %s. %"PRIcv_sz" images were already there.\n", success_cnt, playlist, already_there);
 
 	return TRUE;
 }

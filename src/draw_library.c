@@ -47,6 +47,7 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 		nk_layout_row_static(ctx, 0, g->gui_menu_w, 1);
 		draw_menu(ctx);
 
+
 		// TODO subtract some height for info bar? or only
 		// separately/internally to the groups?
 		nk_layout_row(ctx, NK_STATIC, scr_h, 2, group_szs);
@@ -505,7 +506,13 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 		num_imgs = g->search_results.size;
 		is_search = nk_true;
 	}
-	snprintf(footer_buf, STRBUF_SZ, "%"PRIcv_sz " Images", num_imgs);
+
+	int idx = g->selection+1;
+	if (idx) {
+		snprintf(footer_buf, STRBUF_SZ, "%d/%"PRIcv_sz " Images", idx, num_imgs);
+	} else {
+		snprintf(footer_buf, STRBUF_SZ, "%"PRIcv_sz " Images", num_imgs);
+	}
 	/*
 	if (ret >= STRBUF_SZ) {
 		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "path too long\n");
@@ -529,7 +536,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 	}
 	nk_layout_row_dynamic(ctx, 0, cols);
 
-	if (cols == 5) {
+	if (plist_i >= 0) {
 		if (nk_button_label(ctx, "Make Active")) {
 			if (strcmp(selected_pl, g->cur_playlist)) {
 				strncpy(g->cur_playlist_buf, selected_pl, STRBUF_SZ);
@@ -545,7 +552,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 		}
 	}
 
-	if (cols >= 3) {
+	if (!is_current && num_imgs) {
 		// Should Either of these open file browser?  Or just the current
 		// view?  maybe only if it's empty?
 		// could also get rid of open new and just let double clicking on
@@ -685,6 +692,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 			g->save_status_uptodate = SDL_TRUE;
 		}
 	}
+
 	nk_label(ctx, footer_buf, NK_TEXT_RIGHT);
 }
 
@@ -826,9 +834,6 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 
 			int idx = g->selection;
 			if (idx >= 0) {
-				if (IS_RESULTS()) {
-					idx = g->search_results.a[idx];
-				}
 				// We have the selectable on the left, don't need the name here.
 				// TODO there really should be a nk_checkbox() with no label at all
 				//if (nk_checkbox_label(ctx, g->playlists.a[i], &g->img_saved_status[i])) {
