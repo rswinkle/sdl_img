@@ -30,8 +30,8 @@ find $PKGDIR -type f -exec chmod 0644 {} \;
 chmod 0755 $PKGDIR/usr/bin/sdl_img
 
 # Build the deb
-# fakeroot dpkg-deb -b -Zgzip $PKGDIR sdl-img_0.101.0-alpha_amd64.deb
-fakeroot dpkg-deb -b $PKGDIR sdl-img_0.101.0-alpha_amd64.deb
+# fakeroot dpkg-deb -b -Zgzip $PKGDIR sdl-img_0.101.0_amd64.deb
+fakeroot dpkg-deb -b $PKGDIR sdl-img_0.101.0_amd64.deb
 # alternatively
-# dpkg-deb --root-owner-group -b $PKGDIR sdl-img_0.101.0-alpha_amd64.deb
+# dpkg-deb --root-owner-group -b $PKGDIR sdl-img_0.101.0_amd64.deb
 

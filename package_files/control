@@ -1,5 +1,5 @@
 Package: sdl-img
-Version: 0.101.0-alpha
+Version: 0.101.0
 Architecture: amd64
 Maintainer: Robert Winkler <rob121618@gmail.com>
 Depends: libc6, libsdl2-2.0-0 (>= 2.0.20), libcurl4
