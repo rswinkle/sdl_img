@@ -1142,6 +1142,13 @@ void draw_rotate(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 	SDL_Event event = { .type = g->userevent };
 
+	nk_byte orig_win_alpha = ctx->style.window.background.a;
+	//nk_byte orig_window_opacity = g->color_table[NK_COLOR_WINDOW].a;
+
+	// 75% opaque for now like it used to be
+	//ctx->style.window.background.a = 191;
+	ctx->style.window.fixed_background.data.color.a = 191;
+
 	if (nk_begin(ctx, "Arbitrary Rotation", s, win_flags)) {
 
 		nk_layout_row_dynamic(ctx, 0, 1);
@@ -1180,6 +1187,9 @@ void draw_rotate(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 		}
 	}
 	nk_end(ctx);
+
+	//ctx->style.window.background.a = orig_win_alpha;
+	ctx->style.window.fixed_background.data.color.a = orig_win_alpha;
 }
 
 void draw_about(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)

@@ -1383,6 +1383,11 @@ int handle_events_normally()
 			case OPEN_FILE_MORE:
 				do_file_open(code == OPEN_FILE_NEW);
 				break;
+			case ROT360:
+				// handle last rotation when hitting OK without preview first
+				// in arbitrary rotation
+				rotate_img((g->n_imgs == 1) ? &g->img[0] : g->img_focus);
+				break;
 			default:
 				SDL_Log("Unknown or unhandled user event!'\n");
 			}
