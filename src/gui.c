@@ -2143,6 +2143,12 @@ void draw_menu(struct nk_context* ctx)
 			}
 			nk_label(ctx, "CTRL+SHIFT+S", NK_TEXT_RIGHT);
 
+			if (nk_menu_item_label(ctx, "Unsave All", NK_TEXT_LEFT)) {
+				event.user.code = UNSAVE_ALL;
+				SDL_PushEvent(&event);
+			}
+			nk_label(ctx, "None", NK_TEXT_RIGHT);
+
 			nk_tree_pop(ctx);
 		} else g->menu_state = (g->menu_state == MENU_PLAYLIST) ? MENU_NONE : g->menu_state;
 

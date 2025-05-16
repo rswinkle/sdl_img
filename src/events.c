@@ -824,7 +824,10 @@ int handle_list_events()
 				do_sql_save_idx(SDL_TRUE, g->cur_playlist_id, g->selection);
 				break;
 			case SAVE_ALL:
-				do_sql_save_all(g->list_view);
+				do_sql_save_all(SDL_FALSE, g->list_view);
+				break;
+			case UNSAVE_ALL:
+				do_sql_save_all(SDL_TRUE, g->list_view);
 				break;
 			}
 		}
@@ -933,7 +936,7 @@ int handle_list_events()
 			case SDLK_s:
 				if (g->selection >= 0) {
 					if (shift_down && ctrl_down) {
-						do_sql_save_all(g->list_view);
+						do_sql_save_all(SDL_FALSE, g->list_view);
 					} else {
 						do_sql_save_idx(ctrl_down, g->cur_playlist_id, g->selection);
 					}
@@ -1371,7 +1374,10 @@ int handle_events_normally()
 				do_sql_save(SDL_TRUE, g->cur_playlist_id);
 				break;
 			case SAVE_ALL:
-				do_sql_save_all(&g->files);
+				do_sql_save_all(SDL_FALSE, &g->files);
+				break;
+			case UNSAVE_ALL:
+				do_sql_save_all(SDL_TRUE, &g->files);
 				break;
 			case REMOVE_IMG:
 				do_remove(&space);
@@ -1602,7 +1608,7 @@ int handle_events_normally()
 
 			case SDL_SCANCODE_S:
 				if (shift_down && ctrl_down) {
-					do_sql_save_all(&g->files);
+					do_sql_save_all(SDL_FALSE, &g->files);
 				} else {
 					do_sql_save(ctrl_down, g->cur_playlist_id);
 				}

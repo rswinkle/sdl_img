@@ -18,7 +18,7 @@ int sql_save(sqlite3_stmt* stmt, int idx, const char* path);
 int sql_unsave(sqlite3_stmt* stmt, int idx, const char* path);
 int do_sql_save_idx(int removing, int plist_id, int idx);
 int do_sql_save(int removing, int plist_id);
-int do_sql_save_all(cvector_file* files);
+int do_sql_save_all(int removing, cvector_file* files);
 int add_files_to_db(cvector_file* files);
 int update_save_status(void);
 int get_img_playlists(int idx);
@@ -562,16 +562,25 @@ int do_sql_save(int removing, int plist_id)
 	return TRUE;
 }
 
-int do_sql_save_all(cvector_file* files)
+int do_sql_save_all(int removing, cvector_file* files)
 {
 	int img_id;
 	int cur_plist_id = g->cur_playlist_id;
 	char* playlist = g->cur_playlist;
 	int success_cnt = 0;
 	int rc;
-	cvec_sz already_there;
+	cvec_sz already_there; // Or already not there
+	
+	const char* save_remove = NULL;
+	sqlite3_stmt* stmt = NULL;
 
-	sqlite3_stmt* stmt = sqlstmts[INSERT_INTO_PLIST];
+	if (removing) {
+		stmt = sqlstmts[DEL_FROM_PLIST_ID];
+		save_remove = "remove";
+	} else {
+		stmt = sqlstmts[INSERT_INTO_PLIST];
+		save_remove = "save";
+	}
 	sqlite3_bind_int(stmt, 1, cur_plist_id);
 
 	rc = sqlite3_exec(g->db, "BEGIN TRANSACTION", NULL, NULL, NULL);
@@ -596,7 +605,7 @@ int do_sql_save_all(cvector_file* files)
 			if (rc == SQLITE_DONE) {
 				success_cnt += sqlite3_changes(g->db) > 0;
 			} else {
-				SDL_Log("Failed to save image %s: %s\n", files->a[i].path, sqlite3_errmsg(g->db));
+				SDL_Log("Failed to %s image %s: %s\n", save_remove, files->a[i].path, sqlite3_errmsg(g->db));
 				sqlite3_exec(g->db, "ROLLBACK", NULL, NULL, NULL);
 				sqlite3_reset(stmt);
 				return FALSE;
@@ -619,7 +628,7 @@ int do_sql_save_all(cvector_file* files)
 			if (rc == SQLITE_DONE) {
 				success_cnt += sqlite3_changes(g->db) > 0;
 			} else {
-				SDL_Log("Failed to save image %s: %s\n", files->a[i].path, sqlite3_errmsg(g->db));
+				SDL_Log("Failed to %s image %s: %s\n", save_remove, files->a[i].path, sqlite3_errmsg(g->db));
 				sqlite3_exec(g->db, "ROLLBACK", NULL, NULL, NULL);
 				sqlite3_reset(stmt);
 				return FALSE;
@@ -642,7 +651,12 @@ int do_sql_save_all(cvector_file* files)
 	}
 
 	already_there -= success_cnt;
-	SDL_Log("Saved %d new images to %s. %"PRIcv_sz" images were already there.\n", success_cnt, playlist, already_there);
+
+	if (removing) {
+		SDL_Log("Removed %d images from %s. %"PRIcv_sz" images were not there.\n", success_cnt, playlist, already_there);
+	} else {
+		SDL_Log("Saved %d new images to %s. %"PRIcv_sz" images were already there.\n", success_cnt, playlist, already_there);
+	}
 
 	return TRUE;
 }
