@@ -1,6 +1,6 @@
 
-#define VERSION 1.0.0
-#define VERSION_STR "sdl_img 1.0.0-beta"
+#define VERSION 0.101.0
+#define VERSION_STR "sdl_img 0.101.0-alpha"
 
 // in file_browser.h
 //#define PATH_SEPARATOR '/'
