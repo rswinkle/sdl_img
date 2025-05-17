@@ -2043,7 +2043,7 @@ void draw_menu(struct nk_context* ctx)
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
 
 			// Only support opening new files when in 1 image NORMAL/viewing mode
-			if (g->n_imgs == 1 && (g->state & NORMAL)) {
+			if (g->n_imgs == 1) {
 				if (nk_menu_item_label(ctx, "File Open New", NK_TEXT_LEFT)) {
 					event.user.code = OPEN_FILE_NEW;
 					SDL_PushEvent(&event);
@@ -2053,7 +2053,7 @@ void draw_menu(struct nk_context* ctx)
 				// but only support opening additional when in exactly NORMAL mode
 				// ie no VIEW_RESULTS (for now, would have to re-run the search and
 				// update image indices)
-				if (g->state == NORMAL) {
+				if (!IS_RESULTS()) {
 					// TODO naming
 					if (nk_menu_item_label(ctx, "File Open More", NK_TEXT_LEFT)) {
 						event.user.code = OPEN_FILE_MORE;
@@ -2062,6 +2062,18 @@ void draw_menu(struct nk_context* ctx)
 					nk_label(ctx, "CTRL+O", NK_TEXT_RIGHT);
 				}
 			}
+
+			/*
+			 * TODO
+			if (IS_LIST_MODE()) {
+				// Hmm
+				if (nk_menu_item_label(ctx, "Scan Directory", NK_TEXT_LEFT)) {
+					g->fs_output = g->cachedir;
+					event.user.code = SELECT_DIR;
+					SDL_PushEvent(&event);
+				}
+			}
+			*/
 
 			if (nk_selectable_label(ctx, "Slideshow", NK_TEXT_LEFT, &g->slideshow)) {
 				if (g->slideshow)

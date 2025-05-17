@@ -183,6 +183,7 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 					set_fullscreen();
 				} else if (g->files.size) {
 					g->state = g->old_state;
+					g->old_state = 0;
 					set_show_gui(SDL_TRUE);
 					SDL_SetWindowTitle(g->win, g->files.a[g->img[0].index].name);
 				} else {
@@ -829,6 +830,13 @@ int handle_list_events()
 			case UNSAVE_ALL:
 				do_sql_save_all(SDL_TRUE, g->list_view);
 				break;
+			case OPEN_FILE_NEW:
+			case OPEN_FILE_MORE:
+				g->list_view = &g->files;
+				//g->state = NORMAL
+				//clear_search()
+				do_file_open(code == OPEN_FILE_NEW);
+				break;
 			}
 		}
 		switch (e.type) {
@@ -928,6 +936,9 @@ int handle_list_events()
 						// TODO avoid unnecessary loads for current image
 						g->state = NORMAL;
 					}
+					// g->list_view should already points at g->files
+					// because g->cur_selected
+
 					// Same as switching from thumbmode
 					set_show_gui(SDL_TRUE);
 					try_move(SELECTION);
@@ -941,6 +952,15 @@ int handle_list_events()
 						do_sql_save_idx(ctrl_down, g->cur_playlist_id, g->selection);
 					}
 					get_img_playlists(g->selection);
+				}
+				break;
+			case SDL_o:
+				if (ctrl_down) {
+					user_event.user.code = OPEN_FILE_MORE;
+					SDL_PushEvent(&user_event);
+				} else {
+					user_event.user.code = OPEN_FILE_NEW;
+					SDL_PushEvent(&user_event);
 				}
 				break;
 			}
@@ -1018,6 +1038,7 @@ int handle_scanning_events()
 				SDL_LogDebugApp("done loading\n");
 
 				g->state = NORMAL;
+				//g->list_view = &g->files; // just in case 
 				SDL_LogDebugApp("switching to NORMAL mode\n");
 			}
 			//SDL_UnlockMutex(g->img_loading_mtx);
@@ -2051,6 +2072,7 @@ int handle_events()
 					g->fs_output = NULL;
 				}
 				g->state = g->old_state;
+				g->old_state = 0;
 				//g->state &= ~FILE_SELECTION;
 			}
 		}
