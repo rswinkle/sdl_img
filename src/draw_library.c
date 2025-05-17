@@ -9,13 +9,13 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h);
 void clear_search_and_preview(void)
 {
 	// Hmmm
-	if (g->state != LIST_DFLT) {
+	if (g->state != LIB_DFLT) {
 		g->selection = (g->list_view->size) ? 0 : -1;
 		if (g->preview.tex) {
 			SDL_DestroyTexture(g->preview.tex);
 			g->preview.tex = NULL;
 		}
-		g->state = LIST_DFLT;
+		g->state = LIB_DFLT;
 		g->list_search_active = SDL_FALSE;
 		text_buf[0] = 0;
 		text_len = 0;
@@ -258,7 +258,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 		g->state |= SEARCH_RESULTS;
 
 		// use no selection to ignore the "Enter" in events so we don't exit
-		// list mode.  Could add state to handle keeping the selection but meh
+		// lib mode.  Could add state to handle keeping the selection but meh
 		g->selection = -1;  // no selection among search
 		g->list_search_active = SDL_FALSE;
 		// do I need this?
@@ -376,7 +376,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 	if (g->state & SEARCH_RESULTS) {
 		if (!g->search_results.size) {
 			if (nk_button_label(ctx, "No matching results")) {
-				g->state = LIST_DFLT;
+				g->state = LIB_DFLT;
 				text_buf[0] = 0;
 				text_len = 0;
 				g->selection = -1;
@@ -612,7 +612,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 					cvec_push_file(&g->files, &f);
 				}
 				// have to clear the search state if we jump to current or normal mode
-				g->state = LIST_DFLT;
+				g->state = LIB_DFLT;
 				text_buf[0] = 0;
 				text_len = 0;
 				g->search_results.size = 0;
@@ -663,7 +663,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 					cvec_push_file(&g->files, &f);
 				}
 				// have to clear the search state if we jump to current or normal mode
-				g->state = LIST_DFLT;
+				g->state = LIB_DFLT;
 				text_buf[0] = 0;
 				text_len = 0;
 				g->search_results.size = 0;

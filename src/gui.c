@@ -289,7 +289,7 @@ void draw_gui(struct nk_context* ctx)
 		return;
 	}
 
-	if (IS_LIST_MODE() && !IS_VIEW_RESULTS()) {
+	if (IS_LIB_MODE() && !IS_VIEW_RESULTS()) {
 		draw_library(ctx, scr_w, scr_h);
 	} else if (!g->fullscreen || g->fullscreen_gui == ALWAYS || (g->fullscreen_gui == DELAY && g->show_gui)) {
 		// only draw controls (ie top bar, menu, buttons etc.) in NORMAL mode
@@ -389,7 +389,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			fb->is_search_results = TRUE;
 
 			// use no selection to ignore the "Enter" in events so we don't exit
-			// list mode.  Could add state to handle keeping the selection but meh
+			// fb mode.  Could add state to handle keeping the selection but meh
 			fb->selection = -1;  // no selection among search
 			nk_edit_unfocus(ctx);
 		}
@@ -2065,7 +2065,7 @@ void draw_menu(struct nk_context* ctx)
 
 			/*
 			 * TODO
-			if (IS_LIST_MODE()) {
+			if (IS_LIB_MODE()) {
 				// Hmm
 				if (nk_menu_item_label(ctx, "Scan Directory", NK_TEXT_LEFT)) {
 					g->fs_output = g->cachedir;
@@ -2292,12 +2292,12 @@ void draw_menu(struct nk_context* ctx)
 				nk_label(ctx, "CTRL+8", NK_TEXT_RIGHT);
 
 				// Actually we currenly don't support sorting when g->n_imgs != 1 or generating
-				// thumbs and list mode kind of depends on sorting working so...
+				// thumbs and lib mode kind of depends on sorting working so...
 				//
 				// TODO could force change to 1 mode at least when switching? in do_listmode?
 				if (g->n_imgs == 1) {
 					if (nk_menu_item_label(ctx, "Library Mode", NK_TEXT_LEFT)) {
-						event.user.code = LIST_MODE;
+						event.user.code = LIB_MODE;
 						SDL_PushEvent(&event);
 					}
 					nk_label(ctx, "CTRL+I", NK_TEXT_RIGHT);

@@ -132,7 +132,7 @@ int handle_fb_events(file_browser* fb, struct nk_context* ctx)
 
 	nk_input_begin(ctx);
 	while (SDL_PollEvent(&e)) {
-		// TODO edit menu/GUI as appropriate for list mode, see which
+		// TODO edit menu/GUI as appropriate for fb/lib mode, see which
 		// actions make sense or are worth supporting (re-evaluate if I
 		// have some sort of preview)
 		if (e.type == g->userevent) {
@@ -745,6 +745,9 @@ int handle_list_events()
 	int ctrl_down = mod_state & KMOD_CTRL;
 	int shift_down = mod_state & KMOD_SHIFT;
 
+	// Use if to push any user events
+	SDL_Event user_event = { .type = g->userevent };
+
 	nk_input_begin(g->ctx);
 	while (SDL_PollEvent(&e)) {
 		// Oops, got rid of all controls when I got rid of the Menu, still need these sorting events
@@ -888,7 +891,7 @@ int handle_list_events()
 						}
 						g->list_setscroll = SDL_TRUE;
 					}
-					g->state = LIST_DFLT;
+					g->state = LIB_DFLT;
 
 					// redundant since we clear before doing the search atm
 					g->search_results.size = 0;
@@ -900,7 +903,7 @@ int handle_list_events()
 					// for sql functions like get_img_playlists()
 					g->list_view = &g->files;
 
-						// set on enter to list mode?
+					// set on enter to lib mode?
 					//g->cur_selected = SDL_TRUE;
 					//g->lib_selected = SDL_FALSE;
 					set_show_gui(SDL_TRUE);
@@ -913,7 +916,7 @@ int handle_list_events()
 
 				break;
 
-			// TODO removal and deletion in list mode?
+			// TODO removal and deletion in lib mode?
 			case SDLK_BACKSPACE:
 			case SDLK_r:
 			case SDLK_x:
@@ -954,7 +957,7 @@ int handle_list_events()
 					get_img_playlists(g->selection);
 				}
 				break;
-			case SDL_o:
+			case SDLK_o:
 				if (ctrl_down) {
 					user_event.user.code = OPEN_FILE_MORE;
 					SDL_PushEvent(&user_event);
@@ -1337,8 +1340,8 @@ int handle_events_normally()
 			case FLIP_V:
 				do_flip(code == FLIP_V);
 				break;
-			case LIST_MODE:
-				do_listmode();
+			case LIB_MODE:
+				do_libmode();
 				break;
 			case THUMB_MODE:
 				do_thumbmode();
@@ -1464,8 +1467,8 @@ int handle_events_normally()
 					g->thumb_start_row = g->thumb_sel / g->thumb_cols;
 
 					// for thumb mode we switch indices back immediately on leaving VIEW_RESULTS
-					// compared to list mode SEARCH_RESULTS we leave them, till we go back to
-					// LIST_DFLT.
+					// compared to lib mode SEARCH_RESULTS we leave them, till we go back to
+					// LIB_DFLT.
 					if (g->state & THUMB_SEARCH) {
 						// TODO alternative, force switch to single mode?
 						for (int i=0; i<g->n_imgs; ++i) {
@@ -1485,7 +1488,7 @@ int handle_events_normally()
 					}
 
 					set_show_gui(SDL_TRUE);
-				} else if (IS_THUMB_MODE() || IS_LIST_MODE()) {
+				} else if (IS_THUMB_MODE() || IS_LIB_MODE()) {
 					// TODO this can't be reached! ... right?
 					g->state = NORMAL;
 				}
@@ -1602,7 +1605,7 @@ int handle_events_normally()
 				// kind of janky anyway) to clear up CTRL+L...
 			case SDL_SCANCODE_I:
 				if (ctrl_down) {
-					do_listmode();
+					do_libmode();
 				}
 				break;
 
@@ -2089,7 +2092,7 @@ int handle_events()
 		return handle_events_normally();
 	}
 
-	if (IS_LIST_MODE()) {
+	if (IS_LIB_MODE()) {
 		return handle_list_events();
 	}
 

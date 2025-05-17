@@ -746,7 +746,7 @@ int do_copy(void)
 	return 0;
 }
 
-void do_listmode(void)
+void do_libmode(void)
 {
 	// Automatically go to n_imgs = 1
 	// if (g->n_imgs != 1) {
@@ -756,15 +756,15 @@ void do_listmode(void)
 	// TODO different function for general library so we don't care?  Or just goto
 	// viewing the Library or disable sorting if generating?
 	if (g->n_imgs != 1) {
-		SDL_Log("Can't go to listmode from multi-image modes");
+		SDL_Log("Can't go to libmode from multi-image modes");
 		return;
 	}
 
-	// TODO hmm handle switching directly from thumb to list and vice versa
+	// TODO hmm handle switching directly from thumb to lib and vice versa
 	if (g->state == NORMAL) {
-		g->state = LIST_DFLT;
+		g->state = LIB_DFLT;
 	} else {
-		g->state = LIST_DFLT | SEARCH_RESULTS;
+		g->state = LIB_DFLT | SEARCH_RESULTS;
 		if (text_buf[0] == '/') {
 			memmove(text_buf, &text_buf[1], text_len);
 			text_len--;

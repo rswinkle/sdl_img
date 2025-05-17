@@ -30,7 +30,7 @@ enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIE
 // TODO could combine opposites next/prev, zoom_plus/minus, save/unsave, rot_left/right, flip_h/v
 // and use user.data1 to specify which? Not sure it's worth it but just a thought
 enum { NEXT, PREV, ZOOM_PLUS, ZOOM_MINUS, ROT_LEFT, ROT_RIGHT, FLIP_H, FLIP_V, MODE_CHANGE,
-       THUMB_MODE, LIST_MODE, SAVE_IMG, UNSAVE_IMG, SAVE_ALL, UNSAVE_ALL, REMOVE_IMG, DELETE_IMG,
+       THUMB_MODE, LIB_MODE, SAVE_IMG, UNSAVE_IMG, SAVE_ALL, UNSAVE_ALL, REMOVE_IMG, DELETE_IMG,
        ACTUAL_SIZE, ROT360, REMOVE_BAD, SHUFFLE, SORT_NAME, SORT_PATH, SORT_SIZE, SORT_MODIFIED, LOAD_THUMBS,
        OPEN_FILE_NEW, OPEN_FILE_MORE, OPEN_PLAYLIST_MANAGER, SELECT_FILE, SELECT_DIR, FONT_CHANGE, NUM_USEREVENTS };
 
@@ -44,7 +44,7 @@ enum {
 	THUMB_DFLT       = NK_FLAG(1),
 	THUMB_VISUAL     = NK_FLAG(2),
 	THUMB_SEARCH     = NK_FLAG(3),
-	LIST_DFLT        = NK_FLAG(4),
+	LIB_DFLT         = NK_FLAG(4),
 	SEARCH_RESULTS   = NK_FLAG(5),
 
 	// rename?  FILE_BROWSER?
@@ -61,14 +61,14 @@ enum {
 };
 
 #define THUMB_MASK (THUMB_DFLT | THUMB_VISUAL | THUMB_SEARCH)
-#define LIST_MASK (LIST_DFLT)
+#define LIB_MASK (LIB_DFLT)
 #define RESULT_MASK (SEARCH_RESULTS)
 #define POPUP_MASK (ABOUT | PREFS | ROTATE | PLAYLIST_MANAGER | PLAYLIST_CONTEXT)
 //#define VIEW_MASK (NORMAL)
 
 #define IS_NORMAL() (g->state & NORMAL)
 #define IS_THUMB_MODE() (g->state & THUMB_MASK)
-#define IS_LIST_MODE() (g->state & LIST_MASK)
+#define IS_LIB_MODE() (g->state & LIB_MASK)
 #define IS_RESULTS() (g->state & RESULT_MASK)
 #define IS_VIEW_RESULTS() (g->state & NORMAL && g->state & SEARCH_RESULTS)
 #define IS_FS_MODE() (g->state & FILE_SELECTION)
