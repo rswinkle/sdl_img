@@ -917,7 +917,9 @@ int handle_list_events()
 				break;
 
 			case SDLK_BACKSPACE:
-				do_remove_from_lib();
+				if (!g->list_search_active && !g->is_new_renaming) {
+					do_remove_from_lib();
+				}
 				break;
 
 			// TODO removal and deletion in lib mode?
@@ -951,22 +953,33 @@ int handle_list_events()
 				}
 				break;
 			case SDLK_s:
-				if (g->selection >= 0) {
-					if (shift_down && ctrl_down) {
-						do_sql_save_all(SDL_FALSE, g->list_view);
-					} else {
-						do_sql_save_idx(ctrl_down, g->cur_playlist_id, g->selection);
+				if (!g->list_search_active && !g->is_new_renaming) {
+					if (g->selection >= 0) {
+						if (shift_down && ctrl_down) {
+							do_sql_save_all(SDL_FALSE, g->list_view);
+							get_img_playlists(g->selection);
+						} else {
+							do_sql_save_idx(ctrl_down, g->cur_playlist_id, g->selection);
+							if (ctrl_down && g->selected_plist >= 0 && g->playlist_ids.a[g->selected_plist] == g->cur_playlist_id) {
+								handle_selection_removal();
+								// get_img_playlists(g->selection) called in handle_selection_removal()
+								// TODO move out and rename handle_sel_list_removal or something?
+							} else {
+								get_img_playlists(g->selection);
+							}
+						}
 					}
-					get_img_playlists(g->selection);
 				}
 				break;
 			case SDLK_o:
-				if (ctrl_down) {
-					user_event.user.code = OPEN_FILE_MORE;
-					SDL_PushEvent(&user_event);
-				} else {
-					user_event.user.code = OPEN_FILE_NEW;
-					SDL_PushEvent(&user_event);
+				if (!g->list_search_active && !g->is_new_renaming) {
+					if (ctrl_down) {
+						user_event.user.code = OPEN_FILE_MORE;
+						SDL_PushEvent(&user_event);
+					} else {
+						user_event.user.code = OPEN_FILE_NEW;
+						SDL_PushEvent(&user_event);
+					}
 				}
 				break;
 			}

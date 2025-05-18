@@ -61,6 +61,8 @@ directory in [alphabetical](http://stereopsis.com/strcmp4humans.html)
 | H/V                 | Flip the current image horizontally/vertically |
 | S                   | Save current image(s) to current playlist |
 | CTRL + S            | Remove current image(s) from current playlist |
+| O                   | File Open New |
+| CTRL + O            | File Open More |
 | Delete              | Delete the current image and move to the next (only in single mode) |
 | Backspace           | Remove the current image and move to the next (only in single mode) |
 | CTRL + 1            | Single image mode |
@@ -68,7 +70,7 @@ directory in [alphabetical](http://stereopsis.com/strcmp4humans.html)
 | CTRL + 4            | Quad image mode   |
 | CTRL + 8            | 8 image mode      |
 | CTRL + U            | Thumbnail mode    |
-| CTRL + I            | List mode    |
+| CTRL + I            | Library mode    |
 | F1 - F10            | Start a slideshow with 1 - 10 second delay |
 
 For GIFS there are extra controls, though the progress bar is only
@@ -84,7 +86,8 @@ displayed if you are viewing a GIF in single image mode:
 | click/drag progress bar | select/scroll frames |
 
 The most obvious unique features are the multi-image modes but others include the
-extra GIF features, the vim inspired thumbnail mode, the list mode, shuffle/sort etc.
+extra GIF features, the vim inspired thumbnail mode, the music player inspired
+library mode, shuffle/sort etc.
 
 Within each image mode the basic controls work on all images simultaneously
 unless a specific image is selected by hitting 1-n and then they operate only
@@ -135,16 +138,16 @@ Advanced Usage
 
 Or any combination of those options, ie
 
-    ./sdl_img image.jpg -l list1 -s 8 ~/some/dir example.com/image.jpg -l list3 image4.gif -f
+    ./sdl_img image.jpg -p playlist_name -s 8 ~/some/dir example.com/image.jpg -l list3 image4.gif -f
 
 The option -s [delay] means start in slideshow mode with the given delay in seconds.
 If delay is not 1-10 or is missing, delay will be set to 3 seconds.
 
-When using any of these modes, all the images will be collected in a list in the
-order they're given (not sorted like basic usage).  For now, if you have multiple
-url images with the same name, downloaded on the same day, the one downloaded last
-will simply overwrite the earlier ones in the cache.  This is because the cache does
-create subdirectories by date of the form YYYY-MM-DD for easy browsing/cleaning.
+When using any of these modes, all the images will be collected in a list then sorted by name.
+For now, if you have multiple url images with the same name, downloaded on the same day,
+the one downloaded last will simply overwrite the earlier ones in the cache.
+This is because the cache does create subdirectories by date of the form YYYY-MM-DD
+for easy browsing/cleaning.
 
 There is also the -c/--cache option which allows you to specify a custom cache
 location (only for this instance) which can be useful if you know you want to
@@ -190,17 +193,52 @@ the default Vim keybinds, HJKL, are JCVP physically.
 The number of rows and columns can also be set in Preferences, as well as whether X deletes
 instead of just removing the selection.
 
-List Mode
-=========
-Switch with CTRL+I to view a list of all your current images with columns showing the
-name, size, and last modified time.  You can select the column headings to sort by that,
-ascending or descending.  You can scroll through the list or use up and down.  Hitting
-Enter or double clicking will go back to normal mode on that image.
+Library Mode
+============
+Switch with CTRL+I to for a view inspired by music player/organizers like iTunes or Rhythmbox.
+Like the inspiration, this is where you can create, delete, and rename playlists, add images
+to playlists, as well as see/search your currently open images, your entire library, or
+individual playlists. Currently the list columns are name, size, and last modified time,
+though I might expand that later. You can select the column headings to sort by that,
+ascending or descending. You can scroll through the list or use up/down or j/k.
 
-Type something in the search bar at the top and hit enter to show a list of files that match.
-Same controls as normal list mode, but if you hit enter or double click you will be in "View
+Hitting Enter or double clicking on an image in your current images will go back to normal mode
+on that image. If you do that on an image while seeing search results, you will be in "View
 Results" mode, which is normal mode but only viewing the results (same as from thumb search).
-ESC to backs out of View Results, Results, and list mode entirely.
+ESC to backs out of View Results, Results, and Lib mode entirely. The following
+
+| Library Controls        | Description |
+| ------------------      |-------------|
+| Up/Down or JK           | Move up/down the list |
+| Mouse Wheel             | Move up/down the list |
+| Home/End                | Move to first/last image in list *if* mouse is hovering over it |
+| Page Up/Down            | Move up/down a page in list *if* mouse is hovering over it |
+| Click                   | Select that image |
+| Enter or Double Click   | Change to normal mode on current image *if* in Current |
+| Backspace               | Removes current selection from the library |
+| S                       | Save current image(s) to current playlist |
+| CTRL + S                | Remove current image(s) from current playlist |
+| O                       | File Open New |
+| CTRL + O                | File Open More |
+| ESC                     | Exit, "Back", Cancel similar to Android |
+
+Note: Enter/double clicking on an image when *not* in current images is currently a no-op.
+Still trying to decide what that should do, if anything. I can see arguments for adding
+it to current, saving to the active playlist (same as hitting 's'), or replacing the entire
+currently open list with whatever list you're currently viewing, jumping right into "View
+Results" if you're in a search.
+
+Note 2: Like in thumb mode the controls are key codes, not scancodes, which is a bit confusing
+for the controls/actions that are the "same" in normal mode. Things in the drop down menu
+that show the keyboard shortcuts no mean the keycode so save/unsave/file open etc. respect
+layout in lib mode but not normal mode. This is a tough decision but I think it's the right
+one because while it's less obvious than thumb mode, your hands are more likely to be on
+the keyboard here, for searching, creating/renaming playlists, and like I said above vim j/k
+working like down/up. I think having the menu actions be using scancodes when other things
+aren't is actually worse than having the menu action keyboard shortcuts be possibly inconsistent
+between normal mode and library mode.  And this only applies to a relatively small number of
+users who actually use a keyboard layout different than the actual keyboard they're using.
+For 99.9% of people this whole note is irrelevant.
 
 Building
 ========
