@@ -270,10 +270,6 @@ void draw_gui(struct nk_context* ctx)
 		draw_prefs(ctx, scr_w, scr_h, popup_flags);
 	}
 
-	if (g->state & PLAYLIST_MANAGER) {
-		draw_playlist_manager(ctx, scr_w, scr_h, popup_flags);
-	}
-
 	// don't show main GUI if a popup is up, don't want user to
 	// be able to interact with it.  Could look up how to make them inactive
 	// but meh, this is simpler
@@ -1782,198 +1778,6 @@ void get_playlist_path(char* path_buf, char* name)
 	snprintf(path_buf, STRBUF_SZ, "%s/%s", g->playlistdir, name);
 }
 
-void draw_playlist_manager(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
-{
-	int edit_flags = NK_EDIT_FIELD | NK_EDIT_SIG_ENTER | NK_EDIT_GOTO_END_ON_ACTIVATE;
-	int is_selected = SDL_FALSE;
-	int active, button_pressed;
-
-	struct nk_rect bounds;
-	char* selected_pl = NULL;
-	static char tmp_buf[STRBUF_SZ];
-
-	const char* new_rename[] = { "New", "Rename" };
-	
-	// should I reuse g->selected?  probably a bad idea
-	// unless I want to easily reset to no selection every time
-	// we open the pm...
-	static int selected = -1;
-	static char pm_buf[STRBUF_SZ];
-	static int pm_len = 0;
-	int nr_idx = 0;
-
-	// TODO think about multiple selections for operations like
-	// merge
-	// Other operations like Copy/Duplicate?
-
-	// start with same setup as File Browser
-	const float group_szs[] = { g->gui_sidebar_w, scr_w-g->gui_sidebar_w-8 };
-
-
-	if (selected >= 0 && selected < g->playlists.size) {
-		nr_idx = 1;
-		selected_pl = g->playlists.a[selected];
-	} else {
-		selected = -1;
-	}
-
-	if (nk_begin(ctx, "Playlist Manager", nk_rect(0, 0, scr_w, scr_h), win_flags)) {
-
-		nk_layout_row(ctx, NK_STATIC, 0, 2, group_szs);
-		nk_label(ctx, "Active:", NK_TEXT_LEFT);
-		nk_label(ctx, g->cur_playlist, NK_TEXT_LEFT);
-
-		nk_label(ctx, "Default:", NK_TEXT_LEFT);
-		nk_label(ctx, g->default_playlist, NK_TEXT_LEFT);
-
-		// Not sure if this will work doing things sort of out of order
-
-		// Should I disable it or just guard the if below with pm_len for button_pressed as well?
-		if (!pm_len) {
-			nk_widget_disable_begin(ctx);
-		}
-		button_pressed = nk_button_label(ctx, new_rename[nr_idx]);
-		nk_widget_disable_end(ctx);
-
-		active = nk_edit_string(ctx, edit_flags, pm_buf, &pm_len, STRBUF_SZ, nk_filter_default);
-		pm_buf[pm_len] = 0;
-		//printf("pm_len = %d\n", pm_len);
-		if (button_pressed || (active & NK_EDIT_COMMITED && pm_len)) {
-			// TODO keep this or just try to create/rename and catch the error?
-			if (cvec_contains_str(&g->playlists, pm_buf) < 0) {
-				if (!nr_idx) {
-
-					if (create_playlist(pm_buf)) {
-						SDL_Log("Created playlist %s\n", pm_buf);
-						cvec_push_str(&g->playlists, pm_buf);
-						cvec_push_i(&g->playlist_ids, get_playlist_id(pm_buf));
-						pm_buf[0] = 0;
-						pm_len = 0;
-					} else {
-						pm_len = snprintf(pm_buf, STRBUF_SZ, "Failed to add playlist");
-					}
-				} else {
-					if (rename_playlist(pm_buf, selected_pl)) {
-						// TODO better way to do this
-						char* tmp_str;
-						cvec_replacem_str(g->playlists, selected, CVEC_STRDUP(pm_buf), tmp_str);
-						//cvec_replace_str(&g->playlists, selected, pm_buf, tmp_buf);
-						if (!strcmp(tmp_str, g->cur_playlist)) {
-							g->cur_playlist = g->playlists.a[selected];
-						}
-						if (!strcmp(tmp_str, g->default_playlist)) {
-							free(g->default_playlist);
-							g->default_playlist = CVEC_STRDUP(g->playlists.a[selected]);
-						}
-						free(tmp_str);
-						pm_buf[0] = 0;
-						pm_len = 0;
-					} else {
-						pm_len = snprintf(pm_buf, STRBUF_SZ, "Failed to rename playlist");
-					}
-				}
-			} else {
-				pm_len = snprintf(tmp_buf, STRBUF_SZ, "'%s' already exists!", pm_buf);
-				strcpy(pm_buf, tmp_buf);
-			}
-		}
-
-		bounds = nk_widget_bounds(ctx);
-		nk_layout_row(ctx, NK_STATIC, scr_h-bounds.y, 2, group_szs);
-
-		if (nk_group_begin(ctx, "Playlist Sidebar", NK_WINDOW_NO_SCROLLBAR)) {
-
-			nk_layout_row_dynamic(ctx, 0, 1);
-
-			// All actions below except "Done" require a playlist to be selected
-			if (selected < 0) {
-				nk_widget_disable_begin(ctx);
-			}
-			// TODO
-			if (nk_button_label(ctx, "Make Active")) {
-				if (strcmp(selected_pl, g->cur_playlist)) {
-					strncpy(g->cur_playlist_buf, selected_pl, STRBUF_SZ);
-					g->cur_playlist_id = get_playlist_id(g->cur_playlist);
-					update_save_status();
-				}
-			}
-			if (nk_button_label(ctx, "Make Default")) {
-				if (strcmp(selected_pl, g->default_playlist)) {
-					free(g->default_playlist);
-					g->default_playlist = CVEC_STRDUP(selected_pl);
-				}
-			}
-
-			if (nk_button_label(ctx, "Open New")) {
-				g->is_open_new = SDL_TRUE;
-				g->open_playlist = SDL_TRUE;
-				g->state &= ~PLAYLIST_MANAGER;
-				transition_to_scanning(selected_pl);
-			}
-
-			if (nk_button_label(ctx, "Open More")) {
-				g->open_playlist = SDL_TRUE;
-				g->state &= ~PLAYLIST_MANAGER;
-				transition_to_scanning(selected_pl);
-			}
-
-			// TODO tooltips explaining export? "Save to list"?
-			// Export to text file?
-			if (nk_button_label(ctx, "Export")) {
-				export_playlist(selected_pl);
-			}
-
-			if (nk_button_label(ctx, "Delete")) {
-				if (!strcmp(selected_pl, g->cur_playlist)) {
-					pm_len = snprintf(pm_buf, STRBUF_SZ, "Can't delete active playlist, change to another first");
-				} else {
-					//SDL_Log("Trying to remove %s\n", selected_pl);
-					delete_playlist(selected_pl);
-					SDL_Log("Deleted playlist %s\n", g->playlists.a[selected]);
-					cvec_erase_str(&g->playlists, selected, selected);
-					cvec_erase_i(&g->playlist_ids, selected, selected);
-					selected = -1;
-				}
-			}
-			nk_widget_disable_end(ctx);
-
-			if (g->playlists.size) {
-				if (nk_button_label(ctx, "Export All")) {
-					export_playlists();
-				}
-			}
-
-			if (nk_button_label(ctx, "Done")) {
-				g->state &= ~PLAYLIST_MANAGER;
-				selected = -1;  // clear selection before leaving
-			}
-
-			nk_group_end(ctx);
-		}
-		if (nk_group_begin(ctx, "Playlists", 0)) {
-			// TODO do I need this or is the layout from Sidebar still active?
-			nk_layout_row_dynamic(ctx, 0, 1);
-
-			for (int i=0; i<g->playlists.size; ++i) {
-				is_selected = selected == i;
-				if (nk_selectable_label(ctx, g->playlists.a[i], NK_TEXT_CENTERED, &is_selected)) {
-					if (is_selected) {
-						selected = i;
-						// set at the top of function
-						//selected_pl = g->playlists.a[selected];
-					} else {
-						selected = -1;
-						//selected_pl = NULL;
-					}
-				}
-			}
-			nk_group_end(ctx);
-		}
-	}
-	
-	nk_end(ctx);
-}
-
 void draw_playlist_popup(struct nk_context* ctx, int scr_w, int scr_h, int idx)
 {
 	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER; //|NK_WINDOW_TITLE; //NK_WINDOW_CLOSABLE;
@@ -2158,6 +1962,18 @@ void draw_menu(struct nk_context* ctx)
 			if (nk_menu_item_label(ctx, "Unsave All", NK_TEXT_LEFT)) {
 				event.user.code = UNSAVE_ALL;
 				SDL_PushEvent(&event);
+			}
+			nk_label(ctx, "None", NK_TEXT_RIGHT);
+
+			if (IS_LIB_MODE() && g->selected_plist >= 0) {
+				if (nk_menu_item_label(ctx, "Export Playlist", NK_TEXT_LEFT)) {
+					export_playlist(g->playlists.a[g->selected_plist]);
+				}
+				nk_label(ctx, "None", NK_TEXT_RIGHT);
+			}
+
+			if (nk_menu_item_label(ctx, "Export Playlists", NK_TEXT_LEFT)) {
+				export_playlists();
 			}
 			nk_label(ctx, "None", NK_TEXT_RIGHT);
 
