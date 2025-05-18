@@ -916,8 +916,11 @@ int handle_list_events()
 
 				break;
 
-			// TODO removal and deletion in lib mode?
 			case SDLK_BACKSPACE:
+				do_remove_from_lib();
+				break;
+
+			// TODO removal and deletion in lib mode?
 			case SDLK_r:
 			case SDLK_x:
 				// If I do use g->do_next like thumb mode and it'll affect other code

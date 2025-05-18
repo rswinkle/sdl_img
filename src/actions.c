@@ -795,3 +795,14 @@ void do_libmode(void)
 	SDL_ShowCursor(SDL_ENABLE);
 }
 
+void do_remove_from_lib(void)
+{
+	remove_from_lib(g->selection);
+
+	// TODO should I remove it from current? If I do I need
+	// to handle if it's currently open, img[0]
+	if (!g->cur_selected) {
+		handle_selection_removal();
+	}
+}
+

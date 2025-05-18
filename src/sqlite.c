@@ -23,6 +23,7 @@ int add_files_to_db(cvector_file* files);
 int update_save_status(void);
 int get_img_playlists(int idx);
 int clean_library(void);
+int remove_from_lib(int idx);
 int load_library(cvector_file* files);
 int export_playlist(const char* name);
 int export_playlists(void);
@@ -785,6 +786,30 @@ int get_img_playlists(int idx)
 	sqlite3_reset(stmt);
 	return TRUE;
 
+}
+
+int remove_from_lib(int idx)
+{
+	int img_id;
+
+	assert(idx >= 0);
+
+	if (IS_RESULTS()) {
+		idx = g->search_results.a[idx];
+	}
+
+	assert(idx >= 0 && g->list_view->size > idx);
+	if (!(img_id = get_image_id(g->list_view->a[idx].path))) {
+		assert(img_id >= 0 && "This should never happen");
+	}
+
+	sqlite3_stmt* stmt = sqlstmts[DEL_IMG];
+	sqlite3_bind_int(stmt, 1, img_id);
+	sqlite3_step(stmt);
+	// TODO check for failure?
+	sqlite3_reset(stmt);
+
+	return TRUE;
 }
 
 // remove out of date files (deleted/renamed etc.)

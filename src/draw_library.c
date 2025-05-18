@@ -5,6 +5,8 @@ enum { RENAMING_PLIST = 1, NEW_PLIST };
 void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h);
 
+void handle_selection_removal(void);
+
 // Meant for switching between playlists/current/library
 void clear_search_and_preview(void)
 {
@@ -842,26 +844,7 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 					// if we are on the playlist we just removed it from we need to
 					// remove it from the list as well
 					if (is_selected && ret && !g->img_saved_status[i]) {
-						cvec_erase_file(g->list_view, idx, idx);
-						if (IS_RESULTS()) {
-							cvec_erase_i(&g->search_results, g->selection, g->selection);
-							for (int j=g->selection; j<g->search_results.size; ++j) {
-								g->search_results.a[j]--;
-							}
-
-							if (g->selection == g->search_results.size) {
-								g->selection = g->search_results.size-1;
-							}
-						} else if (g->selection == g->list_view->size) {
-							g->selection = g->list_view->size-1;
-						}
-
-						// update for new selection (if >= 0) checked inside
-						get_img_playlists(g->selection);
-						if (g->preview.tex) {
-							SDL_DestroyTexture(g->preview.tex);
-							g->preview.tex = NULL;
-						}
+						handle_selection_removal();
 					}
 				}
 			}
@@ -968,4 +951,34 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 		get_img_playlists(g->selection);
 	}
 	nk_widget_disable_end(ctx);
+}
+
+void handle_selection_removal(void)
+{
+	// TODO handle removal from current as well?  bool param?
+	int idx = g->selection;
+	if (IS_RESULTS()) {
+		idx = g->search_results.a[idx];
+		cvec_erase_i(&g->search_results, g->selection, g->selection);
+		for (int j=g->selection; j<g->search_results.size; ++j) {
+			g->search_results.a[j]--;
+		}
+		cvec_erase_file(g->list_view, idx, idx);
+
+		if (g->selection == g->search_results.size) {
+			g->selection = g->search_results.size-1;
+		}
+	} else {
+		cvec_erase_file(g->list_view, idx, idx);
+		if (g->selection == g->list_view->size) {
+			g->selection = g->list_view->size-1;
+		}
+	}
+
+	// update for new selection (if >= 0) checked inside
+	get_img_playlists(g->selection);
+	if (g->preview.tex) {
+		SDL_DestroyTexture(g->preview.tex);
+		g->preview.tex = NULL;
+	}
 }

@@ -1867,17 +1867,28 @@ void draw_menu(struct nk_context* ctx)
 				}
 			}
 
-			/*
-			 * TODO
 			if (IS_LIB_MODE()) {
-				// Hmm
 				if (nk_menu_item_label(ctx, "Scan Directory", NK_TEXT_LEFT)) {
-					g->fs_output = g->cachedir;
-					event.user.code = SELECT_DIR;
-					SDL_PushEvent(&event);
+					
+					// TODO
+					//g->fs_output = g->cachedir;
+					//event.user.code = SELECT_DIR;
+					//SDL_PushEvent(&event);
+				}
+				nk_label(ctx, "None", NK_TEXT_RIGHT);
+
+				// remove from library
+				if (g->selection >= 0) {
+					if (nk_menu_item_label(ctx, "Remove from Library", NK_TEXT_LEFT)) {
+						// one reason to use events is to simplify include dependencies
+						// eliminate prototypes needed at top of sdl_img.c
+						//event.user.code = REMOVE_FROM_LIB;
+						//SDL_PushEvent(&event);
+						do_remove_from_lib();
+					}
+					nk_label(ctx, "BKSP", NK_TEXT_RIGHT);
 				}
 			}
-			*/
 
 			if (nk_selectable_label(ctx, "Slideshow", NK_TEXT_LEFT, &g->slideshow)) {
 				if (g->slideshow)
