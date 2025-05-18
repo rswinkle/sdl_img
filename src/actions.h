@@ -15,4 +15,5 @@ void do_delete(SDL_Event* next);
 void do_actual_size(void);
 int cvec_contains_str(cvector_str* list, char* s);
 int do_copy(void);
-void do_listmode(void);
+void do_libmode(void);
+void do_remove_from_lib(void);

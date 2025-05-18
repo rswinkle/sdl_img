@@ -87,7 +87,6 @@ char* composition;
 Sint32 cursor;
 Sint32 selection_len;
 
-int cvec_contains_str(cvector_str* list, char* s);
 void my_switch_dir(const char* dir);
 void reset_behavior_prefs(void);
 void setup_dirs(void);
@@ -97,7 +96,6 @@ int handle_common_evts(void* userdata, SDL_Event* e);
 void remove_bad_paths(void);
 extern inline void set_show_gui(int show);
 int remove_duplicates(void);
-void do_remove_from_lib(void);
 
 // int typedefs (i64, u32 etc.) conflict with mine in file_browser.h
 //#include "sqlite3.c"
