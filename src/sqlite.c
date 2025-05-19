@@ -24,8 +24,8 @@ int update_save_status(void);
 int get_img_playlists(int idx);
 int clean_library(void);
 int remove_from_lib(int idx);
-int load_library(cvector_file* files, cvector_i* bad_path_ids);
-int remove_bad_imgs(cvector_i* bad_path_ids);
+int load_library(cvector_file* files, cvector_i* bad_img_ids, cvector_str* bad_img_paths);
+int remove_bad_imgs(cvector_i* bad_img_ids);
 int export_playlist(const char* name);
 int export_playlists(void);
 
@@ -821,8 +821,8 @@ int clean_library(void)
 	//char* path;
 	struct stat file_stat;
 
-	cvector_i bad_path_ids;
-	cvec_i(&bad_path_ids, 0, 1024);
+	cvector_i bad_img_ids;
+	cvec_i(&bad_img_ids, 0, 1024);
 	
 	sqlite3_stmt* stmt = sqlstmts[GET_LIBRARY];
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -833,18 +833,18 @@ int clean_library(void)
 
 		if (stat(s, &file_stat)) {
 			// cache id for deletion after we finish select statement
-			cvec_push_i(&bad_path_ids, id);
+			cvec_push_i(&bad_img_ids, id);
 		}
 	}
 	sqlite3_reset(stmt);
 
-	remove_bad_imgs(&bad_path_ids);
-	cvec_free_i(&bad_path_ids);
+	remove_bad_imgs(&bad_img_ids);
+	cvec_free_i(&bad_img_ids);
 
 	return TRUE;
 }
 
-int load_library(cvector_file* files, cvector_i* bad_path_ids)
+int load_library(cvector_file* files, cvector_i* bad_img_ids, cvector_str* bad_img_paths)
 {
 	int id;
 	file f = {0};
@@ -853,10 +853,14 @@ int load_library(cvector_file* files, cvector_i* bad_path_ids)
 	char* sep;
 
 	assert(files);
+	assert((bad_img_ids && bad_img_paths) || !(bad_img_ids || bad_img_paths));
 
-	if (bad_path_ids) {
-		cvec_clear_i(bad_path_ids);
-		cvec_reserve_i(bad_path_ids, 1024);
+	if (bad_img_ids) {
+		cvec_clear_i(bad_img_ids);
+		cvec_reserve_i(bad_img_ids, 1024);
+
+		cvec_clear_str(bad_img_paths);
+		cvec_reserve_str(bad_img_paths, 1024);
 	}
 
 	cvec_clear_file(files);
@@ -868,9 +872,10 @@ int load_library(cvector_file* files, cvector_i* bad_path_ids)
 		// TODO it returns const unsigned char*
 		char *s = (char *)sqlite3_column_text(stmt, 1);
 
-		if (stat(s, &file_stat) && bad_path_ids) {
+		if (stat(s, &file_stat) && bad_img_ids) {
 			// cache id for deletion after we finish select statement
-			cvec_push_i(bad_path_ids, id);
+			cvec_push_i(bad_img_ids, id);
+			cvec_push_str(&g->bad_img_paths, s);
 		} else {
 			f.path = CVEC_STRDUP(s);
 			f.size = file_stat.st_size;
@@ -888,15 +893,14 @@ int load_library(cvector_file* files, cvector_i* bad_path_ids)
 	sqlite3_reset(stmt);
 
 	//if (g->clean_lib_on_load) {
-	//	remove_bad_imgs(bad_path_ids);
+	//	remove_bad_imgs(bad_img_ids);
 	//}
 
 	return TRUE;
 }
 
-int remove_bad_imgs(cvector_i* bad_path_ids)
+int remove_bad_imgs(cvector_i* bad_img_ids)
 {
-	// TODO worth a transaction?
 	sqlite3_stmt* stmt = sqlstmts[DEL_IMG];
 
 	int rc = sqlite3_exec(g->db, "BEGIN TRANSACTION", NULL, NULL, NULL);
@@ -906,11 +910,11 @@ int remove_bad_imgs(cvector_i* bad_path_ids)
 	}
 
 	// TODO Log paths...warn which playlists they're in?
-	for (int i=0; i<bad_path_ids->size; i++) {
-		sqlite3_bind_int(stmt, 1, bad_path_ids->a[i]);
+	for (int i=0; i<bad_img_ids->size; i++) {
+		sqlite3_bind_int(stmt, 1, bad_img_ids->a[i]);
 		rc = sqlite3_step(stmt);
 		if (rc != SQLITE_DONE) {
-			SDL_Log("Failed to remove image %d from library: %s\n", bad_path_ids->a[i], sqlite3_errmsg(g->db));
+			SDL_Log("Failed to remove image %d from library: %s\n", bad_img_ids->a[i], sqlite3_errmsg(g->db));
 			sqlite3_exec(g->db, "ROLLBACK", NULL, NULL, NULL);
 			sqlite3_reset(stmt);
 			return FALSE;
@@ -926,7 +930,7 @@ int remove_bad_imgs(cvector_i* bad_path_ids)
 		return FALSE;
 	}
 
-	SDL_Log("Removed %"PRIcv_sz" bad files from library\n", bad_path_ids->size);
+	SDL_Log("Removed %"PRIcv_sz" bad files from library\n", bad_img_ids->size);
 	
 	return TRUE;
 }

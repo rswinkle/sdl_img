@@ -57,13 +57,14 @@ enum {
 	PREFS            = NK_FLAG(9),
 	ROTATE           = NK_FLAG(10),
 	PLAYLIST_CONTEXT = NK_FLAG(11),
+	BAD_IMGS         = NK_FLAG(12),
 
 };
 
 #define THUMB_MASK (THUMB_DFLT | THUMB_VISUAL | THUMB_SEARCH)
 #define LIB_MASK (LIB_DFLT)
 #define RESULT_MASK (SEARCH_RESULTS)
-#define POPUP_MASK (ABOUT | PREFS | ROTATE | PLAYLIST_CONTEXT)
+#define POPUP_MASK (ABOUT | PREFS | ROTATE | PLAYLIST_CONTEXT | BAD_IMGS)
 //#define VIEW_MASK (NORMAL)
 
 #define IS_NORMAL() (g->state & NORMAL)
@@ -242,6 +243,11 @@ typedef struct global_state
 	cvector_file files;  // currently open image list
 	cvector_file lib_mode_list;   // what you're looking at in library mode
 	cvector_file* list_view; // points at either files or lib_mode_list
+
+	// filled when loading library
+	// TODO make a struct?  just use file type?
+	cvector_i bad_img_ids;
+	cvector_str bad_img_paths;
 	
 	// TODO when I'm done with library mode, wrap all state specific to it
 	// in a struct purely for organization purposes?

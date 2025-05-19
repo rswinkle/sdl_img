@@ -33,7 +33,8 @@ endif
 
 ifeq ($(PLAT), linux)
 ifeq ($(config), release)
-	OPTS=-std=gnu99 -march=native -O2 -g -DNDEBUG
+	OPTS=-std=gnu99 -msse -O2 -g -DNDEBUG
+	#OPTS=-std=gnu99 -march=native -O2 -g -DNDEBUG
 	#OPTS=-std=gnu99 -march=native -O2 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
 else ifeq ($(config), sanitize)
 	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -march=native -g -Og -Wall
@@ -106,7 +107,7 @@ minilua.o: src/extlibs/minilua.c
 # Stupid debian doesn't allow '_' in package names so some mismatches below
 linux_package:
 	./$(PKGSRC)/make_deb.sh
-	fpm -s dir -t tar -v 1.0.0-beta -n sdl_img_1.0.0-beta -C $(PKGDIR) \
+	fpm -s dir -t tar -v 0.101.0 -n sdl_img_0.101.0 -C $(PKGDIR) \
 	--log info --verbose \
 	-d "libc6" -d "libsdl2-2.0-0 >= 2.0.20" -d "libcurl4" \
 	-m "Robert Winkler <rob121618@gmail.com>" \

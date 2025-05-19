@@ -11,13 +11,13 @@ void handle_selection_removal(void);
 void clear_search_and_preview(void)
 {
 	// Hmmm
-	if (g->state != LIB_DFLT) {
+	if (g->state & SEARCH_RESULTS) {
 		g->selection = (g->list_view->size) ? 0 : -1;
 		if (g->preview.tex) {
 			SDL_DestroyTexture(g->preview.tex);
 			g->preview.tex = NULL;
 		}
-		g->state = LIB_DFLT;
+		g->state &= ~SEARCH_RESULTS;
 		g->list_search_active = SDL_FALSE;
 		text_buf[0] = 0;
 		text_len = 0;
@@ -90,7 +90,10 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 				if (g->lib_selected) {
 					g->selected_plist = -1;
 					g->cur_selected = nk_false;
-					load_library(&g->lib_mode_list, NULL);
+					load_library(&g->lib_mode_list, &g->bad_img_ids, &g->bad_img_paths);
+					if (g->bad_img_ids.size) {
+						g->state |= BAD_IMGS;
+					}
 					g->list_view = &g->lib_mode_list;
 					do_lib_sort(filename_cmp_lt);
 					clear_search_and_preview();
@@ -589,7 +592,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 
 				// Method 2
 				if (g->lib_selected) {
-					load_library(&g->files, NULL);
+					load_library(&g->files, &g->bad_img_ids, &g->bad_img_paths);
 				} else {
 					load_sql_playlist_id(g->playlist_ids.a[g->selected_plist], &g->files);
 				}
@@ -597,7 +600,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 				// In case of Method 1, we don't really care if we leave lib_mode_list empty
 				// but if we did...
 				//if (g->lib_selected) {
-				//	load_library(&g->lib_mode_list);
+				//	load_library(&g->files, &g->bad_img_ids, &g->bad_img_paths);
 				//} else {
 				//	load_sql_playlist_id(g->playlist_ids.a[g->selected_plist], &g->lib_mode_list);
 				//}
@@ -985,4 +988,60 @@ void handle_selection_removal(void)
 
 void draw_bad_lib_imgs_popup(struct nk_context* ctx, int scr_w, int scr_h)
 {
+	struct nk_rect s = { 0, 0, scr_w, scr_h };
+	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
+
+	static struct nk_list_view lview;
+	struct nk_rect bounds;
+
+	char label_buf[STRBUF_SZ];
+
+	int len = snprintf(label_buf, STRBUF_SZ, "There were %"PRIcv_sz" invalid paths found in your library. This could be because the images are on a drive that is not mounted, or they were moved or deleted. Do you want to remove these from the library?", g->bad_img_ids.size);
+
+	// not really accurate especially for non-monospace fonts
+	int rows = len*g->font_size / scr_w + 1;
+	int label_height = rows * g->font_size; // plus text padding?
+
+	// TODO tabs like terminal About, License, Credits?
+	if (nk_begin(ctx, "Bad Images in Library", s, popup_flags))
+	{
+		// TODO what's the point of wrapping if you have to calculate the height
+		// needed for it to be seen yourself?
+		nk_layout_row_dynamic(ctx, label_height, 1);
+		nk_label_wrap(ctx, label_buf);
+
+
+		// Could put these buttons at the bottom?
+		nk_layout_row_dynamic(ctx, 0, 3);
+		if (nk_button_label(ctx, "Yes")) {
+			remove_bad_imgs(&g->bad_img_ids);
+			cvec_clear_i(&g->bad_img_ids);
+			cvec_clear_str(&g->bad_img_paths);
+			g->state &= ~BAD_IMGS;
+		}
+		if (nk_button_label(ctx, "No")) {
+			g->state &= ~BAD_IMGS;
+		}
+
+		if (nk_button_label(ctx, "Try reloading library")) {
+			load_library(g->list_view, &g->bad_img_ids, &g->bad_img_paths);
+			// immediately close it?
+			if (!g->bad_img_ids.size) {
+				g->state &= ~BAD_IMGS;
+			}
+		}
+
+		bounds = nk_widget_bounds(ctx);
+		nk_layout_row_dynamic(ctx, scr_h-bounds.y-4, 1);
+		if (nk_list_view_begin(ctx, &lview, "Bad Image List", NK_WINDOW_BORDER, g->font_size+16, g->bad_img_ids.size)) {
+			nk_layout_row_dynamic(ctx, 0, 1);
+			for (int i=lview.begin; i<lview.end; i++) {
+				nk_label(ctx, g->bad_img_paths.a[i], NK_TEXT_LEFT);
+			}
+			nk_list_view_end(&lview);
+		}
+
+	}
+	nk_end(ctx);
+
 }

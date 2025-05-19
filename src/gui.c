@@ -268,6 +268,8 @@ void draw_gui(struct nk_context* ctx)
 		draw_about(ctx, scr_w, scr_h, popup_flags);
 	} else if (g->state & PREFS) {
 		draw_prefs(ctx, scr_w, scr_h, popup_flags);
+	} else if (g->state & BAD_IMGS) {
+		draw_bad_lib_imgs_popup(ctx, scr_w, scr_h);
 	}
 
 	// don't show main GUI if a popup is up, don't want user to
