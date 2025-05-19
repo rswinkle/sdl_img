@@ -1208,12 +1208,14 @@ void draw_about(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 		float ratios[] = { 0.3f, 0.7f, 0.2f, 0.8f };
 		nk_layout_row(ctx, NK_DYNAMIC, 0, 2, ratios);
 
-		nk_label(ctx, "stb_image*", NK_TEXT_LEFT);
+		nk_label(ctx, "stb_image, stb_image_resize2, stb_image_write", NK_TEXT_LEFT);
 		nk_label(ctx, "github.com/nothings/stb", NK_TEXT_RIGHT);
 		nk_label(ctx, "SDL2", NK_TEXT_LEFT);
 		nk_label(ctx, "libsdl.org", NK_TEXT_RIGHT);
 		nk_label(ctx, "nuklear GUI", NK_TEXT_LEFT);
 		nk_label(ctx, "github.com/Immediate-Mode-UI/Nuklear", NK_TEXT_RIGHT);
+		nk_label(ctx, "SQLite", NK_TEXT_LEFT);
+		nk_label(ctx, "sqlite.org", NK_TEXT_RIGHT);
 		nk_label(ctx, "libcurl", NK_TEXT_LEFT);
 		nk_label(ctx, "curl.haxx.se/libcurl/", NK_TEXT_RIGHT);
 		nk_label(ctx, "minilua", NK_TEXT_LEFT);

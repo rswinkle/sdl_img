@@ -90,7 +90,7 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 				if (g->lib_selected) {
 					g->selected_plist = -1;
 					g->cur_selected = nk_false;
-					load_library(&g->lib_mode_list);
+					load_library(&g->lib_mode_list, NULL);
 					g->list_view = &g->lib_mode_list;
 					do_lib_sort(filename_cmp_lt);
 					clear_search_and_preview();
@@ -589,7 +589,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 
 				// Method 2
 				if (g->lib_selected) {
-					load_library(&g->files);
+					load_library(&g->files, NULL);
 				} else {
 					load_sql_playlist_id(g->playlist_ids.a[g->selected_plist], &g->files);
 				}
@@ -981,4 +981,8 @@ void handle_selection_removal(void)
 		SDL_DestroyTexture(g->preview.tex);
 		g->preview.tex = NULL;
 	}
+}
+
+void draw_bad_lib_imgs_popup(struct nk_context* ctx, int scr_w, int scr_h)
+{
 }
