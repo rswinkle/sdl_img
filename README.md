@@ -22,9 +22,9 @@ Goals / Focus
 
 Controls/Basic Usage
 ====================
-    ./sdl_img
-    ./sdl_img image_name.jpg
-    ./sdl_img -f image_name.jpg  (to start in full screen mode)
+    sdl_img
+    sdl_img image_name.jpg
+    sdl_img -f image_name.jpg  (to start in full screen mode)
 
 The first will open in "File Selection" mode since you didn't provide it any
 images. The second will open image_name.jpg and all files with recognized image
@@ -124,21 +124,21 @@ the default.
 
 Advanced Usage
 ==============
-    ./sdl_img -l list_of_images (urls or local paths or mixed, doesn't matter)
-    ./sdl_img --list list_of_images
-    ./sdl_img -p playlist_name (will open a playlist by that name if one exists)
-    ./sdl_img --playlist playlist_name
-    ./sdl_img dir (scan dir for images)
-    ./sdl_img -r dir (scan dir recursively for images)
-    ./sdl_img dir1 -r dir2 dir3 (scan dir1, dir2 recursively, dir3 )
-    ./sdl_img dir1 -R dir2 dir3 (scan dir1, then dir2 and dir3 recursively)
-    ./sdl_img image1.jpg image2.png
-    ./sdl_img image1.jpg -s 4
-    ./sdl_img -l list_of_urls -c ./custom_cache_dir
+    sdl_img -l list_of_images (urls or local paths or mixed, doesn't matter)
+    sdl_img --list list_of_images
+    sdl_img -p playlist_name (will open a playlist by that name if one exists)
+    sdl_img --playlist playlist_name
+    sdl_img dir (scan dir for images)
+    sdl_img -r dir (scan dir recursively for images)
+    sdl_img dir1 -r dir2 dir3 (scan dir1, dir2 recursively, dir3 )
+    sdl_img dir1 -R dir2 dir3 (scan dir1, then dir2 and dir3 recursively)
+    sdl_img image1.jpg image2.png
+    sdl_img image1.jpg -s 4
+    sdl_img -l list_of_urls -c ./custom_cache_dir
 
 Or any combination of those options, ie
 
-    ./sdl_img image.jpg -p playlist_name -s 8 ~/some/dir example.com/image.jpg -l list3 image4.gif -f
+    sdl_img image.jpg -p playlist_name -s 8 ~/some/dir example.com/image.jpg -l list3 image4.gif -f
 
 The option -s [delay] means start in slideshow mode with the given delay in seconds.
 If delay is not 1-10 or is missing, delay will be set to 3 seconds.
