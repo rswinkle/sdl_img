@@ -5,11 +5,24 @@
 
 int main(int argc, char** argv)
 {
+	/*
+	// This works with GNU C 99 (-std=gnu99) or greater
+	// too bad it doesn't work with clang or tcc
+	const char test_raw[] =
+R"blah(hello
+'abc' xyz
+blah
+blah( goodbye!
+"123" 
+\nwhatever")blah";
+
+	printf("'%s'\n", test_raw);
+	*/
+
 	if (argc != 2) {
 		printf("Usage: %s text_file\n", argv[0]);
 		return 0;
 	}
-
 
 	FILE* f = fopen(argv[1], "r");
 	if (!f) {
@@ -34,6 +47,8 @@ int main(int argc, char** argv)
 		}
 		puts("\\n\"");
 	}
+
+	fclose(f);
 
 	return 0;
 }

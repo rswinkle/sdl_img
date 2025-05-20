@@ -1602,6 +1602,11 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					nk_property_int(ctx, "#", 1, &g->gui_delay, MAX_GUI_DELAY, 1, 0.3);
 				}
 
+				nk_label(ctx, "Bad images in library behavior:", NK_TEXT_LEFT);
+				static const char* bad_img_options[] = { "Ask", "Remove", "Ignore" };
+				bounds = nk_widget_bounds(ctx);
+				g->bad_imgs_behavior = nk_combo(ctx, bad_img_options, NK_LEN(bad_img_options), g->bad_imgs_behavior, g->font_size+28, nk_vec2(bounds.w, 800));
+
 				nk_label(ctx, "Generate thumbs:", NK_TEXT_LEFT);
 				static const char* run_thumb_thread_opts[] = { "On Open", "On Thumb Mode", "Manually" };
 				bounds = nk_widget_bounds(ctx);

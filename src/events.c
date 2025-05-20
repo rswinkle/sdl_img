@@ -1157,6 +1157,9 @@ int handle_popup_events()
 
 	int ticks = SDL_GetTicks();
 
+	// always show gui in popup
+	set_show_gui(SDL_TRUE);
+
 	if (g->slideshow) {
 		// don't advance slideshow while a popup is active
 		g->slide_timer = ticks;

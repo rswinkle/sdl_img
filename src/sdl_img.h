@@ -23,6 +23,9 @@ enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 // fullscreen GUI behavior
 enum { DELAY, ALWAYS, NEVER };
 
+// bad imgs in library behavior
+enum { ASK, REMOVE, IGNORE };
+
 // list sorted state
 enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };
 
@@ -265,6 +268,7 @@ typedef struct global_state
 	int img_saved_status[MAX_PLAYLISTS];
 
 	// whether current playlist save status of g->files is up to date
+	// TODO remove, make it always immediately up to date?
 	int save_status_uptodate;  // bool
 
 	cvector_str sources;  // files/directories to scan etc.
@@ -313,6 +317,7 @@ typedef struct global_state
 	int confirm_delete;
 	int confirm_rotation;
 	int warn_text_copy;
+	int bad_imgs_behavior;
 
 	struct nk_font_atlas* atlas;
 	struct nk_font_config config;
@@ -339,8 +344,10 @@ typedef struct global_state
 	int list_search_active; // text field has focus in gui
 	int list_setscroll;
 
+	// TODO review use/remove/refactor now with JIT thumbs
 	int thumbs_done;
 	int thumbs_loaded;
+
 	int thumb_start_row;
 	int is_thumb_visual_line;
 	int thumb_rows;

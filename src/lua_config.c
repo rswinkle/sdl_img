@@ -25,6 +25,7 @@ enum {
 	HIDE_GUI_DELAY,
 	BUTTON_REPEAT_DELAY,
 	FULLSCREEN_GUI,
+	BAD_IMGS_BEHAVIOR,
 	RUN_THUMB_THREAD,
 	THUMB_ROWS,
 	THUMB_COLS,
@@ -62,6 +63,7 @@ char* keys[] =
 	"hide_gui_delay",
 	"button_repeat_delay",
 	"fullscreen_gui",
+	"bad_imgs_behavior",
 	"run_thumb_thread",
 	"thumb_rows",
 	"thumb_cols",
@@ -104,6 +106,7 @@ void set_color(lua_State* L, ColorEntry* ct);
 
 int do_gui_colors(lua_State* L);
 int load_fullscreen_gui(lua_State* L, int dflt);
+int load_bad_imgs_behavior(lua_State* L, int dflt);
 int load_run_thumb_thread(lua_State* L, int dflt);
 
 void write_config(FILE* cfg_file);
@@ -189,6 +192,7 @@ int read_config_file(char* filename)
 
 	// enum
 	g->fullscreen_gui = load_fullscreen_gui(L, DFLT_FULLSCREEN_GUI);
+	g->bad_imgs_behavior = load_bad_imgs_behavior(L, DFLT_BAD_IMGS_BEHAVIOR);
 	g->run_thumb_thread = load_run_thumb_thread(L, DFLT_RUN_THUMB_THREAD);
 
 	Color background = {0}, thumb_hl = {0};
@@ -274,6 +278,7 @@ void write_config(FILE* cfg_file)
 {
 	const char* bool_str[] = { "false", "true" };
 	const char* fullscreen_gui_str[] = { "delay", "always", "never" };
+	const char* bad_imgs_behavior_str[] = { "ask", "remove", "ignore" };
 	const char* run_thumb_thread_str[] = { "on_open", "on_thumb_mode", "manually" };
 
 	for (int i=0; i<NUM_KEYS; i++) {
@@ -324,6 +329,9 @@ void write_config(FILE* cfg_file)
 			break;
 		case FULLSCREEN_GUI:
 			fprintf(cfg_file, "'%s'\n", fullscreen_gui_str[g->fullscreen_gui]);
+			break;
+		case BAD_IMGS_BEHAVIOR:
+			fprintf(cfg_file, "'%s'\n", bad_imgs_behavior_str[g->bad_imgs_behavior]);
 			break;
 		case RUN_THUMB_THREAD:
 			fprintf(cfg_file, "'%s'\n", run_thumb_thread_str[g->run_thumb_thread]);
@@ -449,6 +457,17 @@ int load_fullscreen_gui(lua_State* L, int dflt)
 		return dflt;
 	}
 	return convert_str2enum(L, -1, "fullscreen_gui", enum_names, enum_values, 3);
+}
+
+int load_bad_imgs_behavior(lua_State* L, int dflt)
+{
+	const char* enum_names[] = { "ask", "remove", "ignore" };
+	int enum_values[] = { 0, 1, 2 };
+
+	if (!lua_getglobal(L, "bad_imgs_behavior")) {
+		return dflt;
+	}
+	return convert_str2enum(L, -1, "bad_imgs_behavior", enum_names, enum_values, 3);
 }
 
 int load_run_thumb_thread(lua_State* L, int dflt)

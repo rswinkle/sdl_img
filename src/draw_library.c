@@ -91,7 +91,7 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 					g->selected_plist = -1;
 					g->cur_selected = nk_false;
 					load_library(&g->lib_mode_list, &g->bad_img_ids, &g->bad_img_paths);
-					if (g->bad_img_ids.size) {
+					if (g->bad_img_ids.size && g->bad_imgs_behavior == ASK) {
 						g->state |= BAD_IMGS;
 					}
 					g->list_view = &g->lib_mode_list;
@@ -592,7 +592,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 
 				// Method 2
 				if (g->lib_selected) {
-					load_library(&g->files, &g->bad_img_ids, &g->bad_img_paths);
+					load_library(&g->files, NULL, NULL);
 				} else {
 					load_sql_playlist_id(g->playlist_ids.a[g->selected_plist], &g->files);
 				}
@@ -600,7 +600,7 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 				// In case of Method 1, we don't really care if we leave lib_mode_list empty
 				// but if we did...
 				//if (g->lib_selected) {
-				//	load_library(&g->files, &g->bad_img_ids, &g->bad_img_paths);
+				//	load_library(&g->files, NULL, NULL);
 				//} else {
 				//	load_sql_playlist_id(g->playlist_ids.a[g->selected_plist], &g->lib_mode_list);
 				//}
@@ -992,11 +992,12 @@ void draw_bad_lib_imgs_popup(struct nk_context* ctx, int scr_w, int scr_h)
 	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER|NK_WINDOW_TITLE;//NK_WINDOW_CLOSABLE;
 
 	static struct nk_list_view lview;
+	static nk_bool make_choice_pref;
 	struct nk_rect bounds;
 
 	char label_buf[STRBUF_SZ];
 
-	int len = snprintf(label_buf, STRBUF_SZ, "There were %"PRIcv_sz" invalid paths found in your library. This could be because the images are on a drive that is not mounted, or they were moved or deleted. Do you want to remove these from the library?", g->bad_img_ids.size);
+	int len = snprintf(label_buf, STRBUF_SZ, "There were %"PRIcv_sz" invalid paths found in your library. This could be because the images are on a drive that is not mounted, or they were moved or deleted.", g->bad_img_ids.size);
 
 	// not really accurate especially for non-monospace fonts
 	int rows = len*g->font_size / scr_w + 1;
@@ -1010,17 +1011,24 @@ void draw_bad_lib_imgs_popup(struct nk_context* ctx, int scr_w, int scr_h)
 		nk_layout_row_dynamic(ctx, label_height, 1);
 		nk_label_wrap(ctx, label_buf);
 
+		nk_checkbox_label(ctx, "Perform your current decision automatically next time", &make_choice_pref);
 
 		// Could put these buttons at the bottom?
 		nk_layout_row_dynamic(ctx, 0, 3);
-		if (nk_button_label(ctx, "Yes")) {
+		if (nk_button_label(ctx, "Remove All")) {
 			remove_bad_imgs(&g->bad_img_ids);
 			cvec_clear_i(&g->bad_img_ids);
 			cvec_clear_str(&g->bad_img_paths);
 			g->state &= ~BAD_IMGS;
+			if (make_choice_pref) {
+				g->bad_imgs_behavior = REMOVE;
+			}
 		}
-		if (nk_button_label(ctx, "No")) {
+		if (nk_button_label(ctx, "Ignore")) {
 			g->state &= ~BAD_IMGS;
+			if (make_choice_pref) {
+				g->bad_imgs_behavior = IGNORE;
+			}
 		}
 
 		if (nk_button_label(ctx, "Try reloading library")) {
