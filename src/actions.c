@@ -425,11 +425,12 @@ void do_mode_change(intptr_t mode)
 			g->loading = mode;
 			SDL_CondSignal(g->img_loading_cnd);
 			SDL_UnlockMutex(g->img_loading_mtx);
-			//g->n_imgs gets updated in handle_events() once loading finishes
+			//g->n_imgs gets updated in handle_loading() once loading finishes
 		} else {
 			if (mode != MODE1 || !g->img_focus || g->img_focus == &g->img[0]) {
-				for (int i=g->n_imgs-1; i>mode-1; --i)
+				for (int i=g->n_imgs-1; i>mode-1; --i) {
 					clear_img(&g->img[i]);
+				}
 
 				if (g->img_focus >= &g->img[mode] || mode == MODE1) {
 					g->img_focus = NULL;
@@ -446,12 +447,10 @@ void do_mode_change(intptr_t mode)
 				}
 				replace_img(&g->img[0], g->img_focus);
 				g->img_focus = NULL;
+				// don't have to set title here because it was already img_focus
+				// which is now img[0], the only image
 			}
 			g->n_imgs = mode;
-
-			// TODO don't always do this? seee above and in event done_loading code
-			//g->img_focus = NULL;
-			//SDL_SetWindowTitle(g->win, g->files.a[0].name);
 		}
 	}
 }

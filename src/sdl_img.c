@@ -814,11 +814,6 @@ int load_new_images(void* data)
 						img[i].index = last;
 					}
 				}
-
-				// just set title to upper left image when !img_focus
-				// TODO use file.name for all of these
-				int index = (IS_VIEW_RESULTS()) ? g->search_results.a[img[0].index] : img[0].index;
-				SDL_SetWindowTitle(g->win, g->files.a[index].name);
 			} else {
 				tmp = (load_what >= RIGHT) ? 1 : -1;
 				last = (load_what != SELECTION) ? g->img_focus->index : g->selection-1;
@@ -834,9 +829,6 @@ int load_new_images(void* data)
 				img[0].index = last;
 				img[0].scr_rect = g->img_focus->scr_rect;
 				set_rect_bestfit(&img[0], g->fullscreen | g->slideshow | g->fill_mode);
-
-				int index = (IS_VIEW_RESULTS()) ? g->search_results.a[img[0].index] : img[0].index;
-				SDL_SetWindowTitle(g->win, g->files.a[index].name);
 			}
 		} else {
 			last = g->img[g->n_imgs-1].index;

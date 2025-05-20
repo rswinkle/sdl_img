@@ -1255,58 +1255,6 @@ int handle_events_normally()
 	int ticks = SDL_GetTicks();
 
 	//handle_loading();
-	/*
-	SDL_LockMutex(g->img_loading_mtx);
-	if (g->done_loading) {
-		if (g->done_loading >= LEFT) {
-			img = (g->img == g->img1) ? g->img2 : g->img1;
-			if (g->img_focus) {
-				clear_img(g->img_focus);
-				replace_img(g->img_focus, &img[0]);
-				create_textures(g->img_focus);
-			} else {
-				for (int i=0; i<g->n_imgs; ++i) {
-					create_textures(&img[i]);
-					clear_img(&g->img[i]);
-				}
-				g->img = img;
-			}
-		} else {
-			for (int i=g->n_imgs; i<g->done_loading; ++i) {
-				create_textures(&g->img[i]);
-			}
-			// TODO duplication in do_mode_change
-			g->needs_scr_rect_update = SDL_TRUE;
-			g->adj_img_rects = SDL_TRUE;
-
-			g->n_imgs = g->done_loading;
-		}
-		g->done_loading = 0;
-		g->status = REDRAW;
-		if (g->slideshow && IS_NORMAL())
-			g->slide_timer =  SDL_GetTicks();
-	}
-	SDL_UnlockMutex(g->img_loading_mtx);
-	
-	if (!g->loading) {
-		if (g->needs_scr_rect_update) {
-			//SDL_Log("update after loading mode = %d %d", g->n_imgs, g->adj_img_rects);
-			switch (g->n_imgs) {
-			case 1: SET_MODE1_SCR_RECT(); break;
-			case 2: SET_MODE2_SCR_RECTS(); break;
-			case 4: SET_MODE4_SCR_RECTS(); break;
-			case 8: SET_MODE8_SCR_RECTS(); break;
-			}
-			g->needs_scr_rect_update = SDL_FALSE;
-		}
-		if (g->adj_img_rects) {
-			for (int i=0; i<g->n_imgs; ++i) {
-				set_rect_bestfit(&g->img[i], g->fullscreen | g->slideshow | g->fill_mode);
-			}
-			g->adj_img_rects = SDL_FALSE;
-		}
-	}
-	*/
 
 	// TODO but in handle_loading?
 	if (g->slideshow) {
@@ -2010,6 +1958,7 @@ int handle_events_normally()
 void handle_loading(void)
 {
 	img_state* img;
+	int index;
 	SDL_LockMutex(g->img_loading_mtx);
 	if (g->done_loading) {
 		if (g->done_loading >= LEFT) {
@@ -2025,6 +1974,10 @@ void handle_loading(void)
 				}
 				g->img = img;
 			}
+			// just set title to upper left image when !img_focus
+			// TODO use file.name for all of these
+			index = (IS_VIEW_RESULTS()) ? g->search_results.a[img[0].index] : img[0].index;
+			SDL_SetWindowTitle(g->win, g->files.a[index].name);
 		} else {
 			for (int i=g->n_imgs; i<g->done_loading; ++i) {
 				create_textures(&g->img[i]);
@@ -2034,6 +1987,9 @@ void handle_loading(void)
 			g->adj_img_rects = SDL_TRUE;
 
 			g->n_imgs = g->done_loading;
+			// Note window title is already correct since this is going to a higher mode
+			// so the title is either img[0] or img_focus pointing at an image that
+			// was already there
 		}
 		g->done_loading = 0;
 		g->status = REDRAW;
