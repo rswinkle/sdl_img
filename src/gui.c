@@ -996,7 +996,9 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 	int height = g->gui_bar_ht;
 #endif
 
+#ifdef FILENAME_IN_INFOBAR
 	char* filename;
+#endif
 
 	if (nk_begin(ctx, "Info", nk_rect(0, scr_h-g->gui_bar_ht, scr_w, height), NK_WINDOW_NO_SCROLLBAR))
 	{
@@ -1028,16 +1030,20 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 			if (IS_VIEW_RESULTS() && index < g->search_results.size) {
 				total = g->search_results.size;
 				int idx = g->search_results.a[index];
+#ifdef FILENAME_IN_INFOBAR
 				filename = g->files.a[idx].name;
 				assert(filename);
+#endif
 				if (g->save_status_uptodate) {
 					//saved_status = g->files.a[g->search_results.a[index]].playlist_idx >= 0;
 					saved_status = g->files.a[idx].playlist_idx;
 				}
 			} else {
 				total = g->files.size;
+#ifdef FILENAME_IN_INFOBAR
 				filename = g->files.a[index].name;
 				assert(filename);
+#endif
 				if (g->save_status_uptodate) {
 					//saved_status = g->files.a[index].playlist_idx >= 0;
 					saved_status = g->files.a[index].playlist_idx;
@@ -1046,11 +1052,19 @@ void draw_infobar(struct nk_context* ctx, int scr_w, int scr_h)
 			total = (IS_VIEW_RESULTS()) ? g->search_results.size : g->files.size;
 
 			int len;
+#ifdef FILENAME_IN_INFOBAR
 			if (g->save_status_uptodate) {
 				len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu [%c] %s %s", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total, saved_char[saved_status], g->cur_playlist, filename);
 			} else {
 				len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu %s", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total, filename);
 			}
+#else
+			if (g->save_status_uptodate) {
+				len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu [%c] %s", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total, saved_char[saved_status], g->cur_playlist);
+			} else {
+				len = snprintf(info_buf, STRBUF_SZ, "%dx%d %s %d%% %lu/%lu", img->w, img->h, size_str, (int)(img->disp_rect.h*100.0/img->h), index+1, total);
+			}
+#endif
 			if (len >= STRBUF_SZ) {
 				SDL_LogCriticalApp("info path too long\n");
 				cleanup(1, 1);

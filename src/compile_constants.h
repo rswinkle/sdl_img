@@ -44,6 +44,11 @@
 // same directory as config.lua
 //#define USE_LOGFILE
 
+// If defined, will add the filename to the infobar/footer in normal mode (not thumb mode)
+// This is for people using window managers where windows don't have decorations so they
+// don't have the title bar which is the only place the filename is normally displayed.
+// #define FILENAME_IN_INFOBAR
+
 // zoom is calculated
 // h = old_h * (1.0 + zoom*ZOOM_RATE)
 // zoom is divided by GIF_ZOOM_DIV if any
