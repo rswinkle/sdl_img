@@ -1753,7 +1753,13 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 			} else if (cur_prefs == PREFS_CONTROLS) {
 				//int control_flags = NK_EDIT_READ_ONLY | NK_EDIT_CLIPBOARD | NK_EDIT_MULTILINE;
 				int control_flags = NK_EDIT_SELECTABLE | NK_EDIT_CLIPBOARD | NK_EDIT_MULTILINE;
-				nk_layout_row_dynamic(ctx, 110*(g->font_size+4), 1);
+				//TODO 219, lines in controls.txt/controls_str.c should be automatic
+				//maybe a macro grabbed at build time
+				//
+				//+10 to account for group/window padding at the bottom
+				// Is there a way to get a horizontal scrollbar for when the font
+				// is too large to fit in the space?
+				nk_layout_row_dynamic(ctx, 219*(g->font_size+2)+10, 1);
 				nk_edit_string(ctx, control_flags, g->controls_text, &g->ct_len, g->ct_len+1, nk_filter_nothing);
 			}
 
