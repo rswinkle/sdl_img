@@ -892,7 +892,7 @@ int load_library(cvector_file* files, cvector_i* bad_img_ids, cvector_str* bad_i
 	}
 	sqlite3_reset(stmt);
 
-	if (bad_img_ids && bad_img_ids->size && g->bad_imgs_behavior == REMOVE) {
+	if (bad_img_ids && bad_img_ids->size && g->bad_imgs_behavior == REMOVE_IMGS) {
 		remove_bad_imgs(bad_img_ids);
 		cvec_clear_i(bad_img_ids);
 		cvec_clear_str(bad_img_paths);

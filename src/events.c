@@ -537,14 +537,14 @@ int handle_thumb_events()
 				}
 				break;
 			case SDLK_PAGEUP:
-			case SDLK_PAGEDOWN:
+			case SDLK_PAGEDOWN: {
 				int rows = g->thumb_rows;
 				g->thumb_start_row += (sym == SDLK_PAGEDOWN) ? rows : -rows;
 				int tmp = g->thumb_sel % g->thumb_cols;
 				g->thumb_sel = g->thumb_start_row * g->thumb_cols + tmp;
 				g->thumb_sel += (sym == SDLK_b) ? (rows-1)*g->thumb_cols : 0;
 				fix_thumb_sel((sym == SDLK_PAGEDOWN) ? 1 : -1);
-				break;
+				} break;
 			case SDLK_n:
 				if (g->state & SEARCH_RESULTS) {
 					if (shift_down) {

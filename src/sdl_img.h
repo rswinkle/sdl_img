@@ -24,7 +24,7 @@ enum { NOT_EDITED, ROTATED, TO_ROTATE, FLIPPED};
 enum { DELAY, ALWAYS, NEVER };
 
 // bad imgs in library behavior
-enum { ASK, REMOVE, IGNORE };
+enum { ALWAYS_ASK, REMOVE_IMGS, IGNORE_IMGS };
 
 // list sorted state
 enum { NONE, NAME_UP, NAME_DOWN, PATH_UP, PATH_DOWN, SIZE_UP, SIZE_DOWN, MODIFIED_UP, MODIFIED_DOWN };

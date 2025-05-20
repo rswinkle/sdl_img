@@ -91,8 +91,8 @@ all: $(TARGET)
 sdl_img: $(SRCS) nuklear.o minilua.o sqlite3.o
 	$(CC) $(OPTS) src/sdl_img.c minilua.o nuklear.o sqlite3.o -o $@ $(CFLAGS) $(LIBS)
 
-sdl_img.exe: $(SRCS) nuklear.o minilua.o
-	$(CC) $(OPTS) src/sdl_img.c nuklear.o minilua.o -o $@ $(CFLAGS) $(LIBS)
+sdl_img.exe: $(SRCS) nuklear.o minilua.o sqlite3.o
+	$(CC) $(OPTS) src/sdl_img.c nuklear.o minilua.o sqlite3.o -o $@ $(CFLAGS) $(LIBS)
 
 sqlite3.o: src/extlibs/sqlite3.c
 	$(CC) $(OPTS) -c src/extlibs/sqlite3.c

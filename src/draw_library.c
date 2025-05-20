@@ -91,7 +91,7 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 					g->selected_plist = -1;
 					g->cur_selected = nk_false;
 					load_library(&g->lib_mode_list, &g->bad_img_ids, &g->bad_img_paths);
-					if (g->bad_img_ids.size && g->bad_imgs_behavior == ASK) {
+					if (g->bad_img_ids.size && g->bad_imgs_behavior == ALWAYS_ASK) {
 						g->state |= BAD_IMGS;
 					}
 					g->list_view = &g->lib_mode_list;
@@ -1021,13 +1021,13 @@ void draw_bad_lib_imgs_popup(struct nk_context* ctx, int scr_w, int scr_h)
 			cvec_clear_str(&g->bad_img_paths);
 			g->state &= ~BAD_IMGS;
 			if (make_choice_pref) {
-				g->bad_imgs_behavior = REMOVE;
+				g->bad_imgs_behavior = REMOVE_IMGS;
 			}
 		}
 		if (nk_button_label(ctx, "Ignore")) {
 			g->state &= ~BAD_IMGS;
 			if (make_choice_pref) {
-				g->bad_imgs_behavior = IGNORE;
+				g->bad_imgs_behavior = IGNORE_IMGS;
 			}
 		}
 
