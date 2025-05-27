@@ -99,6 +99,8 @@ char* curl_image(file* f)
 	char* sep = strrchr(f->path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 	f->name = (sep) ? sep+1 : f->path;
 
+	add_file_to_db(f->path);
+
 
 	curl_easy_cleanup(curl);
 	return f->path;

@@ -19,11 +19,12 @@ int sql_unsave(sqlite3_stmt* stmt, int idx, const char* path);
 int do_sql_save_idx(int removing, int plist_id, int idx);
 int do_sql_save(int removing, int plist_id);
 int do_sql_save_all(int removing, cvector_file* files);
+int add_file_to_db(const char* path);
 int add_files_to_db(cvector_file* files);
 int update_save_status(void);
 int get_img_playlists(int idx);
 int clean_library(void);
-int remove_from_lib(int idx);
+int remove_from_lib(const char* path);
 int load_library(cvector_file* files, cvector_i* bad_img_ids, cvector_str* bad_img_paths);
 int remove_bad_imgs(cvector_i* bad_img_ids);
 int export_playlist(const char* name);
@@ -409,6 +410,7 @@ int get_image_id(const char *path)
 {
     sqlite3_stmt *stmt = sqlstmts[GET_IMG_ID];
     int image_id = 0;
+    assert(path);
 
     sqlite3_bind_text(stmt, 1, path, -1, SQLITE_STATIC);
 
@@ -416,7 +418,7 @@ int get_image_id(const char *path)
         image_id = sqlite3_column_int(stmt, 0);
     } else {
         SDL_Log("Unexpected error: Image '%s' not found (should exist).\n", path);
-        assert(0 && "Image id doesn't exst!");
+        assert(0 && "Image id doesn't exist!");
     }
 
     sqlite3_reset(stmt);
@@ -663,6 +665,20 @@ int do_sql_save_all(int removing, cvector_file* files)
 	return TRUE;
 }
 
+int add_file_to_db(const char* path)
+{
+	sqlite3_stmt* stmt = sqlstmts[INSERT_IMG];
+	sqlite3_bind_text(stmt, 1, path, -1, SQLITE_STATIC);
+
+	if (sqlite3_step(stmt) != SQLITE_DONE) {
+		SDL_Log("Failed to add image %s: %s\n", path, sqlite3_errmsg(g->db));
+		sqlite3_reset(stmt);
+		return FALSE;
+	}
+	sqlite3_reset(stmt);
+	return TRUE;
+}
+
 // Do this or do it as we scan sources and stat() files?
 // TODO more efficient...
 int add_files_to_db(cvector_file* files)
@@ -760,6 +776,13 @@ int get_img_playlists(int idx)
 		idx = g->search_results.a[idx];
 	}
 
+	// set all to false
+	memset(&g->img_saved_status, 0, g->playlist_ids.size*sizeof(int));
+
+	if (!g->list_view->a[idx].path) {
+		return FALSE;
+	}
+
 	if (!(img_id = get_image_id(g->list_view->a[idx].path))) {
 		assert(img_id >= 0 && "This should never happen");
 	}
@@ -789,18 +812,13 @@ int get_img_playlists(int idx)
 
 }
 
-int remove_from_lib(int idx)
+int remove_from_lib(const char* path)
 {
 	int img_id;
 
-	assert(idx >= 0);
+	assert(path);
 
-	if (IS_RESULTS()) {
-		idx = g->search_results.a[idx];
-	}
-
-	assert(idx >= 0 && g->list_view->size > idx);
-	if (!(img_id = get_image_id(g->list_view->a[idx].path))) {
+	if (!(img_id = get_image_id(path))) {
 		assert(img_id >= 0 && "This should never happen");
 	}
 

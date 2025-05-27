@@ -722,9 +722,13 @@ int attempt_image_load(int last, img_state* img)
 			}
 		} else if ((path = curl_image(&g->files.a[i]))) {
 			ret = load_image(path, img, SDL_FALSE);
+			// curl_image already added newly downloaded file to db
+			// add_file_to_db(path);
 		}
 
 		if (!ret) {
+			// remove invalid img from db
+			remove_from_lib(path);
 			free(g->files.a[i].path);
 			g->files.a[i].path = NULL;
 			g->files.a[i].name = NULL;

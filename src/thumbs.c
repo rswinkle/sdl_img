@@ -16,7 +16,8 @@ void get_thumbfilename(const char* img_path, char* thm_name, size_t thmname_len)
 {
 	MD5_HASH hash;
 	//char hash_str[MD5_HASH_SIZE*2+1] = { 0 };
-
+	
+	assert(img_path);
 	Md5Calculate(img_path, strlen(img_path), &hash);
 	//hash_str[0] = 0;
 	//hash2str(hash_str, &hash);
@@ -31,6 +32,8 @@ void get_thumbfilename(const char* img_path, char* thm_name, size_t thmname_len)
 void get_thumbpath(const char* img_path, char* thmpath, size_t thmpath_len)
 {
 	char name[MD5_HASH_SIZE*2+1] = {0};
+	assert(img_path);
+
 	get_thumbfilename(img_path, name, sizeof(name));
 	int ret = snprintf(thmpath, thmpath_len, "%s/%s", g->thumbdir, name);
 	if (ret >= thmpath_len) {
@@ -163,6 +166,7 @@ SDL_Texture* gen_and_load_thumb(thumb_state* thumb, file* f)
 	}
 	pix = stbi_load(path, &w, &h, &channels, 4);
 	if (!pix) {
+		// TODO remove from db, free path, NULL, HAS_BAD? Or do it outside
 		SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\nError %s", path, stbi_failure_reason());
 		return NULL;
 	}
@@ -250,6 +254,11 @@ int gen_thumbs(void* data)
 
 		pix = stbi_load(g->files.a[i].path, &w, &h, &channels, 4);
 		if (!pix) {
+			remove_from_lib(g->files.a[i].path);
+			free(g->files.a[i].path);
+			g->files.a[i].path = NULL;
+			g->files.a[i].name = NULL;
+			g->bad_path_state = HAS_BAD;
 			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\nError %s", g->files.a[i].path, stbi_failure_reason());
 			continue;
 		}
@@ -440,6 +449,11 @@ int jit_thumbs(void* data)
 
 				pix = stbi_load(g->files.a[i].path, &w, &h, &channels, 4);
 				if (!pix) {
+					remove_from_lib(g->files.a[i].path);
+					free(g->files.a[i].path);
+					g->files.a[i].path = NULL;
+					g->files.a[i].name = NULL;
+					g->bad_path_state = HAS_BAD;
 					SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\nError %s", g->files.a[i].path, stbi_failure_reason());
 					continue;
 				}
@@ -460,6 +474,7 @@ int jit_thumbs(void* data)
 			end = start + g->thumb_cols*g->thumb_rows;
 			not_done = 0;
 			for (int i=start; i<end && i<g->files.size; i++) {
+				if (!g->files.a[i].path) continue;
 				get_thumbpath(g->files.a[i].path, thumbpath, sizeof(thumbpath));
 				if (stat(thumbpath, &thumb_stat)) {
 					not_done = 1;

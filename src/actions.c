@@ -693,7 +693,11 @@ void do_libmode(void)
 
 void do_remove_from_lib(void)
 {
-	remove_from_lib(g->selection);
+	int idx = g->selection;
+	if (IS_RESULTS()) {
+		idx = g->search_results.a[idx];
+	}
+	remove_from_lib(g->list_view->a[idx].path);
 
 	// TODO should I remove it from current? If I do I need
 	// to handle if it's currently open, img[0]
