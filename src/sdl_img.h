@@ -318,6 +318,7 @@ typedef struct global_state
 	int confirm_rotation;
 	int warn_text_copy;
 	int bad_imgs_behavior;
+	int no_autosort;
 
 	struct nk_font_atlas* atlas;
 	struct nk_font_config config;

@@ -1116,11 +1116,11 @@ int scan_sources(void* data)
 				if ((start_index = find_file_simple(f.path)) != g->files.size-1) {
 					SDL_Log("You already had that image open, not adding duplicate..\n");
 					cvec_pop_file(&g->files, &f);
-				} else {
+				} else if (!g->no_autosort) {
 					mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
-					start_index = find_file_simple(f.path);
 					// NOTE it will always be there in open single because there was no
 					// removal + myscandir() like below so not subject to extension filtering
+					start_index = find_file_simple(f.path);
 				}
 				g->selection = start_index;
 				g->open_single = SDL_FALSE;
@@ -1137,10 +1137,12 @@ int scan_sources(void* data)
 
 				SDL_Log("Found %"PRIcv_sz" images total. Sorting by file name now...\n", g->files.size);
 
-				// remove duplicates first
-				remove_duplicates();
+				if (!g->no_autosort) {
+					// remove duplicates first
+					remove_duplicates();
 
-				mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
+					mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
+				}
 
 				SDL_Log("finding current image to update index\n");
 				// in all other cases (list, multiple files/urls, directory(ies) or some
@@ -1152,12 +1154,14 @@ int scan_sources(void* data)
 				if (!res) {
 					SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Could not find starting image '%s' when scanning containing directory\n", f.name);
 					SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "This means it did not have a searched-for extension; adding to list and attempting load anyway\n");
-					int i;
-					for (i=0; i<g->files.size; i++) {
-						if (filename_cmp_lt(&f, &g->files.a[i]) <= 0) {
-							cvec_insert_file(&g->files, i, &f);
-							res = &g->files.a[i];
-							break;
+					int i = g->files.size; // little hackish to reuse code below loop
+					if (!g->no_autosort) {
+						for (i=0; i<g->files.size; i++) {
+							if (filename_cmp_lt(&f, &g->files.a[i]) <= 0) {
+								cvec_insert_file(&g->files, i, &f);
+								res = &g->files.a[i];
+								break;
+							}
 						}
 					}
 					if (i == g->files.size) {
@@ -1177,10 +1181,13 @@ int scan_sources(void* data)
 		} else if (g->files.size) {
 			SDL_Log("Found %"PRIcv_sz" images total. Sorting by file name now...\n", g->files.size);
 
-			remove_duplicates();
 			char* path = g->files.a[g->img[0].index].path;
-
-			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
+			if (!g->no_autosort) {
+				remove_duplicates();
+				// In case it was a duplicate and we were pointed at the one removed
+				path = g->files.a[g->img[0].index].path;
+				mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
+			}
 
 			if (g->is_open_new) {
 				g->selection = 0;
@@ -1218,6 +1225,12 @@ int scan_sources(void* data)
 		}
 
 		try_move(SELECTION);
+
+		if (g->no_autosort) {
+			g->sorted_state = NONE;
+		} else {
+			g->sorted_state = NAME_UP;
+		}
 
 		g->is_open_new = SDL_FALSE;
 		SDL_LockMutex(g->scanning_mtx);

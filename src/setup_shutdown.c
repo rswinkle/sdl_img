@@ -187,6 +187,7 @@ void print_help(char* prog_name, int verbose)
 		puts("  -r, --recursive dir                Scan dir recursively for images to add to the list");
 		puts("  -R                                 Scan all directories that come after recursively (-r after -R is redundant)");
 		puts("  -c, --cache ./your_cache_loc       Use specified directory as cache");
+		puts("      --noautosortdedup              Do not automatically sort nor remove duplicates on load");
 		puts("  -v, --version                      Show the version");
 		puts("  -h, --help                         Show this help");
 	}
@@ -282,6 +283,8 @@ void setup(int argc, char** argv)
 			}
 		} else if (!strcmp(argv[i], "-f") || !strcmp(argv[i], "--fullscreen")) {
 			g->fullscreen = 1;
+		} else if (!strcmp(argv[i], "--noautosortdedup")) {
+			g->no_autosort = 1;
 		} else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--version")) {
 			puts(VERSION_STR);
 			cleanup(1, 0);

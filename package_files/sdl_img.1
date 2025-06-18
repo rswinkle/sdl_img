@@ -6,7 +6,7 @@
 .SH "NAME"
 sdl_img \- A simple but unique image viewer based on stb_image and SDL2
 .SH "SYNOPSIS"
-.B sdl_img [-f] [-R] [-s [delay]] [-r dir] [-l/--list text_list] [-p/--playlist playlist] [files/dirs]
+.B sdl_img [-f] [-R] [-s [delay]] [-r dir] [--noautosortdedup] [-l/--list text_list] [-p/--playlist playlist] [files/dirs]
 
 .B sdl_img (will open in File Selector mode)
 
@@ -21,6 +21,8 @@ sdl_img \- A simple but unique image viewer based on stb_image and SDL2
 .B sdl_img image1.jpg somedir/* otherdir/image2.png
 
 .B sdl_img -l list1 example.com/image.jpg -l list3 -r ~/somedir
+
+.B sdl_img --noautosortdedup -l list1 somedir/ (will *not* filename and remove duplicates)
 
 Not all of the options are listed here; see below for the remainder.
 
