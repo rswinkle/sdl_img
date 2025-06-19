@@ -145,20 +145,23 @@ void draw_library(struct nk_context* ctx, int scr_w, int scr_h)
 						sel = g->search_results.a[sel];
 					}
 
-					if (g->cur_selected) {
-						if (!g->thumbs.a) {
-							allocate_thumbs();
-						}
-						if (!g->thumbs.a[sel].tex) {
-							preview = gen_and_load_thumb(&g->thumbs.a[sel], &g->files.a[sel]);
+					// NULLed out if it was a bad path or bad URL
+					if (g->list_view->a[sel].path) {
+						if (g->cur_selected) {
+							if (!g->thumbs.a) {
+								allocate_thumbs();
+							}
+							if (!g->thumbs.a[sel].tex) {
+								preview = gen_and_load_thumb(&g->thumbs.a[sel], &g->files.a[sel]);
+							} else {
+								preview = g->thumbs.a[sel].tex;
+							}
+							g->preview.w = g->thumbs.a[sel].w;
+							g->preview.h = g->thumbs.a[sel].h;
 						} else {
-							preview = g->thumbs.a[sel].tex;
+							//puts("not cur or not thumbs.a");
+							preview = gen_and_load_thumb(&g->preview, &g->list_view->a[sel]);
 						}
-						g->preview.w = g->thumbs.a[sel].w;
-						g->preview.h = g->thumbs.a[sel].h;
-					} else {
-						//puts("not cur or not thumbs.a");
-						preview = gen_and_load_thumb(&g->preview, &g->list_view->a[sel]);
 					}
 				}
 

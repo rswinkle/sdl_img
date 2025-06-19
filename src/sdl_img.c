@@ -727,8 +727,10 @@ int attempt_image_load(int last, img_state* img)
 		}
 
 		if (!ret) {
-			// remove invalid img from db
-			remove_from_lib(path);
+			// remove invalid img from db if necessary
+			if (path) {
+				remove_from_lib(path);
+			}
 			free(g->files.a[i].path);
 			g->files.a[i].path = NULL;
 			g->files.a[i].name = NULL;

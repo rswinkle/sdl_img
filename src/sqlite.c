@@ -418,7 +418,11 @@ int get_image_id(const char *path)
         image_id = sqlite3_column_int(stmt, 0);
     } else {
         SDL_Log("Unexpected error: Image '%s' not found (should exist).\n", path);
-        assert(0 && "Image id doesn't exist!");
+        //assert(0 && "Image id doesn't exist!");
+
+        sqlite3_reset(stmt);
+        // SQLite rowid's start at 1 so returning 0 is a valid/unique error value
+        return 0;
     }
 
     sqlite3_reset(stmt);
@@ -783,12 +787,13 @@ int get_img_playlists(int idx)
 		return FALSE;
 	}
 
-	if (!(img_id = get_image_id(g->list_view->a[idx].path))) {
-		assert(img_id >= 0 && "This should never happen");
-	}
-
 	// set all to false
 	memset(&g->img_saved_status, 0, g->playlist_ids.size*sizeof(int));
+
+	if (!(img_id = get_image_id(g->list_view->a[idx].path))) {
+		return FALSE;
+		//assert(img_id >= 0 && "This should never happen");
+	}
 
 	sqlite3_stmt* stmt = sqlstmts[GET_IMG_SAVE_STATUSES];
 	sqlite3_bind_int(stmt, 1, img_id);

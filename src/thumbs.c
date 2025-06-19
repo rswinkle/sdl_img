@@ -151,7 +151,7 @@ SDL_Texture* gen_and_load_thumb(thumb_state* thumb, file* f)
 			g->bad_path_state = HAS_BAD;
 			return NULL;
 		}
-		return NULL;
+		path = f->path;
 	}
 	get_thumbpath(path, thumbpath, sizeof(thumbpath));
 	if (!stat(thumbpath, &thumb_stat)) {
