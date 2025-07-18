@@ -772,12 +772,16 @@ void do_thumb_save(int removing)
 			for (int i=0; i<g->search_results.size; ++i) {
 				idx = g->search_results.a[i];
 				fullpath = g->files.a[idx].path;
-				sql_unsave(stmt, idx, fullpath);
+				if (sql_unsave(stmt, idx, fullpath)) {
+					g->files.a[idx].playlist_idx = 0;
+				}
 			}
 		} else {
 			for (int i=start; i<=end; ++i) {
 				fullpath = g->files.a[i].path;
-				sql_unsave(stmt, i, fullpath);
+				if (sql_unsave(stmt, i, fullpath)) {
+					g->files.a[i].playlist_idx = 0;
+				}
 			}
 		}
 	} else {
@@ -788,12 +792,16 @@ void do_thumb_save(int removing)
 			for (int i=0; i<g->search_results.size; ++i) {
 				idx = g->search_results.a[i];
 				fullpath = g->files.a[idx].path;
-				sql_save(stmt, idx, fullpath);
+				if (sql_save(stmt, idx, fullpath)) {
+					g->files.a[idx].playlist_idx = 1;
+				}
 			}
 		} else {
 			for (int i=start; i<=end; ++i) {
 				fullpath = g->files.a[i].path;
-				sql_save(stmt, i, fullpath);
+				if (sql_save(stmt, i, fullpath)) {
+					g->files.a[i].playlist_idx = 1;
+				}
 			}
 		}
 	}
