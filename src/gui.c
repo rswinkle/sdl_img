@@ -261,7 +261,7 @@ void draw_gui(struct nk_context* ctx)
 	// Do popups first so I can return early if any is up
 	// TODO I can just return after a popup since they're all fullscreen now right?
 	if (g->state & PLAYLIST_CONTEXT) {
-		draw_playlist_popup(ctx, scr_w, scr_h, g->img[0].index);
+		draw_playlist_popup(ctx, scr_w, scr_h, g->selection);
 	} else if (g->state & ROTATE) {
 		draw_rotate(ctx, scr_w, scr_h, popup_flags);
 	} else if (g->state & ABOUT) {

@@ -311,6 +311,10 @@ int handle_thumb_events()
 
 	int mouse_x, mouse_y;
 	u32 mouse_state = SDL_GetMouseState(&mouse_x, &mouse_y);
+	int idx = g->thumb_start_row * g->thumb_cols +
+	               (mouse_y / (g->scr_h/g->thumb_rows)) * g->thumb_cols +
+	               (mouse_x / (g->scr_w/g->thumb_cols));
+
 	char title_buf[STRBUF_SZ];
 	int code;
 
@@ -606,30 +610,32 @@ int handle_thumb_events()
 			}
 			*/
 			break;
-		case SDL_MOUSEBUTTONDOWN:
+
+		// TODO should I combine down and up?  Should right click switch
+		// selection too?
+		case SDL_MOUSEBUTTONDOWN: {
 			set_show_gui(SDL_TRUE);
-			// TODO
-			break;
+			if (idx < g->files.size && g->thumbs.a[idx].tex) {
+				g->selection = idx;
+			}
+		} break;
 		case SDL_MOUSEBUTTONUP:
-			// TODO should have this behavior in VISUAL MODE too?  Single click changes
-			// g->thumb_sel, thus adjusting your visual selection?
-			if (e.button.button == SDL_BUTTON_LEFT) {
-				g->selection = g->thumb_start_row * g->thumb_cols +
-				               (mouse_y / (g->scr_h/g->thumb_rows)) * g->thumb_cols +
-				               (mouse_x / (g->scr_w/g->thumb_cols));
+			if (idx == g->selection) {
+				if (e.button.button == SDL_BUTTON_LEFT) {
+					if (e.button.clicks == 2) {
+						g->state = NORMAL;
+						g->thumb_start_row = 0;
+						try_move(SELECTION);
+					} else {
+						// handles different behavior based on holding shift or ctrl
+						handle_mouse_selection(mod_state);
 
-				// TODO better way to avoid duplication?
-				if (g->selection >= g->files.size)
-					break;
-				if (e.button.clicks == 2) {
-					g->state = NORMAL;
-					g->thumb_start_row = 0;
-					try_move(SELECTION);
-				} else {
-					handle_mouse_selection(mod_state);
-
-					// TODO is there anything besides clicks == 1 or 2?
-					g->thumb_sel = g->selection;
+						// TODO is there anything besides clicks == 1 or 2?
+						g->thumb_sel = g->selection;
+					}
+				} else if (e.button.button == SDL_BUTTON_RIGHT) {
+					get_img_playlists(g->selection);
+					g->state |= PLAYLIST_CONTEXT;
 				}
 			}
 			break;
@@ -1851,7 +1857,8 @@ int handle_events_normally()
 				// checking g->state & NORMAL? state transition issue I'm sure
 				if (g->state & NORMAL && !(g->state & PLAYLIST_CONTEXT)) {
 					if (g->n_imgs == 1) {
-						get_img_playlists(g->img[0].index);
+						g->selection = g->img[0].index;
+						get_img_playlists(g->selection);
 						g->state |= PLAYLIST_CONTEXT;
 					}
 					break;
