@@ -3878,7 +3878,10 @@ void fb_sort_toggle(file_browser* fb, int sort_type)
 	}
 	// Don't really need to convert it to 1 or 0 but just to clarify that I'm using
 	// it as a bool
-	fb->list_setscroll = !!save;
+	// NOTE: decided I don't like the jumping, so keep the selection but stay in relative
+	// position. User just has to arrow up or down and it will jump to the selection if
+	// it's offscreen
+	//fb->list_setscroll = !!save;
 }
 
 void fb_search_filenames(file_browser* fb)

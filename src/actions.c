@@ -266,20 +266,59 @@ void do_sort(compare_func cmp)
 }
 
 // TODO any more reason for this function?  Worth having?
+// Merge with do_sort() carefully! think about thumbs, etc. and every
+// condition of library mode
 void do_lib_sort(compare_func cmp)
 {
 	if (g->lib_mode_list.size) {
+		char* save_sel = NULL;
+		if (g->selection >= 0) {
+			if (g->state & RESULT_MASK) {
+				save_sel = g->list_view->a[g->search_results.a[g->selection]].path;
+			} else {
+				save_sel = g->list_view->a[g->selection].path;
+			}
+		}
+
 		mirrored_qsort(g->lib_mode_list.a, g->lib_mode_list.size, sizeof(file), cmp, 0);
-		g->selection = 0;
-		get_img_playlists(0);
+
+		if (g->state & RESULT_MASK) {
+			search_filenames(SDL_FALSE);
+			if (save_sel) {
+				for (int j=0; j<g->search_results.size; ++j) {
+					if (!strcmp(save_sel, g->list_view->a[g->search_results.a[j]].path)) {
+						g->selection = j;
+						break;
+					}
+				}
+			}
+		} else {
+			if (save_sel) {
+				for (int i=0; i<g->list_view->size; ++i) {
+					if (!strcmp(save_sel, g->list_view->a[i].path)) {
+						g->selection = i;
+						break;
+					}
+				}
+			}
+		}
+		//g->selection = 0;
+		//get_img_playlists(0);
 	} else {
+		// TODO can this even happen? a sort when list is empty?
 		g->selection = -1;
 	}
-	g->list_setscroll = SDL_TRUE;
+
+	// TODO again decide whether I want to jump etc.
+	//g->list_setscroll = SDL_TRUE;
+
+	// TODO This is wasted if we preserved selection
+	//
 	if (g->preview.tex) {
 		SDL_DestroyTexture(g->preview.tex);
 		g->preview.tex = NULL;
 	}
+	
 }
 
 void do_zoom(int dir, int use_mouse)

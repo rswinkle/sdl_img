@@ -741,6 +741,7 @@ int handle_thumb_events()
 	return 0;
 }
 
+// TODO handle_library_events()
 int handle_list_events()
 {
 	SDL_Event e;
