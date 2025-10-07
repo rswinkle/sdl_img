@@ -302,18 +302,23 @@ void do_lib_sort(compare_func cmp)
 				}
 			}
 		}
-		//g->selection = 0;
-		//get_img_playlists(0);
+
+		// default to 0 if we just opened a list and didn't have a selection
+		if (g->selection < 0) {
+			g->selection = 0;
+			get_img_playlists(0);
+			g->list_setscroll = SDL_TRUE;
+		}
 	} else {
 		// TODO can this even happen? a sort when list is empty?
 		g->selection = -1;
 	}
 
-	// TODO again decide whether I want to jump etc.
+	// TODO again decide whether I want to jump every time they
+	// click a header button to sort
 	//g->list_setscroll = SDL_TRUE;
 
 	// TODO This is wasted if we preserved selection
-	//
 	if (g->preview.tex) {
 		SDL_DestroyTexture(g->preview.tex);
 		g->preview.tex = NULL;

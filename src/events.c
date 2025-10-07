@@ -944,15 +944,19 @@ int handle_list_events()
 				// TODO this is an ugly hack
 				if (g->is_new_renaming == -1) {
 					g->is_new_renaming = 0;
-				} else if (!g->is_new_renaming && g->cur_selected && g->selection >= 0) {
+				} else if (!g->is_new_renaming && g->selection >= 0) {
+					// If we're not on current we need to make the list we're
+					// looking at current before we switch
+					if (!g->cur_selected) {
+						make_list_current();
+					}
+
 					if (g->state & SEARCH_RESULTS) {
 						g->state |= NORMAL;
 					} else {
 						// TODO avoid unnecessary loads for current image
 						g->state = NORMAL;
 					}
-					// g->list_view should already points at g->files
-					// because g->cur_selected
 
 					// Same as switching from thumbmode
 					set_show_gui(SDL_TRUE);

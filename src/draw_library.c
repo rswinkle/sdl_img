@@ -4,6 +4,7 @@ enum { RENAMING_PLIST = 1, NEW_PLIST };
 
 void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h);
 void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h);
+void make_list_current(void);
 
 void handle_selection_removal(void);
 
@@ -418,14 +419,16 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 							// for now, treat clicking a selection as a "double click" ie same as return
 							//int tmp = g->search_results.a[g->selection];
 							//g->selection = (tmp) ? tmp - 1 : lv->size-1;
-							if (is_current) {
-								g->state |= NORMAL;
-								SDL_ShowCursor(SDL_ENABLE);
-								g->gui_timer = SDL_GetTicks();
-								g->show_gui = SDL_TRUE;
-								g->status = REDRAW;
-								try_move(SELECTION);
+							if (!is_current) {
+								make_list_current();
 							}
+
+							g->state |= NORMAL;
+							SDL_ShowCursor(SDL_ENABLE);
+							g->gui_timer = SDL_GetTicks();
+							g->show_gui = SDL_TRUE;
+							g->status = REDRAW;
+							try_move(SELECTION);
 						}
 
 						if (g->is_new_renaming) {
@@ -476,14 +479,15 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 
 						// for now, treat clicking a selection as a "double click" ie same as return
 						// TODO only for files?  worth it?
-						if (is_current) {
-							g->state = NORMAL;
-							SDL_ShowCursor(SDL_ENABLE);
-							g->gui_timer = SDL_GetTicks();
-							g->show_gui = SDL_TRUE;
-							g->status = REDRAW;
-							try_move(SELECTION);
+						if (!is_current) {
+							make_list_current();
 						}
+						g->state = NORMAL;
+						SDL_ShowCursor(SDL_ENABLE);
+						g->gui_timer = SDL_GetTicks();
+						g->show_gui = SDL_TRUE;
+						g->status = REDRAW;
+						try_move(SELECTION);
 					}
 					if (g->is_new_renaming) {
 						g->is_new_renaming = -2;
@@ -567,85 +571,6 @@ void draw_file_list(struct nk_context* ctx, int scr_w, int scr_h)
 		// an image mean that
 		file f;
 		char* sep;
-		if (nk_button_label(ctx, "Open New")) {
-			stop_generating();
-
-			g->thumbs_done = SDL_FALSE;
-			g->thumbs_loaded = SDL_FALSE;
-			cvec_free_thumb_state(&g->thumbs);
-			cvec_clear_file(&g->files);
-
-			char* saved_path = NULL;
-
-			// TODO should we stay in lib mode or jump to normal?
-			// let's at least jump to current to show we actualy did something
-			if (!is_search) {
-
-				if (g->selection >= 0) {
-					saved_path = lv->a[g->selection].path;
-				}
-				// Method 1
-				//cvector_file tmp;
-				//// TODO Could add file copy constructor and use cvec_copy_file() here
-				//// and use pushm everywhere else (like myscandir)
-				//// instead of reloading the lib/playlist
-				//memcpy(&tmp, &g->files, sizeof(cvector_file));
-				//memcpy(&g->files, lv, sizeof(cvector_file));
-				//memcpy(lv, &tmp, sizeof(cvector_file));
-
-				// Method 2
-				if (g->lib_selected) {
-					load_library(&g->files, NULL, NULL);
-				} else {
-					load_sql_playlist_id(g->playlist_ids.a[g->selected_plist], &g->files);
-				}
-
-				// In case of Method 1, we don't really care if we leave lib_mode_list empty
-				// but if we did...
-				//if (g->lib_selected) {
-				//	load_library(&g->files, NULL, NULL);
-				//} else {
-				//	load_sql_playlist_id(g->playlist_ids.a[g->selected_plist], &g->lib_mode_list);
-				//}
-			} else {
-				if (g->selection >= 0) {
-					saved_path = lv->a[g->search_results.a[g->selection]].path;
-				}
-				for (int i=0; i<g->search_results.size; i++) {
-					// need a separate copy of string so we don't double free
-					f = lv->a[g->search_results.a[i]];
-					f.path = strdup(f.path);
-					sep = strrchr(f.path, PATH_SEPARATOR);
-					f.name = (sep) ? sep+1 : f.path;
-					cvec_push_file(&g->files, &f);
-				}
-				// have to clear the search state if we jump to current or normal mode
-				g->state = LIB_DFLT;
-				text_buf[0] = 0;
-				text_len = 0;
-				g->search_results.size = 0;
-			}
-
-			remove_duplicates();
-			mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
-			g->sorted_state = NAME_UP;
-			update_save_status();
-			g->save_status_uptodate = SDL_TRUE;
-
-			g->selected_plist = -1;
-			g->lib_selected = nk_false;
-			g->cur_selected = nk_true;
-			g->list_view = &g->files;
-
-			if (saved_path) {
-				g->selection = find_file_simple(saved_path);
-			} else {
-				g->selection = 0;
-			}
-			g->list_setscroll = TRUE;
-			try_move(SELECTION);
-		}
-
 		if (nk_button_label(ctx, "Open More")) {
 			stop_generating();
 			g->thumbs_done = SDL_FALSE;
@@ -819,7 +744,11 @@ void draw_playlists_menu(struct nk_context* ctx, int scr_w, int scr_h)
 					// called after above three, partially redundant with do_lib_sort
 					clear_search_and_preview();
 
-					g->selection = (g->list_view->size) ? 0 : -1;
+					// NOTE selection will be set to 0 in sort, if
+					// we set it to 0 here, it will end up as a random index
+					// after the sort since load_sql_playlist_id() does not return
+					// them in sorted order
+					g->selection = -1;
 					if (g->preview.tex) {
 						SDL_DestroyTexture(g->preview.tex);
 						g->preview.tex = NULL;
@@ -1055,4 +984,87 @@ void draw_bad_lib_imgs_popup(struct nk_context* ctx, int scr_w, int scr_h)
 	}
 	nk_end(ctx);
 
+}
+
+// aka old library open new button, differs from file open new
+void make_list_current(void)
+{
+	file f;
+	char* sep;
+	cvector_file* lv = g->list_view;
+
+	stop_generating();
+
+	g->thumbs_done = SDL_FALSE;
+	g->thumbs_loaded = SDL_FALSE;
+	cvec_free_thumb_state(&g->thumbs);
+	cvec_clear_file(&g->files);
+
+	char* saved_path = NULL;
+
+	// TODO should we stay in lib mode or jump to normal?
+	// let's at least jump to current to show we actualy did something
+	if (g->state && SEARCH_RESULTS) {
+
+		if (g->selection >= 0) {
+			saved_path = lv->a[g->selection].path;
+		}
+		// Method 1
+		//cvector_file tmp;
+		//// TODO Could add file copy constructor and use cvec_copy_file() here
+		//// and use pushm everywhere else (like myscandir)
+		//// instead of reloading the lib/playlist
+		//memcpy(&tmp, &g->files, sizeof(cvector_file));
+		//memcpy(&g->files, lv, sizeof(cvector_file));
+		//memcpy(lv, &tmp, sizeof(cvector_file));
+
+		// Method 2
+		if (g->lib_selected) {
+			load_library(&g->files, NULL, NULL);
+		} else {
+			load_sql_playlist_id(g->playlist_ids.a[g->selected_plist], &g->files);
+		}
+
+		// In case of Method 1, we don't really care if we leave lib_mode_list empty
+		// but if we did...
+		//if (g->lib_selected) {
+		//	load_library(&g->files, NULL, NULL);
+		//} else {
+		//	load_sql_playlist_id(g->playlist_ids.a[g->selected_plist], &g->lib_mode_list);
+		//}
+	} else {
+		if (g->selection >= 0) {
+			saved_path = lv->a[g->search_results.a[g->selection]].path;
+		}
+		for (int i=0; i<g->search_results.size; i++) {
+			// need a separate copy of string so we don't double free
+			f = lv->a[g->search_results.a[i]];
+			f.path = strdup(f.path);
+			sep = strrchr(f.path, PATH_SEPARATOR);
+			f.name = (sep) ? sep+1 : f.path;
+			cvec_push_file(&g->files, &f);
+		}
+		// have to clear the search state if we jump to current or normal mode
+		g->state = LIB_DFLT;
+		text_buf[0] = 0;
+		text_len = 0;
+		g->search_results.size = 0;
+	}
+
+	remove_duplicates();
+	mirrored_qsort(g->files.a, g->files.size, sizeof(file), filename_cmp_lt, 0);
+	g->sorted_state = NAME_UP;
+	update_save_status();
+	g->save_status_uptodate = SDL_TRUE;
+
+	g->selected_plist = -1;
+	g->lib_selected = nk_false;
+	g->cur_selected = nk_true;
+	g->list_view = &g->files;
+
+	if (saved_path) {
+		g->selection = find_file_simple(saved_path);
+	} else {
+		g->selection = 0;
+	}
 }
