@@ -734,6 +734,9 @@ int attempt_image_load(int last, img_state* img)
 			free(g->files.a[i].path);
 			g->files.a[i].path = NULL;
 			g->files.a[i].name = NULL;
+			g->files.a[i].modified = 0;
+			strcpy(g->files.a[i].mod_str, "NA");
+			strcpy(g->files.a[i].size_str, "NA");
 			g->bad_path_state = HAS_BAD;
 		} else {
 			// TODO this is still not actually used anywhere

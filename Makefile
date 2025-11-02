@@ -24,7 +24,7 @@ ifeq ($(config), release)
 	#OPTS=-std=gnu99 -msse -O2 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
 else
 	# asan and ubsan are not supported so no separate sanitize config
-	OPTS=-std=gnu99 -g -Og -Wall
+	OPTS=-std=gnu99 -Og -Wall
 endif
 else
 TARGET=sdl_img
@@ -37,9 +37,9 @@ ifeq ($(config), release)
 	#OPTS=-std=gnu99 -march=native -O2 -g -DNDEBUG
 	#OPTS=-std=gnu99 -march=native -O2 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
 else ifeq ($(config), sanitize)
-	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -march=native -g -Og -Wall
+	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -march=native -g -Wall
 else
-	OPTS=-std=gnu99 -march=native -g -Og -Wall
+	OPTS=-std=gnu99 -march=native -g -Wall
 endif
 endif
 
@@ -50,9 +50,9 @@ ifeq ($(config), release)
 	OPTS=-std=gnu99 -msse -O2 -DNDEBUG
 	#OPTS=-std=gnu99 -msse -O2 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
 else ifeq ($(config), sanitize)
-	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -g -Og -Wall
+	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -Og -Wall
 else
-	OPTS=-std=gnu99 -g -Og -Wall
+	OPTS=-std=gnu99 -Og -Wall
 endif
 endif
 
