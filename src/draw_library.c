@@ -1000,11 +1000,15 @@ void make_list_current(void)
 	cvec_free_thumb_state(&g->thumbs);
 	cvec_clear_file(&g->files);
 
+	// flag to indicate no current image to save when calling remove_duplicates()
+	// later, same as with file open new
+	g->is_open_new = nk_true;
+
 	char* saved_path = NULL;
 
 	// TODO should we stay in lib mode or jump to normal?
 	// let's at least jump to current to show we actualy did something
-	if (g->state && SEARCH_RESULTS) {
+	if (!IS_RESULTS()) {
 
 		if (g->selection >= 0) {
 			saved_path = lv->a[g->selection].path;
