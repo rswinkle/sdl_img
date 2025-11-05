@@ -31,11 +31,12 @@ void read_list(cvector_file* files, cvector_str* paths, FILE* list_file)
 		if (len < 2)
 			continue;
 
-		// TODO why did I do len-2 instead of len-1?
-		// to handle quoted paths
-		if ((s[len-2] == '"' || s[len-2] == '\'') && s[len-2] == s[0]) {
-			s[len-2] = 0;
+		// handle quoted paths
+		if ((s[len-1] == '"' || s[len-1] == '\'') && s[len-1] == s[0]) {
+			s[len-1] = 0;
 			memmove(s, &s[1], len-2);
+			len -= 2;
+			s[len] = 0;
 			if (len < 4) continue;
 		}
 		normalize_path(s);
