@@ -1082,6 +1082,11 @@ int scan_sources(void* data)
 			} else if (!strcmp(a[i], "-p")) {
 				if (load_sql_playlist_name(a[++i], &g->files)) {
 					given_list = 1;
+				} else {
+					// TODO save bad names, handle it in setup after
+					// loading db/playlists?  Do case insensitive matching?
+					// fuzzy search? Start up in a playlist selection screen
+					// if they get one wrong?
 				}
 				// no logging for error as it's handled in function
 			} else if (!strcmp(a[i], "-R")) {

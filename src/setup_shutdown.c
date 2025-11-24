@@ -184,6 +184,7 @@ void print_help(char* prog_name, int verbose)
 		puts("  -s, --slide-show [delay=3]         Start in slideshow mode");
 		puts("  -l, --list list_file               Add all paths/urls in list_file to list");
 		puts("  -p, --playlist playlist            Add all images in playlist from database to list");
+		puts("  -P, --print_playlists              Print all playlists from database and exit");
 		puts("  -r, --recursive dir                Scan dir recursively for images to add to the list");
 		puts("  -R                                 Scan all directories that come after recursively (-r after -R is redundant)");
 		puts("  -c, --cache ./your_cache_loc       Use specified directory as cache");
@@ -214,6 +215,8 @@ void setup(int argc, char** argv)
 		".pic",
 		".psd"
 	};
+
+	int print_playlists = SDL_FALSE;
 
 //#ifndef NDEBUG
 	SDL_LogSetAllPriority(SDL_LOG_PRIORITY_DEBUG);
@@ -291,6 +294,8 @@ void setup(int argc, char** argv)
 		} else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
 			print_help(argv[0], SDL_TRUE);
 			cleanup(1, 0);
+		} else if (!strcmp(argv[i], "-P") || !strcmp(argv[i], "--print_playlists") {
+			print_playlists = SDL_TRUE;
 		}
 	}
 
@@ -369,6 +374,15 @@ void setup(int argc, char** argv)
 	g->cur_playlist_id = get_playlist_id(g->default_playlist);
 	strncpy(g->cur_playlist_buf, g->default_playlist, STRBUF_SZ);
 	g->cur_playlist = g->cur_playlist_buf;
+
+	if (print_playlists) {
+		printf("DB Playlists:\n");
+		for (int i=0; i<g->playlists.size; i++) {
+			printf("\t%s\n", g->playlists.a[i]);
+		}
+		// I don't care about freeing things here
+		exit(0);
+	}
 
 	SDL_Rect r;
 	if (SDL_GetDisplayUsableBounds(0, &r)) {

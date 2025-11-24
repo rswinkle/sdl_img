@@ -102,6 +102,8 @@ const char* sql[] = {
 	"JOIN Playlists p ON p.playlist_id = pi.playlist_id "
 	"WHERE pi.image_id = ?;",
 
+	// TODO use case insensitive search?
+	//"SELECT playlist_id FROM Playlists WHERE name = ? COLLATE NOCASE;",
 	"SELECT playlist_id FROM Playlists WHERE name = ?;",
 	"SELECT image_id FROM Images where path = ?;",
 	"SELECT playlist_id, name FROM Playlists;",
