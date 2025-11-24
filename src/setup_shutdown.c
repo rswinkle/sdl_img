@@ -294,7 +294,7 @@ void setup(int argc, char** argv)
 		} else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
 			print_help(argv[0], SDL_TRUE);
 			cleanup(1, 0);
-		} else if (!strcmp(argv[i], "-P") || !strcmp(argv[i], "--print_playlists") {
+		} else if (!strcmp(argv[i], "-P") || !strcmp(argv[i], "--print_playlists")) {
 			print_playlists = SDL_TRUE;
 		}
 	}

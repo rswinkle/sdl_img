@@ -684,7 +684,7 @@ int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int sc
 			nk_group_end(ctx);
 		}
 
-		if (nk_group_begin(ctx, "FB List", 0)) {
+		if (nk_group_begin(ctx, "FB List", NK_WINDOW_NO_SCROLLBAR)) {
 
 			// main list column headers and splitters
 			nk_layout_row(ctx, NK_DYNAMIC, 0, 5, header_ratios);
