@@ -1270,7 +1270,7 @@ void setup_font(char* font_file, float height)
 	static nk_rune ranges_latin[] = {
 		0x0020, 0x007E,    /* Ascii */
 		0x00A0, 0x00FF,    /* Symbols + Umlaute */
-		0x0400, 0x045F,    /* Main Cyrillic */
+//		0x0400, 0x045F,    /* Main Cyrillic */
 		0x2000, 0x206F,    // General punctuation
 		0
 	};

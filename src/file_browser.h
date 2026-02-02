@@ -1,6 +1,6 @@
 /*
 
-File Browser 0.80 MIT licensed library for browsing a file system
+File Browser 0.80.0 MIT licensed library for browsing a file system
 https://github.com/rswinkle/file_browser
 robertwinkler.com
 
@@ -3703,7 +3703,6 @@ int init_file_browser(file_browser* browser, const char** exts, int num_exts, co
 void reset_file_browser(file_browser* fb, char* start_dir)
 {
 	assert(fb->home[0]);
-	assert(fb->dir[0]);
 	assert(fb->desktop[0]);
 	assert(fb->files.elem_free == free_file);
 
@@ -3719,7 +3718,7 @@ void reset_file_browser(file_browser* fb, char* start_dir)
 
 	// set start dir
 	size_t l = 0;
-	const char* sd = fb->dir;
+	const char* sd = fb->home;
 	if (start_dir) {
 		struct stat file_stat;
 		if (stat(start_dir, &file_stat)) {
@@ -3734,6 +3733,7 @@ void reset_file_browser(file_browser* fb, char* start_dir)
 			l = strlen(start_dir);
 		}
 	}
+	snprintf(fb->dir, MAX_PATH_LEN, "%s", sd);
 	// cut off trailing '/'
 	if (l > 1 && sd[l-1] == '/') {
 		fb->dir[l-1] = 0;
@@ -3805,6 +3805,12 @@ void handle_recents(file_browser* fb)
 
 			sep = strrchr(f.path, PATH_SEPARATOR); // TODO test on windows but I think I normalize
 			f.name = (sep) ? sep+1 : f.path;
+
+			// Skip "/" for now if it's there
+			if (f.name[0] == '\0') {
+				// f.name = p; // if we want to keep it
+				continue;
+			}
 
 			cvec_pushm_file(&fb->files, &f);
 

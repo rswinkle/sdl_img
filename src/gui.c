@@ -303,7 +303,7 @@ void draw_gui(struct nk_context* ctx)
 int draw_filebrowser(file_browser* fb, struct nk_context* ctx, int scr_w, int scr_h)
 {
 	int is_selected = SDL_FALSE;
-	int symbol;
+	enum nk_symbol_type symbol;
 	int list_height;
 	int active;
 	int ret = 1;
