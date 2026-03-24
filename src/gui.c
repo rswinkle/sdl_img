@@ -1195,6 +1195,7 @@ void draw_rotate(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				g->orig_w = 0;
 				g->orig_h = 0;
 			}
+			nk_window_close(g->ctx, "Arbitrary Rotation");
 			g->state &= ~ROTATE;
 		}
 	}
@@ -1247,6 +1248,7 @@ void draw_about(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 		nk_layout_row_dynamic(ctx, 0, 1);
 		if (nk_button_label(ctx, "Ok")) {
+			nk_window_close(g->ctx, "About sdl_img");
 			g->state &= ~ABOUT;
 		}
 	}
@@ -1383,6 +1385,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 			}
 
 			if (nk_button_label(ctx, "Ok")) {
+				nk_window_close(g->ctx, "Preferences");
 				g->state &= ~PREFS;
 			}
 			
@@ -1819,6 +1822,7 @@ void draw_playlist_popup(struct nk_context* ctx, int scr_w, int scr_h, int idx)
 
 		//struct nk_rect bounds = nk_widget_bounds(ctx);
 		if (nk_button_label(ctx, "Done")) {
+			nk_window_close(g->ctx, "Playlist Popup");
 			g->state &= ~PLAYLIST_CONTEXT;
 		}
 		//printf("%f %f %f %f\n", bounds.x, bounds.y, bounds.w, bounds.h);

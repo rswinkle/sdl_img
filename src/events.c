@@ -1209,11 +1209,17 @@ int handle_popup_events()
 			sc = e.key.keysym.scancode;
 			switch (sc) {
 			case SDL_SCANCODE_ESCAPE:
-				if (g->state & ROTATE) {
+				if (g->state & ABOUT) nk_window_close(g->ctx, "About sdl_img");
+				else if (g->state & PREFS) nk_window_close(g->ctx, "Preferences");
+				else if (g->state & PLAYLIST_CONTEXT) nk_window_close(g->ctx, "Playlist Popup");
+				else if (g->state & BAD_IMGS) nk_window_close(g->ctx, "Bad Images in Library");
+				else if (g->state & ROTATE) {
 					// ESC discards all changes, including previewed changes which means
 					// we may have to clean up/free
 					discard_rotation((g->n_imgs == 1) ? &g->img[0] : g->img_focus);
+					nk_window_close(g->ctx, "Arbitrary Rotation");
 				}
+
 				// safe to just always set these to false, only 1 "popup" at a time
 				g->state &= ~POPUP_MASK;
 				break;
