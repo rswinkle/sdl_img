@@ -254,12 +254,13 @@ int gen_thumbs(void* data)
 
 		pix = stbi_load(g->files.a[i].path, &w, &h, &channels, 4);
 		if (!pix) {
+			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\nError %s", g->files.a[i].path, stbi_failure_reason());
+
 			remove_from_lib(g->files.a[i].path);
 			free(g->files.a[i].path);
 			g->files.a[i].path = NULL;
 			g->files.a[i].name = NULL;
 			g->bad_path_state = HAS_BAD;
-			SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\nError %s", g->files.a[i].path, stbi_failure_reason());
 			continue;
 		}
 
@@ -449,12 +450,13 @@ int jit_thumbs(void* data)
 
 				pix = stbi_load(g->files.a[i].path, &w, &h, &channels, 4);
 				if (!pix) {
+					SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\nError %s", g->files.a[i].path, stbi_failure_reason());
+
 					remove_from_lib(g->files.a[i].path);
 					free(g->files.a[i].path);
 					g->files.a[i].path = NULL;
 					g->files.a[i].name = NULL;
 					g->bad_path_state = HAS_BAD;
-					SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s for thumbnail generation\nError %s", g->files.a[i].path, stbi_failure_reason());
 					continue;
 				}
 
