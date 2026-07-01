@@ -1151,6 +1151,7 @@ void draw_rotate(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 	int tmp;
 	struct nk_rect s = {0, 0, scr_w, scr_h};
 	img_state* img = (g->n_imgs == 1) ? &g->img[0] : g->img_focus;
+	nk_bool close_popup = nk_false;
 
 	SDL_Event event = { .type = g->userevent };
 
@@ -1195,11 +1196,15 @@ void draw_rotate(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 				g->orig_w = 0;
 				g->orig_h = 0;
 			}
-			nk_window_close(g->ctx, "Arbitrary Rotation");
-			g->state &= ~ROTATE;
+			close_popup = nk_true;
 		}
 	}
 	nk_end(ctx);
+
+	if (close_popup) {
+		nk_window_close(g->ctx, "Arbitrary Rotation");
+		g->state &= ~ROTATE;
+	}
 
 	//ctx->style.window.background.a = orig_win_alpha;
 	ctx->style.window.fixed_background.data.color.a = orig_win_alpha;
@@ -1354,6 +1359,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 	char label_buf[100];
 	static int cur_prefs = PREFS_APPEARANCE;
 	nk_bool is_selected;
+	nk_bool close_popup = nk_false;
 
 	if (nk_begin(ctx, "Preferences", s, win_flags)) {
 		//bounds = nk_widget_bounds(ctx);
@@ -1385,8 +1391,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 			}
 
 			if (nk_button_label(ctx, "Ok")) {
-				nk_window_close(g->ctx, "Preferences");
-				g->state &= ~PREFS;
+				close_popup = nk_true;
 			}
 			
 			// TODO think about names of categories and where individual
@@ -1802,6 +1807,12 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 			*/
 	}
 	nk_end(ctx);
+
+	if (close_popup) {
+		nk_window_close(g->ctx, "Preferences");
+		g->state &= ~PREFS;
+	}
+
 }
 
 // inline macro?
@@ -1815,6 +1826,7 @@ void draw_playlist_popup(struct nk_context* ctx, int scr_w, int scr_h, int idx)
 	int popup_flags = NK_WINDOW_NO_SCROLLBAR|NK_WINDOW_BORDER; //|NK_WINDOW_TITLE; //NK_WINDOW_CLOSABLE;
 	int w = 300, h = (g->font_size + 20) * 11;
 	struct nk_rect s = { (scr_w-w)/2, (scr_h-h)/2, w, h };
+	nk_bool close_popup = nk_false;
 
 	// TODO find a good way to allow clicking outside of window to close popup
 	if (nk_begin(ctx, "Playlist Popup", s, popup_flags)) {
@@ -1822,8 +1834,7 @@ void draw_playlist_popup(struct nk_context* ctx, int scr_w, int scr_h, int idx)
 
 		//struct nk_rect bounds = nk_widget_bounds(ctx);
 		if (nk_button_label(ctx, "Done")) {
-			nk_window_close(g->ctx, "Playlist Popup");
-			g->state &= ~PLAYLIST_CONTEXT;
+			close_popup = nk_true;
 		}
 		//printf("%f %f %f %f\n", bounds.x, bounds.y, bounds.w, bounds.h);
 
@@ -1845,6 +1856,11 @@ void draw_playlist_popup(struct nk_context* ctx, int scr_w, int scr_h, int idx)
 		}
 	}
 	nk_end(ctx);
+
+	if (close_popup) {
+		nk_window_close(g->ctx, "Playlist Popup");
+		g->state &= ~PLAYLIST_CONTEXT;
+	}
 }
 
 void draw_menu(struct nk_context* ctx)

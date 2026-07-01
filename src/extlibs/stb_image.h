@@ -7100,7 +7100,9 @@ STBIDEF stbi_uc *stbi_xload(char const *filename, int *x, int *y, int* comp, int
       stbi_uc *pos = 0;
       stbi_uc *two_back = 0;
       stbi__gif g = { 0 };
-      int stride;
+
+      // force layers * size to be size_t to prevent wraparound for large gif allocations
+      size_t stride;
 
       delays_cap = 500;
       l_delays = (stbi__uint16*)STBI_REALLOC(l_delays, delays_cap*sizeof(stbi__uint16));
@@ -7118,6 +7120,7 @@ STBIDEF stbi_uc *stbi_xload(char const *filename, int *x, int *y, int* comp, int
             if (layers == delays_cap) {
                delays_cap *= 2;
                l_delays = (stbi__uint16*)STBI_REALLOC(l_delays, delays_cap*sizeof(stbi__uint16));
+               STBI_ASSERT(l_delays);
             }
             l_delays[layers] = g.delay;
 
@@ -7125,6 +7128,7 @@ STBIDEF stbi_uc *stbi_xload(char const *filename, int *x, int *y, int* comp, int
             ++layers;
             //out = (stbi_uc*) STBI_REALLOC(out, layers * (stride+2));
             out = (stbi_uc*) STBI_REALLOC(out, layers * stride);
+            STBI_ASSERT(out && "animated GIF realloc failed");
 
             //pos = out + ((layers-1) * (stride+2));
             pos = out + ((layers-1) * stride);

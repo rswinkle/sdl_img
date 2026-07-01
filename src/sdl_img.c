@@ -263,7 +263,8 @@ void fix_rect(img_state* img)
 
 int create_textures(img_state* img)
 {
-	int size = img->w * img->h * 4;
+	// to prevent size * i from overflowing below, could also use i64
+	size_t size = img->w * img->h * 4;
 
 	for (int i=0; i<img->frames; ++i) {
 		img->tex[i] = SDL_CreateTexture(g->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STATIC, img->w, img->h);

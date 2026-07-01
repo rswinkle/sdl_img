@@ -935,6 +935,8 @@ void draw_bad_lib_imgs_popup(struct nk_context* ctx, int scr_w, int scr_h)
 	int rows = len*g->font_size / scr_w + 1;
 	int label_height = rows * g->font_size; // plus text padding?
 
+	nk_bool close_popup = nk_false;
+
 	// TODO tabs like terminal About, License, Credits?
 	if (nk_begin(ctx, "Bad Images in Library", s, popup_flags))
 	{
@@ -951,15 +953,14 @@ void draw_bad_lib_imgs_popup(struct nk_context* ctx, int scr_w, int scr_h)
 			remove_bad_imgs(&g->bad_img_ids);
 			cvec_clear_i(&g->bad_img_ids);
 			cvec_clear_str(&g->bad_img_paths);
-			nk_window_close(g->ctx, "Bad Images in Library");
-			g->state &= ~BAD_IMGS;
+
+			close_popup = nk_true;
 			if (make_choice_pref) {
 				g->bad_imgs_behavior = REMOVE_IMGS;
 			}
 		}
 		if (nk_button_label(ctx, "Ignore")) {
-			nk_window_close(g->ctx, "Bad Images in Library");
-			g->state &= ~BAD_IMGS;
+			close_popup = nk_true;
 			if (make_choice_pref) {
 				g->bad_imgs_behavior = IGNORE_IMGS;
 			}
@@ -969,8 +970,7 @@ void draw_bad_lib_imgs_popup(struct nk_context* ctx, int scr_w, int scr_h)
 			load_library(g->list_view, &g->bad_img_ids, &g->bad_img_paths);
 			// immediately close it?
 			if (!g->bad_img_ids.size) {
-				nk_window_close(g->ctx, "Bad Images in Library");
-				g->state &= ~BAD_IMGS;
+				close_popup = nk_true;
 			}
 		}
 
@@ -987,6 +987,10 @@ void draw_bad_lib_imgs_popup(struct nk_context* ctx, int scr_w, int scr_h)
 	}
 	nk_end(ctx);
 
+	if (close_popup) {
+		nk_window_close(g->ctx, "Bad Images in Library");
+		g->state &= ~BAD_IMGS;
+	}
 }
 
 // aka old library open new button, differs from file open new
