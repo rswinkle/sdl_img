@@ -17,11 +17,13 @@ Gallery
 =======
 ![normal](media/screenshots/normal.png)
 ![thumb_mode](media/screenshots/thumb_mode.png)
+![gif_controls](media/screenshots/gif_controls.png)
 ![library_mode](media/screenshots/library_mode.png)
 ![4_image_mode](media/screenshots/4_image_mode.png)
 ![open_file](media/screenshots/open_file.png)
 
-There's also a short mp4 showing the gif seek bar [here](media/screenshots/gif_controls.mp4)
+I will at some point make a longer youtube demo, because there are things like
+the [GIF scrub bar](https://youtu.be/ZuySC1-jrq0) that you can't really appreciate in a screenshot.
 
 Goals / Focus
 =============
