@@ -13,6 +13,16 @@ Download
 Get the latest [source](https://github.com/rswinkle/sdl_img) or the latest
 [release](https://github.com/rswinkle/sdl_img/releases) from Github
 
+Gallery
+=======
+![normal](media/screenshots/normal.png)
+![thumb_mode](media/screenshots/thumb_mode.png)
+![library_mode](media/screenshots/library_mode.png)
+![4_image_mode](media/screenshots/4_image_mode.png)
+![open_file](media/screenshots/open_file.png)
+
+There's also a short mp4 showing the gif seek bar [here](media/screenshots/gif_controls.mp4)
+
 Goals / Focus
 =============
 * Implement features I've always wanted in an image viewer
