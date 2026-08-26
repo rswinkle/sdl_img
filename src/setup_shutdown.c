@@ -105,6 +105,28 @@ void setup_dirs(void)
 
 	SDL_Log("playlists: %s\n", g->playlistdir);
 
+	if (!g->libdb[0]) {
+		len = snprintf(g->libdb, STRBUF_SZ, "%slibrary.db", prefpath);
+		if (len >= STRBUF_SZ) {
+			SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "library.db path too long\n");
+			cleanup(1, 1);
+		}
+	} else {
+		char parent[STRBUF_SZ];
+		char* slash;
+		strncpy(parent, g->libdb, STRBUF_SZ);
+		slash = strrchr(parent, '/');
+		if (slash && slash != parent) {
+			*slash = 0;
+			if (mkdir_p(parent, S_IRWXU) && errno != EEXIST) {
+				SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "Failed to make library database directory: %s\n", strerror(errno));
+				cleanup(1, 1);
+			}
+		}
+	}
+
+	SDL_Log("library db: %s\n", g->libdb);
+
 }
 
 // TODO make a macro?
@@ -369,11 +391,7 @@ void setup(int argc, char** argv)
 	}
 
 	init_db();
-	create_playlist(g->default_playlist); // usually no-op
-	get_sql_playlists();
-	g->cur_playlist_id = get_playlist_id(g->default_playlist);
-	strncpy(g->cur_playlist_buf, g->default_playlist, STRBUF_SZ);
-	g->cur_playlist = g->cur_playlist_buf;
+	reload_playlists_from_db();
 
 	if (print_playlists) {
 		printf("DB Playlists:\n");

@@ -233,6 +233,7 @@ typedef struct global_state
 	char logdir_buf[STRBUF_SZ];
 	char playlistdir_buf[STRBUF_SZ];
 	char font_path_buf[STRBUF_SZ];
+	char libdb[STRBUF_SZ];
 
 	// TODO naming
 	char cur_playlist_path[STRBUF_SZ];

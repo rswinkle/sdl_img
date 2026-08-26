@@ -1306,6 +1306,41 @@ nk_filter_nothing(const struct nk_text_edit *box, nk_rune unicode)
     return nk_false;
 }
 
+void refresh_after_library_db_switch(void)
+{
+	if (g->selected_plist >= 0) {
+		g->selected_plist = -1;
+		g->lib_selected = nk_false;
+		g->cur_selected = nk_true;
+		g->list_view = &g->files;
+		clear_search_and_preview();
+		g->selection = (g->list_view->size) ? 0 : -1;
+		if (g->preview.tex) {
+			SDL_DestroyTexture(g->preview.tex);
+			g->preview.tex = NULL;
+		}
+	} else if (g->lib_selected) {
+		load_library(&g->lib_mode_list, &g->bad_img_ids, &g->bad_img_paths);
+		if (g->bad_img_ids.size && g->bad_imgs_behavior == ALWAYS_ASK) {
+			g->state |= BAD_IMGS;
+		}
+		g->list_view = &g->lib_mode_list;
+		do_lib_sort(filename_cmp_lt);
+		clear_search_and_preview();
+		g->selection = (g->list_view->size) ? 0 : -1;
+		if (g->preview.tex) {
+			SDL_DestroyTexture(g->preview.tex);
+			g->preview.tex = NULL;
+		}
+	}
+
+	if (IS_LIB_MODE()) {
+		get_img_playlists(g->selection);
+	} else {
+		update_save_status();
+	}
+}
+
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 {
 	struct nk_rect bounds;
@@ -1324,6 +1359,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 	static int thumb_len;
 	static int log_len;
 	static int pl_len;
+	static int libdb_len;
 	static int font_path_len;
 
 	// ugly hack
@@ -1333,6 +1369,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 		thumb_len = strlen(g->thumbdir);
 		log_len = strlen(g->logdir);
 		pl_len = strlen(g->playlistdir);
+		libdb_len = strlen(g->libdb);
 		font_path_len = strlen(g->font_path_buf);
 
 		// TODO better place to do this?  in event handling?
@@ -1343,6 +1380,11 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 		} else if (g->fs_output == g->font_path_buf) {
 			event.user.code = FONT_CHANGE;
 			SDL_PushEvent(&event);
+		} else if (g->fs_output == g->libdb) {
+			if (switch_library_db()) {
+				refresh_after_library_db_switch();
+			}
+			libdb_len = strlen(g->libdb);
 		}
 
 		g->fs_output = NULL;
@@ -1674,6 +1716,23 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 
 				nk_layout_row_dynamic(ctx, 0, 1);
 				bounds = nk_widget_bounds(ctx);
+				nk_label(ctx, "Library Database:", NK_TEXT_LEFT);
+				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
+					nk_tooltip(ctx, "SQLite database storing your library and playlists");
+				}
+				nk_edit_string(ctx, path_flags, g->libdb, &libdb_len, STRBUF_SZ, nk_filter_nothing);
+				nk_layout_row_dynamic(ctx, 0, 1);
+				if (nk_button_label(ctx, "Change library database")) {
+					g->fs_output = g->libdb;
+					event.user.code = SELECT_FILE;
+					SDL_PushEvent(&event);
+				}
+
+				nk_layout_row_dynamic(ctx, horizontal_rule_ht, 1);
+				nk_rule_horizontal(ctx, g->color_table[NK_COLOR_TEXT], nk_true);
+
+				nk_layout_row_dynamic(ctx, 0, 1);
+				bounds = nk_widget_bounds(ctx);
 				nk_label(ctx, "Cache:", NK_TEXT_LEFT);
 				if (nk_input_is_mouse_hovering_rect(in, bounds)) {
 					nk_tooltip(ctx, "Where any URLs given to sdl_img are downloaded");
@@ -1765,7 +1824,11 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					g->thumbdir[0] = 0;
 					g->logdir[0] = 0;
 					g->playlistdir[0] = 0;
+					g->libdb[0] = 0;
 					setup_dirs();
+					if (switch_library_db()) {
+						refresh_after_library_db_switch();
+					}
 					//update_playlists();
 
 					// TODO

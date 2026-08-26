@@ -33,8 +33,8 @@ endif
 
 ifeq ($(PLAT), linux)
 ifeq ($(config), release)
-	OPTS=-std=gnu99 -msse -O2 -g -DNDEBUG
-	#OPTS=-std=gnu99 -march=native -O2 -g -DNDEBUG
+	#OPTS=-std=gnu99 -msse -O2 -g -DNDEBUG
+	OPTS=-std=gnu99 -march=native -O2 -g -DNDEBUG
 	#OPTS=-std=gnu99 -march=native -O2 -DNDEBUG -DSDL_DISABLE_IMMINTRIN_H
 else ifeq ($(config), sanitize)
 	OPTS=-fsanitize=address -fsanitize=undefined -std=gnu99 -march=native -g -Wall

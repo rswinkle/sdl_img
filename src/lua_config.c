@@ -43,6 +43,7 @@ enum {
 	LOG_DIR,
 	CACHE_DIR,
 	THUMB_DIR,
+	LIBRARY_DB,
 	GUI_COLORS,
 	NUM_KEYS
 };
@@ -81,6 +82,7 @@ char* keys[] =
 	"log_dir",
 	"cache_dir",
 	"thumb_dir",
+	"library_db",
 	"gui_colors"
 };
 
@@ -239,6 +241,9 @@ int read_config_file(char* filename)
 	}
 
 	try_strbuf(L, "thumb_dir", g->thumbdir, STRBUF_SZ);
+	if (try_strbuf(L, "library_db", g->libdb, STRBUF_SZ)) {
+		normalize_path(g->libdb);
+	}
 	// TODO playlistdir, logdir
 
 	if (!do_gui_colors(L)) {
@@ -392,6 +397,9 @@ void write_config(FILE* cfg_file)
 			break;
 		case THUMB_DIR:
 			fprintf(cfg_file, "'%s'\n", g->thumbdir);
+			break;
+		case LIBRARY_DB:
+			fprintf(cfg_file, "'%s'\n", g->libdb);
 			break;
 		case IMG_EXTS:
 			fprintf(cfg_file, "{\n");

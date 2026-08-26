@@ -1,9 +1,12 @@
 
 void init_db(void);
 void shutdown_db(void);
-void create_tables(sqlite3* db);
+int create_tables(sqlite3* db);
 void prepare_stmts(sqlite3* db);
 void finalize_stmts(void);
+int open_library_db(const char* path);
+int switch_library_db(void);
+void reload_playlists_from_db(void);
 int create_playlist(const char* name);
 int delete_playlist(const char* name);
 int rename_playlist(const char* new_name, const char* old_name);
@@ -151,41 +154,93 @@ sqlite3_stmt* sqlstmts[NUM_STMTS];
 //sqlite3* db;  //images, playlists, possibly thumbs in the future?
 
 
+int open_library_db(const char* path)
+{
+	if (sqlite3_open(path, &g->db)) {
+		SDL_LogCriticalApp("Failed to open %s: %s\n", path, sqlite3_errmsg(g->db));
+		sqlite3_close(g->db);
+		g->db = NULL;
+		return FALSE;
+	}
+	if (!create_tables(g->db)) {
+		sqlite3_close(g->db);
+		g->db = NULL;
+		return FALSE;
+	}
+	prepare_stmts(g->db);
+	return TRUE;
+}
+
 void init_db(void)
 {
-	char db_file[STRBUF_SZ];
-	int len;
-
-	char* prefpath = g->prefpath;
-
-	len = snprintf(db_file, STRBUF_SZ, "%slibrary.db", prefpath);
-	if (len >= STRBUF_SZ) {
-		SDL_LogCritical(SDL_LOG_CATEGORY_ERROR, "library.db path too long\n");
+	assert(g->libdb[0]);
+	if (!open_library_db(g->libdb)) {
 		cleanup(1, 1);
 	}
-
-	if (sqlite3_open(db_file, &g->db)) {
-		SDL_LogCriticalApp("Failed to open %s: %s\n", db_file, sqlite3_errmsg(g->db));
-		cleanup(1, 1);
-	}
-	create_tables(g->db);
-	prepare_stmts(g->db);
 }
 
 void shutdown_db(void)
 {
 	finalize_stmts();
 	sqlite3_close(g->db);
+	g->db = NULL;
 }
 
-void create_tables(sqlite3* db)
+int create_tables(sqlite3* db)
 {
 	char* errmsg = NULL;
 	if (sqlite3_exec(db, sql[CREATE_TABLES], NULL, NULL, &errmsg)) {
 		SDL_LogCriticalApp("Failed to create table: %s\n", errmsg);
 		sqlite3_free(errmsg);
-		cleanup(1, 1);
+		return FALSE;
 	}
+	return TRUE;
+}
+
+void reload_playlists_from_db(void)
+{
+	create_playlist(g->default_playlist);
+	get_sql_playlists();
+	g->cur_playlist_id = get_playlist_id(g->default_playlist);
+	strncpy(g->cur_playlist_buf, g->default_playlist, STRBUF_SZ);
+	g->cur_playlist = g->cur_playlist_buf;
+	g->save_status_uptodate = SDL_FALSE;
+}
+
+// Returns TRUE if a different database was opened and playlists were reloaded.
+int switch_library_db(void)
+{
+	char old_path[STRBUF_SZ] = { 0 };
+	char err_buf[STRBUF_SZ*3];
+
+	if (g->db) {
+		const char* cur = sqlite3_db_filename(g->db, "main");
+		if (cur && cur[0]) {
+			strncpy(old_path, cur, STRBUF_SZ);
+			normalize_path(old_path);
+			if (!strcmp(old_path, g->libdb)) {
+				return FALSE;
+			}
+		}
+		shutdown_db();
+	}
+
+	if (!open_library_db(g->libdb)) {
+		if (old_path[0]) {
+			snprintf(err_buf, sizeof(err_buf), "Failed to open library database:\n%s\n\nReverting to:\n%s", g->libdb, old_path);
+			strncpy(g->libdb, old_path, STRBUF_SZ);
+			if (!open_library_db(g->libdb)) {
+				SDL_LogCriticalApp("Failed to reopen previous library database\n");
+				cleanup(1, 1);
+			}
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error Opening Library Database", err_buf, g->win);
+		}
+		return FALSE;
+	}
+
+	reload_playlists_from_db();
+	SDL_Log("library db: %s\n", g->libdb);
+	return TRUE;
 }
 
 void prepare_stmts(sqlite3* db)
