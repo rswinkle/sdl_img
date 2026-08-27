@@ -7,6 +7,7 @@ void finalize_stmts(void);
 int open_library_db(const char* path);
 int switch_library_db(void);
 void reload_playlists_from_db(void);
+void stop_generating(void);
 int create_playlist(const char* name);
 int delete_playlist(const char* name);
 int rename_playlist(const char* new_name, const char* old_name);
@@ -199,10 +200,30 @@ int create_tables(sqlite3* db)
 
 void reload_playlists_from_db(void)
 {
+	char prev[STRBUF_SZ] = { 0 };
+	int restored = 0;
+
+	if (g->cur_playlist && g->cur_playlist[0]) {
+		strncpy(prev, g->cur_playlist, STRBUF_SZ);
+	}
+
 	create_playlist(g->default_playlist);
 	get_sql_playlists();
-	g->cur_playlist_id = get_playlist_id(g->default_playlist);
-	strncpy(g->cur_playlist_buf, g->default_playlist, STRBUF_SZ);
+
+	if (prev[0]) {
+		for (int i=0; i<g->playlists.size; i++) {
+			if (!strcmp(g->playlists.a[i], prev)) {
+				g->cur_playlist_id = g->playlist_ids.a[i];
+				strncpy(g->cur_playlist_buf, prev, STRBUF_SZ);
+				restored = 1;
+				break;
+			}
+		}
+	}
+	if (!restored) {
+		g->cur_playlist_id = get_playlist_id(g->default_playlist);
+		strncpy(g->cur_playlist_buf, g->default_playlist, STRBUF_SZ);
+	}
 	g->cur_playlist = g->cur_playlist_buf;
 	g->save_status_uptodate = SDL_FALSE;
 }
@@ -222,6 +243,15 @@ int switch_library_db(void)
 				return FALSE;
 			}
 		}
+	}
+
+	// Thumb generation and image loading both touch the DB
+	stop_generating();
+	while (g->loading) {
+		SDL_Delay(10);
+	}
+
+	if (g->db) {
 		shutdown_db();
 	}
 
@@ -239,6 +269,9 @@ int switch_library_db(void)
 	}
 
 	reload_playlists_from_db();
+	add_files_to_db(&g->files);
+	update_save_status();
+	g->save_status_uptodate = SDL_TRUE;
 	SDL_Log("library db: %s\n", g->libdb);
 	return TRUE;
 }

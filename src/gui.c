@@ -1306,9 +1306,35 @@ nk_filter_nothing(const struct nk_text_edit *box, nk_rune unicode)
     return nk_false;
 }
 
-void refresh_after_library_db_switch(void)
+void refresh_lib_view_after_db_switch(int viewing_lib, const char* selected_pl)
 {
-	if (g->selected_plist >= 0) {
+	int loc = -1;
+
+	if (selected_pl && selected_pl[0]) {
+		for (int i=0; i<g->playlists.size; i++) {
+			if (!strcmp(g->playlists.a[i], selected_pl)) {
+				loc = i;
+				break;
+			}
+		}
+	}
+
+	if (loc >= 0) {
+		g->selected_plist = loc;
+		g->lib_selected = nk_false;
+		g->cur_selected = nk_false;
+		cvec_clear_file(&g->lib_mode_list);
+		load_sql_playlist_id(g->playlist_ids.a[loc], &g->lib_mode_list);
+		g->list_view = &g->lib_mode_list;
+		do_lib_sort(filename_cmp_lt);
+		g->lib_sorted_state = NAME_UP;
+		clear_search_and_preview();
+		g->selection = (g->list_view->size) ? 0 : -1;
+		if (g->preview.tex) {
+			SDL_DestroyTexture(g->preview.tex);
+			g->preview.tex = NULL;
+		}
+	} else if (selected_pl && selected_pl[0]) {
 		g->selected_plist = -1;
 		g->lib_selected = nk_false;
 		g->cur_selected = nk_true;
@@ -1319,13 +1345,14 @@ void refresh_after_library_db_switch(void)
 			SDL_DestroyTexture(g->preview.tex);
 			g->preview.tex = NULL;
 		}
-	} else if (g->lib_selected) {
+	} else if (viewing_lib) {
 		load_library(&g->lib_mode_list, &g->bad_img_ids, &g->bad_img_paths);
 		if (g->bad_img_ids.size && g->bad_imgs_behavior == ALWAYS_ASK) {
 			g->state |= BAD_IMGS;
 		}
 		g->list_view = &g->lib_mode_list;
 		do_lib_sort(filename_cmp_lt);
+		g->lib_sorted_state = NAME_UP;
 		clear_search_and_preview();
 		g->selection = (g->list_view->size) ? 0 : -1;
 		if (g->preview.tex) {
@@ -1336,9 +1363,23 @@ void refresh_after_library_db_switch(void)
 
 	if (IS_LIB_MODE()) {
 		get_img_playlists(g->selection);
-	} else {
-		update_save_status();
 	}
+}
+
+int apply_library_db_switch(void)
+{
+	char selected_pl[STRBUF_SZ] = { 0 };
+	int viewing_lib = g->lib_selected;
+
+	if (g->selected_plist >= 0 && g->selected_plist < g->playlists.size) {
+		strncpy(selected_pl, g->playlists.a[g->selected_plist], STRBUF_SZ);
+	}
+
+	if (!switch_library_db()) {
+		return FALSE;
+	}
+	refresh_lib_view_after_db_switch(viewing_lib, selected_pl);
+	return TRUE;
 }
 
 void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
@@ -1381,9 +1422,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 			event.user.code = FONT_CHANGE;
 			SDL_PushEvent(&event);
 		} else if (g->fs_output == g->libdb) {
-			if (switch_library_db()) {
-				refresh_after_library_db_switch();
-			}
+			apply_library_db_switch();
 			libdb_len = strlen(g->libdb);
 		}
 
@@ -1826,9 +1865,7 @@ void draw_prefs(struct nk_context* ctx, int scr_w, int scr_h, int win_flags)
 					g->playlistdir[0] = 0;
 					g->libdb[0] = 0;
 					setup_dirs();
-					if (switch_library_db()) {
-						refresh_after_library_db_switch();
-					}
+					apply_library_db_switch();
 					//update_playlists();
 
 					// TODO
