@@ -256,6 +256,13 @@ Building
 ========
 There's a Makefile which is not great but gets the job done.
 
+You'll need to install SDL2 and libcurl4 as dependencies which on a Ubuntu/Debian based
+machine would be:
+
+```sudo apt install libsdl2-dev libcurl4-gnutls-dev```
+
+Or `libcurl4-openssl-dev` if you prefer that version of libcurl4.
+
 On Linux just running `make` will create a debug build,
 while `make config=release` (after a `make clean`) will create an optimized build.
 
